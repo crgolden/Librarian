@@ -1,0 +1,40 @@
+<section class="page-section psn-settings">
+  <h1>PlayStation Network</h1>
+  <p class="text-muted">Link your PSN account so Librarian can read your game library.</p>
+
+  @if (loadingStatus()) {
+    <p class="text-muted">Loading link status...</p>
+  } @else if (linked()) {
+    <div class="card status-card">
+      <span class="psn-badge">PSN account linked</span>
+      <p>
+        @if (refreshTokenExpiresAt()) {
+          <span class="catalog-meta">Re-authentication required after {{ refreshTokenExpiresAt() | date: 'medium' }}</span>
+        }
+      </p>
+      @if (error()) {
+        <p class="text-error">{{ error() }}</p>
+      }
+      @if (success()) {
+        <p class="text-success">{{ success() }}</p>
+      }
+      <button type="button" class="btn-ghost-danger btn-ghost" (click)="unlink()" [disabled]="unlinking()">
+        {{ unlinking() ? 'Unlinking...' : 'Unlink' }}
+      </button>
+    </div>
+  } @else {
+    <form class="card status-card" (submit)="$event.preventDefault(); link()">
+      <label for="npsso">NPSSO token</label>
+      <input id="npsso" name="npsso" type="password" [ngModel]="npsso()" (ngModelChange)="npsso.set($event)" autocomplete="off" />
+      @if (error()) {
+        <p class="text-error">{{ error() }}</p>
+      }
+      @if (success()) {
+        <p class="text-success">{{ success() }}</p>
+      }
+      <button type="submit" class="btn-primary" [disabled]="linking()">
+        {{ linking() ? 'Linking...' : 'Link account' }}
+      </button>
+    </form>
+  }
+</section>

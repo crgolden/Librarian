@@ -22,6 +22,23 @@ lib-cov
 coverage
 *.lcov
 
+# Angular
+/.angular/cache
+
+# Playwright (E2E) outputs
+/playwright-report
+/playwright-artifacts
+/test-results
+playwright-results.xml
+/.playwright
+
+# SonarQube scanner work directories
+.sonarqube/
+.scannerwork/
+
+# Claude Code
+.claude/
+
 # nyc test coverage
 .nyc_output
 

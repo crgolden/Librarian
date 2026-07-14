@@ -1,5 +1,15 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
+#
+# TODO (infra, outside agent scope): this workflow was ported from Churches and needs real
+# repo secrets/vars configured before it can run successfully:
+#   - AZUREAPPSERVICE_CLIENTID_*, AZUREAPPSERVICE_TENANTID_*, AZUREAPPSERVICE_SUBSCRIPTIONID_*
+#     (OIDC federated credential for the 'crgolden-librarian' App Service — create the App
+#     Service first, then register the federated credential, matching the Churches pattern)
+#   - SONAR_TOKEN secret + SONAR_PROJECT_KEY / SONAR_ORGANIZATION vars for a new SonarCloud project
+#   - AZURE_DEVOPS_EXT_PAT secret (shared across repos) + a Librarian ADO project at
+#     https://dev.azure.com/crgolden/Librarian
+#   - PLAYWRIGHT_APPINSIGHTS_CONNECTION_STRING var (shared Azure Monitor resource, or a new one)
 
 name: Build and deploy Node.js app to Azure Web App - crgolden-librarian
 
@@ -7,59 +17,429 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
+    name: Build and analyze
     runs-on: ubuntu-latest
+    outputs:
+      playwright-version: ${{ steps.playwright-version.outputs.version }}
     permissions:
-      contents: read #This is required for actions/checkout
+      id-token: write   # Required for Azure OIDC login in smoke job
+      contents: read
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js version
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v6
         with:
-          node-version: '22.x'
+          fetch-depth: 0  # Shallow clones should be disabled for better Sonar analysis relevancy
 
-      - name: npm install, build, and test
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Cache npm packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-npm-
+
+      - name: Install npm dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run unit tests with coverage
+        run: npm run test:coverage
+
+      # istanbul on Linux writes forward-slash paths already; normalise for safety.
+      - name: Fix LCOV paths for SonarQube
+        run: sed -i 's|\\|/|g' coverage/lcov.info
+
+      - name: Get Playwright version
+        id: playwright-version
         run: |
-          npm install
-          npm run build --if-present
-          npm run test --if-present
+          VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Playwright browsers cache
+        id: cache-playwright
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright browsers
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
+        run: npm run playwright:install
+
+      # Save immediately after install (before E2E) so the browser download is cached even when a
+      # later step fails — actions/cache's post-step save only runs on full job success.
+      - name: Save Playwright browsers cache
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+
+      - name: Run E2E tests
+        run: npm run e2e
+
+      - name: Upload Playwright HTML report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+
+      - name: Upload Playwright failure artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: librarian-playwright-artifacts
+          path: playwright-artifacts/
+          if-no-files-found: ignore
+
+      - name: Report E2E results
+        if: always()
+        shell: pwsh
+        env:
+          AZURE_DEVOPS_EXT_PAT: ${{ secrets.AZURE_DEVOPS_EXT_PAT }}
+          PLAYWRIGHT_APPINSIGHTS_CONNECTION_STRING: ${{ vars.PLAYWRIGHT_APPINSIGHTS_CONNECTION_STRING }}
+        run: |
+          $appName     = 'Librarian'
+          $suiteName   = 'E2E'
+          $junitPath   = 'playwright-results.xml'
+          $artifactDir = 'playwright-artifacts'
+
+          if (-not (Test-Path $junitPath)) {
+              Write-Warning "No JUnit XML found at $junitPath - E2E tests produced no results. Skipping ADO publish."
+              exit 0
+          }
+          [xml]$xml  = Get-Content $junitPath
+          $suites    = @($xml.testsuites.testsuite)
+          $allCases  = @($suites | ForEach-Object { @($_.testcase) } | Where-Object { $_ -ne $null })
+          $failed    = @($allCases | Where-Object { $_.failure -ne $null })
+
+          # Azure DevOps — use Invoke-RestMethod with explicit URLs (az devops invoke cannot
+          # disambiguate duplicate resource names: github.com/Azure/azure-devops-cli-extension/issues/1012).
+          $adoHeaders = @{ Authorization = "Basic $([Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$env:AZURE_DEVOPS_EXT_PAT")))" }
+          $adoBase    = 'https://dev.azure.com/crgolden/Librarian/_apis/test'
+          $adoVer     = 'api-version=7.1'
+
+          function Invoke-Ado {
+              param([string]$Method, [string]$Url, [object]$Body)
+              Invoke-RestMethod -Method $Method -Uri $Url -Headers $adoHeaders `
+                  -ContentType 'application/json' -Body (ConvertTo-Json -InputObject $Body -Depth 20 -Compress)
+          }
+
+          $adoResults = foreach ($tc in $allCases) {
+              $outcome    = if ($tc.failure -ne $null) { 'Failed' } else { 'Passed' }
+              $durationMs = [double]([double]$tc.time * 1000)
+              @{ testCaseTitle        = $tc.name
+                 automatedTestName    = "$($tc.classname) > $($tc.name)"
+                 automatedTestStorage = $appName
+                 automatedTestType    = 'Playwright'
+                 outcome              = $outcome
+                 durationInMs         = [int]$durationMs
+                 errorMessage         = $tc.failure.message
+                 stackTrace           = $tc.failure.'#text'
+                 state                = 'Completed'
+                 comment              = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID" }
+          }
+
+          $totalMs    = ($allCases | ForEach-Object { [double]$_.time * 1000 } | Measure-Object -Sum).Sum
+          $startedDate = [DateTimeOffset]::UtcNow.AddMilliseconds(-$totalMs).ToString('O')
+
+          $run = Invoke-Ado POST "$adoBase/runs?$adoVer" @{
+              name        = "$appName $suiteName Playwright - $env:GITHUB_RUN_NUMBER"
+              automated   = $true
+              state       = 'InProgress'
+              startedDate = $startedDate
+              comment     = "GitHub Actions run $env:GITHUB_RUN_ID" }
+          Invoke-Ado POST "$adoBase/runs/$($run.id)/results?$adoVer" @($adoResults) | Out-Null
+          Invoke-Ado POST "$adoBase/runs/$($run.id)/attachments?$adoVer" @{
+              stream         = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path $junitPath)))
+              fileName       = 'playwright-results.xml'
+              comment        = 'JUnit XML'
+              attachmentType = 'GeneralAttachment' } | Out-Null
+          Invoke-Ado PATCH "$adoBase/runs/$($run.id)?$adoVer" @{
+              state         = 'Completed'
+              completedDate = [DateTimeOffset]::UtcNow.ToString('O') } | Out-Null
+          Write-Host "Published $($adoResults.Count) results to Azure DevOps run $($run.id)."
+
+          # Azure Monitor
+          $cs       = $env:PLAYWRIGHT_APPINSIGHTS_CONNECTION_STRING
+          $iKey     = ($cs -split ';' | Where-Object { $_ -like 'InstrumentationKey=*' })  -replace 'InstrumentationKey=', ''
+          $endpoint = ($cs -split ';' | Where-Object { $_ -like 'IngestionEndpoint=*' })   -replace 'IngestionEndpoint=', ''
+          $common   = @{ app = $appName; suite = $suiteName; repository = $env:GITHUB_REPOSITORY
+              branch = $env:GITHUB_REF; sha = $env:GITHUB_SHA; githubRunId = $env:GITHUB_RUN_ID
+              githubRunUrl      = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+              artifactAvailable = (Test-Path $artifactDir).ToString() }
+
+          function New-Event {
+              param([string]$Name, [hashtable]$Props, [hashtable]$Measurements)
+              @{ name = 'Microsoft.ApplicationInsights.Event'; time = [DateTimeOffset]::UtcNow.ToString('O'); iKey = $iKey
+                 data = @{ baseType = 'EventData'; baseData = @{ ver = 2; name = $Name; properties = $Props; measurements = $Measurements } } }
+          }
+
+          $runProps = $common.Clone()
+          $runProps['junitFile'] = 'playwright-results.xml'
+          $runProps['outcome']   = if ($failed.Count) { 'Failed' } else { 'Passed' }
+          $events  = @(New-Event 'PlaywrightTestRun' $runProps @{ total = $allCases.Count; failed = $failed.Count; passed = ($allCases.Count - $failed.Count); durationMs = [double]$totalMs })
+          $events += $allCases | ForEach-Object {
+              $p = $common.Clone(); $p['testName'] = $_.name; $p['outcome'] = if ($_.failure -ne $null) { 'Failed' } else { 'Passed' }; $p['failed'] = ($_.failure -ne $null).ToString()
+              New-Event 'PlaywrightTestCase' $p @{ durationMs = [double]([double]$_.time * 1000) }
+          }
+          Invoke-RestMethod -Method Post -Uri ($endpoint.TrimEnd('/') + '/v2/track') -ContentType 'application/json' -Body ($events | ConvertTo-Json -Depth 20) | Out-Null
+          Write-Host "Sent $($events.Count) telemetry events to Azure Monitor."
+
+      # SonarCloud analysis — runs after coverage is generated and tests pass.
+      # Uses the sonarcloud-github-action (no JDK/dotnet-sonarscanner setup required).
+      - name: SonarCloud analysis
+        uses: sonarsource/sonarcloud-github-action@ffc3010689be73b8e5ae0c57ce35968afd7909e8  # v5.0.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.exclusions=**/node_modules/**,**/*.d.ts,e2e/**,instrumentation.mjs
+            -Dsonar.coverage.exclusions=e2e/**,src/test-setup.ts,src/main.ts,src/main.server.ts,src/server.ts,src/app/app.config.ts,src/app/app.config.server.ts,src/app/app.routes.server.ts,**/*.mjs
+            -Dsonar.test.inclusions=**/*.spec.ts
+            -Dsonar.scanner.skipJreProvisioning=true
+
+      # Build production bundle for deployment (separate from the ci-config build used for E2E).
+      - name: Build (production)
+        run: npm run build
+
+      # Strip devDependencies so the deployment package only contains production modules.
+      - name: Prune devDependencies
+        run: npm prune --omit=dev
+
+      - name: Assemble deployment package
+        run: |
+          mkdir -p publish
+          cp -r dist publish/dist
+          cp -r node_modules publish/node_modules
+          cp instrumentation.mjs publish/instrumentation.mjs
+          cp package.json publish/package.json
+          cp package-lock.json publish/package-lock.json
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: .
+          path: publish/
 
   deploy:
+    name: Deploy
     runs-on: ubuntu-latest
     needs: build
+    outputs:
+      webapp-url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
     permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+      id-token: write   # Required for requesting the JWT (Azure OIDC)
+      contents: read
 
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
           name: node-app
-      
+          path: publish/
+
       - name: Login to Azure
-        uses: azure/login@v2
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5  # v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_D756F79CA8D94D1EA4518261D568118D }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_D443AE464D9A492BADD5AC11552C027E }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_FF9FA6D4351C49F8BF1F71AD80D58633 }}
 
-      - name: 'Deploy to Azure Web App'
+      - name: Deploy to Azure Web App
         id: deploy-to-webapp
-        uses: azure/webapps-deploy@v3
+        uses: azure/webapps-deploy@84a80cfe7e9889f35148ed88c307e6e93bf02578  # v3
         with:
           app-name: 'crgolden-librarian'
           slot-name: 'Production'
-          package: .
-          
+          package: publish/
+          # Startup command for the Linux Node App Service.
+          # Azure-side: ensure the App Service startup command matches this in the portal/CLI.
+          startup-command: 'node --import ./instrumentation.mjs dist/librarian.client/server/server.mjs'
+
+  smoke:
+    name: Post-deploy smoke
+    runs-on: ubuntu-latest
+    needs: [build, deploy]
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Restore npm cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-npm-
+
+      - name: Install npm dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Restore Playwright browsers cache
+        id: cache-playwright
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ needs.build.outputs.playwright-version }}
+
+      - name: Install Playwright browsers
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
+        run: npm run playwright:install
+
+      - name: Warm up deployed app
+        run: |
+          url="${{ needs.deploy.outputs.webapp-url }}/health"
+          for i in $(seq 1 12); do
+            if curl -sf "$url" | grep -q 'Healthy'; then
+              echo "App is healthy after $i attempt(s)."
+              break
+            fi
+            if [ "$i" -eq 12 ]; then
+              echo "Warning: app did not report Healthy after 12 attempts — proceeding anyway."
+            else
+              echo "Attempt $i: not ready yet, waiting 10s..."
+              sleep 10
+            fi
+          done
+
+      - name: Run smoke tests
+        env:
+          SmokeBaseUrl: ${{ needs.deploy.outputs.webapp-url }}
+        run: npm run e2e:smoke
+
+      - name: Upload smoke Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+
+      - name: Upload smoke Playwright failure artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: librarian-smoke-playwright-artifacts
+          path: playwright-artifacts/
+          if-no-files-found: ignore
+
+      - name: Report smoke results
+        if: always()
+        shell: pwsh
+        env:
+          AZURE_DEVOPS_EXT_PAT: ${{ secrets.AZURE_DEVOPS_EXT_PAT }}
+          PLAYWRIGHT_APPINSIGHTS_CONNECTION_STRING: ${{ vars.PLAYWRIGHT_APPINSIGHTS_CONNECTION_STRING }}
+        run: |
+          $appName     = 'Librarian'
+          $suiteName   = 'Smoke'
+          $junitPath   = 'playwright-results.xml'
+          $artifactDir = 'playwright-artifacts'
+
+          if (-not (Test-Path $junitPath)) {
+              Write-Warning "No JUnit XML found at $junitPath - smoke tests produced no results. Skipping ADO publish."
+              exit 0
+          }
+          [xml]$xml  = Get-Content $junitPath
+          $suites    = @($xml.testsuites.testsuite)
+          $allCases  = @($suites | ForEach-Object { @($_.testcase) } | Where-Object { $_ -ne $null })
+          $failed    = @($allCases | Where-Object { $_.failure -ne $null })
+
+          $adoHeaders = @{ Authorization = "Basic $([Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$env:AZURE_DEVOPS_EXT_PAT")))" }
+          $adoBase    = 'https://dev.azure.com/crgolden/Librarian/_apis/test'
+          $adoVer     = 'api-version=7.1'
+
+          function Invoke-Ado {
+              param([string]$Method, [string]$Url, [object]$Body)
+              Invoke-RestMethod -Method $Method -Uri $Url -Headers $adoHeaders `
+                  -ContentType 'application/json' -Body (ConvertTo-Json -InputObject $Body -Depth 20 -Compress)
+          }
+
+          $adoResults = foreach ($tc in $allCases) {
+              $outcome    = if ($tc.failure -ne $null) { 'Failed' } else { 'Passed' }
+              $durationMs = [double]([double]$tc.time * 1000)
+              @{ testCaseTitle        = $tc.name
+                 automatedTestName    = "$($tc.classname) > $($tc.name)"
+                 automatedTestStorage = $appName
+                 automatedTestType    = 'Playwright'
+                 outcome              = $outcome
+                 durationInMs         = [int]$durationMs
+                 errorMessage         = $tc.failure.message
+                 stackTrace           = $tc.failure.'#text'
+                 state                = 'Completed'
+                 comment              = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID" }
+          }
+
+          $totalMs     = ($allCases | ForEach-Object { [double]$_.time * 1000 } | Measure-Object -Sum).Sum
+          $startedDate = [DateTimeOffset]::UtcNow.AddMilliseconds(-$totalMs).ToString('O')
+
+          $run = Invoke-Ado POST "$adoBase/runs?$adoVer" @{
+              name        = "$appName $suiteName Playwright - $env:GITHUB_RUN_NUMBER"
+              automated   = $true
+              state       = 'InProgress'
+              startedDate = $startedDate
+              comment     = "GitHub Actions run $env:GITHUB_RUN_ID" }
+          Invoke-Ado POST "$adoBase/runs/$($run.id)/results?$adoVer" @($adoResults) | Out-Null
+          Invoke-Ado POST "$adoBase/runs/$($run.id)/attachments?$adoVer" @{
+              stream         = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path $junitPath)))
+              fileName       = 'playwright-results.xml'
+              comment        = 'JUnit XML'
+              attachmentType = 'GeneralAttachment' } | Out-Null
+          Invoke-Ado PATCH "$adoBase/runs/$($run.id)?$adoVer" @{
+              state         = 'Completed'
+              completedDate = [DateTimeOffset]::UtcNow.ToString('O') } | Out-Null
+          Write-Host "Published $($adoResults.Count) results to Azure DevOps run $($run.id)."
+
+          # Azure Monitor
+          $cs       = $env:PLAYWRIGHT_APPINSIGHTS_CONNECTION_STRING
+          $iKey     = ($cs -split ';' | Where-Object { $_ -like 'InstrumentationKey=*' })  -replace 'InstrumentationKey=', ''
+          $endpoint = ($cs -split ';' | Where-Object { $_ -like 'IngestionEndpoint=*' })   -replace 'IngestionEndpoint=', ''
+          $common   = @{ app = $appName; suite = $suiteName; repository = $env:GITHUB_REPOSITORY
+              branch = $env:GITHUB_REF; sha = $env:GITHUB_SHA; githubRunId = $env:GITHUB_RUN_ID
+              githubRunUrl      = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+              artifactAvailable = (Test-Path $artifactDir).ToString() }
+
+          function New-Event {
+              param([string]$Name, [hashtable]$Props, [hashtable]$Measurements)
+              @{ name = 'Microsoft.ApplicationInsights.Event'; time = [DateTimeOffset]::UtcNow.ToString('O'); iKey = $iKey
+                 data = @{ baseType = 'EventData'; baseData = @{ ver = 2; name = $Name; properties = $Props; measurements = $Measurements } } }
+          }
+
+          $runProps = $common.Clone()
+          $runProps['junitFile'] = 'playwright-results.xml'
+          $runProps['outcome']   = if ($failed.Count) { 'Failed' } else { 'Passed' }
+          $events  = @(New-Event 'PlaywrightTestRun' $runProps @{ total = $allCases.Count; failed = $failed.Count; passed = ($allCases.Count - $failed.Count); durationMs = [double]$totalMs })
+          $events += $allCases | ForEach-Object {
+              $p = $common.Clone(); $p['testName'] = $_.name; $p['outcome'] = if ($_.failure -ne $null) { 'Failed' } else { 'Passed' }; $p['failed'] = ($_.failure -ne $null).ToString()
+              New-Event 'PlaywrightTestCase' $p @{ durationMs = [double]([double]$_.time * 1000) }
+          }
+          Invoke-RestMethod -Method Post -Uri ($endpoint.TrimEnd('/') + '/v2/track') -ContentType 'application/json' -Body ($events | ConvertTo-Json -Depth 20) | Out-Null
+          Write-Host "Sent $($events.Count) telemetry events to Azure Monitor."

@@ -1,0 +1,29 @@
+<header class="site-header">
+  <div class="page-container header-inner">
+    <a routerLink="/" class="brand">Librarian</a>
+    <nav class="site-nav">
+      @if (auth.isAuthenticated()) {
+        <div class="user-chip">
+          @if (auth.picture(); as picture) {
+            <img [src]="picture" [alt]="auth.email() ?? auth.username() ?? 'Account picture'" class="avatar" />
+          } @else {
+            <span class="avatar avatar-fallback" aria-hidden="true">{{ (auth.email() ?? auth.username() ?? '?').charAt(0).toUpperCase() }}</span>
+          }
+          <span class="user-email">{{ auth.email() ?? auth.username() ?? 'you' }}</span>
+        </div>
+        <a routerLink="/psn">PSN Settings</a>
+        <a [href]="auth.logoutUrl() ?? '#'" class="btn-ghost btn-sm">Sign out</a>
+      } @else {
+        <a [href]="auth.loginUrl" class="btn-primary btn-sm">Sign in</a>
+      }
+    </nav>
+  </div>
+</header>
+<main class="page-container">
+  <router-outlet />
+</main>
+<footer class="site-footer">
+  <div class="page-container">
+    <p class="text-muted">Librarian — game curation frontend for the Curator API.</p>
+  </div>
+</footer>

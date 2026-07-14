@@ -1,0 +1,20 @@
+<section class="page-section hero">
+  <h1>Welcome to Librarian</h1>
+  <p class="text-muted">
+    Librarian curates and organizes your game library, backed by the Curator API.
+  </p>
+
+  @if (auth.isAuthenticated()) {
+    <div class="card status-card">
+      <p>
+        Signed in as <strong>{{ auth.username() ?? 'you' }}</strong>.
+      </p>
+      <a routerLink="/psn" class="btn-primary">Manage PSN Link</a>
+    </div>
+  } @else {
+    <div class="card status-card">
+      <p>Sign in to link your PlayStation Network account and manage your library.</p>
+      <a [href]="auth.loginUrl" class="btn-primary">Sign in</a>
+    </div>
+  }
+</section>

@@ -1,0 +1,351 @@
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+/*
+ * Design language: see DESIGN.md ("Reading Room" / "After Hours").
+ * Librarian is a personal archivist for a PlayStation collection, not a PlayStation-branded
+ * storefront or a generic SaaS dashboard — the palette is deliberately warm/paper-toned (library),
+ * not PlayStation blue or neutral gray. --color-psn exists ONLY for PSN-linked-account indicators,
+ * never as a general UI color — see DESIGN.md's "Usage rules".
+ */
+:root {
+  --font-heading: 'Lora', Georgia, serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-meta: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Reading Room (light) */
+  --color-bg: #F6F1E7;
+  --color-surface: #FFFDF8;
+  --color-surface-alt: #EFE7D8;
+  --color-text: #241C15;
+  --color-text-muted: #7A6F5E;
+  --color-border: #E4D9C5;
+
+  --color-primary: #1F4D3D;
+  --color-primary-dark: #163B2E;
+  --color-primary-rgb: 31, 77, 61;
+
+  --color-accent: #B4790A;
+  --color-accent-rgb: 180, 121, 10;
+
+  /* PSN-linked-account indicator only — see DESIGN.md usage rules. Never use as general UI color. */
+  --color-psn: #2C4A7C;
+  --color-psn-rgb: 44, 74, 124;
+
+  --color-error: #A3342A;
+  --color-error-rgb: 163, 52, 42;
+  --color-success: #3E6B4F;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+
+  /* Spacing scale — keep paddings/margins on these steps for a cohesive rhythm. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  /* Standard inner padding for .card surfaces. */
+  --card-pad: 1.5rem;
+
+  --shadow-sm: 0 1px 2px rgba(36, 28, 21, .10), 0 1px 1px rgba(36, 28, 21, .06);
+  --shadow-md: 0 6px 16px rgba(36, 28, 21, .12), 0 2px 4px rgba(36, 28, 21, .08);
+  --shadow-lg: 0 10px 30px rgba(36, 28, 21, .14), 0 4px 8px rgba(36, 28, 21, .08);
+
+  --nav-height: 60px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* After Hours (dark) */
+    --color-bg: #19140F;
+    --color-surface: #241C15;
+    --color-surface-alt: #2E251C;
+    --color-text: #EDE3D3;
+    --color-text-muted: #A6957D;
+    --color-border: #3A2E22;
+
+    --color-primary: #3E7A5C;
+    --color-primary-dark: #316148;
+    --color-primary-rgb: 62, 122, 92;
+
+    --color-accent: #D4A017;
+    --color-accent-rgb: 212, 160, 23;
+
+    --color-psn: #4C6FA5;
+    --color-psn-rgb: 76, 111, 165;
+
+    --color-error: #C1584A;
+    --color-error-rgb: 193, 88, 74;
+    --color-success: #5FA57E;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .30), 0 1px 1px rgba(0, 0, 0, .20);
+    --shadow-md: 0 8px 20px rgba(0, 0, 0, .40), 0 3px 6px rgba(0, 0, 0, .24);
+    --shadow-lg: 0 14px 34px rgba(0, 0, 0, .48), 0 4px 10px rgba(0, 0, 0, .28);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading);
+  line-height: 1.25;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+
+h1 { font-size: 2.25rem; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.25rem; }
+h4 { font-size: 1.125rem; }
+
+p {
+  margin: 0 0 1rem;
+}
+
+p:last-child {
+  margin-bottom: 0;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Layout */
+.page-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* Cards — styled as catalog cards: a colored top tab like a card-catalog drawer divider,
+   rather than relying on shadow alone to read as a distinct surface. */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.card-accent {
+  border-top-color: var(--color-accent);
+}
+
+/* Form elements */
+input[type='text'],
+input[type='email'],
+input[type='password'],
+input[type='number'],
+select,
+textarea {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+input[type='text']:focus,
+input[type='email']:focus,
+input[type='password']:focus,
+input[type='number']:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), .15);
+}
+
+/* Buttons */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.25rem;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+  text-decoration: none;
+  color: #fff;
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  text-decoration: none;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--color-bg);
+  border-color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.btn-ghost-danger {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.btn-ghost-danger:hover:not(:disabled) {
+  background: rgba(var(--color-error-rgb), .06);
+  border-color: var(--color-error);
+}
+
+.btn-sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+/* Visually hide while keeping the element available to screen readers. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Layout utilities */
+.page-section {
+  padding-top: var(--space-6);
+  padding-bottom: var(--space-7);
+}
+
+/* State utilities */
+.text-muted {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.text-error {
+  color: var(--color-error);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.text-success {
+  color: var(--color-success);
+}
+
+/* Catalog vocabulary — see DESIGN.md. Defined now so the classes exist the moment Curator's
+   catalog endpoints land and game titles/genre tags appear in the UI; nothing uses them yet. */
+
+/* A cataloged work's title — italicized the way a library card catalog italicizes a title. */
+.catalog-title {
+  font-family: var(--font-heading);
+  font-style: italic;
+  font-weight: 600;
+}
+
+/* Stamped index-card metadata: acquisition dates, PSN identifiers, completion percentages. */
+.catalog-meta {
+  font-family: var(--font-meta);
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+/* Genre/platform classification — a book-spine label, not a filled badge/pill. */
+.spine-label {
+  display: inline-block;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  padding-bottom: 0.15rem;
+  border-bottom: 2px solid var(--color-border);
+}
+
+/* PSN-linked-account indicator ONLY (see DESIGN.md usage rules) — never a general UI accent. */
+.psn-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-meta);
+  font-size: 0.8rem;
+  color: var(--color-psn);
+}
+
+.psn-badge::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--color-psn);
+}
