@@ -191,9 +191,12 @@ describe('curatorProxy', () => {
     expect((req.session as unknown as SessionLike).accessToken).toBe('refreshed-token');
   });
 
-  it('retries with a refreshed token on a 401 upstream response', async () => {
+  it('retries with a refreshed token on a bearer-token 401 (WWW-Authenticate present)', async () => {
     process.env['CuratorApiAddress'] = 'https://curator.example.com';
-    stubFetch([{ status: 401 }, { status: 200 }]);
+    stubFetch([
+      { status: 401, headers: new Headers({ 'www-authenticate': 'Bearer' }) },
+      { status: 200 },
+    ]);
 
     vi.mocked(refreshTokenGrant).mockResolvedValue({
       access_token: 'after-retry-token',
@@ -218,10 +221,32 @@ describe('curatorProxy', () => {
 
   it('forwards the 401 without retry when no refresh token is available', async () => {
     process.env['CuratorApiAddress'] = 'https://curator.example.com';
-    stubFetch([{ status: 401 }]);
+    stubFetch([{ status: 401, headers: new Headers({ 'www-authenticate': 'Bearer' }) }]);
 
     const req = makeReq({
       session: { accessToken: 'expired-token', refreshToken: undefined },
+    });
+    const res = makeRes();
+
+    await curatorProxy(req, res as unknown as Response, mockNext);
+
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(refreshTokenGrant).not.toHaveBeenCalled();
+  });
+
+  it('does not retry a domain-level 401 lacking WWW-Authenticate (e.g. /psn/link auth_failed)', async () => {
+    // Regression test: Curator's own require_bearer sets WWW-Authenticate on a bearer-token 401, but a
+    // route's own business-logic 401 (e.g. /psn/link's LinkError "auth_failed" when PSN auth fails) never
+    // does. Retrying unconditionally on any 401 would blindly replay a non-idempotent mutating request --
+    // e.g. resubmitting /psn/link's npsso for a second, unwanted PSN OAuth round-trip.
+    process.env['CuratorApiAddress'] = 'https://curator.example.com';
+    stubFetch([{ status: 401 }]);
+
+    const req = makeReq({
+      method: 'POST',
+      headers: { 'x-csrf': '1' },
+      session: { accessToken: 'valid-token', refreshToken: 'can-refresh' },
     });
     const res = makeRes();
 
@@ -310,7 +335,7 @@ describe('curatorProxy', () => {
 
   it('forwards the 401 and warns when the token refresh during retry fails', async () => {
     process.env['CuratorApiAddress'] = 'https://curator.example.com';
-    stubFetch([{ status: 401 }]);
+    stubFetch([{ status: 401, headers: new Headers({ 'www-authenticate': 'Bearer' }) }]);
     vi.mocked(refreshTokenGrant).mockRejectedValueOnce(new Error('refresh failed'));
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 

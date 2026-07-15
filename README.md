@@ -1,5 +1,9 @@
 # Librarian
 
+[![Build and deploy Node.js app to Azure Web App - crgolden-librarian](https://github.com/crgolden/Librarian/actions/workflows/main_crgolden-librarian.yml/badge.svg)](https://github.com/crgolden/Librarian/actions/workflows/main_crgolden-librarian.yml)
+
+[![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=crgolden_Librarian)](https://sonarcloud.io/summary/new_code?id=crgolden_Librarian)
+
 The end-user surface of the PlayStation game-curation project: an **Angular 21 SSR** application
 with a **Node.js Express** Backend-for-Frontend (BFF), served by a single Node process. The BFF holds
 the OIDC session and proxies every data call to the standalone [Curator](https://github.com/crgolden/Curator)

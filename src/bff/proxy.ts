@@ -193,8 +193,17 @@ export async function curatorProxy(
 
   let apiResponse = await doFetch();
 
-  // On 401: attempt one token refresh then retry.
-  if (apiResponse.status === 401 && req.session.refreshToken) {
+  // On 401: attempt one token refresh then retry -- but only when the 401 is actually a bearer-token
+  // failure. Curator's own `require_bearer` (the only place that rejects a missing/invalid token) sets
+  // `WWW-Authenticate: Bearer` on its 401s; a route's own domain-level 401 (e.g. `/psn/link`'s
+  // `auth_failed` when PSN authentication itself fails) never sets that header. Retrying unconditionally
+  // on any 401 would blindly replay a non-idempotent mutating request -- e.g. resubmitting `/psn/link`'s
+  // npsso for a second, unwanted PSN OAuth round-trip -- for a 401 that a fresh token could never fix.
+  if (
+    apiResponse.status === 401 &&
+    apiResponse.headers.get('www-authenticate') !== null &&
+    req.session.refreshToken
+  ) {
     try {
       await refreshAndSave(req);
       apiResponse = await doFetch();
