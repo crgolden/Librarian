@@ -34,6 +34,7 @@
   --color-error: #A3342A;
   --color-error-rgb: 163, 52, 42;
   --color-success: #3E6B4F;
+  --color-warning: #B8752E;
 
   --radius-sm: 4px;
   --radius-md: 6px;
@@ -81,6 +82,7 @@
     --color-error: #C1584A;
     --color-error-rgb: 193, 88, 74;
     --color-success: #5FA57E;
+    --color-warning: #D99A4E;
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, .30), 0 1px 1px rgba(0, 0, 0, .20);
     --shadow-md: 0 8px 20px rgba(0, 0, 0, .40), 0 3px 6px rgba(0, 0, 0, .24);
@@ -300,6 +302,10 @@ textarea:focus {
 
 .text-success {
   color: var(--color-success);
+}
+
+.text-warning {
+  color: var(--color-warning);
 }
 
 /* Catalog vocabulary — see DESIGN.md. Defined now so the classes exist the moment Curator's

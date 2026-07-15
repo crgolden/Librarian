@@ -47,6 +47,19 @@ test.describe('PSN settings — authenticated', () => {
     await expect(page.getByRole('button', { name: 'Unlink' })).toBeVisible({ timeout: 10_000 });
   });
 
+  test('shows a no-refresh-token warning when PSN issued no refresh token', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedPsnLink({ refresh_token_expires_at: null });
+
+    await page.goto('/psn');
+    await expect(page.locator('text=PSN account linked')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Unlink' })).toBeVisible();
+    await expect(page.locator('.text-warning')).toContainText("PSN didn't issue a renewable session");
+  });
+
   test('unlinking removes the PSN link and shows the link form again', async ({
     authedPage: page,
     store,

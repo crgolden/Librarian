@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 interface MeResponse {
@@ -22,12 +22,17 @@ export class PsnSettingsComponent implements OnInit {
 
   protected readonly npsso = signal('');
   protected readonly linked = signal(false);
+  protected readonly accessTokenExpiresAt = signal<string | null>(null);
   protected readonly refreshTokenExpiresAt = signal<string | null>(null);
   protected readonly loadingStatus = signal(true);
   protected readonly linking = signal(false);
   protected readonly unlinking = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly success = signal<string | null>(null);
+
+  protected readonly noRefreshToken = computed(
+    () => this.linked() && this.accessTokenExpiresAt() !== null && this.refreshTokenExpiresAt() === null,
+  );
 
   ngOnInit(): void {
     this.loadStatus();
@@ -39,6 +44,7 @@ export class PsnSettingsComponent implements OnInit {
     this.http.get<MeResponse>('/curator/api/me').subscribe({
       next: (me) => {
         this.linked.set(me.linked);
+        this.accessTokenExpiresAt.set(me.psn?.access_token_expires_at ?? null);
         this.refreshTokenExpiresAt.set(me.psn?.refresh_token_expires_at ?? null);
         this.loadingStatus.set(false);
       },

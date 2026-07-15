@@ -55,10 +55,11 @@ export function createCuratorApp(): Express {
   app.post('/_test/psn-link', (req: Request, res: Response) => {
     const body = req.body as Partial<PsnLink>;
     const user = currentUser();
-    user.psn = {
-      access_token_expires_at: body.access_token_expires_at ?? '2026-08-01T00:00:00Z',
-      refresh_token_expires_at: body.refresh_token_expires_at ?? '2027-01-01T00:00:00Z',
-    };
+    const accessTokenExpiresAt: string | null =
+      'access_token_expires_at' in body ? (body.access_token_expires_at ?? null) : '2026-08-01T00:00:00Z';
+    const refreshTokenExpiresAt: string | null =
+      'refresh_token_expires_at' in body ? (body.refresh_token_expires_at ?? null) : '2027-01-01T00:00:00Z';
+    user.psn = { access_token_expires_at: accessTokenExpiresAt, refresh_token_expires_at: refreshTokenExpiresAt };
     res.status(204).end();
   });
 

@@ -92,6 +92,24 @@ describe('PsnSettingsComponent', () => {
     expect(compiled.textContent).not.toContain('Re-authentication required after');
   });
 
+  it('shows a no-refresh-token warning with the access token expiry when PSN issued no refresh token', () => {
+    const fixture = createAndLoad({
+      sub: 'u1',
+      email: 'chris@example.com',
+      linked: true,
+      psn: { access_token_expires_at: '2026-01-01T00:00:00Z', refresh_token_expires_at: null },
+    });
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    expect(compiled.querySelector('.psn-badge')?.textContent).toContain('PSN account linked');
+    expect(compiled.textContent).not.toContain('Re-authentication required after');
+    const warning = compiled.querySelector('.text-warning');
+    expect(warning).not.toBeNull();
+    expect(warning?.textContent).toContain("PSN didn't issue a renewable session");
+    expect(warning?.textContent).toContain('new');
+    expect(warning?.textContent).toContain('NPSSO');
+  });
+
   it('shows an error and still falls back to the link form when the status request fails', () => {
     const fixture = createAndLoad(null, 500);
     const compiled: HTMLElement = fixture.nativeElement;

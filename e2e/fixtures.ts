@@ -15,7 +15,10 @@ const MOCK_BASE = 'http://localhost:4101';
 
 export interface TestStore {
   reset(): Promise<void>;
-  seedPsnLink(link?: { access_token_expires_at?: string; refresh_token_expires_at?: string }): Promise<void>;
+  seedPsnLink(link?: {
+    access_token_expires_at?: string | null;
+    refresh_token_expires_at?: string | null;
+  }): Promise<void>;
 }
 
 async function fetchControl(path: string, body?: unknown): Promise<void> {
