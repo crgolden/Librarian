@@ -75,7 +75,8 @@ describe('PsnSettingsComponent', () => {
     const compiled: HTMLElement = fixture.nativeElement;
 
     expect(compiled.querySelector('.psn-badge')?.textContent).toContain('PSN account linked');
-    expect(compiled.textContent).toContain('Re-authentication required after');
+    expect(compiled.textContent).toContain("We'll keep this linked until");
+    expect(compiled.textContent).toContain('new NPSSO token');
     expect(compiled.querySelector('button')?.textContent).toContain('Unlink');
   });
 
@@ -89,7 +90,7 @@ describe('PsnSettingsComponent', () => {
     const compiled: HTMLElement = fixture.nativeElement;
 
     expect(compiled.querySelector('.psn-badge')?.textContent).toContain('PSN account linked');
-    expect(compiled.textContent).not.toContain('Re-authentication required after');
+    expect(compiled.textContent).not.toContain("We'll keep this linked until");
   });
 
   it('shows a no-refresh-token warning with the access token expiry when PSN issued no refresh token', () => {

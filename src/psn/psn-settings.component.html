@@ -9,7 +9,10 @@
       <span class="psn-badge">PSN account linked</span>
       <p>
         @if (refreshTokenExpiresAt()) {
-          <span class="catalog-meta">Re-authentication required after {{ refreshTokenExpiresAt() | date: 'medium' }}</span>
+          <span class="catalog-meta"
+            >We'll keep this linked until {{ refreshTokenExpiresAt() | date: 'medium' }}, after which
+            you'll need to link again with a new NPSSO token.</span
+          >
         } @else if (noRefreshToken()) {
           <span class="text-warning"
             >PSN didn't issue a renewable session for this sign-in. We can use it until
