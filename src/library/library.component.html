@@ -1,0 +1,30 @@
+<section class="page-section library">
+  <h1>My Library</h1>
+  <p class="text-muted">
+    Refresh rebuilds your catalog entries from your linked PlayStation Network entitlements. This page
+    only shows the refresh job's status — there's no view of your finished library here yet.
+  </p>
+
+  <div class="card status-card">
+    <button type="button" class="btn-primary" [disabled]="refreshing()" (click)="refresh()">
+      {{ refreshing() ? 'Refreshing...' : 'Refresh library' }}
+    </button>
+
+    @if (error()) {
+      <p class="text-error">{{ error() }}</p>
+    }
+
+    @if (status(); as current) {
+      <p class="catalog-meta">Status: {{ current.status }}</p>
+      @if (current.status === 'succeeded') {
+        <p class="text-success">Library catalogued.</p>
+      }
+      @if (current.status === 'failed') {
+        <p class="text-error">{{ current.error ?? 'Refresh failed.' }}</p>
+      }
+      @if (unexpectedStatus()) {
+        <p class="text-error">Unexpected status returned — stopped watching this job.</p>
+      }
+    }
+  </div>
+</section>

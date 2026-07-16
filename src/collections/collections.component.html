@@ -1,0 +1,193 @@
+<section class="page-section collections">
+  <h1>Collections</h1>
+  <p class="text-muted">
+    Curate rule-based groupings of your catalog — a filtered list, or a capacity-fill pack sized to a
+    console.
+  </p>
+
+  @if (view() === 'list') {
+    @if (loadingDefinitions()) {
+      <p class="text-muted">Loading your collections...</p>
+    } @else {
+      @if (definitionsError()) {
+        <p class="text-error">{{ definitionsError() }}</p>
+      }
+      @if (definitions().length === 0) {
+        <p class="text-muted">You haven't saved any collections yet.</p>
+      } @else {
+        <ul class="definition-list">
+          @for (definition of definitions(); track definition.definition_id) {
+            <li class="card definition-card">
+              <span class="catalog-title">{{ definition.name }}</span>
+              <span class="spine-label">{{ definition.kind }}</span>
+              @if (definition.console_id) {
+                <span class="catalog-meta">Console: {{ definition.console_id }}</span>
+              }
+              <button type="button" class="btn-ghost" (click)="selectDefinition(definition)">View / Run</button>
+            </li>
+          }
+        </ul>
+      }
+      <button type="button" class="btn-primary" (click)="showCreate()">New collection</button>
+    }
+  }
+
+  @if (view() === 'create') {
+    <form class="card collection-form" (submit)="$event.preventDefault(); preview()">
+      <label for="kind">Kind</label>
+      <select id="kind" name="kind" [ngModel]="kind()" (ngModelChange)="kind.set($event)">
+        <option value="filter_list">Filter list</option>
+        <option value="capacity_fill">Capacity fill</option>
+      </select>
+
+      @if (kind() === 'capacity_fill') {
+        <label for="consoleId">Console ID</label>
+        <input id="consoleId" name="consoleId" type="text" [ngModel]="consoleId()" (ngModelChange)="consoleId.set($event)" />
+      }
+
+      <label for="genreFilter">Genres (comma-separated)</label>
+      <input id="genreFilter" name="genreFilter" type="text" [ngModel]="genreFilter()" (ngModelChange)="genreFilter.set($event)" />
+
+      <label for="minScore">Minimum score</label>
+      <input
+        id="minScore"
+        name="minScore"
+        type="number"
+        step="0.1"
+        [ngModel]="minScore()"
+        (ngModelChange)="minScore.set($event)"
+      />
+
+      <label for="aaaTierFilter">Tier</label>
+      <select id="aaaTierFilter" name="aaaTierFilter" [ngModel]="aaaTierFilter()" (ngModelChange)="aaaTierFilter.set($event)">
+        <option value="">Any</option>
+        <option value="AAA">AAA</option>
+        <option value="AA">AA</option>
+        <option value="Indie">Indie</option>
+      </select>
+
+      @if (createError()) {
+        <p class="text-error">{{ createError() }}</p>
+      }
+
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" (click)="view.set('list')">Cancel</button>
+        <button type="submit" class="btn-primary" [disabled]="previewing()">
+          {{ previewing() ? 'Previewing...' : 'Preview' }}
+        </button>
+      </div>
+    </form>
+
+    @if (previewResult()) {
+      <div class="card preview-results">
+        <h2>Preview</h2>
+        @if (previewResult()?.used_gb !== null) {
+          <p class="catalog-meta">Estimated size: {{ previewResult()?.used_gb }} GB</p>
+        }
+
+        <h3>Included ({{ previewResult()?.included?.length }})</h3>
+        <ul class="catalog-list">
+          @for (game of previewResult()?.included ?? []; track game.game_id) {
+            <li class="card catalog-card">
+              <span class="catalog-title">{{ game.title }}</span>
+              <span class="spine-label">{{ game.genre }}</span>
+              <span class="catalog-meta">{{ game.franchise }} &middot; {{ game.aaa_tier }} &middot; {{ game.size_gb }} GB</span>
+            </li>
+          }
+        </ul>
+
+        @if ((previewResult()?.excluded?.length ?? 0) > 0) {
+          <h3>Excluded ({{ previewResult()?.excluded?.length }})</h3>
+          <ul class="catalog-list">
+            @for (game of previewResult()?.excluded ?? []; track game.game_id) {
+              <li class="card catalog-card">
+                <span class="catalog-title">{{ game.title }}</span>
+                <span class="spine-label">{{ game.genre }}</span>
+                <span class="catalog-meta">{{ game.franchise }} &middot; {{ game.aaa_tier }}</span>
+              </li>
+            }
+          </ul>
+        }
+
+        <form class="save-form" (submit)="$event.preventDefault(); saveDefinition()">
+          <label for="name">Name this collection</label>
+          <input id="name" name="name" type="text" [ngModel]="name()" (ngModelChange)="name.set($event)" />
+          @if (saveError()) {
+            <p class="text-error">{{ saveError() }}</p>
+          }
+          <button type="submit" class="btn-primary" [disabled]="saving()">
+            {{ saving() ? 'Saving...' : 'Save this collection' }}
+          </button>
+        </form>
+      </div>
+    }
+  }
+
+  @if (view() === 'detail' && selectedDefinition(); as definition) {
+    <div class="card definition-detail">
+      <button type="button" class="btn-ghost" (click)="backToList()">&larr; Back to collections</button>
+      <h2 class="catalog-title">{{ definition.name }}</h2>
+      <span class="spine-label">{{ definition.kind }}</span>
+      @if (definition.console_id) {
+        <p class="catalog-meta">Console: {{ definition.console_id }}</p>
+      }
+      @if (definition.genre_filter.length > 0) {
+        <p class="catalog-meta">Genres: {{ definition.genre_filter.join(', ') }}</p>
+      }
+
+      @if (runError()) {
+        <p class="text-error">{{ runError() }}</p>
+      }
+
+      <button type="button" class="btn-primary" [disabled]="running()" (click)="runSelected()">
+        {{ running() ? 'Running...' : 'Run' }}
+      </button>
+
+      @if (runResult(); as result) {
+        <div class="run-results">
+          @if (result.used_gb !== null) {
+            <p class="catalog-meta">Estimated size: {{ result.used_gb }} GB</p>
+          }
+
+          <h3>Included ({{ result.included.length }})</h3>
+          <ul class="catalog-list">
+            @for (game of result.included; track game.game_id) {
+              <li class="card catalog-card">
+                <span class="catalog-title">{{ game.title }}</span>
+                <span class="spine-label">{{ game.genre }}</span>
+                <span class="catalog-meta">{{ game.franchise }} &middot; {{ game.aaa_tier }} &middot; {{ game.size_gb }} GB</span>
+
+                @if (canToggleInstall()) {
+                  <button
+                    type="button"
+                    class="btn-ghost"
+                    [disabled]="installingGameIds().has(game.game_id)"
+                    (click)="toggleInstall(game)"
+                  >
+                    {{ installedGameIds().has(game.game_id) ? 'Installed' : 'Mark installed' }}
+                  </button>
+                  @if (installErrors().get(game.game_id); as installError) {
+                    <span class="text-error">{{ installError }}</span>
+                  }
+                }
+              </li>
+            }
+          </ul>
+
+          @if (result.excluded.length > 0) {
+            <h3>Excluded ({{ result.excluded.length }})</h3>
+            <ul class="catalog-list">
+              @for (game of result.excluded; track game.game_id) {
+                <li class="card catalog-card">
+                  <span class="catalog-title">{{ game.title }}</span>
+                  <span class="spine-label">{{ game.genre }}</span>
+                  <span class="catalog-meta">{{ game.franchise }} &middot; {{ game.aaa_tier }}</span>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      }
+    </div>
+  }
+</section>

@@ -1,0 +1,56 @@
+<section class="page-section catalog">
+  <h1>Catalog</h1>
+  <p class="text-muted">Browse the shared game catalog Curator has canonicalized across all libraries.</p>
+
+  <form class="card catalog-filters" (submit)="$event.preventDefault(); applyFilters()">
+    <label for="franchise">Franchise</label>
+    <input id="franchise" name="franchise" type="text" [ngModel]="franchise()" (ngModelChange)="franchise.set($event)" />
+
+    <label for="genre">Genre</label>
+    <input id="genre" name="genre" type="text" [ngModel]="genre()" (ngModelChange)="genre.set($event)" />
+
+    <label for="aaaTier">Tier</label>
+    <select id="aaaTier" name="aaaTier" [ngModel]="aaaTier()" (ngModelChange)="aaaTier.set($event)">
+      <option value="">Any</option>
+      <option value="AAA">AAA</option>
+      <option value="AA">AA</option>
+      <option value="Indie">Indie</option>
+    </select>
+
+    <button type="submit" class="btn-primary">Apply</button>
+  </form>
+
+  @if (error()) {
+    <p class="text-error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="text-muted">Loading catalog...</p>
+  } @else if (games().length === 0) {
+    <p class="text-muted">No titles match these filters.</p>
+  } @else {
+    <ul class="catalog-list">
+      @for (game of games(); track game.game_id) {
+        <li class="card catalog-card">
+          <span class="catalog-title">{{ game.canonical_title }}</span>
+          @if (game.genre) {
+            <span class="spine-label">{{ game.genre }}</span>
+          }
+          <span class="catalog-meta">
+            @if (game.franchise) {
+              {{ game.franchise }}
+            }
+            @if (game.aaa_tier) {
+              &middot; {{ game.aaa_tier }}
+            }
+          </span>
+        </li>
+      }
+    </ul>
+
+    <div class="catalog-pager">
+      <button type="button" class="btn-ghost" [disabled]="!hasPrevPage()" (click)="prevPage()">Previous</button>
+      <button type="button" class="btn-ghost" [disabled]="!hasNextPage()" (click)="nextPage()">Next</button>
+    </div>
+  }
+</section>

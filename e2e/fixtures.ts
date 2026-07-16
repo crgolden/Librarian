@@ -13,12 +13,23 @@ import { test as base, type Page } from '@playwright/test';
 
 const MOCK_BASE = 'http://localhost:4101';
 
+export interface CatalogGameFixture {
+  game_id: string;
+  canonical_title: string;
+  franchise: string | null;
+  genre: string | null;
+  aaa_tier: string | null;
+}
+
 export interface TestStore {
   reset(): Promise<void>;
   seedPsnLink(link?: {
     access_token_expires_at?: string | null;
     refresh_token_expires_at?: string | null;
   }): Promise<void>;
+  seedCatalogGames(games: CatalogGameFixture[]): Promise<void>;
+  seedConsoles(consoleIds: string[]): Promise<void>;
+  setLibraryRefreshOutcome(outcome: 'succeeded' | 'failed', error?: string): Promise<void>;
 }
 
 async function fetchControl(path: string, body?: unknown): Promise<void> {
@@ -91,6 +102,15 @@ export const test = base.extend<LibrarianFixtures>({
       },
       async seedPsnLink(link) {
         await fetchControl('/_test/psn-link', link ?? {});
+      },
+      async seedCatalogGames(games) {
+        await fetchControl('/_test/catalog-games', { games });
+      },
+      async seedConsoles(consoleIds) {
+        await fetchControl('/_test/consoles', { consoleIds });
+      },
+      async setLibraryRefreshOutcome(outcome, error) {
+        await fetchControl('/_test/library-refresh-outcome', { status: outcome, error });
       },
     };
     await use(s);

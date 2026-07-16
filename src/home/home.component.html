@@ -10,6 +10,9 @@
         Signed in as <strong>{{ auth.username() ?? 'you' }}</strong>.
       </p>
       <a routerLink="/psn" class="btn-primary">Manage PSN Link</a>
+      <a routerLink="/catalog" class="btn-ghost">Browse Catalog</a>
+      <a routerLink="/collections" class="btn-ghost">Collections</a>
+      <a routerLink="/library" class="btn-ghost">My Library</a>
     </div>
   } @else {
     <div class="card status-card">
