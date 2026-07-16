@@ -151,7 +151,7 @@ describe('PsnSettingsComponent', () => {
     expect(compiled.querySelector('.psn-badge')).not.toBeNull();
   });
 
-  it('link() surfaces an error message when the request fails', () => {
+  it('link() surfaces a generic error message when the request fails with no known error code', () => {
     const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
     const h = harness(fixture);
     h.npsso.set('bad-token');
@@ -165,6 +165,42 @@ describe('PsnSettingsComponent', () => {
 
     expect((fixture.nativeElement as HTMLElement).textContent)
       .toContain('Failed to link PlayStation Network account.');
+  });
+
+  it('link() surfaces an email-mismatch message when the account emails do not match', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+    const h = harness(fixture);
+    h.npsso.set('good-token');
+
+    h.link();
+    fixture.detectChanges();
+
+    const req = httpMock.expectOne('/curator/api/psn/link');
+    req.flush(
+      { detail: { error: 'mismatch', message: 'emails do not match' } },
+      { status: 409, statusText: 'Conflict' },
+    );
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain("doesn't match your account email");
+  });
+
+  it('link() surfaces an unverified-email message when the PSN account email is not verified', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+    const h = harness(fixture);
+    h.npsso.set('good-token');
+
+    h.link();
+    fixture.detectChanges();
+
+    const req = httpMock.expectOne('/curator/api/psn/link');
+    req.flush(
+      { detail: { error: 'unverified', message: 'PSN email is not verified' } },
+      { status: 409, statusText: 'Conflict' },
+    );
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain("isn't verified");
   });
 
   it('unlink() deletes the PSN link and reloads status on success', () => {

@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
@@ -8,6 +8,21 @@ interface MeResponse {
   email: string | null;
   linked: boolean;
   psn: { access_token_expires_at: string | null; refresh_token_expires_at: string | null } | null;
+}
+
+const LINK_ERROR_MESSAGES: Record<string, string> = {
+  mismatch:
+    "The PlayStation Network account you linked doesn't match your account email. Sign into the PSN account that uses this same email, then try again.",
+  unverified:
+    "That PlayStation Network account's email address isn't verified. Verify it with PlayStation, then try linking again.",
+};
+
+const GENERIC_LINK_ERROR_MESSAGE =
+  'Failed to link PlayStation Network account. Check your NPSSO token and try again.';
+
+function linkErrorMessage(err: HttpErrorResponse): string {
+  const code = (err.error as { detail?: { error?: string } } | null)?.detail?.error;
+  return (code && LINK_ERROR_MESSAGES[code]) || GENERIC_LINK_ERROR_MESSAGE;
 }
 
 @Component({
@@ -73,9 +88,9 @@ export class PsnSettingsComponent implements OnInit {
         this.npsso.set('');
         this.loadStatus();
       },
-      error: () => {
+      error: (err: HttpErrorResponse) => {
         this.linking.set(false);
-        this.error.set('Failed to link PlayStation Network account. Check your NPSSO token and try again.');
+        this.error.set(linkErrorMessage(err));
       },
     });
   }
