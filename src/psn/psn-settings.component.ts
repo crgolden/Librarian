@@ -22,7 +22,7 @@ const GENERIC_LINK_ERROR_MESSAGE =
 
 function linkErrorMessage(err: HttpErrorResponse): string {
   const code = (err.error as { detail?: { error?: string } } | null)?.detail?.error;
-  return (code && LINK_ERROR_MESSAGES[code]) || GENERIC_LINK_ERROR_MESSAGE;
+  return (code ? LINK_ERROR_MESSAGES[code] : undefined) ?? GENERIC_LINK_ERROR_MESSAGE;
 }
 
 @Component({
