@@ -30,7 +30,7 @@
     "@azure/keyvault-secrets": "^4.11.2",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "^0.219.0",
-    "@opentelemetry/auto-instrumentations-node": "^0.77.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.78.0",
     "@opentelemetry/exporter-logs-otlp-grpc": "^0.219.0",
     "@opentelemetry/exporter-metrics-otlp-grpc": "^0.219.0",
     "@opentelemetry/exporter-trace-otlp-grpc": "^0.219.0",
