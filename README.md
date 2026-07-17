@@ -102,7 +102,8 @@ src/
   app/              # Angular application shell (routing, guard, interceptor)
   auth/             # auth service + claim helpers
   home/             # home page
-  psn/              # PSN link/unlink settings page
+  psn/              # PSN link/unlink + per-category data-harvest preferences panel
+  shared/           # reusable UI pieces (e.g. loading-overlay, a pointer-blocking async-action overlay)
   environments/     # per-environment config (allowedHosts, etc.)
   telemetry/        # pino → Elasticsearch logging
 e2e/                # TypeScript Playwright E2E + smoke tests

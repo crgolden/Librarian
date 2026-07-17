@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { HomeComponent } from './home.component';
@@ -12,7 +13,7 @@ function configure(auth: Partial<AuthService>): void {
 
 describe('HomeComponent', () => {
   it('shows a sign-in prompt when anonymous', () => {
-    configure({ isAuthenticated: () => false, loginUrl: '/bff/login' });
+    configure({ isAuthenticated: signal(false), loginUrl: '/bff/login' });
 
     const fixture = TestBed.createComponent(HomeComponent);
     fixture.detectChanges();
@@ -25,7 +26,7 @@ describe('HomeComponent', () => {
   });
 
   it('shows the signed-in status and a Manage PSN Link action when authenticated', () => {
-    configure({ isAuthenticated: () => true, username: () => 'chris' });
+    configure({ isAuthenticated: signal(true), username: signal('chris') });
 
     const fixture = TestBed.createComponent(HomeComponent);
     fixture.detectChanges();
@@ -38,7 +39,7 @@ describe('HomeComponent', () => {
   });
 
   it('falls back to "you" when no username/name claim is present', () => {
-    configure({ isAuthenticated: () => true, username: () => null });
+    configure({ isAuthenticated: signal(true), username: signal(null) });
 
     const fixture = TestBed.createComponent(HomeComponent);
     fixture.detectChanges();

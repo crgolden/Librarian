@@ -72,3 +72,94 @@ test.describe('PSN settings — authenticated', () => {
     await expect(page.getByRole('button', { name: 'Link account' })).toBeVisible({ timeout: 10_000 });
   });
 });
+
+test.describe('PSN settings — delete my data', () => {
+  test('requires confirmation, then deletes the account and shows a confirmation message', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedPsnLink();
+
+    await page.goto('/psn');
+    await page.getByRole('button', { name: 'Delete my data' }).click();
+    await expect(page.getByText('Are you sure?')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Yes, delete everything' }).click();
+    await expect(
+      page.getByText('Your account and all associated data have been deleted.'),
+    ).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('cancelling the confirmation makes no request and leaves the account intact', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedPsnLink();
+
+    await page.goto('/psn');
+    await page.getByRole('button', { name: 'Delete my data' }).click();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+
+    await expect(page.getByText('Are you sure?')).not.toBeVisible();
+    await expect(page.locator('text=PSN account linked')).toBeVisible();
+  });
+});
+
+test.describe('PSN settings — data-sharing preferences', () => {
+  test('all toggles are off by default and no category cards render after linking', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedPsnLink();
+
+    await page.goto('/psn');
+    await expect(page.locator('text=PSN account linked')).toBeVisible();
+    await expect(page.getByLabel('Trophies')).not.toBeChecked();
+    await expect(page.getByLabel('PSN Identity')).not.toBeChecked();
+    await expect(page.getByLabel('Online Presence')).not.toBeChecked();
+    await expect(page.getByLabel('Registered Devices')).not.toBeChecked();
+
+    await expect(page.locator('.psn-category-card')).toHaveCount(0);
+  });
+
+  test('toggling trophies on shows the summary card and persists across reload', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedPsnLink();
+
+    await page.goto('/psn');
+    await page.getByLabel('Trophies').check();
+
+    const card = page.locator('.psn-category-card', { hasText: 'Trophies' });
+    await expect(card).toBeVisible();
+    await expect(card).toContainText('Level 42');
+    await expect(card).toContainText('3 platinum');
+
+    await page.reload();
+    await expect(page.getByLabel('Trophies')).toBeChecked();
+    await expect(page.locator('.psn-category-card', { hasText: 'Trophies' })).toBeVisible();
+  });
+
+  test('toggling a category off hides its card immediately', async ({ authedPage: page, store }) => {
+    await store.reset();
+    await store.seedPsnLink();
+    await store.seedPsnPreferences({ harvest_identity: true });
+
+    await page.goto('/psn');
+    const card = page.locator('.psn-category-card', { hasText: 'PSN Identity' });
+    await expect(card).toBeVisible();
+    await expect(card).toContainText('e2e_gamer');
+
+    await page.getByLabel('PSN Identity').uncheck();
+    await expect(card).not.toBeVisible();
+
+    await page.reload();
+    await expect(page.getByLabel('PSN Identity')).not.toBeChecked();
+    await expect(page.locator('.psn-category-card', { hasText: 'PSN Identity' })).toHaveCount(0);
+  });
+});

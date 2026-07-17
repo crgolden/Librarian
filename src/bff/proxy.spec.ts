@@ -371,7 +371,7 @@ describe('curatorProxy', () => {
     });
 
     // Replace the async iterator with one yielding a string chunk.
-    (req as Record<string, unknown>)[Symbol.asyncIterator] = async function* () {
+    (req as unknown as Record<PropertyKey, unknown>)[Symbol.asyncIterator] = async function* () {
       yield '{"npsso":"test"}';
     };
 

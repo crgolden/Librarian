@@ -1,0 +1,108 @@
+<section class="page-section privacy">
+  <h1>Privacy Policy</h1>
+  <p class="text-muted">Effective 2026-07-17. See the <a routerLink="/faq">FAQ</a> for a plainer walkthrough of linking your account.</p>
+
+  <div class="card privacy-section">
+    <h3>What we collect</h3>
+    <p>When you link your PlayStation account, Curator stores:</p>
+    <ul>
+      <li>Your PlayStation account ID</li>
+      <li>An encrypted access token and refresh token, and when they expire</li>
+      <li>Your PlayStation library entitlements, and the derived, curated library built from them</li>
+      <li>Your consoles, install sizes, and any collections you create</li>
+      <li>A log of the high-level actions taken on your behalf (see "Your action history" below)</li>
+    </ul>
+  </div>
+
+  <div class="card privacy-section">
+    <h3>What we never collect</h3>
+    <ul>
+      <li>
+        Your NPSSO token — used once to obtain your access/refresh tokens, then discarded. It is never
+        written to a database or a log line.
+      </li>
+      <li>
+        Your email address — compared in memory against PlayStation's verified email at link time, then
+        forgotten. There is no email column anywhere in Curator's database.
+      </li>
+      <li>Trophies — read live from PlayStation and cached for 15 minutes, never stored permanently</li>
+      <li>Your presence, friends list, devices, or chat — read live if at all, never stored</li>
+      <li>Your real name, address, phone number, or any payment information</li>
+    </ul>
+  </div>
+
+  <div class="card privacy-section">
+    <h3>How it's protected</h3>
+    <p>
+      Access and refresh tokens are encrypted before they're stored; only Curator holds the key. Every
+      connection to Curator uses TLS. Your NPSSO is used once, in memory, and never persisted.
+    </p>
+  </div>
+
+  <div class="card privacy-section">
+    <h3>How long we keep it</h3>
+    <p>
+      Your library, tokens, and account data are kept until you unlink or delete your account. Trophy reads
+      are cached for 15 minutes and expire on their own. Your action history (below) is kept for one year,
+      including for a period after you delete your account — see "Your action history."
+    </p>
+  </div>
+
+  <div class="card privacy-section">
+    <h3>Your controls</h3>
+    <p>From your <a routerLink="/psn">PSN settings</a> page you can, at any time:</p>
+    <ul>
+      <li><strong>Unlink</strong> — immediately deletes your stored PlayStation tokens</li>
+      <li>
+        <strong>Delete my data</strong> — immediately deletes your account and everything associated with
+        it: your PSN link, library, consoles, collections, and any saved preferences. This is instant and
+        self-service; you don't need to email anyone to make it happen.
+      </li>
+    </ul>
+  </div>
+
+  <div class="card privacy-section">
+    <h3>Your action history</h3>
+    <p>
+      If your PlayStation account were ever compromised by something unrelated to Curator and you needed
+      to know exactly what Curator itself did with your account, this is how we — and you — can check.
+      Curator keeps a log of the high-level actions it takes on your behalf: linking attempts (and why one
+      failed, if it did), unlinking, library refresh requests, trophy fetches, and account deletion. It
+      never contains your NPSSO, your tokens, or raw data pulled from PlayStation — only which action
+      happened and when.
+    </p>
+    <p>
+      You can view and download this history yourself at any time from your PSN settings page. Because its
+      purpose is to answer disputes about what happened, this log is kept for one year and is not deleted
+      immediately when you delete your account — it outlives the "Delete my data" action for that one-year
+      window, then is purged automatically.
+    </p>
+  </div>
+
+  <div class="card privacy-section">
+    <h3>Open source</h3>
+    <p>
+      Every claim on this page is verifiable in public code — we'd rather you check than take our word for
+      it. Librarian (this site and its BFF) is at
+      <a href="https://github.com/crgolden/Librarian" target="_blank" rel="noopener">github.com/crgolden/Librarian</a>.
+      Curator (the API that handles your NPSSO, verifies your email, and stores your data) is at
+      <a href="https://github.com/crgolden/Curator" target="_blank" rel="noopener">github.com/crgolden/Curator</a>.
+      A few specific places worth pointing to directly: token encryption lives in
+      <a href="https://github.com/crgolden/Curator/blob/main/src/curator/persistence/crypto.py" target="_blank" rel="noopener">persistence/crypto.py</a>,
+      linking (including the never-persisted-NPSSO / in-memory email match) is in
+      <a href="https://github.com/crgolden/Curator/blob/main/src/curator/link_service.py" target="_blank" rel="noopener">link_service.py</a>,
+      the no-email-column schema tenet is documented in
+      <a href="https://github.com/crgolden/Curator/blob/main/db/migrations/0001_initial.sql" target="_blank" rel="noopener">db/migrations/0001_initial.sql</a>,
+      and the action-history log described above is
+      <a href="https://github.com/crgolden/Curator/blob/main/db/migrations/0003_account_action_log.sql" target="_blank" rel="noopener">db/migrations/0003_account_action_log.sql</a>.
+    </p>
+  </div>
+
+  <div class="card privacy-section">
+    <h3>Questions or data requests</h3>
+    <p>
+      Email <a href="mailto:privacy@crgolden.com">privacy&#64;crgolden.com</a> for anything not covered by
+      the self-service controls above.
+    </p>
+  </div>
+</section>

@@ -1,3 +1,5 @@
+<app-loading-overlay [visible]="overlayVisible()" />
+
 <section class="page-section psn-settings">
   <h1>PlayStation Network</h1>
   <p class="text-muted">Link your PSN account so Librarian can read your game library.</p>
@@ -31,10 +33,140 @@
         {{ unlinking() ? 'Unlinking...' : 'Unlink' }}
       </button>
     </div>
+
+    @if (preferences(); as prefs) {
+      <div class="card status-card psn-preferences">
+        <h2>Data sharing</h2>
+        <p class="text-muted">Choose what Librarian reads from your PlayStation Network account.</p>
+
+        @if (preferencesError()) {
+          <p class="text-error">{{ preferencesError() }}</p>
+        }
+
+        <div class="psn-preference-toggle">
+          <label for="pref-trophies">
+            <input
+              id="pref-trophies"
+              type="checkbox"
+              [ngModel]="prefs.harvest_trophies"
+              (ngModelChange)="onToggle('harvest_trophies', $event)"
+              [disabled]="savingPreference() !== null"
+            />
+            Trophies
+          </label>
+          <span class="text-muted">Level, tier, progress, and trophy counts.</span>
+        </div>
+
+        <div class="psn-preference-toggle">
+          <label for="pref-identity">
+            <input
+              id="pref-identity"
+              type="checkbox"
+              [ngModel]="prefs.harvest_identity"
+              (ngModelChange)="onToggle('harvest_identity', $event)"
+              [disabled]="savingPreference() !== null"
+            />
+            PSN Identity
+          </label>
+          <span class="text-muted">Your PSN online ID and account region.</span>
+        </div>
+
+        <div class="psn-preference-toggle">
+          <label for="pref-presence">
+            <input
+              id="pref-presence"
+              type="checkbox"
+              [ngModel]="prefs.harvest_presence"
+              (ngModelChange)="onToggle('harvest_presence', $event)"
+              [disabled]="savingPreference() !== null"
+            />
+            Online Presence
+          </label>
+          <span class="text-muted">Your live online status and what you're currently playing.</span>
+        </div>
+
+        <div class="psn-preference-toggle">
+          <label for="pref-devices">
+            <input
+              id="pref-devices"
+              type="checkbox"
+              [ngModel]="prefs.harvest_devices"
+              (ngModelChange)="onToggle('harvest_devices', $event)"
+              [disabled]="savingPreference() !== null"
+            />
+            Registered Devices
+          </label>
+          <span class="text-muted">Consoles and devices activated on your account.</span>
+        </div>
+      </div>
+
+      @if (prefs.harvest_trophies && trophySummary(); as summary) {
+        <div class="card status-card psn-category-card">
+          <h3>Trophies</h3>
+          <p>Level {{ summary.level }} &middot; Tier {{ summary.tier }} &middot; {{ summary.progress }}% to next level</p>
+          <p class="catalog-meta">{{ trophiesEarnedTotal(summary) }} trophies earned</p>
+          <p class="catalog-meta">
+            {{ summary.earned.platinum }} platinum &middot; {{ summary.earned.gold }} gold &middot;
+            {{ summary.earned.silver }} silver &middot; {{ summary.earned.bronze }} bronze
+          </p>
+        </div>
+      } @else if (prefs.harvest_trophies && trophySummaryError()) {
+        <p class="text-error">{{ trophySummaryError() }}</p>
+      }
+
+      @if (prefs.harvest_identity && identity(); as id) {
+        <div class="card status-card psn-category-card">
+          <h3>PSN Identity</h3>
+          <p>{{ id.online_id }}</p>
+          @if (id.region) {
+            <p class="catalog-meta">Region: {{ id.region }}</p>
+          }
+        </div>
+      } @else if (prefs.harvest_identity && identityError()) {
+        <p class="text-error">{{ identityError() }}</p>
+      }
+
+      @if (prefs.harvest_presence && presence(); as live) {
+        <div class="card status-card psn-category-card">
+          <h3>Online Presence <span class="text-muted">(live)</span></h3>
+          <p>{{ live.online_status }}</p>
+          @if (live.game_title) {
+            <p class="catalog-meta">Playing: {{ live.game_title }}</p>
+          }
+          @if (live.platform) {
+            <p class="catalog-meta">Platform: {{ live.platform }}</p>
+          }
+        </div>
+      } @else if (prefs.harvest_presence && presenceError()) {
+        <p class="text-error">{{ presenceError() }}</p>
+      }
+
+      @if (prefs.harvest_devices && devices(); as deviceList) {
+        <div class="card status-card psn-category-card">
+          <h3>Registered Devices</h3>
+          <ul class="psn-device-list">
+            @for (device of deviceList.devices; track device.device_id) {
+              <li>
+                {{ device.device_name }} ({{ device.device_type }})
+                @if (device.activation_date) {
+                  <span class="catalog-meta"> &mdash; activated {{ device.activation_date | date: 'medium' }}</span>
+                }
+              </li>
+            }
+          </ul>
+        </div>
+      } @else if (prefs.harvest_devices && devicesError()) {
+        <p class="text-error">{{ devicesError() }}</p>
+      }
+    }
   } @else {
     <form class="card status-card" (submit)="$event.preventDefault(); link()">
       <label for="npsso">NPSSO token</label>
       <input id="npsso" name="npsso" type="password" [ngModel]="npsso()" (ngModelChange)="npsso.set($event)" autocomplete="off" />
+      <span class="text-muted"
+        >Used once to link your account — never stored or logged. Not sure how to get yours? See the
+        <a routerLink="/faq">FAQ</a>.</span
+      >
       @if (error()) {
         <p class="text-error">{{ error() }}</p>
       }
@@ -45,5 +177,43 @@
         {{ linking() ? 'Linking...' : 'Link account' }}
       </button>
     </form>
+  }
+
+  @if (deleted()) {
+    <div class="card status-card">
+      <p class="text-success">Your account and all associated data have been deleted.</p>
+    </div>
+  } @else {
+    <div class="card status-card">
+      <h2>Delete my data</h2>
+      <p class="text-muted">
+        Permanently deletes your account: your PSN link, library, consoles, collections, and preferences.
+        This cannot be undone. See the <a routerLink="/privacy">privacy policy</a> for what this does and
+        does not remove.
+      </p>
+      @if (deleteError()) {
+        <p class="text-error">{{ deleteError() }}</p>
+      }
+      @if (confirmingDelete()) {
+        <p>Are you sure? This cannot be undone.</p>
+        <div class="delete-confirm-actions">
+          <button
+            type="button"
+            class="btn-ghost-danger btn-ghost"
+            (click)="confirmDeleteMyData()"
+            [disabled]="deletingAccount()"
+          >
+            {{ deletingAccount() ? 'Deleting...' : 'Yes, delete everything' }}
+          </button>
+          <button type="button" class="btn-ghost" (click)="cancelDeleteMyData()" [disabled]="deletingAccount()">
+            Cancel
+          </button>
+        </div>
+      } @else {
+        <button type="button" class="btn-ghost-danger btn-ghost" (click)="requestDeleteMyData()">
+          Delete my data
+        </button>
+      }
+    </div>
   }
 </section>

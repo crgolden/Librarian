@@ -21,12 +21,20 @@ export interface CatalogGameFixture {
   aaa_tier: string | null;
 }
 
+export interface PsnPreferencesFixture {
+  harvest_trophies?: boolean;
+  harvest_identity?: boolean;
+  harvest_presence?: boolean;
+  harvest_devices?: boolean;
+}
+
 export interface TestStore {
   reset(): Promise<void>;
   seedPsnLink(link?: {
     access_token_expires_at?: string | null;
     refresh_token_expires_at?: string | null;
   }): Promise<void>;
+  seedPsnPreferences(prefs: PsnPreferencesFixture): Promise<void>;
   seedCatalogGames(games: CatalogGameFixture[]): Promise<void>;
   seedConsoles(consoleIds: string[]): Promise<void>;
   setLibraryRefreshOutcome(outcome: 'succeeded' | 'failed', error?: string): Promise<void>;
@@ -102,6 +110,9 @@ export const test = base.extend<LibrarianFixtures>({
       },
       async seedPsnLink(link) {
         await fetchControl('/_test/psn-link', link ?? {});
+      },
+      async seedPsnPreferences(prefs) {
+        await fetchControl('/_test/psn-preferences', prefs);
       },
       async seedCatalogGames(games) {
         await fetchControl('/_test/catalog-games', { games });

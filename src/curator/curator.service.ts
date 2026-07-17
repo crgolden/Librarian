@@ -8,9 +8,15 @@ import {
   CollectionSpecRequest,
   ConsoleInstallResponse,
   DefinitionResponse,
+  DevicesResponse,
+  IdentityResponse,
   LibraryRefreshResponse,
   LibraryRefreshStatusResponse,
+  PresenceResponse,
+  PsnPreferencesRequest,
+  PsnPreferencesResponse,
   SaveDefinitionRequest,
+  TrophySummaryResponse,
 } from './curator.models';
 
 export interface CatalogGamesQuery {
@@ -75,5 +81,29 @@ export class CuratorService {
 
   getLibraryRefreshStatus(runId: string): Observable<LibraryRefreshStatusResponse> {
     return this.http.get<LibraryRefreshStatusResponse>(`/curator/api/library/refresh/${runId}`);
+  }
+
+  getPsnPreferences(): Observable<PsnPreferencesResponse> {
+    return this.http.get<PsnPreferencesResponse>('/curator/api/me/psn-preferences');
+  }
+
+  setPsnPreferences(body: PsnPreferencesRequest): Observable<void> {
+    return this.http.put<void>('/curator/api/me/psn-preferences', body);
+  }
+
+  getTrophySummary(): Observable<TrophySummaryResponse> {
+    return this.http.get<TrophySummaryResponse>('/curator/api/trophies/summary');
+  }
+
+  getIdentity(): Observable<IdentityResponse> {
+    return this.http.get<IdentityResponse>('/curator/api/identity');
+  }
+
+  getPresence(): Observable<PresenceResponse> {
+    return this.http.get<PresenceResponse>('/curator/api/presence');
+  }
+
+  getDevices(): Observable<DevicesResponse> {
+    return this.http.get<DevicesResponse>('/curator/api/devices');
   }
 }

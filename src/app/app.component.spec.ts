@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { AppComponent } from './app.component';
@@ -12,7 +13,7 @@ function configure(auth: Partial<AuthService>): void {
 
 describe('AppComponent', () => {
   it('shows a Sign in button and no user chip when anonymous', () => {
-    configure({ isAuthenticated: () => false, loginUrl: '/bff/login' });
+    configure({ isAuthenticated: signal(false), loginUrl: '/bff/login' });
 
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
@@ -27,11 +28,11 @@ describe('AppComponent', () => {
 
   it('shows the user chip, PSN Settings, and Sign out when authenticated', () => {
     configure({
-      isAuthenticated: () => true,
-      email: () => 'chris@example.com',
-      username: () => null,
-      picture: () => 'https://example.com/avatar.png',
-      logoutUrl: () => '/bff/logout?sid=abc',
+      isAuthenticated: signal(true),
+      email: signal('chris@example.com'),
+      username: signal(null),
+      picture: signal('https://example.com/avatar.png'),
+      logoutUrl: signal('/bff/logout?sid=abc'),
     });
 
     const fixture = TestBed.createComponent(AppComponent);
@@ -50,11 +51,11 @@ describe('AppComponent', () => {
 
   it('falls back to an initial-letter avatar when no picture claim is present', () => {
     configure({
-      isAuthenticated: () => true,
-      email: () => 'chris@example.com',
-      username: () => null,
-      picture: () => null,
-      logoutUrl: () => null,
+      isAuthenticated: signal(true),
+      email: signal('chris@example.com'),
+      username: signal(null),
+      picture: signal(null),
+      logoutUrl: signal(null),
     });
 
     const fixture = TestBed.createComponent(AppComponent);
@@ -69,11 +70,11 @@ describe('AppComponent', () => {
 
   it('falls back to username, then "?", when no email claim is present', () => {
     configure({
-      isAuthenticated: () => true,
-      email: () => null,
-      username: () => 'chris',
-      picture: () => null,
-      logoutUrl: () => null,
+      isAuthenticated: signal(true),
+      email: signal(null),
+      username: signal('chris'),
+      picture: signal(null),
+      logoutUrl: signal(null),
     });
 
     const fixture = TestBed.createComponent(AppComponent);
@@ -86,11 +87,11 @@ describe('AppComponent', () => {
 
   it('falls back to "you" / "?" when neither email nor username claims are present', () => {
     configure({
-      isAuthenticated: () => true,
-      email: () => null,
-      username: () => null,
-      picture: () => null,
-      logoutUrl: () => null,
+      isAuthenticated: signal(true),
+      email: signal(null),
+      username: signal(null),
+      picture: signal(null),
+      logoutUrl: signal(null),
     });
 
     const fixture = TestBed.createComponent(AppComponent);

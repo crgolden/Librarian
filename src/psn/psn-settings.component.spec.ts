@@ -4,6 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ActivatedRoute } from '@angular/router';
 import { PsnSettingsComponent } from './psn-settings.component';
 import { PsnStatus } from './psn-status.resolver';
+import { PsnPreferencesResponse } from '../curator/curator.models';
 
 type MeResponse = PsnStatus;
 
@@ -14,6 +15,11 @@ interface PsnSettingsHarness {
   npsso: { set(value: string): void };
   link(): void;
   unlink(): void;
+  onToggle(category: keyof PsnPreferencesResponse, newValue: boolean): void;
+  overlayVisible: () => boolean;
+  requestDeleteMyData(): void;
+  cancelDeleteMyData(): void;
+  confirmDeleteMyData(): void;
 }
 
 function harness(fixture: ComponentFixture<PsnSettingsComponent>): PsnSettingsHarness {
@@ -41,13 +47,29 @@ describe('PsnSettingsComponent', () => {
     httpMock.verify();
   });
 
+  const ALL_PREFS_OFF = {
+    harvest_trophies: false,
+    harvest_identity: false,
+    harvest_presence: false,
+    harvest_devices: false,
+  };
+
   // Status now arrives pre-resolved via the route's `status` resolver data (see psn-status.resolver.ts)
   // instead of a GET fired from ngOnInit -- `response: null` mirrors the resolver's own catchError(() =>
   // of(null)) fallback for a failed /me request.
+  //
+  // When the resolved status is linked, the component also fires a GET for PSN preferences (see
+  // applyStatus -> loadPreferences). Flush it with all-4-flags-false by default so no per-category
+  // cascade requests are opened, keeping httpMock.verify() clean for tests that don't care about
+  // preferences.
   function createAndLoad(response: MeResponse | null): ComponentFixture<PsnSettingsComponent> {
     routeSnapshotData.status = response;
     const fixture = TestBed.createComponent(PsnSettingsComponent);
     fixture.detectChanges(); // ngOnInit -> reads route.snapshot.data['status']
+    if (response?.linked) {
+      httpMock.expectOne('/curator/api/me/psn-preferences').flush(ALL_PREFS_OFF);
+      fixture.detectChanges();
+    }
     return fixture;
   }
 
@@ -139,6 +161,9 @@ describe('PsnSettingsComponent', () => {
 
     const reloadReq = httpMock.expectOne('/curator/api/me');
     reloadReq.flush({ sub: 'u1', email: null, linked: true, psn: null });
+    fixture.detectChanges();
+
+    httpMock.expectOne('/curator/api/me/psn-preferences').flush(ALL_PREFS_OFF);
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
@@ -239,5 +264,290 @@ describe('PsnSettingsComponent', () => {
 
     expect((fixture.nativeElement as HTMLElement).textContent)
       .toContain('Failed to unlink PlayStation Network account.');
+  });
+
+  // ── Delete my data ───────────────────────────────────────────────────────────
+
+  it('shows a "Delete my data" button that requires confirmation before calling DELETE /curator/api/me', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    expect(compiled.textContent).toContain('Delete my data');
+    httpMock.expectNone('/curator/api/me');
+
+    harness(fixture).requestDeleteMyData();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('Are you sure?');
+    httpMock.expectNone('/curator/api/me');
+  });
+
+  it('cancelDeleteMyData() backs out of the confirmation without deleting anything', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+    const h = harness(fixture);
+
+    h.requestDeleteMyData();
+    fixture.detectChanges();
+    h.cancelDeleteMyData();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Are you sure?');
+    httpMock.expectNone('/curator/api/me');
+  });
+
+  it('confirmDeleteMyData() deletes the account and shows a confirmation message on success', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+    const h = harness(fixture);
+
+    h.requestDeleteMyData();
+    h.confirmDeleteMyData();
+    fixture.detectChanges();
+
+    const req = httpMock.expectOne('/curator/api/me');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    fixture.detectChanges();
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.textContent).toContain('Your account and all associated data have been deleted.');
+  });
+
+  it('confirmDeleteMyData() surfaces an error message when the request fails', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+    const h = harness(fixture);
+
+    h.requestDeleteMyData();
+    h.confirmDeleteMyData();
+    fixture.detectChanges();
+
+    const req = httpMock.expectOne('/curator/api/me');
+    req.flush(null, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent)
+      .toContain('Failed to delete your account. Please try again.');
+  });
+
+  // ── PSN data-sharing preferences ────────────────────────────────────────────
+
+  const LINKED_STATUS: MeResponse = {
+    sub: 'u1',
+    email: null,
+    linked: true,
+    psn: { access_token_expires_at: null, refresh_token_expires_at: null },
+  };
+
+  const TROPHY_SUMMARY = {
+    level: 42,
+    progress: 65,
+    tier: 3,
+    earned: { bronze: 120, silver: 45, gold: 12, platinum: 3 },
+    account_id: 'acct-1',
+  };
+
+  /** Like createAndLoad, but flushes psn-preferences with the given flags instead of all-off,
+   * then flushes a GET for each enabled category so the fixture ends up settled. */
+  function createLinkedWithPreferences(
+    prefs: Record<keyof PsnPreferencesResponse, boolean>,
+  ): ComponentFixture<PsnSettingsComponent> {
+    routeSnapshotData.status = LINKED_STATUS;
+    const fixture = TestBed.createComponent(PsnSettingsComponent);
+    fixture.detectChanges();
+
+    httpMock.expectOne('/curator/api/me/psn-preferences').flush(prefs);
+    fixture.detectChanges();
+
+    if (prefs.harvest_trophies) {
+      httpMock.expectOne('/curator/api/trophies/summary').flush(TROPHY_SUMMARY);
+    }
+    if (prefs.harvest_identity) {
+      httpMock.expectOne('/curator/api/identity').flush({ account_id: 'acct-1', online_id: 'gamer', region: 'US' });
+    }
+    if (prefs.harvest_presence) {
+      httpMock
+        .expectOne('/curator/api/presence')
+        .flush({ online_status: 'online', platform: 'PS5', last_online_date: null, game_title: null });
+    }
+    if (prefs.harvest_devices) {
+      httpMock.expectOne('/curator/api/devices').flush({ devices: [] });
+    }
+    fixture.detectChanges();
+
+    return fixture;
+  }
+
+  it('fires the preferences GET only after the linked status resolves, and no per-category GET when all flags are off', () => {
+    const fixture = createAndLoad(LINKED_STATUS);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    expect(compiled.querySelector('.psn-preferences')).not.toBeNull();
+    expect(compiled.querySelectorAll('.psn-category-card').length).toBe(0);
+    httpMock.expectNone('/curator/api/trophies/summary');
+    httpMock.expectNone('/curator/api/identity');
+    httpMock.expectNone('/curator/api/presence');
+    httpMock.expectNone('/curator/api/devices');
+  });
+
+  it('does not fire a preferences GET when the account is not linked', () => {
+    createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+    httpMock.expectNone('/curator/api/me/psn-preferences');
+  });
+
+  it('fires a per-category GET only for the flags that are enabled on initial load', () => {
+    const fixture = createLinkedWithPreferences({
+      harvest_trophies: true,
+      harvest_identity: false,
+      harvest_presence: true,
+      harvest_devices: false,
+    });
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    expect(compiled.querySelectorAll('.psn-category-card').length).toBe(2);
+    expect(compiled.textContent).toContain('Level 42');
+    expect(compiled.textContent).toContain('online');
+    httpMock.expectNone('/curator/api/identity');
+    httpMock.expectNone('/curator/api/devices');
+  });
+
+  it('onToggle sends a PUT with all 4 current flags, not just the one being changed', () => {
+    const fixture = createLinkedWithPreferences({
+      harvest_trophies: false,
+      harvest_identity: true,
+      harvest_presence: false,
+      harvest_devices: true,
+    });
+
+    harness(fixture).onToggle('harvest_trophies', true);
+
+    const req = httpMock.expectOne('/curator/api/me/psn-preferences');
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({
+      harvest_trophies: true,
+      harvest_identity: true,
+      harvest_presence: false,
+      harvest_devices: true,
+    });
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    httpMock.expectOne('/curator/api/trophies/summary').flush(TROPHY_SUMMARY);
+  });
+
+  it('toggling a category on optimistically checks the box, fires its GET, and renders its card on success', async () => {
+    const fixture = createLinkedWithPreferences({
+      harvest_trophies: false,
+      harvest_identity: false,
+      harvest_presence: false,
+      harvest_devices: false,
+    });
+    const h = harness(fixture);
+
+    h.onToggle('harvest_trophies', true);
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.querySelector<HTMLInputElement>('#pref-trophies')?.checked).toBe(true);
+    expect(compiled.querySelector<HTMLInputElement>('#pref-trophies')?.disabled).toBe(true);
+
+    const putReq = httpMock.expectOne('/curator/api/me/psn-preferences');
+    putReq.flush(null, { status: 204, statusText: 'No Content' });
+    fixture.detectChanges();
+
+    const getReq = httpMock.expectOne('/curator/api/trophies/summary');
+    getReq.flush(TROPHY_SUMMARY);
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.psn-category-card')).not.toBeNull();
+    expect(compiled.textContent).toContain('Level 42');
+    expect(compiled.querySelector<HTMLInputElement>('#pref-trophies')?.disabled).toBe(false);
+  });
+
+  it('toggling a category off clears its data and hides the card without a new GET', () => {
+    const fixture = createLinkedWithPreferences({
+      harvest_trophies: true,
+      harvest_identity: false,
+      harvest_presence: false,
+      harvest_devices: false,
+    });
+    const h = harness(fixture);
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.querySelector('.psn-category-card')).not.toBeNull();
+
+    h.onToggle('harvest_trophies', false);
+    fixture.detectChanges();
+
+    const putReq = httpMock.expectOne('/curator/api/me/psn-preferences');
+    putReq.flush(null, { status: 204, statusText: 'No Content' });
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.psn-category-card')).toBeNull();
+    httpMock.expectNone('/curator/api/trophies/summary');
+  });
+
+  it('reverts the optimistic toggle and shows an error when the PUT fails', async () => {
+    const fixture = createLinkedWithPreferences({
+      harvest_trophies: false,
+      harvest_identity: false,
+      harvest_presence: false,
+      harvest_devices: false,
+    });
+    const h = harness(fixture);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    h.onToggle('harvest_trophies', true);
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+    expect(compiled.querySelector<HTMLInputElement>('#pref-trophies')?.checked).toBe(true);
+
+    const putReq = httpMock.expectOne('/curator/api/me/psn-preferences');
+    putReq.flush(null, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expect(compiled.querySelector<HTMLInputElement>('#pref-trophies')?.checked).toBe(false);
+    expect(compiled.textContent).toContain('Failed to update preference. Please try again.');
+    expect(compiled.querySelector('.psn-category-card')).toBeNull();
+    httpMock.expectNone('/curator/api/trophies/summary');
+  });
+
+  it('the loading overlay is visible during linking, unlinking, and a preference save, and hidden otherwise', () => {
+    const fixture = createLinkedWithPreferences({
+      harvest_trophies: false,
+      harvest_identity: false,
+      harvest_presence: false,
+      harvest_devices: false,
+    });
+    const h = harness(fixture);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    expect(compiled.querySelector('.loading-overlay')).toBeNull();
+
+    h.onToggle('harvest_trophies', true);
+    fixture.detectChanges();
+    expect(compiled.querySelector('.loading-overlay')).not.toBeNull();
+
+    const putReq = httpMock.expectOne('/curator/api/me/psn-preferences');
+    putReq.flush(null, { status: 204, statusText: 'No Content' });
+    fixture.detectChanges();
+    httpMock.expectOne('/curator/api/trophies/summary').flush(TROPHY_SUMMARY);
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.loading-overlay')).toBeNull();
+
+    h.unlink();
+    fixture.detectChanges();
+    expect(compiled.querySelector('.loading-overlay')).not.toBeNull();
+
+    const unlinkReq = httpMock.expectOne('/curator/api/psn/link');
+    unlinkReq.flush({});
+    const reloadReq = httpMock.expectOne('/curator/api/me');
+    reloadReq.flush({ sub: 'u1', email: null, linked: false, psn: null });
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.loading-overlay')).toBeNull();
   });
 });

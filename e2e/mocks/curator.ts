@@ -16,11 +16,26 @@ export interface PsnLink {
   refresh_token_expires_at: string | null;
 }
 
+export interface PsnPreferences {
+  harvest_trophies: boolean;
+  harvest_identity: boolean;
+  harvest_presence: boolean;
+  harvest_devices: boolean;
+}
+
 export interface UserRecord {
   sub: string;
   email: string | null;
   psn: PsnLink | null;
+  psnPreferences: PsnPreferences;
 }
+
+const DEFAULT_PSN_PREFERENCES: PsnPreferences = {
+  harvest_trophies: false,
+  harvest_identity: false,
+  harvest_presence: false,
+  harvest_devices: false,
+};
 
 export interface GameSummary {
   game_id: string;
@@ -83,10 +98,44 @@ let CATALOG_GAMES: GameSummary[] = [
   { game_id: 'g-stray', canonical_title: 'Stray', franchise: null, genre: 'Adventure', aaa_tier: 'Indie' },
 ];
 
+const TROPHY_SUMMARY = {
+  level: 42,
+  progress: 65,
+  tier: 3,
+  earned: { bronze: 120, silver: 45, gold: 12, platinum: 3 },
+  account_id: 'psn-account-e2e',
+};
+
+const IDENTITY = {
+  account_id: 'psn-account-e2e',
+  online_id: 'e2e_gamer',
+  region: 'US',
+};
+
+const PRESENCE = {
+  online_status: 'online',
+  platform: 'PS5',
+  last_online_date: '2026-07-16T12:00:00Z',
+  game_title: 'Bloodborne',
+};
+
+const DEVICES = {
+  devices: [
+    {
+      device_id: 'dev-1',
+      device_type: 'PS5',
+      device_name: 'My PS5',
+      activation_type: 'primary',
+      activation_date: '2024-01-01T00:00:00Z',
+      deactivation_date: null,
+    },
+  ],
+};
+
 function currentUser(): UserRecord {
   let user = users.get(DEFAULT_SUB);
   if (!user) {
-    user = { sub: DEFAULT_SUB, email: 'e2e@test.invalid', psn: null };
+    user = { sub: DEFAULT_SUB, email: 'e2e@test.invalid', psn: null, psnPreferences: { ...DEFAULT_PSN_PREFERENCES } };
     users.set(DEFAULT_SUB, user);
   }
   return user;
@@ -202,6 +251,14 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
+  /** Seed the current user's PSN harvest preferences (defaults back to all-false on reset). */
+  app.post('/_test/psn-preferences', (req: Request, res: Response) => {
+    const body = req.body as Partial<PsnPreferences>;
+    const user = currentUser();
+    user.psnPreferences = { ...DEFAULT_PSN_PREFERENCES, ...body };
+    res.status(204).end();
+  });
+
   // ── Curator API routes (no path prefix, matches the real upstream API) ──────
 
   /** GET /health — anonymous liveness check. */
@@ -218,6 +275,14 @@ export function createCuratorApp(): Express {
       linked: user.psn !== null,
       psn: user.psn,
     });
+  });
+
+  /** DELETE /me — permanently delete the caller's account and all associated data. */
+  app.delete('/me', (_req: Request, res: Response) => {
+    users.delete(DEFAULT_SUB);
+    consoles.delete(DEFAULT_SUB);
+    definitions.delete(DEFAULT_SUB);
+    res.status(204).end();
   });
 
   /** POST /psn/link — link a PSN account via NPSSO token. */
@@ -239,6 +304,84 @@ export function createCuratorApp(): Express {
     const user = currentUser();
     user.psn = null;
     res.status(204).end();
+  });
+
+  /** GET /me/psn-preferences — the caller's PSN harvest preference flags. 404 if not linked. */
+  app.get('/me/psn-preferences', (_req: Request, res: Response) => {
+    const user = currentUser();
+    if (!user.psn) {
+      res.status(404).json({ detail: 'PSN account is not linked.' });
+      return;
+    }
+    res.json(user.psnPreferences);
+  });
+
+  /** PUT /me/psn-preferences — replace all 4 harvest preference flags. 404 if not linked. */
+  app.put('/me/psn-preferences', (req: Request, res: Response) => {
+    const user = currentUser();
+    if (!user.psn) {
+      res.status(404).json({ detail: 'PSN account is not linked.' });
+      return;
+    }
+    const body = req.body as Partial<PsnPreferences>;
+    user.psnPreferences = { ...DEFAULT_PSN_PREFERENCES, ...body };
+    res.status(204).end();
+  });
+
+  /** GET /trophies/summary — 404 if unlinked, 403 if harvest_trophies is off. */
+  app.get('/trophies/summary', (_req: Request, res: Response) => {
+    const user = currentUser();
+    if (!user.psn) {
+      res.status(404).json({ detail: 'PSN account is not linked.' });
+      return;
+    }
+    if (!user.psnPreferences.harvest_trophies) {
+      res.status(403).json({ detail: 'Trophy harvesting is disabled for this account.' });
+      return;
+    }
+    res.json(TROPHY_SUMMARY);
+  });
+
+  /** GET /identity — 404 if unlinked, 403 if harvest_identity is off. */
+  app.get('/identity', (_req: Request, res: Response) => {
+    const user = currentUser();
+    if (!user.psn) {
+      res.status(404).json({ detail: 'PSN account is not linked.' });
+      return;
+    }
+    if (!user.psnPreferences.harvest_identity) {
+      res.status(403).json({ detail: 'Identity harvesting is disabled for this account.' });
+      return;
+    }
+    res.json(IDENTITY);
+  });
+
+  /** GET /presence — 404 if unlinked, 403 if harvest_presence is off. */
+  app.get('/presence', (_req: Request, res: Response) => {
+    const user = currentUser();
+    if (!user.psn) {
+      res.status(404).json({ detail: 'PSN account is not linked.' });
+      return;
+    }
+    if (!user.psnPreferences.harvest_presence) {
+      res.status(403).json({ detail: 'Presence harvesting is disabled for this account.' });
+      return;
+    }
+    res.json(PRESENCE);
+  });
+
+  /** GET /devices — 404 if unlinked, 403 if harvest_devices is off. */
+  app.get('/devices', (_req: Request, res: Response) => {
+    const user = currentUser();
+    if (!user.psn) {
+      res.status(404).json({ detail: 'PSN account is not linked.' });
+      return;
+    }
+    if (!user.psnPreferences.harvest_devices) {
+      res.status(403).json({ detail: 'Device harvesting is disabled for this account.' });
+      return;
+    }
+    res.json(DEVICES);
   });
 
   /** GET /catalog/games — filter + paginate the fixed catalog fixture. */

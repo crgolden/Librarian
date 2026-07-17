@@ -6,6 +6,8 @@ import { psnStatusResolver } from '../psn/psn-status.resolver';
 import { CatalogComponent } from '../catalog/catalog.component';
 import { CollectionsComponent } from '../collections/collections.component';
 import { LibraryComponent } from '../library/library.component';
+import { FaqComponent } from '../faq/faq.component';
+import { PrivacyComponent } from '../privacy/privacy.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent, title: 'Librarian' },
@@ -19,5 +21,7 @@ export const routes: Routes = [
   { path: 'catalog', component: CatalogComponent, canActivate: [authGuard], title: 'Catalog' },
   { path: 'collections', component: CollectionsComponent, canActivate: [authGuard], title: 'Collections' },
   { path: 'library', component: LibraryComponent, canActivate: [authGuard], title: 'Library' },
+  { path: 'faq', component: FaqComponent, title: 'FAQ' },
+  { path: 'privacy', component: PrivacyComponent, title: 'Privacy Policy' },
   { path: '**', redirectTo: '' },
 ];

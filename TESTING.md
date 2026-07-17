@@ -34,8 +34,10 @@ always call `fixture.detectChanges()` manually.
 No live servers needed. Playwright manages two local servers for the test run:
 
 1. **Mock Curator API** (`e2e/mocks/curator-server.ts`, backed by `e2e/mocks/curator.ts`) — handles
-   `/me`, `/psn/link` (POST/DELETE), and the `/_test/*` control API used by test helpers
-   (`e2e/fixtures.ts`).
+   `/me`, `/psn/link` (POST/DELETE), `/me/psn-preferences` (GET/PUT), `/trophies/summary`, `/identity`,
+   `/presence`, `/devices` (each enforcing the same 404-unlinked/403-flag-off semantics as the real
+   backend), and the `/_test/*` control API used by test helpers (`e2e/fixtures.ts`, including
+   `seedPsnPreferences`).
 2. **Node SSR + BFF server** — starts the built `dist/librarian.client/server/server.mjs` with
    in-memory session store, dummy OIDC values, and `CuratorApiAddress` pointing at the mock.
 
@@ -60,7 +62,9 @@ npm run e2e   # self-builds the ci configuration (allowedHosts=localhost), then 
 Failure artifacts (screenshot, trace, video) are written to `playwright-artifacts/`.
 
 **E2E coverage (`e2e/`):** `home.spec.ts` (public landing), `psn.spec.ts` (auth guard redirect,
-link/unlink flows against the mock Curator API).
+link/unlink flows, and the per-category data-harvest preference toggles — all off by default after
+linking, toggling a category on shows its card and persists across reload, toggling off hides it
+immediately — against the mock Curator API).
 
 ---
 
