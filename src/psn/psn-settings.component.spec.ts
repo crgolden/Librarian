@@ -1,14 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ActivatedRoute } from '@angular/router';
 import { PsnSettingsComponent } from './psn-settings.component';
+import { PsnStatus } from './psn-status.resolver';
 
-interface MeResponse {
-  sub: string;
-  email: string | null;
-  linked: boolean;
-  psn: { access_token_expires_at: string | null; refresh_token_expires_at: string | null } | null;
-}
+type MeResponse = PsnStatus;
 
 // Internal signals/methods are `protected`, not part of the component's public API — but driving
 // link()/unlink() through simulated ngModel/DOM events is brittle for a password-type input, so
@@ -25,11 +22,17 @@ function harness(fixture: ComponentFixture<PsnSettingsComponent>): PsnSettingsHa
 
 describe('PsnSettingsComponent', () => {
   let httpMock: HttpTestingController;
+  let routeSnapshotData: { status: MeResponse | null };
 
   beforeEach(() => {
+    routeSnapshotData = { status: null };
     TestBed.configureTestingModule({
       imports: [PsnSettingsComponent],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: ActivatedRoute, useValue: { snapshot: { data: routeSnapshotData } } },
+      ],
     });
     httpMock = TestBed.inject(HttpTestingController);
   });
@@ -38,21 +41,13 @@ describe('PsnSettingsComponent', () => {
     httpMock.verify();
   });
 
-  function createAndLoad(
-    response: MeResponse | null,
-    errorStatus?: number,
-  ): ComponentFixture<PsnSettingsComponent> {
+  // Status now arrives pre-resolved via the route's `status` resolver data (see psn-status.resolver.ts)
+  // instead of a GET fired from ngOnInit -- `response: null` mirrors the resolver's own catchError(() =>
+  // of(null)) fallback for a failed /me request.
+  function createAndLoad(response: MeResponse | null): ComponentFixture<PsnSettingsComponent> {
+    routeSnapshotData.status = response;
     const fixture = TestBed.createComponent(PsnSettingsComponent);
-    fixture.detectChanges(); // ngOnInit -> GET /curator/api/me
-
-    const req = httpMock.expectOne('/curator/api/me');
-    expect(req.request.method).toBe('GET');
-    if (errorStatus) {
-      req.flush(null, { status: errorStatus, statusText: 'Error' });
-    } else {
-      req.flush(response);
-    }
-    fixture.detectChanges();
+    fixture.detectChanges(); // ngOnInit -> reads route.snapshot.data['status']
     return fixture;
   }
 
@@ -111,8 +106,8 @@ describe('PsnSettingsComponent', () => {
     expect(warning?.textContent).toContain('NPSSO');
   });
 
-  it('shows an error and still falls back to the link form when the status request fails', () => {
-    const fixture = createAndLoad(null, 500);
+  it('shows an error and still falls back to the link form when the resolver could not load status', () => {
+    const fixture = createAndLoad(null);
     const compiled: HTMLElement = fixture.nativeElement;
 
     expect(compiled.querySelector('#npsso')).not.toBeNull();

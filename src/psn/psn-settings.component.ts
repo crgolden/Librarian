@@ -2,13 +2,10 @@ import { DatePipe } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
+import { PsnStatus } from './psn-status.resolver';
 
-interface MeResponse {
-  sub: string;
-  email: string | null;
-  linked: boolean;
-  psn: { access_token_expires_at: string | null; refresh_token_expires_at: string | null } | null;
-}
+type MeResponse = PsnStatus;
 
 const LINK_ERROR_MESSAGES: Record<string, string> = {
   mismatch:
@@ -34,12 +31,13 @@ function linkErrorMessage(err: HttpErrorResponse): string {
 })
 export class PsnSettingsComponent implements OnInit {
   private readonly http = inject(HttpClient);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly npsso = signal('');
   protected readonly linked = signal(false);
   protected readonly accessTokenExpiresAt = signal<string | null>(null);
   protected readonly refreshTokenExpiresAt = signal<string | null>(null);
-  protected readonly loadingStatus = signal(true);
+  protected readonly loadingStatus = signal(false);
   protected readonly linking = signal(false);
   protected readonly unlinking = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -50,7 +48,18 @@ export class PsnSettingsComponent implements OnInit {
   );
 
   ngOnInit(): void {
-    this.loadStatus();
+    const status = this.route.snapshot.data['status'] as MeResponse | null;
+    if (status === null) {
+      this.error.set('Unable to load PSN link status.');
+      return;
+    }
+    this.applyStatus(status);
+  }
+
+  private applyStatus(me: MeResponse): void {
+    this.linked.set(me.linked);
+    this.accessTokenExpiresAt.set(me.psn?.access_token_expires_at ?? null);
+    this.refreshTokenExpiresAt.set(me.psn?.refresh_token_expires_at ?? null);
   }
 
   private loadStatus(): void {
@@ -58,9 +67,7 @@ export class PsnSettingsComponent implements OnInit {
     this.error.set(null);
     this.http.get<MeResponse>('/curator/api/me').subscribe({
       next: (me) => {
-        this.linked.set(me.linked);
-        this.accessTokenExpiresAt.set(me.psn?.access_token_expires_at ?? null);
-        this.refreshTokenExpiresAt.set(me.psn?.refresh_token_expires_at ?? null);
+        this.applyStatus(me);
         this.loadingStatus.set(false);
       },
       error: () => {
