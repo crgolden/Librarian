@@ -179,6 +179,39 @@
     </form>
   }
 
+  <div class="card status-card">
+    <h2>Your action history</h2>
+    <p class="text-muted">
+      Every high-level action Curator has taken on your behalf — linking attempts, unlinks, library
+      refreshes, trophy fetches — kept for one year. See the <a routerLink="/privacy">privacy policy</a>
+      for details.
+    </p>
+    @if (actionsError()) {
+      <p class="text-error">{{ actionsError() }}</p>
+    }
+    @if (actions() === null) {
+      <button type="button" class="btn-ghost" (click)="loadMyActions()" [disabled]="actionsLoading()">
+        {{ actionsLoading() ? 'Loading...' : 'View my action history' }}
+      </button>
+    } @else {
+      @if (actions()!.length === 0) {
+        <p class="text-muted">No actions recorded yet.</p>
+      } @else {
+        <ul class="action-history-list">
+          @for (entry of actions(); track entry.occurred_at + entry.action) {
+            <li>
+              <span class="catalog-meta">{{ entry.occurred_at | date: 'medium' }}</span>
+              — {{ entry.action }}@if (entry.detail) {
+                <span> ({{ entry.detail }})</span>
+              }
+            </li>
+          }
+        </ul>
+      }
+      <button type="button" class="btn-ghost" (click)="downloadMyActions()">Download as JSON</button>
+    }
+  </div>
+
   @if (deleted()) {
     <div class="card status-card">
       <p class="text-success">Your account and all associated data have been deleted.</p>

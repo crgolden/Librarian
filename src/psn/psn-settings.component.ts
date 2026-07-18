@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CuratorService } from '../curator/curator.service';
 import {
+  AccountActionResponse,
   DevicesResponse,
   IdentityResponse,
   PresenceResponse,
@@ -57,6 +58,10 @@ export class PsnSettingsComponent implements OnInit {
   protected readonly deletingAccount = signal(false);
   protected readonly deleted = signal(false);
   protected readonly deleteError = signal<string | null>(null);
+
+  protected readonly actions = signal<AccountActionResponse[] | null>(null);
+  protected readonly actionsLoading = signal(false);
+  protected readonly actionsError = signal<string | null>(null);
 
   protected readonly preferences = signal<PsnPreferencesResponse | null>(null);
   protected readonly preferencesError = signal<string | null>(null);
@@ -321,6 +326,37 @@ export class PsnSettingsComponent implements OnInit {
         this.error.set('Failed to unlink PlayStation Network account.');
       },
     });
+  }
+
+  protected loadMyActions(): void {
+    this.actionsLoading.set(true);
+    this.actionsError.set(null);
+
+    this.curator.getMyActions().subscribe({
+      next: (response) => {
+        this.actions.set(response.actions);
+        this.actionsLoading.set(false);
+      },
+      error: () => {
+        this.actionsError.set('Unable to load your action history.');
+        this.actionsLoading.set(false);
+      },
+    });
+  }
+
+  protected downloadMyActions(): void {
+    const actions = this.actions();
+    if (!actions) {
+      return;
+    }
+
+    const blob = new Blob([JSON.stringify(actions, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'librarian-account-history.json';
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   protected requestDeleteMyData(): void {

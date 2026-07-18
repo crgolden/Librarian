@@ -17,6 +17,7 @@ interface PsnSettingsHarness {
   unlink(): void;
   onToggle(category: keyof PsnPreferencesResponse, newValue: boolean): void;
   overlayVisible: () => boolean;
+  loadMyActions(): void;
   requestDeleteMyData(): void;
   cancelDeleteMyData(): void;
   confirmDeleteMyData(): void;
@@ -264,6 +265,53 @@ describe('PsnSettingsComponent', () => {
 
     expect((fixture.nativeElement as HTMLElement).textContent)
       .toContain('Failed to unlink PlayStation Network account.');
+  });
+
+  // ── Action history ───────────────────────────────────────────────────────────
+
+  it('shows a "View my action history" button initially, with no request fired', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('View my action history');
+    httpMock.expectNone('/curator/api/me/actions');
+  });
+
+  it('loads and renders the action history on click', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+
+    harness(fixture).loadMyActions();
+    const req = httpMock.expectOne('/curator/api/me/actions');
+    req.flush({
+      actions: [{ action: 'link_succeeded', detail: null, occurred_at: '2026-01-01T00:00:00Z' }],
+    });
+    fixture.detectChanges();
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.textContent).toContain('link_succeeded');
+    expect(compiled.querySelector('button.btn-ghost')).not.toBeNull();
+  });
+
+  it('shows a message when there is no history yet', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+
+    harness(fixture).loadMyActions();
+    const req = httpMock.expectOne('/curator/api/me/actions');
+    req.flush({ actions: [] });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('No actions recorded yet.');
+  });
+
+  it('surfaces an error message when loading the action history fails', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+
+    harness(fixture).loadMyActions();
+    const req = httpMock.expectOne('/curator/api/me/actions');
+    req.flush(null, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent)
+      .toContain('Unable to load your action history.');
   });
 
   // ── Delete my data ───────────────────────────────────────────────────────────

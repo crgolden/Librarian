@@ -32,6 +32,20 @@
   gap: var(--space-3);
 }
 
+.action-history-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  align-self: stretch;
+}
+
+.action-history-list li {
+  margin-bottom: var(--space-2);
+}
+
+.action-history-list li:last-child {
+  margin-bottom: 0;
+}
+
 .psn-preference-toggle {
   display: flex;
   flex-direction: column;

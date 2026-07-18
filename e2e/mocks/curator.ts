@@ -79,13 +79,26 @@ interface LibraryRefreshOutcome {
 
 // ── In-memory store ───────────────────────────────────────────────────────────
 
+interface ActionLogEntry {
+  action: string;
+  detail: string | null;
+  occurred_at: string;
+}
+
 const users = new Map<string, UserRecord>();
 const consoles = new Map<string, Set<string>>();
 const definitions = new Map<string, DefinitionRecord[]>();
 const libraryRuns = new Map<string, LibraryRun>();
 const nextLibraryOutcome = new Map<string, LibraryRefreshOutcome>();
+const actionLog = new Map<string, ActionLogEntry[]>();
 
 const DEFAULT_SUB = 'e2e-user-id';
+
+function logAction(action: string, detail: string | null = null): void {
+  const entries = actionLog.get(DEFAULT_SUB) ?? [];
+  entries.push({ action, detail, occurred_at: new Date().toISOString() });
+  actionLog.set(DEFAULT_SUB, entries);
+}
 
 let CATALOG_GAMES: GameSummary[] = [
   { game_id: 'g-uncharted-4', canonical_title: 'Uncharted 4: A Thief’s End', franchise: 'Uncharted', genre: 'Action-Adventure', aaa_tier: 'AAA' },
@@ -214,6 +227,7 @@ export function createCuratorApp(): Express {
     definitions.clear();
     libraryRuns.clear();
     nextLibraryOutcome.clear();
+    actionLog.clear();
     res.status(204).end();
   });
 
@@ -279,10 +293,16 @@ export function createCuratorApp(): Express {
 
   /** DELETE /me — permanently delete the caller's account and all associated data. */
   app.delete('/me', (_req: Request, res: Response) => {
+    logAction('account_deleted');
     users.delete(DEFAULT_SUB);
     consoles.delete(DEFAULT_SUB);
     definitions.delete(DEFAULT_SUB);
     res.status(204).end();
+  });
+
+  /** GET /me/actions — the caller's own action-history log. */
+  app.get('/me/actions', (_req: Request, res: Response) => {
+    res.json({ actions: actionLog.get(DEFAULT_SUB) ?? [] });
   });
 
   /** POST /psn/link — link a PSN account via NPSSO token. */
@@ -296,6 +316,7 @@ export function createCuratorApp(): Express {
 
     const user = currentUser();
     user.psn = { access_token_expires_at: '2026-08-01T00:00:00Z', refresh_token_expires_at: '2027-01-01T00:00:00Z' };
+    logAction('link_succeeded');
     res.status(200).json({ linked: true, psn: user.psn });
   });
 
@@ -303,6 +324,7 @@ export function createCuratorApp(): Express {
   app.delete('/psn/link', (_req: Request, res: Response) => {
     const user = currentUser();
     user.psn = null;
+    logAction('unlinked');
     res.status(204).end();
   });
 

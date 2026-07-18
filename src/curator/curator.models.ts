@@ -129,3 +129,13 @@ export interface DeviceResponse {
 export interface DevicesResponse {
   devices: DeviceResponse[];
 }
+
+export interface AccountActionResponse {
+  action: string;
+  detail: string | null;
+  occurred_at: string;
+}
+
+export interface AccountActionsResponse {
+  actions: AccountActionResponse[];
+}

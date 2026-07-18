@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  AccountActionsResponse,
   CatalogGamesResponse,
   CollectionPreviewResponse,
   CollectionRunResponse,
@@ -105,5 +106,9 @@ export class CuratorService {
 
   getDevices(): Observable<DevicesResponse> {
     return this.http.get<DevicesResponse>('/curator/api/devices');
+  }
+
+  getMyActions(): Observable<AccountActionsResponse> {
+    return this.http.get<AccountActionsResponse>('/curator/api/me/actions');
   }
 }

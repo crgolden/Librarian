@@ -73,6 +73,42 @@ test.describe('PSN settings — authenticated', () => {
   });
 });
 
+test.describe('PSN settings — action history', () => {
+  test('shows a message when there is no history yet', async ({ authedPage: page, store }) => {
+    await store.reset();
+
+    await page.goto('/psn');
+    await page.getByRole('button', { name: 'View my action history' }).click();
+    await expect(page.getByText('No actions recorded yet.')).toBeVisible();
+  });
+
+  test('shows recorded actions after linking and unlinking, and offers a download button', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+
+    await page.goto('/psn');
+    await page.getByLabel('NPSSO token').fill('fake-npsso-token');
+    await page.getByRole('button', { name: 'Link account' }).click();
+    await expect(page.getByRole('button', { name: 'Unlink' })).toBeVisible({ timeout: 10_000 });
+
+    await page.getByRole('button', { name: 'Unlink' }).click();
+    await expect(page.getByRole('button', { name: 'Link account' })).toBeVisible({ timeout: 10_000 });
+
+    await page.getByRole('button', { name: 'View my action history' }).click();
+    const historyList = page.locator('.action-history-list');
+    await expect(historyList.getByText(/link_succeeded/)).toBeVisible();
+    await expect(historyList.getByText(/unlinked/)).toBeVisible();
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Download as JSON' }).click(),
+    ]);
+    expect(download.suggestedFilename()).toBe('librarian-account-history.json');
+  });
+});
+
 test.describe('PSN settings — delete my data', () => {
   test('requires confirmation, then deletes the account and shows a confirmation message', async ({
     authedPage: page,
