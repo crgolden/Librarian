@@ -31,6 +31,7 @@ coverage
 /test-results
 playwright-results.xml
 /.playwright
+/.playwright-cli
 
 # SonarQube scanner work directories
 .sonarqube/

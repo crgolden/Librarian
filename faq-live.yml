@@ -1,0 +1,76 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "Librarian" [ref=e5] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e6]:
+        - link "Sign in" [ref=e7] [cursor=pointer]:
+          - /url: /bff/login
+  - main [ref=e8]:
+    - generic [ref=e10]:
+      - heading "Frequently Asked Questions" [level=1] [ref=e11]
+      - paragraph [ref=e12]: Linking your PlayStation account means giving Librarian a token called an NPSSO. That's a reasonable thing to be cautious about, so here's exactly what happens when you do it.
+      - generic [ref=e13]:
+        - heading "What is an NPSSO token?" [level=3] [ref=e14]
+        - paragraph [ref=e15]: "It's a session token Sony issues after you sign in at playstation.com. It works like a password — anyone who has it can act as you on PlayStation Network until it expires (about 60 days). Treat it the same way you'd treat a password: don't paste it into a site you don't trust, and don't share it."
+      - generic [ref=e16]:
+        - heading "How do I get mine?" [level=3] [ref=e17]
+        - paragraph [ref=e18]:
+          - text: Sign in at
+          - link "playstation.com" [ref=e19] [cursor=pointer]:
+            - /url: https://playstation.com
+          - text: ", then in that same browser (not a different one, not incognito) visit"
+          - code [ref=e20]: https://ca.account.sony.com/api/v1/ssocookie
+          - text: . The page returns a short block of JSON with an
+          - code [ref=e21]: npsso
+          - text: field — that value is your token. Paste it into the PSN link form on your
+          - link "PSN settings" [ref=e49] [cursor=pointer]:
+            - /url: /psn
+          - text: page.
+      - generic [ref=e22]:
+        - heading "What does Librarian do with it?" [level=3] [ref=e23]
+        - paragraph [ref=e24]: Librarian passes your NPSSO to Curator, the API that actually talks to PlayStation. Curator uses it once, immediately, to ask Sony for an access token and a refresh token — then discards the NPSSO. It is never written to a database and never appears in a log line anywhere in Curator's code.
+      - generic [ref=e25]:
+        - heading "Why does linking need my email at all?" [level=3] [ref=e26]
+        - paragraph [ref=e27]: Before Curator keeps anything, it checks that the email PlayStation has on file for your account — and confirms is verified — matches the email your sign-in already established. That comparison happens in memory and is never written down; there is no email column anywhere in Curator's database. If the emails don't match, or PSN reports the email as unverified, the tokens Curator just obtained are deleted immediately and nothing is linked.
+      - generic [ref=e28]:
+        - heading "What happens to the access and refresh tokens?" [level=3] [ref=e29]
+        - paragraph [ref=e30]:
+          - text: They're encrypted before they're stored, and only Curator holds the key. You can see when they expire on your
+          - link "PSN settings" [ref=e50] [cursor=pointer]:
+            - /url: /psn
+          - text: page.
+      - generic [ref=e31]:
+        - heading "How do I revoke access?" [level=3] [ref=e32]
+        - paragraph [ref=e33]:
+          - text: Two options, and you can use either or both.
+          - strong [ref=e34]: Unlink
+          - text: on your PSN settings page deletes Curator's copy of your tokens right away. Sony doesn't give third parties a way to revoke a token remotely, so if you want to be certain the NPSSO itself can't be used by anyone, sign out of all devices at playstation.com — that invalidates it at the source.
+      - generic [ref=e35]:
+        - heading "Can I see everything Curator has done with my account?" [level=3] [ref=e36]
+        - paragraph [ref=e37]:
+          - text: Yes. Every linking attempt, unlink, library refresh, and trophy fetch Curator performs on your behalf is recorded in an action log you can view and download yourself — see the
+          - link "privacy policy" [ref=e51] [cursor=pointer]:
+            - /url: /privacy
+          - text: for what's in it and how long it's kept.
+      - generic [ref=e38]:
+        - heading "Is this actually safe, or am I just supposed to trust you?" [level=3] [ref=e39]
+        - paragraph [ref=e40]:
+          - text: Don't take our word for it — both apps are open source. Librarian (this site, including the BFF that proxies your requests) is at
+          - link "github.com/crgolden/Librarian" [ref=e41] [cursor=pointer]:
+            - /url: https://github.com/crgolden/Librarian
+          - text: ", and Curator (the API that handles your NPSSO, verifies your email, and stores your tokens) is at"
+          - link "github.com/crgolden/Curator" [ref=e42] [cursor=pointer]:
+            - /url: https://github.com/crgolden/Curator
+          - text: . Every claim on this page and in the
+          - link "privacy policy" [ref=e52] [cursor=pointer]:
+            - /url: /privacy
+          - text: is something you can go read in the code.
+  - contentinfo [ref=e43]:
+    - generic [ref=e44]:
+      - paragraph [ref=e45]: Librarian — game curation frontend for the Curator API.
+      - navigation [ref=e46]:
+        - link "FAQ" [ref=e47] [cursor=pointer]:
+          - /url: /faq
+        - link "Privacy" [ref=e48] [cursor=pointer]:
+          - /url: /privacy

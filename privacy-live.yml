@@ -1,0 +1,94 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "Librarian" [ref=e5] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e6]:
+        - link "Sign in" [ref=e7] [cursor=pointer]:
+          - /url: /bff/login
+  - main [ref=e8]:
+    - generic [ref=e54]:
+      - heading "Privacy Policy" [level=1] [ref=e55]
+      - paragraph [ref=e56]:
+        - text: Effective 2026-07-17. See the
+        - link "FAQ" [ref=e57] [cursor=pointer]:
+          - /url: /faq
+        - text: for a plainer walkthrough of linking your account.
+      - generic [ref=e58]:
+        - heading "What we collect" [level=3] [ref=e59]
+        - paragraph [ref=e60]: "When you link your PlayStation account, Curator stores:"
+        - list [ref=e61]:
+          - listitem [ref=e62]: Your PlayStation account ID
+          - listitem [ref=e63]: An encrypted access token and refresh token, and when they expire
+          - listitem [ref=e64]: Your PlayStation library entitlements, and the derived, curated library built from them
+          - listitem [ref=e65]: Your consoles, install sizes, and any collections you create
+          - listitem [ref=e66]: A log of the high-level actions taken on your behalf (see "Your action history" below)
+      - generic [ref=e67]:
+        - heading "What we never collect" [level=3] [ref=e68]
+        - list [ref=e69]:
+          - listitem [ref=e70]: Your NPSSO token — used once to obtain your access/refresh tokens, then discarded. It is never written to a database or a log line.
+          - listitem [ref=e71]: Your email address — compared in memory against PlayStation's verified email at link time, then forgotten. There is no email column anywhere in Curator's database.
+          - listitem [ref=e72]: Trophies — read live from PlayStation and cached for 15 minutes, never stored permanently
+          - listitem [ref=e73]: Your presence, friends list, devices, or chat — read live if at all, never stored
+          - listitem [ref=e74]: Your real name, address, phone number, or any payment information
+      - generic [ref=e75]:
+        - heading "How it's protected" [level=3] [ref=e76]
+        - paragraph [ref=e77]: Access and refresh tokens are encrypted before they're stored; only Curator holds the key. Every connection to Curator uses TLS. Your NPSSO is used once, in memory, and never persisted.
+      - generic [ref=e78]:
+        - heading "How long we keep it" [level=3] [ref=e79]
+        - paragraph [ref=e80]: Your library, tokens, and account data are kept until you unlink or delete your account. Trophy reads are cached for 15 minutes and expire on their own. Your action history (below) is kept for one year, including for a period after you delete your account — see "Your action history."
+      - generic [ref=e81]:
+        - heading "Your controls" [level=3] [ref=e82]
+        - paragraph [ref=e83]:
+          - text: From your
+          - link "PSN settings" [ref=e84] [cursor=pointer]:
+            - /url: /psn
+          - text: "page you can, at any time:"
+        - list [ref=e85]:
+          - listitem [ref=e86]:
+            - strong [ref=e87]: Unlink
+            - text: — immediately deletes your stored PlayStation tokens
+          - listitem [ref=e88]:
+            - strong [ref=e89]: Delete my data
+            - text: "— immediately deletes your account and everything associated with it: your PSN link, library, consoles, collections, and any saved preferences. This is instant and self-service; you don't need to email anyone to make it happen."
+      - generic [ref=e90]:
+        - heading "Your action history" [level=3] [ref=e91]
+        - paragraph [ref=e92]: "If your PlayStation account were ever compromised by something unrelated to Curator and you needed to know exactly what Curator itself did with your account, this is how we — and you — can check. Curator keeps a log of the high-level actions it takes on your behalf: linking attempts (and why one failed, if it did), unlinking, library refresh requests, trophy fetches, and account deletion. It never contains your NPSSO, your tokens, or raw data pulled from PlayStation — only which action happened and when."
+        - paragraph [ref=e93]: You can view and download this history yourself at any time from your PSN settings page. Because its purpose is to answer disputes about what happened, this log is kept for one year and is not deleted immediately when you delete your account — it outlives the "Delete my data" action for that one-year window, then is purged automatically.
+      - generic [ref=e94]:
+        - heading "Open source" [level=3] [ref=e95]
+        - paragraph [ref=e96]:
+          - text: Every claim on this page is verifiable in public code — we'd rather you check than take our word for it. Librarian (this site and its BFF) is at
+          - link "github.com/crgolden/Librarian" [ref=e97] [cursor=pointer]:
+            - /url: https://github.com/crgolden/Librarian
+          - text: . Curator (the API that handles your NPSSO, verifies your email, and stores your data) is at
+          - link "github.com/crgolden/Curator" [ref=e98] [cursor=pointer]:
+            - /url: https://github.com/crgolden/Curator
+          - text: ". A few specific places worth pointing to directly: token encryption lives in"
+          - link "persistence/crypto.py" [ref=e99] [cursor=pointer]:
+            - /url: https://github.com/crgolden/Curator/blob/main/src/curator/persistence/crypto.py
+          - text: ", linking (including the never-persisted-NPSSO / in-memory email match) is in"
+          - link "link_service.py" [ref=e100] [cursor=pointer]:
+            - /url: https://github.com/crgolden/Curator/blob/main/src/curator/link_service.py
+          - text: ", the no-email-column schema tenet is documented in"
+          - link "db/migrations/0001_initial.sql" [ref=e101] [cursor=pointer]:
+            - /url: https://github.com/crgolden/Curator/blob/main/db/migrations/0001_initial.sql
+          - text: ", and the action-history log described above is"
+          - link "db/migrations/0003_account_action_log.sql" [ref=e102] [cursor=pointer]:
+            - /url: https://github.com/crgolden/Curator/blob/main/db/migrations/0003_account_action_log.sql
+          - text: .
+      - generic [ref=e103]:
+        - heading "Questions or data requests" [level=3] [ref=e104]
+        - paragraph [ref=e105]:
+          - text: Email
+          - link "privacy@crgolden.com" [ref=e106] [cursor=pointer]:
+            - /url: mailto:privacy@crgolden.com
+          - text: for anything not covered by the self-service controls above.
+  - contentinfo [ref=e43]:
+    - generic [ref=e44]:
+      - paragraph [ref=e45]: Librarian — game curation frontend for the Curator API.
+      - navigation [ref=e46]:
+        - link "FAQ" [ref=e47] [cursor=pointer]:
+          - /url: /faq
+        - link "Privacy" [ref=e48] [cursor=pointer]:
+          - /url: /privacy
