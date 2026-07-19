@@ -10,6 +10,10 @@
       <li>An encrypted access token and refresh token, and when they expire</li>
       <li>Your PlayStation library entitlements, and the derived, curated library built from them</li>
       <li>Your consoles, install sizes, and any collections you create</li>
+      <li>
+        If you choose to provide one, an encrypted RAWG and/or OpenCritic API key — entirely optional, used
+        only to enrich your own library with genre/score metadata
+      </li>
       <li>A log of the high-level actions taken on your behalf (see "Your action history" below)</li>
     </ul>
   </div>
@@ -34,8 +38,26 @@
   <div class="card privacy-section">
     <h3>How it's protected</h3>
     <p>
-      Access and refresh tokens are encrypted before they're stored; only Curator holds the key. Every
-      connection to Curator uses TLS. Your NPSSO is used once, in memory, and never persisted.
+      Access and refresh tokens are encrypted before they're stored; only Curator holds the key. If you
+      provide a RAWG or OpenCritic key, it's encrypted with that same key. Every connection to Curator uses
+      TLS. Your NPSSO is used once, in memory, and never persisted.
+    </p>
+  </div>
+
+  <div class="card privacy-section">
+    <h3>About RAWG/OpenCritic keys</h3>
+    <p>
+      Curator doesn't provision a shared RAWG or OpenCritic key for every user — it doesn't scale. If you
+      choose to provide your own, it's stored encrypted and used only to enrich your own library; it's
+      never shown back to you or anyone else after you save it, and you can remove it at any time from your
+      <a routerLink="/psn">PSN settings</a> page.
+    </p>
+    <p>
+      If your key retrieves data Curator doesn't already have for a game (its genre, its critic score),
+      that game <em>metadata</em> — never your key — is added to Curator's shared game catalog, so future
+      lookups for that same game, yours or another user's, don't need to call RAWG/OpenCritic again. This is
+      why some games in your library may already show enrichment data even if you've never provided a key
+      yourself — someone else's key (or Curator's own periodic catalog refresh) already resolved it.
     </p>
   </div>
 
@@ -55,8 +77,12 @@
       <li><strong>Unlink</strong> — immediately deletes your stored PlayStation tokens</li>
       <li>
         <strong>Delete my data</strong> — immediately deletes your account and everything associated with
-        it: your PSN link, library, consoles, collections, and any saved preferences. This is instant and
-        self-service; you don't need to email anyone to make it happen.
+        it: your PSN link, library, consoles, collections, any saved preferences, and any RAWG/OpenCritic
+        keys. This is instant and self-service; you don't need to email anyone to make it happen.
+      </li>
+      <li>
+        <strong>Remove a RAWG/OpenCritic key</strong> — independent of the above; removes just that key,
+        immediately, without touching anything else in your account.
       </li>
     </ul>
   </div>
@@ -93,8 +119,12 @@
       <a href="https://github.com/crgolden/Curator/blob/main/src/curator/link_service.py" target="_blank" rel="noopener">link_service.py</a>,
       the no-email-column schema tenet is documented in
       <a href="https://github.com/crgolden/Curator/blob/main/db/migrations/0001_initial.sql" target="_blank" rel="noopener">db/migrations/0001_initial.sql</a>,
-      and the action-history log described above is
-      <a href="https://github.com/crgolden/Curator/blob/main/db/migrations/0003_account_action_log.sql" target="_blank" rel="noopener">db/migrations/0003_account_action_log.sql</a>.
+      the action-history log described above is
+      <a href="https://github.com/crgolden/Curator/blob/main/db/migrations/0003_account_action_log.sql" target="_blank" rel="noopener">db/migrations/0003_account_action_log.sql</a>,
+      and the RAWG/OpenCritic key storage/routes described above are
+      <a href="https://github.com/crgolden/Curator/blob/main/db/migrations/0004_user_enrichment_keys.sql" target="_blank" rel="noopener">db/migrations/0004_user_enrichment_keys.sql</a>
+      and
+      <a href="https://github.com/crgolden/Curator/blob/main/src/curator/enrichment_keys_routes.py" target="_blank" rel="noopener">enrichment_keys_routes.py</a>.
     </p>
   </div>
 

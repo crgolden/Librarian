@@ -1,23 +1,25 @@
 import { isPlatformBrowser } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnDestroy, PLATFORM_ID, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
 import { Subscription, interval, switchMap, takeWhile } from 'rxjs';
 import { CuratorService } from '../curator/curator.service';
-import { LibraryRefreshStatusResponse } from '../curator/curator.models';
+import { LibraryGameResponse, LibraryRefreshStatusResponse } from '../curator/curator.models';
 
 const POLL_INTERVAL_MS = 2500;
 const TERMINAL_STATUSES = new Set(['succeeded', 'failed']);
 const KNOWN_STATUSES = new Set(['queued', 'running', 'succeeded', 'failed']);
+const SUMMARY_TITLE_DISPLAY_CAP = 10;
 
-/** Trigger + poll only: `GET /library/refresh/{runId}` returns `{run_id, status, error}` and
- * nothing else — there is no endpoint that returns the caller's `library_entries`, so this page
- * cannot show "your library," only the state of a refresh job. */
+/** Trigger + poll a refresh job (`POST/GET /library/refresh[/{runId}]`), and render the caller's own
+ * library (`GET /library`) as a table with per-provider (RAWG/OpenCritic) enrichment checkmarks — works
+ * identically for a user with zero enrichment keys configured (checks reflect titles already in the
+ * shared cache) and a user with keys (checks fill in as their own quota resolves new titles). */
 @Component({
   selector: 'app-library',
   templateUrl: './library.component.html',
   styleUrl: './library.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class LibraryComponent implements OnDestroy {
+export class LibraryComponent implements OnInit, OnDestroy {
   private readonly curator = inject(CuratorService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private pollSubscription: Subscription | null = null;
@@ -27,8 +29,30 @@ export class LibraryComponent implements OnDestroy {
   protected readonly error = signal<string | null>(null);
   protected readonly unexpectedStatus = signal(false);
 
+  protected readonly games = signal<LibraryGameResponse[] | null>(null);
+  protected readonly gamesError = signal<string | null>(null);
+
+  ngOnInit(): void {
+    this.loadLibrary();
+  }
+
   ngOnDestroy(): void {
     this.pollSubscription?.unsubscribe();
+  }
+
+  private loadLibrary(): void {
+    this.gamesError.set(null);
+    this.curator.getLibrary().subscribe({
+      next: (games) => this.games.set(games),
+      error: () => this.gamesError.set('Unable to load your library.'),
+    });
+  }
+
+  protected summaryTitles(titles: string[]): { shown: string[]; more: number } {
+    return {
+      shown: titles.slice(0, SUMMARY_TITLE_DISPLAY_CAP),
+      more: Math.max(0, titles.length - SUMMARY_TITLE_DISPLAY_CAP),
+    };
   }
 
   protected refresh(): void {
@@ -66,6 +90,9 @@ export class LibraryComponent implements OnDestroy {
           }
           if (TERMINAL_STATUSES.has(response.status) || !KNOWN_STATUSES.has(response.status)) {
             this.refreshing.set(false);
+          }
+          if (response.status === 'succeeded') {
+            this.loadLibrary();
           }
         },
         error: () => {

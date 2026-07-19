@@ -46,6 +46,7 @@ import { buildBffRouter, requireCsrf } from './routes';
 interface Session {
   pkceCodeVerifier?: string;
   oauthState?: string;
+  returnTo?: string;
   accessToken?: string;
   refreshToken?: string;
   idToken?: string;
@@ -161,6 +162,33 @@ describe('/bff/login', () => {
     expect(res.json).toHaveBeenCalledWith({ error: 'Login initiation failed' });
     consoleSpy.mockRestore();
   });
+
+  it('stores a same-origin returnTo path from the query string', async () => {
+    const req = makeReq({ query: { returnTo: '/psn' } });
+    const res = makeRes();
+
+    await handler()(req, res as unknown as Response);
+
+    expect((req.session as unknown as Session).returnTo).toBe('/psn');
+  });
+
+  it('falls back to "/" for an unsafe returnTo (open-redirect guard)', async () => {
+    const req = makeReq({ query: { returnTo: '//evil.example.com' } });
+    const res = makeRes();
+
+    await handler()(req, res as unknown as Response);
+
+    expect((req.session as unknown as Session).returnTo).toBe('/');
+  });
+
+  it('falls back to "/" when returnTo is absent', async () => {
+    const req = makeReq();
+    const res = makeRes();
+
+    await handler()(req, res as unknown as Response);
+
+    expect((req.session as unknown as Session).returnTo).toBe('/');
+  });
 });
 
 // ── /bff/callback ─────────────────────────────────────────────────────────────
@@ -227,6 +255,27 @@ describe('/bff/callback', () => {
     expect(session.oauthState).toBeUndefined();
     expect(session.save).toHaveBeenCalledOnce();
     expect(res.redirect).toHaveBeenCalledWith('/');
+  });
+
+  it('redirects to the stored returnTo path and clears it from the session', async () => {
+    vi.mocked(authorizationCodeGrant).mockResolvedValueOnce({
+      access_token: 'access-tok',
+      refresh_token: 'refresh-tok',
+      id_token: 'id-tok',
+      expires_in: 3600,
+      claims: () => ({ sub: 'user-123', email: 'user@example.com' }),
+    } as never);
+    vi.mocked(fetchUserInfo).mockResolvedValueOnce({ sub: 'user-123', name: 'Alice' });
+
+    const req = makeReq({
+      session: { pkceCodeVerifier: 'pkce-verifier', oauthState: 'oauth-state', returnTo: '/psn' },
+    });
+    const res = makeRes();
+
+    await handler()(req, res as unknown as Response);
+
+    expect(res.redirect).toHaveBeenCalledWith('/psn');
+    expect((req.session as unknown as Session).returnTo).toBeUndefined();
   });
 
   it('responds 500 when authorizationCodeGrant throws', async () => {

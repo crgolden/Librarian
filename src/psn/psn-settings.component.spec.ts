@@ -21,6 +21,12 @@ interface PsnSettingsHarness {
   requestDeleteMyData(): void;
   cancelDeleteMyData(): void;
   confirmDeleteMyData(): void;
+  rawgKeyInput: { set(value: string): void };
+  setRawgKey(): void;
+  deleteRawgKey(): void;
+  opencriticKeyInput: { set(value: string): void };
+  setOpenCriticKey(): void;
+  deleteOpenCriticKey(): void;
 }
 
 function harness(fixture: ComponentFixture<PsnSettingsComponent>): PsnSettingsHarness {
@@ -59,16 +65,24 @@ describe('PsnSettingsComponent', () => {
   // instead of a GET fired from ngOnInit -- `response: null` mirrors the resolver's own catchError(() =>
   // of(null)) fallback for a failed /me request.
   //
-  // When the resolved status is linked, the component also fires a GET for PSN preferences (see
-  // applyStatus -> loadPreferences). Flush it with all-4-flags-false by default so no per-category
-  // cascade requests are opened, keeping httpMock.verify() clean for tests that don't care about
-  // preferences.
+  const NO_ENRICHMENT_KEYS = {
+    rawg_configured: false,
+    opencritic_configured: false,
+    rawg_added_at: null,
+    opencritic_added_at: null,
+  };
+
+  // When the resolved status is linked, the component also fires a GET for PSN preferences and a GET for
+  // enrichment-key status (see applyStatus -> loadPreferences / loadEnrichmentKeyStatus). Flush both with
+  // empty/off defaults so no per-category cascade requests are opened, keeping httpMock.verify() clean for
+  // tests that don't care about preferences or enrichment keys.
   function createAndLoad(response: MeResponse | null): ComponentFixture<PsnSettingsComponent> {
     routeSnapshotData.status = response;
     const fixture = TestBed.createComponent(PsnSettingsComponent);
     fixture.detectChanges(); // ngOnInit -> reads route.snapshot.data['status']
     if (response?.linked) {
       httpMock.expectOne('/curator/api/me/psn-preferences').flush(ALL_PREFS_OFF);
+      httpMock.expectOne('/curator/api/me/enrichment-keys').flush(NO_ENRICHMENT_KEYS);
       fixture.detectChanges();
     }
     return fixture;
@@ -165,6 +179,7 @@ describe('PsnSettingsComponent', () => {
     fixture.detectChanges();
 
     httpMock.expectOne('/curator/api/me/psn-preferences').flush(ALL_PREFS_OFF);
+    httpMock.expectOne('/curator/api/me/enrichment-keys').flush(NO_ENRICHMENT_KEYS);
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
@@ -403,6 +418,7 @@ describe('PsnSettingsComponent', () => {
     fixture.detectChanges();
 
     httpMock.expectOne('/curator/api/me/psn-preferences').flush(prefs);
+    httpMock.expectOne('/curator/api/me/enrichment-keys').flush(NO_ENRICHMENT_KEYS);
     fixture.detectChanges();
 
     if (prefs.harvest_trophies) {
@@ -597,5 +613,153 @@ describe('PsnSettingsComponent', () => {
     fixture.detectChanges();
 
     expect(compiled.querySelector('.loading-overlay')).toBeNull();
+  });
+
+  describe('enrichment API keys', () => {
+    function createLinkedWithEnrichmentKeys(
+      status: Partial<{ rawg_configured: boolean; opencritic_configured: boolean }>,
+    ): ComponentFixture<PsnSettingsComponent> {
+      routeSnapshotData.status = LINKED_STATUS;
+      const fixture = TestBed.createComponent(PsnSettingsComponent);
+      fixture.detectChanges();
+
+      httpMock.expectOne('/curator/api/me/psn-preferences').flush(ALL_PREFS_OFF);
+      httpMock.expectOne('/curator/api/me/enrichment-keys').flush({
+        rawg_configured: false,
+        opencritic_configured: false,
+        rawg_added_at: null,
+        opencritic_added_at: null,
+        ...status,
+      });
+      fixture.detectChanges();
+
+      return fixture;
+    }
+
+    it('shows both providers as not configured, with input forms, when neither key is set', () => {
+      const fixture = createLinkedWithEnrichmentKeys({});
+      const compiled: HTMLElement = fixture.nativeElement;
+
+      expect(compiled.querySelector('#rawg-key')).not.toBeNull();
+      expect(compiled.querySelector('#opencritic-key')).not.toBeNull();
+      expect(compiled.textContent).toContain('rawg.io/apidocs');
+      expect(compiled.textContent).toContain('RapidAPI quick-start guide');
+    });
+
+    it('shows a configured provider with a remove button, not an input, and hides the get-a-key link', () => {
+      const fixture = createLinkedWithEnrichmentKeys({ rawg_configured: true });
+      const compiled: HTMLElement = fixture.nativeElement;
+
+      expect(compiled.querySelector('#rawg-key')).toBeNull();
+      expect(compiled.textContent).toContain('Configured');
+      expect(compiled.textContent).not.toContain('rawg.io/apidocs');
+      // OpenCritic independently still shows its own input + get-a-key link.
+      expect(compiled.querySelector('#opencritic-key')).not.toBeNull();
+      expect(compiled.textContent).toContain('RapidAPI quick-start guide');
+    });
+
+    it('setRawgKey() shows a validation error and makes no request when the field is empty', () => {
+      const fixture = createLinkedWithEnrichmentKeys({});
+      harness(fixture).setRawgKey();
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Enter a RAWG API key');
+      httpMock.expectNone('/curator/api/me/enrichment-keys/rawg');
+    });
+
+    it('setRawgKey() PUTs the key, clears the input, and refreshes status on success', () => {
+      const fixture = createLinkedWithEnrichmentKeys({});
+      const h = harness(fixture);
+      h.rawgKeyInput.set('  my-rawg-key  ');
+
+      h.setRawgKey();
+      fixture.detectChanges();
+
+      const putReq = httpMock.expectOne('/curator/api/me/enrichment-keys/rawg');
+      expect(putReq.request.method).toBe('PUT');
+      expect(putReq.request.body).toEqual({ api_key: 'my-rawg-key' });
+      putReq.flush(null, { status: 204, statusText: 'No Content' });
+
+      httpMock
+        .expectOne('/curator/api/me/enrichment-keys')
+        .flush({ rawg_configured: true, opencritic_configured: false, rawg_added_at: null, opencritic_added_at: null });
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Configured');
+    });
+
+    it('setRawgKey() surfaces an error and leaves the input state on failure', () => {
+      const fixture = createLinkedWithEnrichmentKeys({});
+      const h = harness(fixture);
+      h.rawgKeyInput.set('bad-key');
+
+      h.setRawgKey();
+      fixture.detectChanges();
+
+      httpMock.expectOne('/curator/api/me/enrichment-keys/rawg').flush(null, { status: 500, statusText: 'Error' });
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Failed to save RAWG key');
+    });
+
+    it('deleteRawgKey() DELETEs and refreshes status, leaving OpenCritic untouched', () => {
+      const fixture = createLinkedWithEnrichmentKeys({ rawg_configured: true, opencritic_configured: true });
+      harness(fixture).deleteRawgKey();
+      fixture.detectChanges();
+
+      const deleteReq = httpMock.expectOne('/curator/api/me/enrichment-keys/rawg');
+      expect(deleteReq.request.method).toBe('DELETE');
+      deleteReq.flush(null, { status: 204, statusText: 'No Content' });
+
+      httpMock.expectOne('/curator/api/me/enrichment-keys').flush({
+        rawg_configured: false,
+        opencritic_configured: true,
+        rawg_added_at: null,
+        opencritic_added_at: null,
+      });
+      fixture.detectChanges();
+
+      const compiled: HTMLElement = fixture.nativeElement;
+      expect(compiled.querySelector('#rawg-key')).not.toBeNull();
+      expect(compiled.querySelector('#opencritic-key')).toBeNull();
+    });
+
+    it('setOpenCriticKey() PUTs the key and refreshes status on success', () => {
+      const fixture = createLinkedWithEnrichmentKeys({});
+      const h = harness(fixture);
+      h.opencriticKeyInput.set('my-oc-key');
+
+      h.setOpenCriticKey();
+      fixture.detectChanges();
+
+      const putReq = httpMock.expectOne('/curator/api/me/enrichment-keys/opencritic');
+      expect(putReq.request.method).toBe('PUT');
+      expect(putReq.request.body).toEqual({ api_key: 'my-oc-key' });
+      putReq.flush(null, { status: 204, statusText: 'No Content' });
+
+      httpMock
+        .expectOne('/curator/api/me/enrichment-keys')
+        .flush({ rawg_configured: false, opencritic_configured: true, rawg_added_at: null, opencritic_added_at: null });
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Configured');
+    });
+
+    it('the key value is never rendered in the DOM, before or after saving', () => {
+      const fixture = createLinkedWithEnrichmentKeys({});
+      const h = harness(fixture);
+      h.rawgKeyInput.set('super-secret-value');
+
+      h.setRawgKey();
+      fixture.detectChanges();
+
+      httpMock.expectOne('/curator/api/me/enrichment-keys/rawg').flush(null, { status: 204, statusText: 'No Content' });
+      httpMock
+        .expectOne('/curator/api/me/enrichment-keys')
+        .flush({ rawg_configured: true, opencritic_configured: false, rawg_added_at: null, opencritic_added_at: null });
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('super-secret-value');
+    });
   });
 });

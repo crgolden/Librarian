@@ -73,6 +73,64 @@
   </div>
 
   <div class="card faq-item">
+    <h3>What are the RAWG/OpenCritic keys on my PSN settings page for?</h3>
+    <p>
+      They're entirely optional. Curator can enrich your library with genre and critic-score data from RAWG
+      and OpenCritic, but it doesn't provision a shared key for every user — that wouldn't scale. If you
+      want that enrichment, you can provide your own free RAWG and/or OpenCritic key. If you skip this, your
+      library still works — you just won't get that extra metadata for titles nobody's key has resolved yet.
+    </p>
+  </div>
+
+  <div class="card faq-item">
+    <h3>How does Curator know my key is valid?</h3>
+    <p>
+      When you save a key, Curator makes one small request to that provider to confirm it's accepted before
+      storing anything. If the provider rejects it, you'll see that immediately and the key is never saved —
+      so you always have a chance to correct it, instead of finding out only when a later library refresh
+      fails.
+    </p>
+  </div>
+
+  <div class="card faq-item">
+    <h3>Is my RAWG/OpenCritic key ever shown to me again, or logged anywhere?</h3>
+    <p>
+      No. It's encrypted the moment you save it, the same way your PlayStation tokens are. Your PSN settings
+      page only ever shows whether a key is configured and when it was added — never the value, before or
+      after saving.
+    </p>
+  </div>
+
+  <div class="card faq-item">
+    <h3>What happens to the data my key retrieves?</h3>
+    <p>
+      Only the game metadata it retrieves (title, genre, critic score) — never your key. That metadata is
+      added to Curator's shared game catalog so future lookups for that same game, by any user, don't need
+      to call RAWG/OpenCritic again. This is why some of your games may already show enrichment data even if
+      you've never added a key — someone else's key, or Curator's own periodic catalog refresh, already
+      resolved it.
+    </p>
+  </div>
+
+  <div class="card faq-item">
+    <h3>How do I remove a RAWG/OpenCritic key?</h3>
+    <p>
+      From your <a routerLink="/psn">PSN settings</a> page — each key has its own "Remove" button,
+      independent of the other. Removing one doesn't affect the other or anything else in your account.
+    </p>
+  </div>
+
+  <div class="card faq-item">
+    <h3>Why doesn't my whole library get enriched right away?</h3>
+    <p>
+      RAWG is fast, but OpenCritic's free tier is limited, so OpenCritic data for a very large or brand-new
+      library fills in gradually across a few refreshes rather than all at once — contributed cooperatively,
+      a bit at a time, by everyone's refreshes. Your library page shows a checkmark for each provider per
+      game, so you can always see exactly what's been resolved so far.
+    </p>
+  </div>
+
+  <div class="card faq-item">
     <h3>Is this actually safe, or am I just supposed to trust you?</h3>
     <p>
       Don't take our word for it — both apps are open source. Librarian (this site, including the BFF that

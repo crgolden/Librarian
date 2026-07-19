@@ -12,6 +12,8 @@ declare module 'express-session' {
     pkceCodeVerifier?: string;
     /** OAuth state — present only during the login flow. */
     oauthState?: string;
+    /** Same-origin path to redirect back to after login — present only during the login flow. */
+    returnTo?: string;
     /** OAuth 2.0 access token for the Curator API. */
     accessToken?: string;
     /** OAuth 2.0 refresh token. */

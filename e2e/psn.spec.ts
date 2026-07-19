@@ -199,3 +199,74 @@ test.describe('PSN settings — data-sharing preferences', () => {
     await expect(page.locator('.psn-category-card', { hasText: 'PSN Identity' })).toHaveCount(0);
   });
 });
+
+test.describe('PSN settings — enrichment API keys', () => {
+  test('both providers show as not configured by default, each with its own input', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedPsnLink();
+
+    await page.goto('/psn');
+    await expect(page.locator('#rawg-key')).toBeVisible();
+    await expect(page.locator('#opencritic-key')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Save RAWG key' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Save OpenCritic key' })).toBeVisible();
+  });
+
+  test('saving a RAWG key shows the configured state and persists across reload, independent of OpenCritic', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedPsnLink();
+
+    await page.goto('/psn');
+    await page.locator('#rawg-key').fill('fake-rawg-key');
+    await page.getByRole('button', { name: 'Save RAWG key' }).click();
+
+    await expect(page.getByRole('button', { name: 'Remove RAWG key' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#opencritic-key')).toBeVisible(); // OpenCritic untouched
+
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Remove RAWG key' })).toBeVisible();
+    await expect(page.locator('#opencritic-key')).toBeVisible();
+  });
+
+  test('the key value is never present in the page after saving', async ({ authedPage: page, store }) => {
+    await store.reset();
+    await store.seedPsnLink();
+
+    await page.goto('/psn');
+    await page.locator('#rawg-key').fill('super-secret-key-value');
+    await page.getByRole('button', { name: 'Save RAWG key' }).click();
+    await expect(page.getByRole('button', { name: 'Remove RAWG key' })).toBeVisible({ timeout: 10_000 });
+
+    await expect(page.locator('body')).not.toContainText('super-secret-key-value');
+  });
+
+  test('removing a configured key reverts to the input form', async ({ authedPage: page, store }) => {
+    await store.reset();
+    await store.seedPsnLink();
+    await store.seedEnrichmentKeys({ opencritic_configured: true });
+
+    await page.goto('/psn');
+    await expect(page.getByRole('button', { name: 'Remove OpenCritic key' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Remove OpenCritic key' }).click();
+    await expect(page.locator('#opencritic-key')).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('saving an empty key shows a validation error and makes no request', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedPsnLink();
+
+    await page.goto('/psn');
+    await page.getByRole('button', { name: 'Save RAWG key' }).click();
+    await expect(page.getByText('Enter a RAWG API key.')).toBeVisible();
+  });
+});

@@ -29,6 +29,16 @@ describe('FaqComponent', () => {
     expect(links).toContain('https://github.com/crgolden/Curator');
   });
 
+  it('explains the RAWG/OpenCritic keys and the shared-cache behavior', () => {
+    const fixture = TestBed.createComponent(FaqComponent);
+    fixture.detectChanges();
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.textContent).toContain('What are the RAWG/OpenCritic keys');
+    expect(compiled.textContent).toContain('never your key');
+    expect(compiled.textContent).toContain('How do I remove a RAWG/OpenCritic key?');
+  });
+
   it('links to the privacy policy', () => {
     const fixture = TestBed.createComponent(FaqComponent);
     fixture.detectChanges();

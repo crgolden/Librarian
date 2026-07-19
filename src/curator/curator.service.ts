@@ -10,7 +10,9 @@ import {
   ConsoleInstallResponse,
   DefinitionResponse,
   DevicesResponse,
+  EnrichmentKeyStatusResponse,
   IdentityResponse,
+  LibraryGameResponse,
   LibraryRefreshResponse,
   LibraryRefreshStatusResponse,
   PresenceResponse,
@@ -82,6 +84,30 @@ export class CuratorService {
 
   getLibraryRefreshStatus(runId: string): Observable<LibraryRefreshStatusResponse> {
     return this.http.get<LibraryRefreshStatusResponse>(`/curator/api/library/refresh/${runId}`);
+  }
+
+  getLibrary(): Observable<LibraryGameResponse[]> {
+    return this.http.get<LibraryGameResponse[]>('/curator/api/library');
+  }
+
+  getEnrichmentKeyStatus(): Observable<EnrichmentKeyStatusResponse> {
+    return this.http.get<EnrichmentKeyStatusResponse>('/curator/api/me/enrichment-keys');
+  }
+
+  setRawgKey(apiKey: string): Observable<void> {
+    return this.http.put<void>('/curator/api/me/enrichment-keys/rawg', { api_key: apiKey });
+  }
+
+  deleteRawgKey(): Observable<void> {
+    return this.http.delete<void>('/curator/api/me/enrichment-keys/rawg');
+  }
+
+  setOpenCriticKey(apiKey: string): Observable<void> {
+    return this.http.put<void>('/curator/api/me/enrichment-keys/opencritic', { api_key: apiKey });
+  }
+
+  deleteOpenCriticKey(): Observable<void> {
+    return this.http.delete<void>('/curator/api/me/enrichment-keys/opencritic');
   }
 
   getPsnPreferences(): Observable<PsnPreferencesResponse> {

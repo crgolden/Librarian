@@ -14,9 +14,9 @@ describe('authGuard', () => {
     });
   }
 
-  function run(): boolean {
+  function run(url = '/psn'): boolean {
     return TestBed.runInInjectionContext(() =>
-      authGuard({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
+      authGuard({} as ActivatedRouteSnapshot, { url } as RouterStateSnapshot),
     ) as boolean;
   }
 
@@ -26,12 +26,12 @@ describe('authGuard', () => {
     expect(run()).toBe(true);
   });
 
-  it('redirects to /bff/login and blocks navigation when the user is anonymous', () => {
+  it('redirects to /bff/login with the requested path as returnTo and blocks navigation when the user is anonymous', () => {
     configure(false);
     const location = { href: '' };
     vi.stubGlobal('location', location);
 
-    expect(run()).toBe(false);
-    expect(location.href).toBe('/bff/login');
+    expect(run('/psn')).toBe(false);
+    expect(location.href).toBe('/bff/login?returnTo=%2Fpsn');
   });
 });

@@ -28,6 +28,26 @@ export interface PsnPreferencesFixture {
   harvest_devices?: boolean;
 }
 
+export interface EnrichmentKeyStatusFixture {
+  rawg_configured?: boolean;
+  opencritic_configured?: boolean;
+  rawg_added_at?: string | null;
+  opencritic_added_at?: string | null;
+}
+
+export interface LibraryGameFixture {
+  game_id: string;
+  title: string;
+  rawg_enriched: boolean;
+  opencritic_enriched: boolean;
+}
+
+export interface LibraryRefreshResultSummaryFixture {
+  rawg_enriched_titles: string[];
+  opencritic_enriched_titles: string[];
+  opencritic_topup_incomplete: boolean;
+}
+
 export interface TestStore {
   reset(): Promise<void>;
   seedPsnLink(link?: {
@@ -35,9 +55,15 @@ export interface TestStore {
     refresh_token_expires_at?: string | null;
   }): Promise<void>;
   seedPsnPreferences(prefs: PsnPreferencesFixture): Promise<void>;
+  seedEnrichmentKeys(status: EnrichmentKeyStatusFixture): Promise<void>;
   seedCatalogGames(games: CatalogGameFixture[]): Promise<void>;
   seedConsoles(consoleIds: string[]): Promise<void>;
-  setLibraryRefreshOutcome(outcome: 'succeeded' | 'failed', error?: string): Promise<void>;
+  seedLibraryGames(games: LibraryGameFixture[]): Promise<void>;
+  setLibraryRefreshOutcome(
+    outcome: 'succeeded' | 'failed',
+    error?: string,
+    resultSummary?: LibraryRefreshResultSummaryFixture,
+  ): Promise<void>;
 }
 
 async function fetchControl(path: string, body?: unknown): Promise<void> {
@@ -114,14 +140,24 @@ export const test = base.extend<LibrarianFixtures>({
       async seedPsnPreferences(prefs) {
         await fetchControl('/_test/psn-preferences', prefs);
       },
+      async seedEnrichmentKeys(status) {
+        await fetchControl('/_test/enrichment-keys', status);
+      },
       async seedCatalogGames(games) {
         await fetchControl('/_test/catalog-games', { games });
       },
       async seedConsoles(consoleIds) {
         await fetchControl('/_test/consoles', { consoleIds });
       },
-      async setLibraryRefreshOutcome(outcome, error) {
-        await fetchControl('/_test/library-refresh-outcome', { status: outcome, error });
+      async seedLibraryGames(games) {
+        await fetchControl('/_test/library-games', { games });
+      },
+      async setLibraryRefreshOutcome(outcome, error, resultSummary) {
+        await fetchControl('/_test/library-refresh-outcome', {
+          status: outcome,
+          error,
+          result_summary: resultSummary,
+        });
       },
     };
     await use(s);

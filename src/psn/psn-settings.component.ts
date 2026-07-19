@@ -7,6 +7,7 @@ import { CuratorService } from '../curator/curator.service';
 import {
   AccountActionResponse,
   DevicesResponse,
+  EnrichmentKeyStatusResponse,
   IdentityResponse,
   PresenceResponse,
   PsnPreferencesResponse,
@@ -26,6 +27,14 @@ const LINK_ERROR_MESSAGES: Record<string, string> = {
 
 const GENERIC_LINK_ERROR_MESSAGE =
   'Failed to link PlayStation Network account. Check your NPSSO token and try again.';
+
+function extractErrorDetail(err: unknown): string | null {
+  if (!(err instanceof HttpErrorResponse) || typeof err.error !== 'object' || err.error === null) {
+    return null;
+  }
+  const detail: unknown = (err.error as Record<string, unknown>)['detail'];
+  return typeof detail === 'string' ? detail : null;
+}
 
 function linkErrorMessage(err: HttpErrorResponse): string {
   const code = (err.error as { detail?: { error?: string } } | null)?.detail?.error;
@@ -83,6 +92,19 @@ export class PsnSettingsComponent implements OnInit {
   protected readonly devicesLoading = signal(false);
   protected readonly devicesError = signal<string | null>(null);
 
+  protected readonly enrichmentKeyStatus = signal<EnrichmentKeyStatusResponse | null>(null);
+  protected readonly enrichmentKeyStatusError = signal<string | null>(null);
+
+  protected readonly rawgKeyInput = signal('');
+  protected readonly settingRawgKey = signal(false);
+  protected readonly deletingRawgKey = signal(false);
+  protected readonly rawgKeyError = signal<string | null>(null);
+
+  protected readonly opencriticKeyInput = signal('');
+  protected readonly settingOpencriticKey = signal(false);
+  protected readonly deletingOpencriticKey = signal(false);
+  protected readonly opencriticKeyError = signal<string | null>(null);
+
   protected readonly noRefreshToken = computed(
     () => this.linked() && this.accessTokenExpiresAt() !== null && this.refreshTokenExpiresAt() === null,
   );
@@ -93,7 +115,11 @@ export class PsnSettingsComponent implements OnInit {
       this.linking() ||
       this.unlinking() ||
       this.deletingAccount() ||
-      this.savingPreference() !== null,
+      this.savingPreference() !== null ||
+      this.settingRawgKey() ||
+      this.deletingRawgKey() ||
+      this.settingOpencriticKey() ||
+      this.deletingOpencriticKey(),
   );
 
   ngOnInit(): void {
@@ -111,7 +137,16 @@ export class PsnSettingsComponent implements OnInit {
     this.refreshTokenExpiresAt.set(me.psn?.refresh_token_expires_at ?? null);
     if (me.linked) {
       this.loadPreferences();
+      this.loadEnrichmentKeyStatus();
     }
+  }
+
+  private loadEnrichmentKeyStatus(): void {
+    this.enrichmentKeyStatusError.set(null);
+    this.curator.getEnrichmentKeyStatus().subscribe({
+      next: (status) => this.enrichmentKeyStatus.set(status),
+      error: () => this.enrichmentKeyStatusError.set('Unable to load enrichment key status.'),
+    });
   }
 
   private loadStatus(): void {
@@ -357,6 +392,84 @@ export class PsnSettingsComponent implements OnInit {
     link.download = 'librarian-account-history.json';
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  protected setRawgKey(): void {
+    const key = this.rawgKeyInput().trim();
+    if (!key) {
+      this.rawgKeyError.set('Enter a RAWG API key.');
+      return;
+    }
+
+    this.settingRawgKey.set(true);
+    this.rawgKeyError.set(null);
+
+    this.curator.setRawgKey(key).subscribe({
+      next: () => {
+        this.settingRawgKey.set(false);
+        this.rawgKeyInput.set('');
+        this.loadEnrichmentKeyStatus();
+      },
+      error: (err: unknown) => {
+        this.settingRawgKey.set(false);
+        this.rawgKeyError.set(extractErrorDetail(err) ?? 'Failed to save RAWG key.');
+      },
+    });
+  }
+
+  protected deleteRawgKey(): void {
+    this.deletingRawgKey.set(true);
+    this.rawgKeyError.set(null);
+
+    this.curator.deleteRawgKey().subscribe({
+      next: () => {
+        this.deletingRawgKey.set(false);
+        this.loadEnrichmentKeyStatus();
+      },
+      error: () => {
+        this.deletingRawgKey.set(false);
+        this.rawgKeyError.set('Failed to remove RAWG key.');
+      },
+    });
+  }
+
+  protected setOpenCriticKey(): void {
+    const key = this.opencriticKeyInput().trim();
+    if (!key) {
+      this.opencriticKeyError.set('Enter an OpenCritic (RapidAPI) key.');
+      return;
+    }
+
+    this.settingOpencriticKey.set(true);
+    this.opencriticKeyError.set(null);
+
+    this.curator.setOpenCriticKey(key).subscribe({
+      next: () => {
+        this.settingOpencriticKey.set(false);
+        this.opencriticKeyInput.set('');
+        this.loadEnrichmentKeyStatus();
+      },
+      error: (err: unknown) => {
+        this.settingOpencriticKey.set(false);
+        this.opencriticKeyError.set(extractErrorDetail(err) ?? 'Failed to save OpenCritic key.');
+      },
+    });
+  }
+
+  protected deleteOpenCriticKey(): void {
+    this.deletingOpencriticKey.set(true);
+    this.opencriticKeyError.set(null);
+
+    this.curator.deleteOpenCriticKey().subscribe({
+      next: () => {
+        this.deletingOpencriticKey.set(false);
+        this.loadEnrichmentKeyStatus();
+      },
+      error: () => {
+        this.deletingOpencriticKey.set(false);
+        this.opencriticKeyError.set('Failed to remove OpenCritic key.');
+      },
+    });
   }
 
   protected requestDeleteMyData(): void {

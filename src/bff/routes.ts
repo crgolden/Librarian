@@ -34,6 +34,17 @@ function stringifyClaimValue(value: unknown): string {
   return JSON.stringify(value);
 }
 
+// Only ever redirect back to a same-origin, in-app path -- never trust returnTo enough to redirect
+// off-site (open-redirect guard). A single leading `/` not followed by another `/` or a scheme is the
+// only shape accepted; anything else (absolute URLs, protocol-relative `//host`, missing leading slash)
+// falls back to the app root.
+function safeReturnTo(value: unknown): string {
+  if (typeof value === 'string' && /^\/(?!\/)[^\s]*$/.test(value)) {
+    return value;
+  }
+  return '/';
+}
+
 function getOrigin(req: Request): string {
   const proto =
     (req.headers['x-forwarded-proto'] as string | undefined) ?? req.protocol;
@@ -94,6 +105,7 @@ export function buildBffRouter(): Router {
 
       req.session.pkceCodeVerifier = codeVerifier;
       req.session.oauthState = state;
+      req.session.returnTo = safeReturnTo(req.query['returnTo']);
       await saveSession(req);
 
       const redirectUrl = buildAuthorizationUrl(config, {
@@ -177,13 +189,15 @@ export function buildBffRouter(): Router {
           : undefined;
       req.session.claims = claims;
 
+      const returnTo = safeReturnTo(req.session.returnTo);
+
       // Clean up transient login state.
       delete req.session.pkceCodeVerifier;
       delete req.session.oauthState;
+      delete req.session.returnTo;
       await saveSession(req);
 
-      // Redirect to the app root (or to an explicit return URL if added later).
-      res.redirect('/');
+      res.redirect(returnTo);
     } catch (err) {
       console.error('[BFF /callback]', err);
       res.status(500).json({ error: 'Callback processing failed' });

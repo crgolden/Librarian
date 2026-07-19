@@ -107,6 +107,56 @@ describe('CuratorService', () => {
 
     const req = httpMock.expectOne('/curator/api/library/refresh/r1');
     expect(req.request.method).toBe('GET');
-    req.flush({ run_id: 'r1', status: 'queued', error: null });
+    req.flush({ run_id: 'r1', status: 'queued', error: null, result_summary: null });
+  });
+
+  it('getLibrary gets the caller\'s own library', () => {
+    service.getLibrary().subscribe();
+
+    const req = httpMock.expectOne('/curator/api/library');
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
+
+  it('getEnrichmentKeyStatus gets the key status', () => {
+    service.getEnrichmentKeyStatus().subscribe();
+
+    const req = httpMock.expectOne('/curator/api/me/enrichment-keys');
+    expect(req.request.method).toBe('GET');
+    req.flush({ rawg_configured: false, opencritic_configured: false, rawg_added_at: null, opencritic_added_at: null });
+  });
+
+  it('setRawgKey puts the api_key body', () => {
+    service.setRawgKey('my-key').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/me/enrichment-keys/rawg');
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ api_key: 'my-key' });
+    req.flush(null);
+  });
+
+  it('deleteRawgKey deletes the rawg key', () => {
+    service.deleteRawgKey().subscribe();
+
+    const req = httpMock.expectOne('/curator/api/me/enrichment-keys/rawg');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+  });
+
+  it('setOpenCriticKey puts the api_key body', () => {
+    service.setOpenCriticKey('my-key').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/me/enrichment-keys/opencritic');
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ api_key: 'my-key' });
+    req.flush(null);
+  });
+
+  it('deleteOpenCriticKey deletes the opencritic key', () => {
+    service.deleteOpenCriticKey().subscribe();
+
+    const req = httpMock.expectOne('/curator/api/me/enrichment-keys/opencritic');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
   });
 });

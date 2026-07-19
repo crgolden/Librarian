@@ -38,6 +38,16 @@ describe('PrivacyComponent', () => {
     expect(links).toContain('https://github.com/crgolden/Curator');
   });
 
+  it('discloses that a provided RAWG/OpenCritic key is encrypted and that retrieved metadata is shared, never the key', () => {
+    const fixture = TestBed.createComponent(PrivacyComponent);
+    fixture.detectChanges();
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.textContent).toContain('About RAWG/OpenCritic keys');
+    expect(compiled.textContent).toContain("never shown back to you or anyone else");
+    expect(compiled.textContent).toContain('never your key');
+  });
+
   it('shows the privacy contact address', () => {
     const fixture = TestBed.createComponent(PrivacyComponent);
     fixture.detectChanges();

@@ -100,6 +100,118 @@
         </div>
       </div>
 
+      @if (enrichmentKeyStatus(); as keys) {
+        <div class="card status-card psn-preferences">
+          <h2>Enrichment API keys (optional)</h2>
+          <p class="text-muted">
+            Bring your own RAWG and/or OpenCritic API keys to enrich your library with genre, score, and
+            metadata signals. Entirely optional — Curator never provisions a shared key for this, so
+            enrichment for a provider you haven't configured is simply skipped, not an error. See the
+            <a routerLink="/faq">FAQ</a> for what this does with the data it retrieves.
+          </p>
+          @if (enrichmentKeyStatusError()) {
+            <p class="text-error">{{ enrichmentKeyStatusError() }}</p>
+          }
+
+          <div class="psn-preference-toggle">
+            <h3>RAWG</h3>
+            @if (keys.rawg_configured) {
+              <p class="text-muted">
+                Configured
+                @if (keys.rawg_added_at) {
+                  since {{ keys.rawg_added_at | date: 'medium' }}
+                }
+              </p>
+              @if (rawgKeyError()) {
+                <p class="text-error">{{ rawgKeyError() }}</p>
+              }
+              <button
+                type="button"
+                class="btn-ghost-danger btn-ghost"
+                (click)="deleteRawgKey()"
+                [disabled]="deletingRawgKey()"
+              >
+                {{ deletingRawgKey() ? 'Removing...' : 'Remove RAWG key' }}
+              </button>
+            } @else {
+              <span class="text-muted"
+                >Don't have a key? Get one free at <a href="https://rawg.io/apidocs" target="_blank" rel="noopener"
+                  >rawg.io/apidocs</a
+                >.</span
+              >
+              <input
+                id="rawg-key"
+                name="rawg-key"
+                type="password"
+                autocomplete="off"
+                [ngModel]="rawgKeyInput()"
+                (ngModelChange)="rawgKeyInput.set($event)"
+                placeholder="RAWG API key"
+              />
+              <span class="text-muted">Encrypted at rest, never displayed again after saving.</span>
+              @if (rawgKeyError()) {
+                <p class="text-error">{{ rawgKeyError() }}</p>
+              }
+              <button type="button" class="btn-primary" (click)="setRawgKey()" [disabled]="settingRawgKey()">
+                {{ settingRawgKey() ? 'Saving...' : 'Save RAWG key' }}
+              </button>
+            }
+          </div>
+
+          <div class="psn-preference-toggle">
+            <h3>OpenCritic</h3>
+            @if (keys.opencritic_configured) {
+              <p class="text-muted">
+                Configured
+                @if (keys.opencritic_added_at) {
+                  since {{ keys.opencritic_added_at | date: 'medium' }}
+                }
+              </p>
+              @if (opencriticKeyError()) {
+                <p class="text-error">{{ opencriticKeyError() }}</p>
+              }
+              <button
+                type="button"
+                class="btn-ghost-danger btn-ghost"
+                (click)="deleteOpenCriticKey()"
+                [disabled]="deletingOpencriticKey()"
+              >
+                {{ deletingOpencriticKey() ? 'Removing...' : 'Remove OpenCritic key' }}
+              </button>
+            } @else {
+              <span class="text-muted"
+                >Don't have a key? OpenCritic is accessed through RapidAPI — see the
+                <a href="https://docs.rapidapi.com/docs/consumer-quick-start-guide" target="_blank" rel="noopener"
+                  >RapidAPI quick-start guide</a
+                >
+                to sign up and subscribe to the OpenCritic API.</span
+              >
+              <input
+                id="opencritic-key"
+                name="opencritic-key"
+                type="password"
+                autocomplete="off"
+                [ngModel]="opencriticKeyInput()"
+                (ngModelChange)="opencriticKeyInput.set($event)"
+                placeholder="OpenCritic (RapidAPI) key"
+              />
+              <span class="text-muted">Encrypted at rest, never displayed again after saving.</span>
+              @if (opencriticKeyError()) {
+                <p class="text-error">{{ opencriticKeyError() }}</p>
+              }
+              <button
+                type="button"
+                class="btn-primary"
+                (click)="setOpenCriticKey()"
+                [disabled]="settingOpencriticKey()"
+              >
+                {{ settingOpencriticKey() ? 'Saving...' : 'Save OpenCritic key' }}
+              </button>
+            }
+          </div>
+        </div>
+      }
+
       @if (prefs.harvest_trophies && trophySummary(); as summary) {
         <div class="card status-card psn-category-card">
           <h3>Trophies</h3>

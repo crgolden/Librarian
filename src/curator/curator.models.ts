@@ -69,10 +69,35 @@ export interface LibraryRefreshResponse {
   run_id: string;
 }
 
+export interface LibraryRefreshResultSummary {
+  rawg_enriched_titles: string[];
+  opencritic_enriched_titles: string[];
+  opencritic_topup_incomplete: boolean;
+}
+
 export interface LibraryRefreshStatusResponse {
   run_id: string;
   status: string;
   error: string | null;
+  result_summary: LibraryRefreshResultSummary | null;
+}
+
+export interface LibraryGameResponse {
+  game_id: string;
+  title: string;
+  rawg_enriched: boolean;
+  opencritic_enriched: boolean;
+}
+
+export interface EnrichmentKeyStatusResponse {
+  rawg_configured: boolean;
+  opencritic_configured: boolean;
+  rawg_added_at: string | null;
+  opencritic_added_at: string | null;
+}
+
+export interface SetEnrichmentKeyRequest {
+  api_key: string;
 }
 
 export interface PsnPreferencesResponse {

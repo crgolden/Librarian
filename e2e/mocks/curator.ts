@@ -23,11 +23,26 @@ export interface PsnPreferences {
   harvest_devices: boolean;
 }
 
+export interface EnrichmentKeyStatus {
+  rawg_configured: boolean;
+  opencritic_configured: boolean;
+  rawg_added_at: string | null;
+  opencritic_added_at: string | null;
+}
+
+const DEFAULT_ENRICHMENT_KEY_STATUS: EnrichmentKeyStatus = {
+  rawg_configured: false,
+  opencritic_configured: false,
+  rawg_added_at: null,
+  opencritic_added_at: null,
+};
+
 export interface UserRecord {
   sub: string;
   email: string | null;
   psn: PsnLink | null;
   psnPreferences: PsnPreferences;
+  enrichmentKeys: EnrichmentKeyStatus;
 }
 
 const DEFAULT_PSN_PREFERENCES: PsnPreferences = {
@@ -66,15 +81,30 @@ interface DefinitionRecord {
   aaa_tier_filter: string | null;
 }
 
+export interface LibraryGame {
+  game_id: string;
+  title: string;
+  rawg_enriched: boolean;
+  opencritic_enriched: boolean;
+}
+
+export interface LibraryRefreshResultSummary {
+  rawg_enriched_titles: string[];
+  opencritic_enriched_titles: string[];
+  opencritic_topup_incomplete: boolean;
+}
+
 interface LibraryRun {
   sub: string;
   status: 'queued' | 'running' | 'succeeded' | 'failed';
   error: string | null;
+  result_summary: LibraryRefreshResultSummary | null;
 }
 
 interface LibraryRefreshOutcome {
   status: 'succeeded' | 'failed';
   error?: string;
+  result_summary?: LibraryRefreshResultSummary;
 }
 
 // ── In-memory store ───────────────────────────────────────────────────────────
@@ -91,6 +121,7 @@ const definitions = new Map<string, DefinitionRecord[]>();
 const libraryRuns = new Map<string, LibraryRun>();
 const nextLibraryOutcome = new Map<string, LibraryRefreshOutcome>();
 const actionLog = new Map<string, ActionLogEntry[]>();
+const libraryGames = new Map<string, LibraryGame[]>();
 
 const DEFAULT_SUB = 'e2e-user-id';
 
@@ -148,7 +179,13 @@ const DEVICES = {
 function currentUser(): UserRecord {
   let user = users.get(DEFAULT_SUB);
   if (!user) {
-    user = { sub: DEFAULT_SUB, email: 'e2e@test.invalid', psn: null, psnPreferences: { ...DEFAULT_PSN_PREFERENCES } };
+    user = {
+      sub: DEFAULT_SUB,
+      email: 'e2e@test.invalid',
+      psn: null,
+      psnPreferences: { ...DEFAULT_PSN_PREFERENCES },
+      enrichmentKeys: { ...DEFAULT_ENRICHMENT_KEY_STATUS },
+    };
     users.set(DEFAULT_SUB, user);
   }
   return user;
@@ -228,6 +265,7 @@ export function createCuratorApp(): Express {
     libraryRuns.clear();
     nextLibraryOutcome.clear();
     actionLog.clear();
+    libraryGames.clear();
     res.status(204).end();
   });
 
@@ -243,6 +281,13 @@ export function createCuratorApp(): Express {
   app.post('/_test/consoles', (req: Request, res: Response) => {
     const body = req.body as { consoleIds?: string[] };
     consoles.set(DEFAULT_SUB, new Set(body.consoleIds ?? []));
+    res.status(204).end();
+  });
+
+  /** Seed the current user's library entries (empty by default — GET /library). */
+  app.post('/_test/library-games', (req: Request, res: Response) => {
+    const body = req.body as { games?: LibraryGame[] };
+    libraryGames.set(DEFAULT_SUB, body.games ?? []);
     res.status(204).end();
   });
 
@@ -270,6 +315,15 @@ export function createCuratorApp(): Express {
     const body = req.body as Partial<PsnPreferences>;
     const user = currentUser();
     user.psnPreferences = { ...DEFAULT_PSN_PREFERENCES, ...body };
+    res.status(204).end();
+  });
+
+  /** Seed the current user's enrichment-key status directly (defaults back to unconfigured on reset) --
+   * lets a test start from an already-configured state without going through the UI first. */
+  app.post('/_test/enrichment-keys', (req: Request, res: Response) => {
+    const body = req.body as Partial<EnrichmentKeyStatus>;
+    const user = currentUser();
+    user.enrichmentKeys = { ...DEFAULT_ENRICHMENT_KEY_STATUS, ...body };
     res.status(204).end();
   });
 
@@ -347,6 +401,57 @@ export function createCuratorApp(): Express {
     }
     const body = req.body as Partial<PsnPreferences>;
     user.psnPreferences = { ...DEFAULT_PSN_PREFERENCES, ...body };
+    res.status(204).end();
+  });
+
+  /** GET /me/enrichment-keys — the caller's RAWG/OpenCritic key status. Never 404s. */
+  app.get('/me/enrichment-keys', (_req: Request, res: Response) => {
+    res.json(currentUser().enrichmentKeys);
+  });
+
+  /** PUT /me/enrichment-keys/{provider} — set (or replace) a key. 400 if empty. */
+  app.put('/me/enrichment-keys/:provider', (req: Request, res: Response) => {
+    const { provider } = req.params;
+    if (provider !== 'rawg' && provider !== 'opencritic') {
+      res.status(422).json({ detail: 'Unknown provider.' });
+      return;
+    }
+    const body = req.body as { api_key?: string };
+    if (!body.api_key || !body.api_key.trim()) {
+      res.status(400).json({ detail: 'api_key must not be empty.' });
+      return;
+    }
+
+    const user = currentUser();
+    const now = new Date().toISOString();
+    if (provider === 'rawg') {
+      user.enrichmentKeys.rawg_configured = true;
+      user.enrichmentKeys.rawg_added_at = now;
+    } else {
+      user.enrichmentKeys.opencritic_configured = true;
+      user.enrichmentKeys.opencritic_added_at = now;
+    }
+    logAction('enrichment_key_added', provider);
+    res.status(204).end();
+  });
+
+  /** DELETE /me/enrichment-keys/{provider} — clear a key. */
+  app.delete('/me/enrichment-keys/:provider', (req: Request, res: Response) => {
+    const { provider } = req.params;
+    if (provider !== 'rawg' && provider !== 'opencritic') {
+      res.status(422).json({ detail: 'Unknown provider.' });
+      return;
+    }
+
+    const user = currentUser();
+    if (provider === 'rawg') {
+      user.enrichmentKeys.rawg_configured = false;
+      user.enrichmentKeys.rawg_added_at = null;
+    } else {
+      user.enrichmentKeys.opencritic_configured = false;
+      user.enrichmentKeys.opencritic_added_at = null;
+    }
+    logAction('enrichment_key_removed', provider);
     res.status(204).end();
   });
 
@@ -510,11 +615,16 @@ export function createCuratorApp(): Express {
     res.json({ console_id: consoleId, game_id: gameId, installed: body.installed });
   });
 
+  /** GET /library — the caller's own library, with per-provider enrichment checkmarks. */
+  app.get('/library', (_req: Request, res: Response) => {
+    res.json(libraryGames.get(DEFAULT_SUB) ?? []);
+  });
+
   /** POST /library/refresh — queue a job that transitions queued -> running -> a terminal status
    * on short timers, so the real Angular poll loop observes a genuine state transition. */
   app.post('/library/refresh', (_req: Request, res: Response) => {
     const runId = `lib-run-${Date.now()}`;
-    libraryRuns.set(runId, { sub: DEFAULT_SUB, status: 'queued', error: null });
+    libraryRuns.set(runId, { sub: DEFAULT_SUB, status: 'queued', error: null, result_summary: null });
 
     setTimeout(() => {
       const run = libraryRuns.get(runId);
@@ -529,6 +639,14 @@ export function createCuratorApp(): Express {
         const outcome = nextLibraryOutcome.get(DEFAULT_SUB) ?? { status: 'succeeded' };
         run.status = outcome.status;
         run.error = outcome.error ?? null;
+        run.result_summary =
+          outcome.status === 'succeeded'
+            ? (outcome.result_summary ?? {
+                rawg_enriched_titles: [],
+                opencritic_enriched_titles: [],
+                opencritic_topup_incomplete: false,
+              })
+            : null;
       }
     }, 900);
 
@@ -542,7 +660,7 @@ export function createCuratorApp(): Express {
       res.status(404).json({ detail: 'Library refresh run not found.' });
       return;
     }
-    res.json({ run_id: req.params['runId'], status: run.status, error: run.error });
+    res.json({ run_id: req.params['runId'], status: run.status, error: run.error, result_summary: run.result_summary });
   });
 
   return app;
