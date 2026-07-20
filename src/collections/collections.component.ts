@@ -1,5 +1,8 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { AuthService } from '../auth/auth.service';
 import { CuratorService } from '../curator/curator.service';
 import {
   CollectionGameResponse,
@@ -7,11 +10,22 @@ import {
   CollectionRunResponse,
   CollectionSpecRequest,
   DefinitionResponse,
+  ProfileDefinitionResponse,
 } from '../curator/curator.models';
+import { redirectIfOwnSub } from '../profile/own-sub-redirect';
 
 type CollectionKind = 'filter_list' | 'capacity_fill';
 type View = 'list' | 'create' | 'detail';
 
+/** `/collections` (owner) and `/collections/:sub` (viewer, canonicalized away from your own sub).
+ *
+ * Owner mode: unchanged — list saved definitions, create/preview/save, view/run a definition, toggle
+ * per-console installs on a capacity-fill run's results.
+ *
+ * Viewer mode: read-only render of another user's saved collections (`GET /users/{sub}/collections`) —
+ * no create/save/run/install controls, since `ProfileDefinitionResponse` (unlike the owner's own
+ * `DefinitionResponse`) doesn't carry the spec fields (`genre_filter`/`min_score`/`aaa_tier_filter`)
+ * needed to re-run it. A 403 renders an inline "this section isn't available" message. */
 @Component({
   selector: 'app-collections',
   imports: [FormsModule],
@@ -20,7 +34,16 @@ type View = 'list' | 'create' | 'detail';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CollectionsComponent implements OnInit {
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly auth = inject(AuthService);
   private readonly curator = inject(CuratorService);
+
+  protected readonly viewerMode = signal(false);
+  protected readonly viewerForbidden = signal(false);
+  protected readonly viewerDefinitions = signal<ProfileDefinitionResponse[]>([]);
+  protected readonly viewerDefinitionsError = signal<string | null>(null);
+  protected readonly viewerLoading = signal(true);
 
   protected readonly view = signal<View>('list');
 
@@ -55,7 +78,36 @@ export class CollectionsComponent implements OnInit {
   protected readonly installingGameIds = signal<ReadonlySet<string>>(new Set());
 
   ngOnInit(): void {
-    this.loadDefinitions();
+    if (redirectIfOwnSub(this.route, this.router, this.auth, ['/collections'])) {
+      return;
+    }
+
+    const sub = this.route.snapshot.paramMap.get('sub');
+    if (sub !== null) {
+      this.viewerMode.set(true);
+      this.loadViewerDefinitions(sub);
+    } else {
+      this.loadDefinitions();
+    }
+  }
+
+  private loadViewerDefinitions(sub: string): void {
+    this.viewerLoading.set(true);
+    this.viewerDefinitionsError.set(null);
+    this.curator.getUserCollections(sub).subscribe({
+      next: (definitions) => {
+        this.viewerDefinitions.set(definitions);
+        this.viewerLoading.set(false);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.viewerLoading.set(false);
+        if (err.status === 403) {
+          this.viewerForbidden.set(true);
+        } else {
+          this.viewerDefinitionsError.set("Unable to load this user's collections.");
+        }
+      },
+    });
   }
 
   private loadDefinitions(): void {

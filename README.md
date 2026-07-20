@@ -22,10 +22,18 @@ API; the browser never sees an access token directly.
 A single Node process runs both the Angular 21 SSR renderer and an Express BFF. The BFF owns the
 OIDC session (`openid-client` v6, PKCE; scopes `offline_access openid profile email curator`),
 proxies `/curator/api/**` to the Curator API with the session's Bearer token, and requires
-`X-CSRF: 1` on mutating calls. The current app surface is a home page and a `/psn` settings page
+`X-CSRF: 1` on mutating calls. The app surface covers a home page, a `/psn` settings page
 (link/unlink a PlayStation Network account via NPSSO token, backed by Curator's `/me` and
-`/psn/link` routes) — Curator has no game/genre catalog endpoints yet, so there's no library UI
-to build against until that lands as a follow-up. Frontend is zoneless Angular. Observability:
+`/psn/link` routes, plus per-category data-harvest preferences and bring-your-own-key RAWG/OpenCritic
+enrichment key management), `/catalog` (browse the shared game catalog), `/collections` (create/save/run
+curated collections), and `/library` (trigger a refresh and view the caller's own enriched library) — all
+backed by real Curator endpoints. A public social-profile feature adds `/profile` and its sub-keyed
+counterpart `/u/:sub`: a viewable, followable profile with opt-in display toggles for library,
+collections, PSN trophies, and PSN identity, plus always-visible follower/following lists. `/library` and
+`/collections` are themselves now sub-keyed (`/library/:sub`, `/collections/:sub`) so the same components
+render a read-only view of another user's library/collections when their profile makes that section
+public; the bare paths always mean "mine," and a sub-keyed URL for your own sub redirects straight back to
+the bare one. Frontend is zoneless Angular. Observability:
 OTLP traces/metrics → Grafana Alloy; structured logs → Elasticsearch (`pino-elasticsearch`).
 `GET /health` → `Healthy`.
 
@@ -103,6 +111,7 @@ src/
   auth/             # auth service + claim helpers
   home/             # home page
   psn/              # PSN link/unlink + per-category data-harvest preferences panel
+  profile/          # public social profile: view, followers, following, settings, own-sub redirect
   shared/           # reusable UI pieces (e.g. loading-overlay, a pointer-blocking async-action overlay)
   environments/     # per-environment config (allowedHosts, etc.)
   telemetry/        # pino → Elasticsearch logging

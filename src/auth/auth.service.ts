@@ -34,6 +34,9 @@ export class AuthService {
   public readonly isAuthenticated: Signal<boolean> = computed(() => this._fetchResult() !== null);
   public readonly isAnonymous: Signal<boolean> = computed(() => this._fetchResult() === null);
   public readonly session: Signal<Session> = computed(() => this._fetchResult() ?? []);
+  public readonly sub: Signal<string | null> = computed(
+    () => this._fetchResult()?.find(x => x.type === 'sub')?.value ?? null
+  );
   public readonly username: Signal<string | null> = computed(
     () => this._fetchResult()?.find(x => x.type === 'name')?.value ?? null
   );

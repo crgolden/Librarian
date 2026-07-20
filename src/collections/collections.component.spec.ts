@@ -1,8 +1,10 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { CollectionsComponent } from './collections.component';
-import { CollectionGameResponse, DefinitionResponse } from '../curator/curator.models';
+import { CollectionGameResponse, DefinitionResponse, ProfileDefinitionResponse } from '../curator/curator.models';
+import { AuthService } from '../auth/auth.service';
 
 function definition(overrides: Partial<DefinitionResponse> = {}): DefinitionResponse {
   return {
@@ -46,13 +48,26 @@ function harness(fixture: ComponentFixture<CollectionsComponent>): CollectionsHa
   return fixture.componentInstance as unknown as CollectionsHarness;
 }
 
+function activatedRouteWithSub(sub: string | null): ActivatedRoute {
+  return { snapshot: { paramMap: convertToParamMap(sub !== null ? { sub } : {}) } } as unknown as ActivatedRoute;
+}
+
+function authServiceWithSub(sub: string | null): AuthService {
+  return { sub: () => sub } as unknown as AuthService;
+}
+
 describe('CollectionsComponent', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [CollectionsComponent],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: ActivatedRoute, useValue: activatedRouteWithSub(null) },
+      ],
     });
     httpMock = TestBed.inject(HttpTestingController);
   });
@@ -167,5 +182,93 @@ describe('CollectionsComponent', () => {
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain("Console 'unknown-console' not found");
+  });
+
+  describe('viewer mode', () => {
+    function profileDefinition(overrides: Partial<ProfileDefinitionResponse> = {}): ProfileDefinitionResponse {
+      return { definition_id: 'd1', name: 'Weekend picks', kind: 'filter_list', console_id: null, ...overrides };
+    }
+
+    // The outer beforeEach already injects HttpTestingController, which instantiates the testing
+    // module -- TestBed.overrideProvider() can no longer be used past that point. Reconfigure a
+    // fresh module per viewer test instead, with route/auth providers specific to that test.
+    function configureForViewer(routeSub: string, ownSub: string | null): void {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        imports: [CollectionsComponent],
+        providers: [
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          provideRouter([]),
+          { provide: ActivatedRoute, useValue: activatedRouteWithSub(routeSub) },
+          { provide: AuthService, useValue: authServiceWithSub(ownSub) },
+        ],
+      });
+      httpMock = TestBed.inject(HttpTestingController);
+    }
+
+    it('redirects to the bare /collections path without fetching when :sub equals the signed-in user\'s own sub', () => {
+      configureForViewer('own-sub', 'own-sub');
+      const router = TestBed.inject(Router);
+      const navigateSpy = vi.spyOn(router, 'navigate');
+
+      const fixture = TestBed.createComponent(CollectionsComponent);
+      fixture.detectChanges();
+
+      expect(navigateSpy).toHaveBeenCalledWith(['/collections'], { replaceUrl: true });
+      httpMock.expectNone('/curator/api/collections');
+      httpMock.expectNone('/curator/api/users/own-sub/collections');
+    });
+
+    it('renders another user\'s saved collections read-only, with no create/save/run controls', () => {
+      configureForViewer('other-sub', null);
+
+      const fixture = TestBed.createComponent(CollectionsComponent);
+      fixture.detectChanges();
+      httpMock.expectOne('/curator/api/users/other-sub/collections').flush([profileDefinition()]);
+      fixture.detectChanges();
+
+      const compiled: HTMLElement = fixture.nativeElement;
+      expect(compiled.textContent).toContain('Weekend picks');
+      expect(compiled.querySelector('button')).toBeNull();
+      httpMock.expectNone('/curator/api/collections');
+    });
+
+    it('shows an empty state for another user with no saved collections', () => {
+      configureForViewer('other-sub', null);
+
+      const fixture = TestBed.createComponent(CollectionsComponent);
+      fixture.detectChanges();
+      httpMock.expectOne('/curator/api/users/other-sub/collections').flush([]);
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('No saved collections yet.');
+    });
+
+    it('shows an inline message on a 403 (section not public)', () => {
+      configureForViewer('other-sub', null);
+
+      const fixture = TestBed.createComponent(CollectionsComponent);
+      fixture.detectChanges();
+      httpMock
+        .expectOne('/curator/api/users/other-sub/collections')
+        .flush(null, { status: 403, statusText: 'Forbidden' });
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain("This section isn't available.");
+    });
+
+    it('shows a generic error message on a non-403 failure', () => {
+      configureForViewer('other-sub', null);
+
+      const fixture = TestBed.createComponent(CollectionsComponent);
+      fixture.detectChanges();
+      httpMock
+        .expectOne('/curator/api/users/other-sub/collections')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain("Unable to load this user's collections.");
+    });
   });
 });

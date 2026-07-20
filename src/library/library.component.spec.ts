@@ -1,8 +1,18 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { LibraryComponent } from './library.component';
-import { LibraryGameResponse } from '../curator/curator.models';
+import { LibraryGameResponse, ProfileLibraryGameResponse } from '../curator/curator.models';
+import { AuthService } from '../auth/auth.service';
+
+function activatedRouteWithSub(sub: string | null): ActivatedRoute {
+  return { snapshot: { paramMap: convertToParamMap(sub !== null ? { sub } : {}) } } as unknown as ActivatedRoute;
+}
+
+function authServiceWithSub(sub: string | null): AuthService {
+  return { sub: () => sub } as unknown as AuthService;
+}
 
 describe('LibraryComponent', () => {
   let httpMock: HttpTestingController;
@@ -11,7 +21,12 @@ describe('LibraryComponent', () => {
     vi.useFakeTimers();
     TestBed.configureTestingModule({
       imports: [LibraryComponent],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: ActivatedRoute, useValue: activatedRouteWithSub(null) },
+      ],
     });
     httpMock = TestBed.inject(HttpTestingController);
   });
@@ -180,5 +195,92 @@ describe('LibraryComponent', () => {
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load your library.');
+  });
+
+  describe('viewer mode', () => {
+    // The outer beforeEach already injects HttpTestingController, which instantiates the testing
+    // module -- TestBed.overrideProvider() can no longer be used past that point. Reconfigure a
+    // fresh module per viewer test instead, with route/auth providers specific to that test.
+    function configureForViewer(routeSub: string, ownSub: string | null): void {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        imports: [LibraryComponent],
+        providers: [
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          provideRouter([]),
+          { provide: ActivatedRoute, useValue: activatedRouteWithSub(routeSub) },
+          { provide: AuthService, useValue: authServiceWithSub(ownSub) },
+        ],
+      });
+      httpMock = TestBed.inject(HttpTestingController);
+    }
+
+    it('redirects to the bare /library path without fetching when :sub equals the signed-in user\'s own sub', () => {
+      configureForViewer('own-sub', 'own-sub');
+      const router = TestBed.inject(Router);
+      const navigateSpy = vi.spyOn(router, 'navigate');
+
+      const fixture = TestBed.createComponent(LibraryComponent);
+      fixture.detectChanges();
+
+      expect(navigateSpy).toHaveBeenCalledWith(['/library'], { replaceUrl: true });
+      httpMock.expectNone('/curator/api/library');
+      httpMock.expectNone('/curator/api/users/own-sub/library');
+    });
+
+    it('renders another user\'s library read-only, with no refresh button', () => {
+      configureForViewer('other-sub', null);
+
+      const fixture = TestBed.createComponent(LibraryComponent);
+      fixture.detectChanges();
+      const games: ProfileLibraryGameResponse[] = [
+        { game_id: 'g1', title: 'Elden Ring', rawg_enriched: true, opencritic_enriched: false },
+      ];
+      httpMock.expectOne('/curator/api/users/other-sub/library').flush(games);
+      fixture.detectChanges();
+
+      const compiled: HTMLElement = fixture.nativeElement;
+      expect(compiled.textContent).toContain('Elden Ring');
+      expect(compiled.querySelector('button')).toBeNull();
+      httpMock.expectNone('/curator/api/library');
+    });
+
+    it('shows an empty state for another user with no games', () => {
+      configureForViewer('other-sub', null);
+
+      const fixture = TestBed.createComponent(LibraryComponent);
+      fixture.detectChanges();
+      httpMock.expectOne('/curator/api/users/other-sub/library').flush([]);
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('No games in this library yet.');
+    });
+
+    it('shows an inline message on a 403 (section not public)', () => {
+      configureForViewer('other-sub', null);
+
+      const fixture = TestBed.createComponent(LibraryComponent);
+      fixture.detectChanges();
+      httpMock
+        .expectOne('/curator/api/users/other-sub/library')
+        .flush(null, { status: 403, statusText: 'Forbidden' });
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain("This section isn't available.");
+    });
+
+    it('shows a generic error message on a non-403 failure', () => {
+      configureForViewer('other-sub', null);
+
+      const fixture = TestBed.createComponent(LibraryComponent);
+      fixture.detectChanges();
+      httpMock
+        .expectOne('/curator/api/users/other-sub/library')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain("Unable to load this user's library.");
+    });
   });
 });

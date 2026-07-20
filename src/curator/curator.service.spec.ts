@@ -159,4 +159,123 @@ describe('CuratorService', () => {
     expect(req.request.method).toBe('DELETE');
     req.flush(null);
   });
+
+  // ── Social profile / follow ──────────────────────────────────────────────
+
+  it('getProfileSettings gets the caller\'s own profile settings', () => {
+    service.getProfileSettings().subscribe();
+
+    const req = httpMock.expectOne('/curator/api/me/profile-settings');
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      is_public: false,
+      show_library: false,
+      show_collections: false,
+      show_trophies: false,
+      show_identity: false,
+    });
+  });
+
+  it('setProfileSettings puts the full settings body', () => {
+    const body = {
+      is_public: true,
+      show_library: true,
+      show_collections: false,
+      show_trophies: true,
+      show_identity: false,
+    };
+    service.setProfileSettings(body).subscribe();
+
+    const req = httpMock.expectOne('/curator/api/me/profile-settings');
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual(body);
+    req.flush(body);
+  });
+
+  it('getUserProfile gets the sub-scoped profile', () => {
+    service.getUserProfile('other-sub').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/users/other-sub/profile');
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      sub: 'other-sub',
+      psn_account_id: null,
+      is_public: false,
+      viewer_is_owner: false,
+      viewer_is_following: false,
+      follower_count: 0,
+      following_count: 0,
+      library_visible: false,
+      collections_visible: false,
+      trophies: null,
+      identity: null,
+    });
+  });
+
+  it('followUser posts to the sub-scoped follow endpoint with no body', () => {
+    service.followUser('other-sub').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/users/other-sub/follow');
+    expect(req.request.method).toBe('POST');
+    req.flush(null);
+  });
+
+  it('unfollowUser deletes the sub-scoped follow endpoint', () => {
+    service.unfollowUser('other-sub').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/users/other-sub/follow');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+  });
+
+  it('getFollowers sends limit/offset params, defaulting to 50/0', () => {
+    service.getFollowers('other-sub').subscribe();
+
+    const req = httpMock.expectOne(
+      (r) => r.url === '/curator/api/users/other-sub/followers',
+    );
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('limit')).toBe('50');
+    expect(req.request.params.get('offset')).toBe('0');
+    req.flush({ entries: [], total: 0 });
+  });
+
+  it('getFollowers forwards explicit limit/offset params', () => {
+    service.getFollowers('other-sub', 10, 20).subscribe();
+
+    const req = httpMock.expectOne(
+      (r) => r.url === '/curator/api/users/other-sub/followers',
+    );
+    expect(req.request.params.get('limit')).toBe('10');
+    expect(req.request.params.get('offset')).toBe('20');
+    req.flush({ entries: [], total: 0 });
+  });
+
+  it('getFollowing sends limit/offset params, defaulting to 50/0', () => {
+    service.getFollowing('other-sub').subscribe();
+
+    const req = httpMock.expectOne(
+      (r) => r.url === '/curator/api/users/other-sub/following',
+    );
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('limit')).toBe('50');
+    expect(req.request.params.get('offset')).toBe('0');
+    req.flush({ entries: [], total: 0 });
+  });
+
+  it('getUserLibrary gets the sub-scoped read-only library', () => {
+    service.getUserLibrary('other-sub').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/users/other-sub/library');
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
+
+  it('getUserCollections gets the sub-scoped read-only collections', () => {
+    service.getUserCollections('other-sub').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/users/other-sub/collections');
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
 });

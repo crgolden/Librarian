@@ -1,0 +1,59 @@
+<section class="page-section profile-view">
+  @if (loading()) {
+    <p class="text-muted">Loading profile...</p>
+  } @else if (loadError()) {
+    <p class="text-error">{{ loadError() }}</p>
+  } @else if (profile(); as current) {
+    <div class="card status-card profile-identity-card">
+      <h1>{{ current.psn_account_id ?? 'Unlinked user' }}</h1>
+
+      @if (!current.viewer_is_owner) {
+        @if (followError()) {
+          <p class="text-error">{{ followError() }}</p>
+        }
+        @if (current.viewer_is_following) {
+          <button type="button" class="btn-ghost" [disabled]="followBusy()" (click)="unfollow()">
+            {{ followBusy() ? 'Working...' : 'Unfollow' }}
+          </button>
+        } @else {
+          <button type="button" class="btn-primary" [disabled]="followBusy()" (click)="follow()">
+            {{ followBusy() ? 'Working...' : 'Follow' }}
+          </button>
+        }
+      }
+
+      <div class="profile-counts">
+        <a [routerLink]="followersLink()">{{ current.follower_count }} followers</a>
+        <a [routerLink]="followingLink()">{{ current.following_count }} following</a>
+      </div>
+
+      <div class="profile-section-links">
+        @if (current.viewer_is_owner || current.library_visible) {
+          <a class="btn-ghost" [routerLink]="libraryLink()">View library</a>
+        }
+        @if (current.viewer_is_owner || current.collections_visible) {
+          <a class="btn-ghost" [routerLink]="collectionsLink()">View collections</a>
+        }
+      </div>
+    </div>
+
+    @if (current.trophies; as trophies) {
+      <div class="card status-card psn-category-card">
+        <h3>Trophies</h3>
+        <p>Level {{ trophies.level }} &middot; Tier {{ trophies.tier }}</p>
+        <p class="catalog-meta">{{ trophiesEarnedTotal(current) }} trophies earned</p>
+        <p class="catalog-meta">
+          {{ trophies.earned.platinum }} platinum &middot; {{ trophies.earned.gold }} gold &middot;
+          {{ trophies.earned.silver }} silver &middot; {{ trophies.earned.bronze }} bronze
+        </p>
+      </div>
+    }
+
+    @if (current.identity; as identity) {
+      <div class="card status-card psn-category-card">
+        <h3>PSN Identity</h3>
+        <p>{{ identity.online_id }}</p>
+      </div>
+    }
+  }
+</section>

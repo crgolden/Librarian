@@ -164,3 +164,64 @@ export interface AccountActionResponse {
 export interface AccountActionsResponse {
   actions: AccountActionResponse[];
 }
+
+export interface ProfileSettingsResponse {
+  is_public: boolean;
+  show_library: boolean;
+  show_collections: boolean;
+  show_trophies: boolean;
+  show_identity: boolean;
+}
+
+export type ProfileSettingsRequest = ProfileSettingsResponse;
+
+export interface ProfileTrophySummaryResponse {
+  level: number;
+  tier: number;
+  earned: TrophyCountsResponse;
+}
+
+/** No `region` field, structurally — PSN only ever exposes an account's region to that account
+ * itself, which makes it useless for the cross-user viewer's-own-token lookup this backs. */
+export interface ProfileIdentityResponse {
+  online_id: string;
+}
+
+export interface PublicProfileResponse {
+  sub: string;
+  psn_account_id: string | null;
+  is_public: boolean;
+  viewer_is_owner: boolean;
+  viewer_is_following: boolean;
+  follower_count: number;
+  following_count: number;
+  library_visible: boolean;
+  collections_visible: boolean;
+  trophies: ProfileTrophySummaryResponse | null;
+  identity: ProfileIdentityResponse | null;
+}
+
+export interface FollowListEntryResponse {
+  sub: string;
+  psn_account_id: string | null;
+  followed_at: string;
+}
+
+export interface FollowListResponse {
+  entries: FollowListEntryResponse[];
+  total: number;
+}
+
+export interface ProfileLibraryGameResponse {
+  game_id: string;
+  title: string;
+  rawg_enriched: boolean;
+  opencritic_enriched: boolean;
+}
+
+export interface ProfileDefinitionResponse {
+  definition_id: string;
+  name: string;
+  kind: string;
+  console_id: string | null;
+}

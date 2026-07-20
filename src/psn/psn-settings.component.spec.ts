@@ -452,6 +452,30 @@ describe('PsnSettingsComponent', () => {
     httpMock.expectNone('/curator/api/devices');
   });
 
+  it('shows the profile-settings cross-reference copy near the harvest toggles, linking to /profile/settings', () => {
+    const fixture = createAndLoad(LINKED_STATUS);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    expect(compiled.textContent).toContain('may also appear on your public profile');
+    const link = compiled.querySelector('a[routerLink="/profile/settings"]');
+    expect(link).not.toBeNull();
+    expect(link?.textContent).toContain('Profile Settings');
+  });
+
+  it('never renders a region field anywhere on the page, including the PSN Identity card', () => {
+    const fixture = createLinkedWithPreferences({
+      harvest_trophies: false,
+      harvest_identity: true,
+      harvest_presence: false,
+      harvest_devices: false,
+    });
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    expect(compiled.querySelector('.psn-category-card')?.textContent).toContain('gamer');
+    expect(compiled.textContent).not.toContain('US');
+    expect(compiled.textContent?.toLowerCase()).not.toContain('region');
+  });
+
   it('does not fire a preferences GET when the account is not linked', () => {
     createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
     httpMock.expectNone('/curator/api/me/psn-preferences');

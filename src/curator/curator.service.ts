@@ -11,13 +11,19 @@ import {
   DefinitionResponse,
   DevicesResponse,
   EnrichmentKeyStatusResponse,
+  FollowListResponse,
   IdentityResponse,
   LibraryGameResponse,
   LibraryRefreshResponse,
   LibraryRefreshStatusResponse,
   PresenceResponse,
+  ProfileDefinitionResponse,
+  ProfileLibraryGameResponse,
+  ProfileSettingsRequest,
+  ProfileSettingsResponse,
   PsnPreferencesRequest,
   PsnPreferencesResponse,
+  PublicProfileResponse,
   SaveDefinitionRequest,
   TrophySummaryResponse,
 } from './curator.models';
@@ -136,5 +142,43 @@ export class CuratorService {
 
   getMyActions(): Observable<AccountActionsResponse> {
     return this.http.get<AccountActionsResponse>('/curator/api/me/actions');
+  }
+
+  getProfileSettings(): Observable<ProfileSettingsResponse> {
+    return this.http.get<ProfileSettingsResponse>('/curator/api/me/profile-settings');
+  }
+
+  setProfileSettings(body: ProfileSettingsRequest): Observable<ProfileSettingsResponse> {
+    return this.http.put<ProfileSettingsResponse>('/curator/api/me/profile-settings', body);
+  }
+
+  getUserProfile(sub: string): Observable<PublicProfileResponse> {
+    return this.http.get<PublicProfileResponse>(`/curator/api/users/${sub}/profile`);
+  }
+
+  followUser(sub: string): Observable<void> {
+    return this.http.post<void>(`/curator/api/users/${sub}/follow`, {});
+  }
+
+  unfollowUser(sub: string): Observable<void> {
+    return this.http.delete<void>(`/curator/api/users/${sub}/follow`);
+  }
+
+  getFollowers(sub: string, limit = 50, offset = 0): Observable<FollowListResponse> {
+    const params = new HttpParams().set('limit', limit).set('offset', offset);
+    return this.http.get<FollowListResponse>(`/curator/api/users/${sub}/followers`, { params });
+  }
+
+  getFollowing(sub: string, limit = 50, offset = 0): Observable<FollowListResponse> {
+    const params = new HttpParams().set('limit', limit).set('offset', offset);
+    return this.http.get<FollowListResponse>(`/curator/api/users/${sub}/following`, { params });
+  }
+
+  getUserLibrary(sub: string): Observable<ProfileLibraryGameResponse[]> {
+    return this.http.get<ProfileLibraryGameResponse[]>(`/curator/api/users/${sub}/library`);
+  }
+
+  getUserCollections(sub: string): Observable<ProfileDefinitionResponse[]> {
+    return this.http.get<ProfileDefinitionResponse[]>(`/curator/api/users/${sub}/collections`);
   }
 }

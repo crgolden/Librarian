@@ -1,83 +1,92 @@
 <section class="page-section library">
-  <h1>My Library</h1>
-  <p class="text-muted">Refresh rebuilds your catalog entries from your linked PlayStation Network entitlements.</p>
+  <h1>{{ viewerMode() ? 'Library' : 'My Library' }}</h1>
 
-  <div class="card status-card">
-    <button type="button" class="btn-primary" [disabled]="refreshing()" (click)="refresh()">
-      {{ refreshing() ? 'Refreshing...' : 'Refresh library' }}
-    </button>
+  @if (viewerForbidden()) {
+    <p class="text-muted">This section isn't available.</p>
+  } @else {
+    @if (!viewerMode()) {
+      <p class="text-muted">Refresh rebuilds your catalog entries from your linked PlayStation Network entitlements.</p>
 
-    @if (error()) {
-      <p class="text-error">{{ error() }}</p>
-    }
+      <div class="card status-card">
+        <button type="button" class="btn-primary" [disabled]="refreshing()" (click)="refresh()">
+          {{ refreshing() ? 'Refreshing...' : 'Refresh library' }}
+        </button>
 
-    @if (status(); as current) {
-      <p class="catalog-meta">Status: {{ current.status }}</p>
-      @if (current.status === 'succeeded') {
-        <p class="text-success">Library catalogued.</p>
-        @if (current.result_summary; as summary) {
-          @if (summary.rawg_enriched_titles.length > 0) {
-            <p class="catalog-meta">
-              RAWG enriched: {{ summaryTitles(summary.rawg_enriched_titles).shown.join(', ') }}
-              @if (summaryTitles(summary.rawg_enriched_titles).more > 0) {
-                (+{{ summaryTitles(summary.rawg_enriched_titles).more }} more)
+        @if (error()) {
+          <p class="text-error">{{ error() }}</p>
+        }
+
+        @if (status(); as current) {
+          <p class="catalog-meta">Status: {{ current.status }}</p>
+          @if (current.status === 'succeeded') {
+            <p class="text-success">Library catalogued.</p>
+            @if (current.result_summary; as summary) {
+              @if (summary.rawg_enriched_titles.length > 0) {
+                <p class="catalog-meta">
+                  RAWG enriched: {{ summaryTitles(summary.rawg_enriched_titles).shown.join(', ') }}
+                  @if (summaryTitles(summary.rawg_enriched_titles).more > 0) {
+                    (+{{ summaryTitles(summary.rawg_enriched_titles).more }} more)
+                  }
+                </p>
               }
-            </p>
-          }
-          @if (summary.opencritic_enriched_titles.length > 0) {
-            <p class="catalog-meta">
-              OpenCritic enriched: {{ summaryTitles(summary.opencritic_enriched_titles).shown.join(', ') }}
-              @if (summaryTitles(summary.opencritic_enriched_titles).more > 0) {
-                (+{{ summaryTitles(summary.opencritic_enriched_titles).more }} more)
+              @if (summary.opencritic_enriched_titles.length > 0) {
+                <p class="catalog-meta">
+                  OpenCritic enriched: {{ summaryTitles(summary.opencritic_enriched_titles).shown.join(', ') }}
+                  @if (summaryTitles(summary.opencritic_enriched_titles).more > 0) {
+                    (+{{ summaryTitles(summary.opencritic_enriched_titles).more }} more)
+                  }
+                </p>
               }
-            </p>
+              @if (summary.opencritic_topup_incomplete) {
+                <p class="text-muted">
+                  OpenCritic still has more of your library to check — this continues automatically on a future
+                  refresh.
+                </p>
+              }
+            }
           }
-          @if (summary.opencritic_topup_incomplete) {
-            <p class="text-muted">
-              OpenCritic still has more of your library to check — this continues automatically on a future
-              refresh.
-            </p>
+          @if (current.status === 'failed') {
+            <p class="text-error">{{ current.error ?? 'Refresh failed.' }}</p>
+          }
+          @if (unexpectedStatus()) {
+            <p class="text-error">Unexpected status returned — stopped watching this job.</p>
           }
         }
-      }
-      @if (current.status === 'failed') {
-        <p class="text-error">{{ current.error ?? 'Refresh failed.' }}</p>
-      }
-      @if (unexpectedStatus()) {
-        <p class="text-error">Unexpected status returned — stopped watching this job.</p>
-      }
+      </div>
     }
-  </div>
 
-  <div class="card status-card library-table-card">
-    <h2>Your games</h2>
-    @if (gamesError()) {
-      <p class="text-error">{{ gamesError() }}</p>
-    } @else if (games(); as gameList) {
-      @if (gameList.length === 0) {
-        <p class="text-muted">No games yet — run a refresh to build your library.</p>
-      } @else {
-        <table class="library-table">
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>RAWG</th>
-              <th>OpenCritic</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (game of gameList; track game.game_id) {
+    <div class="card status-card library-table-card">
+      <h2>{{ viewerMode() ? 'Games' : 'Your games' }}</h2>
+      @if (gamesError()) {
+        <p class="text-error">{{ gamesError() }}</p>
+      } @else if (games(); as gameList) {
+        @if (gameList.length === 0) {
+          <p class="text-muted">
+            {{ viewerMode() ? 'No games in this library yet.' : 'No games yet — run a refresh to build your library.' }}
+          </p>
+        } @else {
+          <table class="library-table">
+            <thead>
               <tr>
-                <td>{{ game.title }}</td>
-                <td class="library-table-check">{{ game.rawg_enriched ? '✓' : '—' }}</td>
-                <td class="library-table-check">{{ game.opencritic_enriched ? '✓' : '—' }}</td>
+                <th>Title</th>
+                <th>RAWG</th>
+                <th>OpenCritic</th>
               </tr>
-            }
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              @for (game of gameList; track game.game_id) {
+                <tr>
+                  <td>{{ game.title }}</td>
+                  <td class="library-table-check">{{ game.rawg_enriched ? '✓' : '—' }}</td>
+                  <td class="library-table-check">{{ game.opencritic_enriched ? '✓' : '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      } @else {
+        <p class="text-muted">Loading library...</p>
       }
-    } @else {
-      <p class="text-muted">Loading your library...</p>
-    }
-  </div>
+    </div>
+  }
 </section>

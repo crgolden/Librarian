@@ -36,8 +36,16 @@ No live servers needed. Playwright manages two local servers for the test run:
 1. **Mock Curator API** (`e2e/mocks/curator-server.ts`, backed by `e2e/mocks/curator.ts`) — handles
    `/me`, `/psn/link` (POST/DELETE), `/me/psn-preferences` (GET/PUT), `/trophies/summary`, `/identity`,
    `/presence`, `/devices` (each enforcing the same 404-unlinked/403-flag-off semantics as the real
-   backend), and the `/_test/*` control API used by test helpers (`e2e/fixtures.ts`, including
-   `seedPsnPreferences`).
+   backend), the profile/follow routes (`/me/profile-settings`, `/users/{sub}/profile`,
+   `/users/{sub}/follow`, `/users/{sub}/followers`, `/users/{sub}/following`, `/users/{sub}/library`,
+   `/users/{sub}/collections`), and the `/_test/*` control API used by test helpers (`e2e/fixtures.ts`,
+   including `seedPsnPreferences` and the multi-user profile/follow seed methods).
+
+   The mock has no real bearer-token validation, so it identifies "who is calling" via an `X-E2E-Sub`
+   header that each authenticated Playwright fixture injects on every `/curator/api/**` request (see
+   `e2e/fixtures.ts`'s module docstring). `authedPage` and `secondAuthedPage` (a second, distinct
+   identity, each on its own browser context) let a single test drive two simultaneously signed-in
+   users — needed for follow/unfollow and cross-viewer profile tests.
 2. **Node SSR + BFF server** — starts the built `dist/librarian.client/server/server.mjs` with
    in-memory session store, dummy OIDC values, and `CuratorApiAddress` pointing at the mock.
 
@@ -64,7 +72,20 @@ Failure artifacts (screenshot, trace, video) are written to `playwright-artifact
 **E2E coverage (`e2e/`):** `home.spec.ts` (public landing), `psn.spec.ts` (auth guard redirect,
 link/unlink flows, and the per-category data-harvest preference toggles — all off by default after
 linking, toggling a category on shows its card and persists across reload, toggling off hides it
-immediately — against the mock Curator API).
+immediately — against the mock Curator API), `faq.spec.ts`/`privacy.spec.ts` (SSR + anonymous access to
+the trust pages), `catalog.spec.ts`, `collections.spec.ts`, `library.spec.ts` (owner mode, plus
+sub-keyed viewer mode covered jointly with `profile.spec.ts` below), and `profile.spec.ts` (owner vs.
+viewer profile rendering; a private-by-default profile shows only account-id-or-"Unlinked user" plus
+follower/following counts; a fully public profile with every `show_*`/`harvest_*` flag on shows every
+gated section; a viewer with no PSN link of their own sees trophies silently omitted, not an error;
+follow/unfollow and the resulting count changes; no Follow button on your own profile; the followers/
+following list pages; `/profile/settings` toggle persistence; the `/psn` cross-reference copy and the
+absence of the removed region field; `/library/:sub` and `/collections/:sub` rendering owner vs.
+read-only viewer mode for two seeded users, including a 403-to-inline-message case; and the
+own-sub-canonicalization redirects — `/u/{own sub}`, `/u/{own sub}/followers`, `/u/{own sub}/following`,
+`/library/{own sub}`, `/collections/{own sub}` all silently redirect (`replaceUrl`) to their bare-path
+equivalents, while the same paths keyed to a *different* user's sub render viewer mode without
+redirecting).
 
 ---
 

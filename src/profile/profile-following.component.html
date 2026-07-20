@@ -1,0 +1,23 @@
+<section class="page-section profile-following">
+  <h1>Following</h1>
+
+  @if (loading()) {
+    <p class="text-muted">Loading following...</p>
+  } @else if (loadError()) {
+    <p class="text-error">{{ loadError() }}</p>
+  } @else {
+    <p class="catalog-meta">{{ total() }} total</p>
+    @if (entries().length === 0) {
+      <p class="text-muted">Not following anyone yet.</p>
+    } @else {
+      <ul class="follow-list">
+        @for (entry of entries(); track entry.sub) {
+          <li class="card follow-list-entry">
+            <a [routerLink]="['/u', entry.sub]">{{ entry.psn_account_id ?? 'Unlinked user' }}</a>
+            <span class="catalog-meta">Since {{ entry.followed_at | date: 'medium' }}</span>
+          </li>
+        }
+      </ul>
+    }
+  }
+</section>
