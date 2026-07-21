@@ -135,7 +135,7 @@ test.describe('Profile — follow / unfollow', () => {
 
     await viewerPage.getByRole('button', { name: 'Follow' }).click();
     await expect(viewerPage.getByRole('button', { name: 'Unfollow' })).toBeVisible({ timeout: 10_000 });
-    await expect(viewerPage.locator('.profile-counts')).toContainText('1 followers');
+    await expect(viewerPage.locator('.profile-counts')).toContainText('1 follower');
 
     await viewerPage.getByRole('button', { name: 'Unfollow' }).click();
     await expect(viewerPage.getByRole('button', { name: 'Follow' })).toBeVisible({ timeout: 10_000 });
