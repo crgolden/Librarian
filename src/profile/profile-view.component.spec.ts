@@ -102,6 +102,19 @@ describe('ProfileViewComponent', () => {
     expect(fixture.nativeElement.querySelector('h1')?.textContent).toContain('psn-account-other');
   });
 
+  it('uses singular "follower" when the count is exactly 1', () => {
+    configure('other-sub', 'viewer-sub');
+    const fixture = createAndLoad(
+      profile({ follower_count: 1, following_count: 0 }),
+      '/curator/api/users/other-sub/profile',
+    );
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.textContent).toContain('1 follower');
+    expect(compiled.textContent).not.toContain('1 followers');
+    expect(compiled.textContent).toContain('0 following');
+  });
+
   it('viewing another\'s private (default) profile shows only counts, no library/collections/trophies/identity links', () => {
     configure('other-sub', 'viewer-sub');
     const fixture = createAndLoad(

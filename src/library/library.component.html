@@ -57,35 +57,98 @@
 
     <div class="card status-card library-table-card">
       <h2>{{ viewerMode() ? 'Games' : 'Your games' }}</h2>
+
       @if (gamesError()) {
         <p class="text-error">{{ gamesError() }}</p>
-      } @else if (games(); as gameList) {
-        @if (gameList.length === 0) {
-          <p class="text-muted">
-            {{ viewerMode() ? 'No games in this library yet.' : 'No games yet — run a refresh to build your library.' }}
-          </p>
-        } @else {
-          <table class="library-table">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>RAWG</th>
-                <th>OpenCritic</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (game of gameList; track game.game_id) {
-                <tr>
-                  <td>{{ game.title }}</td>
-                  <td class="library-table-check">{{ game.rawg_enriched ? '✓' : '—' }}</td>
-                  <td class="library-table-check">{{ game.opencritic_enriched ? '✓' : '—' }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        }
-      } @else {
+      } @else if (!hasLoadedOnce() && gamesLoading()) {
         <p class="text-muted">Loading library...</p>
+      } @else if (total() === 0 && !committedSearch() && !categoryFilter()) {
+        <p class="text-muted">
+          {{ viewerMode() ? 'No games in this library yet.' : 'No games yet — run a refresh to build your library.' }}
+        </p>
+      } @else {
+        <div class="library-controls">
+          <input
+            type="search"
+            class="library-search"
+            placeholder="Search titles..."
+            [ngModel]="searchInput()"
+            (ngModelChange)="onSearchInput($event)"
+            aria-label="Search this library"
+          />
+          <select
+            class="library-category-filter"
+            [ngModel]="categoryFilter()"
+            (ngModelChange)="onCategoryFilterChange($event)"
+            aria-label="Filter by category"
+          >
+            <option value="">All categories</option>
+            @for (category of categoryOptions(); track category) {
+              <option [value]="category">{{ category }}</option>
+            }
+          </select>
+        </div>
+
+        @if (gamesLoading()) {
+          <p class="text-muted">Loading...</p>
+        } @else if (total() === 0) {
+          <p class="text-muted">No games match your search/filter.</p>
+        } @else {
+          <div class="library-table-scroll">
+            <table class="library-table">
+              <thead>
+                @for (headerGroup of table().getHeaderGroups(); track headerGroup.id) {
+                  <tr>
+                    @for (header of headerGroup.headers; track header.id) {
+                      <th
+                        [class.library-sortable]="header.column.getCanSort()"
+                        [attr.aria-sort]="
+                          header.column.getIsSorted() === 'asc'
+                            ? 'ascending'
+                            : header.column.getIsSorted() === 'desc'
+                              ? 'descending'
+                              : null
+                        "
+                        (click)="header.column.getToggleSortingHandler()?.($event)"
+                      >
+                        {{ headerLabel(header) }}
+                        @if (header.column.getIsSorted() === 'asc') {
+                          <span aria-hidden="true"> ▲</span>
+                        } @else if (header.column.getIsSorted() === 'desc') {
+                          <span aria-hidden="true"> ▼</span>
+                        }
+                      </th>
+                    }
+                  </tr>
+                }
+              </thead>
+              <tbody>
+                @for (row of table().getRowModel().rows; track row.original.game_id) {
+                  <tr>
+                    <td>{{ row.original.title }}</td>
+                    <td>{{ row.original.category ?? '—' }}</td>
+                    <td>{{ row.original.rawg_rating ?? '—' }}</td>
+                    <td>{{ row.original.opencritic_rating ?? '—' }}</td>
+                    <td>{{ row.original.psn_rating ?? '—' }}</td>
+                    <td>
+                      @if (psnStoreUrl(row.original.psn_product_id); as url) {
+                        <a [href]="url" target="_blank" rel="noopener noreferrer">View</a>
+                      } @else {
+                        <span class="text-muted">—</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <div class="library-pager">
+            <button type="button" class="btn-secondary" [disabled]="!hasPrevPage()" (click)="prevPage()">Previous</button>
+            <span class="catalog-meta">{{ total() }} game(s)</span>
+            <button type="button" class="btn-secondary" [disabled]="!hasNextPage()" (click)="nextPage()">Next</button>
+          </div>
+        }
       }
     </div>
   }

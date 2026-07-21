@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  max-width: 720px;
+  max-width: 1000px;
 }
 
 .status-card {
@@ -33,4 +33,50 @@
 .library-table-check {
   text-align: center;
   width: 6rem;
+}
+
+.library-controls {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.library-search,
+.library-category-filter {
+  padding: var(--space-2);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+}
+
+.library-search {
+  flex: 1 1 auto;
+  min-width: 12rem;
+}
+
+.library-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+th.library-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+th.library-sortable:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  th.library-sortable:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+}
+
+.library-pager {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
 }

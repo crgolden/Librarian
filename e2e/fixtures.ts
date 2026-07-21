@@ -53,6 +53,11 @@ export interface EnrichmentKeyStatusFixture {
 export interface LibraryGameFixture {
   game_id: string;
   title: string;
+  category?: string | null;
+  rawg_rating?: number | null;
+  opencritic_rating?: number | null;
+  psn_rating?: number | null;
+  psn_product_id?: string | null;
   rawg_enriched: boolean;
   opencritic_enriched: boolean;
 }

@@ -85,8 +85,22 @@ export interface LibraryRefreshStatusResponse {
 export interface LibraryGameResponse {
   game_id: string;
   title: string;
+  category: string | null;
+  rawg_rating: number | null;
+  opencritic_rating: number | null;
+  psn_rating: number | null;
+  psn_product_id: string | null;
   rawg_enriched: boolean;
   opencritic_enriched: boolean;
+}
+
+export interface LibraryPageResponse {
+  games: LibraryGameResponse[];
+  total: number;
+}
+
+export interface LibraryCategoriesResponse {
+  categories: string[];
 }
 
 export interface EnrichmentKeyStatusResponse {
@@ -215,8 +229,18 @@ export interface FollowListResponse {
 export interface ProfileLibraryGameResponse {
   game_id: string;
   title: string;
+  category: string | null;
+  rawg_rating: number | null;
+  opencritic_rating: number | null;
+  psn_rating: number | null;
+  psn_product_id: string | null;
   rawg_enriched: boolean;
   opencritic_enriched: boolean;
+}
+
+export interface ProfileLibraryPageResponse {
+  games: ProfileLibraryGameResponse[];
+  total: number;
 }
 
 export interface ProfileDefinitionResponse {

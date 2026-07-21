@@ -75,6 +75,10 @@ export class ProfileViewComponent implements OnInit {
     });
   }
 
+  protected followerLabel(count: number): string {
+    return count === 1 ? 'follower' : 'followers';
+  }
+
   protected trophiesEarnedTotal(profile: PublicProfileResponse): number {
     const earned = profile.trophies?.earned;
     if (!earned) {

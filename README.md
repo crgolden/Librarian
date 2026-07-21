@@ -26,7 +26,8 @@ proxies `/curator/api/**` to the Curator API with the session's Bearer token, an
 (link/unlink a PlayStation Network account via NPSSO token, backed by Curator's `/me` and
 `/psn/link` routes, plus per-category data-harvest preferences and bring-your-own-key RAWG/OpenCritic
 enrichment key management), `/catalog` (browse the shared game catalog), `/collections` (create/save/run
-curated collections), and `/library` (trigger a refresh and view the caller's own enriched library) — all
+curated collections), and `/library` (trigger a refresh and browse the caller's own library — server-side
+search, category filtering, sortable columns, and paging; see "The library page" below) — all
 backed by real Curator endpoints. A public social-profile feature adds `/profile` and its sub-keyed
 counterpart `/u/:sub`: a viewable, followable profile with opt-in display toggles for library,
 collections, PSN trophies, and PSN identity, plus always-visible follower/following lists. `/library` and
@@ -36,6 +37,33 @@ public; the bare paths always mean "mine," and a sub-keyed URL for your own sub 
 the bare one. Frontend is zoneless Angular. Observability:
 OTLP traces/metrics → Grafana Alloy; structured logs → Elasticsearch (`pino-elasticsearch`).
 `GET /health` → `Healthy`.
+
+## The library page
+
+`/library` (your own, with a refresh button) and `/library/:sub` (read-only, another user's public
+library) render the same table component (`src/library/`), backed by `GET /curator/api/library` and
+`GET /curator/api/users/{sub}/library` respectively. Both endpoints are fully server-driven — the
+Angular page never fetches the whole library into the browser and sorts/filters it client-side; every
+search keystroke (debounced), category selection, column-header click, and page change issues a
+fresh request with `q`/`category`/`sort`/`sortDir`/`limit`/`offset` query parameters, and the
+response carries only that page's rows plus a `total` count.
+
+Columns:
+
+| Column | Source |
+|---|---|
+| Title | The game's canonical title |
+| Category | The resolved genre Curator's enrichment pipeline assigned (same resolution `/catalog` uses) — not PSN's raw per-title genre tags |
+| RAWG | RAWG's critic score, 0–100 |
+| OpenCritic | OpenCritic's top-critic score, 0–100 |
+| PS Store | PlayStation Store's own star rating (1–5), from Sony's official catalog API |
+| PS Store page | A link to the game's PlayStation Store product page, opens in a new tab |
+
+Any rating that hasn't resolved yet — enrichment still pending, or you haven't configured a
+RAWG/OpenCritic key — shows as a dash rather than blocking the row. Table structure, sortable
+headers, and pagination controls are built on [TanStack Table](https://tanstack.com/table)
+(`@tanstack/angular-table`) running in manual (server-driven) mode, not a hand-rolled comparator or
+page-slicing implementation.
 
 ## Tech Stack
 

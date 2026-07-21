@@ -23,7 +23,7 @@
       }
 
       <div class="profile-counts">
-        <a [routerLink]="followersLink()">{{ current.follower_count }} followers</a>
+        <a [routerLink]="followersLink()">{{ current.follower_count }} {{ followerLabel(current.follower_count) }}</a>
         <a [routerLink]="followingLink()">{{ current.following_count }} following</a>
       </div>
 

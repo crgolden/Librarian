@@ -13,12 +13,13 @@ import {
   EnrichmentKeyStatusResponse,
   FollowListResponse,
   IdentityResponse,
-  LibraryGameResponse,
+  LibraryCategoriesResponse,
+  LibraryPageResponse,
   LibraryRefreshResponse,
   LibraryRefreshStatusResponse,
   PresenceResponse,
   ProfileDefinitionResponse,
-  ProfileLibraryGameResponse,
+  ProfileLibraryPageResponse,
   ProfileSettingsRequest,
   ProfileSettingsResponse,
   PsnPreferencesRequest,
@@ -34,6 +35,40 @@ export interface CatalogGamesQuery {
   aaaTier?: string;
   limit?: number;
   offset?: number;
+}
+
+export type LibrarySortField = 'title' | 'category' | 'rawg_rating' | 'opencritic_rating' | 'psn_rating';
+
+export interface LibraryQuery {
+  q?: string;
+  category?: string;
+  sort?: LibrarySortField;
+  sortDir?: 'asc' | 'desc';
+  limit?: number;
+  offset?: number;
+}
+
+function libraryQueryParams(query: LibraryQuery): HttpParams {
+  let params = new HttpParams();
+  if (query.q) {
+    params = params.set('q', query.q);
+  }
+  if (query.category) {
+    params = params.set('category', query.category);
+  }
+  if (query.sort) {
+    params = params.set('sort', query.sort);
+  }
+  if (query.sortDir) {
+    params = params.set('sortDir', query.sortDir);
+  }
+  if (query.limit !== undefined) {
+    params = params.set('limit', query.limit);
+  }
+  if (query.offset !== undefined) {
+    params = params.set('offset', query.offset);
+  }
+  return params;
 }
 
 /** Thin HTTP wrapper over the Curator catalog/collections/consoles/library endpoints, shared
@@ -92,8 +127,12 @@ export class CuratorService {
     return this.http.get<LibraryRefreshStatusResponse>(`/curator/api/library/refresh/${runId}`);
   }
 
-  getLibrary(): Observable<LibraryGameResponse[]> {
-    return this.http.get<LibraryGameResponse[]>('/curator/api/library');
+  getLibrary(query: LibraryQuery = {}): Observable<LibraryPageResponse> {
+    return this.http.get<LibraryPageResponse>('/curator/api/library', { params: libraryQueryParams(query) });
+  }
+
+  getLibraryCategories(): Observable<LibraryCategoriesResponse> {
+    return this.http.get<LibraryCategoriesResponse>('/curator/api/library/categories');
   }
 
   getEnrichmentKeyStatus(): Observable<EnrichmentKeyStatusResponse> {
@@ -174,8 +213,14 @@ export class CuratorService {
     return this.http.get<FollowListResponse>(`/curator/api/users/${sub}/following`, { params });
   }
 
-  getUserLibrary(sub: string): Observable<ProfileLibraryGameResponse[]> {
-    return this.http.get<ProfileLibraryGameResponse[]>(`/curator/api/users/${sub}/library`);
+  getUserLibrary(sub: string, query: LibraryQuery = {}): Observable<ProfileLibraryPageResponse> {
+    return this.http.get<ProfileLibraryPageResponse>(`/curator/api/users/${sub}/library`, {
+      params: libraryQueryParams(query),
+    });
+  }
+
+  getUserLibraryCategories(sub: string): Observable<LibraryCategoriesResponse> {
+    return this.http.get<LibraryCategoriesResponse>(`/curator/api/users/${sub}/library/categories`);
   }
 
   getUserCollections(sub: string): Observable<ProfileDefinitionResponse[]> {

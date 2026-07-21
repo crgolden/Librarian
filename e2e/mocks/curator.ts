@@ -116,8 +116,73 @@ interface DefinitionRecord {
 export interface LibraryGame {
   game_id: string;
   title: string;
+  category: string | null;
+  rawg_rating: number | null;
+  opencritic_rating: number | null;
+  psn_rating: number | null;
+  psn_product_id: string | null;
   rawg_enriched: boolean;
   opencritic_enriched: boolean;
+}
+
+const LIBRARY_SORT_FIELDS = ['title', 'category', 'rawg_rating', 'opencritic_rating', 'psn_rating'] as const;
+type LibrarySortField = (typeof LIBRARY_SORT_FIELDS)[number];
+
+/** Mirrors Curator's real `GET /library`/`GET /users/{sub}/library` server-side
+ * search/filter/sort/paging so E2E tests exercise real request/response round trips, not a
+ * client-side array. */
+function queryLibraryGames(games: LibraryGame[], req: Request): { games: LibraryGame[]; total: number } {
+  const q = (req.query['q'] as string | undefined)?.toLowerCase();
+  const category = req.query['category'] as string | undefined;
+  const sortParam = req.query['sort'] as string | undefined;
+  const sort: LibrarySortField = LIBRARY_SORT_FIELDS.includes(sortParam as LibrarySortField)
+    ? (sortParam as LibrarySortField)
+    : 'title';
+  const desc = req.query['sortDir'] === 'desc';
+  const limit = req.query['limit'] ? parseInt(req.query['limit'] as string, 10) : 20;
+  const offset = req.query['offset'] ? parseInt(req.query['offset'] as string, 10) : 0;
+
+  let filtered = games;
+  if (q) {
+    filtered = filtered.filter((g) => g.title.toLowerCase().includes(q));
+  }
+  if (category) {
+    filtered = filtered.filter((g) => g.category === category);
+  }
+
+  const sorted = [...filtered].sort((a, b) => {
+    const av = a[sort];
+    const bv = b[sort];
+    if (av === null && bv === null) return a.title.localeCompare(b.title);
+    if (av === null) return 1;
+    if (bv === null) return -1;
+    const cmp = typeof av === 'string' && typeof bv === 'string' ? av.localeCompare(bv) : (av as number) - (bv as number);
+    return desc ? -cmp : cmp;
+  });
+
+  return { games: sorted.slice(offset, offset + limit), total: sorted.length };
+}
+
+function libraryCategories(games: LibraryGame[]): string[] {
+  return Array.from(new Set(games.map((g) => g.category).filter((c): c is string => c !== null))).sort();
+}
+
+type SeededLibraryGame = Pick<LibraryGame, 'game_id' | 'title' | 'rawg_enriched' | 'opencritic_enriched'> &
+  Partial<LibraryGame>;
+
+/** Fills in defaults for the rating/category/product-id fields a test didn't bother seeding. */
+function normalizeLibraryGames(games: SeededLibraryGame[]): LibraryGame[] {
+  return games.map((g) => ({
+    game_id: g.game_id,
+    title: g.title,
+    category: g.category ?? null,
+    rawg_rating: g.rawg_rating ?? null,
+    opencritic_rating: g.opencritic_rating ?? null,
+    psn_rating: g.psn_rating ?? null,
+    psn_product_id: g.psn_product_id ?? null,
+    rawg_enriched: g.rawg_enriched,
+    opencritic_enriched: g.opencritic_enriched,
+  }));
 }
 
 export interface LibraryRefreshResultSummary {
@@ -406,8 +471,8 @@ export function createCuratorApp(): Express {
 
   /** Seed the current (DEFAULT_SUB) user's library entries (empty by default — GET /library). */
   app.post('/_test/library-games', (req: Request, res: Response) => {
-    const body = req.body as { games?: LibraryGame[] };
-    libraryGames.set(DEFAULT_SUB, body.games ?? []);
+    const body = req.body as { games?: SeededLibraryGame[] };
+    libraryGames.set(DEFAULT_SUB, normalizeLibraryGames(body.games ?? []));
     res.status(204).end();
   });
 
@@ -493,9 +558,9 @@ export function createCuratorApp(): Express {
 
   /** Seed an explicit user's library entries. */
   app.post('/_test/user/library-games', (req: Request, res: Response) => {
-    const body = req.body as { sub: string; games?: LibraryGame[] };
+    const body = req.body as { sub: string; games?: SeededLibraryGame[] };
     getUser(body.sub);
-    libraryGames.set(body.sub, body.games ?? []);
+    libraryGames.set(body.sub, normalizeLibraryGames(body.games ?? []));
     res.status(204).end();
   });
 
@@ -831,9 +896,14 @@ export function createCuratorApp(): Express {
     res.json({ console_id: consoleId, game_id: gameId, installed: body.installed });
   });
 
-  /** GET /library — the caller's own library, with per-provider enrichment checkmarks. */
+  /** GET /library — the caller's own library: server-side search/filter/sort/paging. */
   app.get('/library', (req: Request, res: Response) => {
-    res.json(libraryGames.get(subFromRequest(req)) ?? []);
+    res.json(queryLibraryGames(libraryGames.get(subFromRequest(req)) ?? [], req));
+  });
+
+  /** GET /library/categories — the distinct, sorted categories in the caller's own library. */
+  app.get('/library/categories', (req: Request, res: Response) => {
+    res.json({ categories: libraryCategories(libraryGames.get(subFromRequest(req)) ?? []) });
   });
 
   /** POST /library/refresh — queue a job that transitions queued -> running -> a terminal status
@@ -1036,23 +1106,41 @@ export function createCuratorApp(): Express {
     });
   });
 
-  /** GET /users/{sub}/library — read-only. 404 unknown sub. 403 unless caller is the owner or the
-   * target's profile is both public and `show_library`. */
-  app.get('/users/:sub/library', (req: Request, res: Response) => {
+  /** Shared 404/403 gate for the library passthrough routes below. Returns `true` (and has already
+   * written the response) if the request should stop here. */
+  function libraryVisibilityGate(req: Request, res: Response): boolean {
     const target = req.params['sub'];
     const viewer = subFromRequest(req);
     if (!findUser(target)) {
       res.status(404).json({ detail: 'User not found.' });
-      return;
+      return true;
     }
     if (target !== viewer) {
       const settings = settingsFor(target);
       if (!(settings.is_public && settings.show_library)) {
         res.status(403).json({ detail: "This section of the user's profile is not public." });
-        return;
+        return true;
       }
     }
-    res.json(libraryGames.get(target) ?? []);
+    return false;
+  }
+
+  /** GET /users/{sub}/library — read-only, same server-side search/filter/sort/paging as the
+   * caller's-own GET /library. 404 unknown sub. 403 unless the caller is the owner or the target's
+   * profile is both public and `show_library`. */
+  app.get('/users/:sub/library', (req: Request, res: Response) => {
+    if (libraryVisibilityGate(req, res)) {
+      return;
+    }
+    res.json(queryLibraryGames(libraryGames.get(req.params['sub']) ?? [], req));
+  });
+
+  /** GET /users/{sub}/library/categories — read-only. Same visibility gate as the library itself. */
+  app.get('/users/:sub/library/categories', (req: Request, res: Response) => {
+    if (libraryVisibilityGate(req, res)) {
+      return;
+    }
+    res.json({ categories: libraryCategories(libraryGames.get(req.params['sub']) ?? []) });
   });
 
   /** GET /users/{sub}/collections — read-only. 404 unknown sub. 403 unless caller is the owner or

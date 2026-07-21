@@ -110,12 +110,34 @@ describe('CuratorService', () => {
     req.flush({ run_id: 'r1', status: 'queued', error: null, result_summary: null });
   });
 
-  it('getLibrary gets the caller\'s own library', () => {
+  it('getLibrary sends no params by default', () => {
     service.getLibrary().subscribe();
 
     const req = httpMock.expectOne('/curator/api/library');
     expect(req.request.method).toBe('GET');
-    req.flush([]);
+    expect(req.request.params.keys().length).toBe(0);
+    req.flush({ games: [], total: 0 });
+  });
+
+  it('getLibrary sends only the provided query params', () => {
+    service.getLibrary({ q: 'ring', category: 'RPG', sort: 'psn_rating', sortDir: 'desc', limit: 10, offset: 20 }).subscribe();
+
+    const req = httpMock.expectOne((r) => r.url === '/curator/api/library');
+    expect(req.request.params.get('q')).toBe('ring');
+    expect(req.request.params.get('category')).toBe('RPG');
+    expect(req.request.params.get('sort')).toBe('psn_rating');
+    expect(req.request.params.get('sortDir')).toBe('desc');
+    expect(req.request.params.get('limit')).toBe('10');
+    expect(req.request.params.get('offset')).toBe('20');
+    req.flush({ games: [], total: 0 });
+  });
+
+  it('getLibraryCategories gets the caller\'s own category list', () => {
+    service.getLibraryCategories().subscribe();
+
+    const req = httpMock.expectOne('/curator/api/library/categories');
+    expect(req.request.method).toBe('GET');
+    req.flush({ categories: [] });
   });
 
   it('getEnrichmentKeyStatus gets the key status', () => {
@@ -263,12 +285,30 @@ describe('CuratorService', () => {
     req.flush({ entries: [], total: 0 });
   });
 
-  it('getUserLibrary gets the sub-scoped read-only library', () => {
+  it('getUserLibrary gets the sub-scoped read-only library, with no params by default', () => {
     service.getUserLibrary('other-sub').subscribe();
 
     const req = httpMock.expectOne('/curator/api/users/other-sub/library');
     expect(req.request.method).toBe('GET');
-    req.flush([]);
+    expect(req.request.params.keys().length).toBe(0);
+    req.flush({ games: [], total: 0 });
+  });
+
+  it('getUserLibrary forwards the provided query params', () => {
+    service.getUserLibrary('other-sub', { q: 'ring', limit: 5 }).subscribe();
+
+    const req = httpMock.expectOne((r) => r.url === '/curator/api/users/other-sub/library');
+    expect(req.request.params.get('q')).toBe('ring');
+    expect(req.request.params.get('limit')).toBe('5');
+    req.flush({ games: [], total: 0 });
+  });
+
+  it('getUserLibraryCategories gets the sub-scoped category list', () => {
+    service.getUserLibraryCategories('other-sub').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/users/other-sub/library/categories');
+    expect(req.request.method).toBe('GET');
+    req.flush({ categories: [] });
   });
 
   it('getUserCollections gets the sub-scoped read-only collections', () => {
