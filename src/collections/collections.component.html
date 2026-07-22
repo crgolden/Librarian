@@ -1,4 +1,7 @@
 <section class="page-section collections">
+  @if (viewerMode()) {
+    <app-breadcrumb [items]="breadcrumbItems()" />
+  }
   <h1>Collections</h1>
 
   @if (viewerMode()) {

@@ -1,4 +1,7 @@
 <section class="page-section library">
+  @if (viewerMode()) {
+    <app-breadcrumb [items]="breadcrumbItems()" />
+  }
   <h1>{{ viewerMode() ? 'Library' : 'My Library' }}</h1>
 
   @if (viewerForbidden()) {
@@ -87,6 +90,19 @@
               <option [value]="category">{{ category }}</option>
             }
           </select>
+          <select
+            class="library-mobile-sort"
+            [ngModel]="mobileSortValue()"
+            (ngModelChange)="onMobileSortChange($event)"
+            aria-label="Sort games"
+          >
+            <option value="title:asc">Title (A–Z)</option>
+            <option value="title:desc">Title (Z–A)</option>
+            <option value="category:asc">Category (A–Z)</option>
+            <option value="rawg_rating:desc">RAWG rating (high to low)</option>
+            <option value="opencritic_rating:desc">OpenCritic rating (high to low)</option>
+            <option value="psn_rating:desc">PS Store rating (high to low)</option>
+          </select>
         </div>
 
         @if (gamesLoading()) {
@@ -125,12 +141,12 @@
               <tbody>
                 @for (row of table().getRowModel().rows; track row.original.game_id) {
                   <tr>
-                    <td>{{ row.original.title }}</td>
-                    <td>{{ row.original.category ?? '—' }}</td>
-                    <td>{{ row.original.rawg_rating ?? '—' }}</td>
-                    <td>{{ row.original.opencritic_rating ?? '—' }}</td>
-                    <td>{{ row.original.psn_rating ?? '—' }}</td>
-                    <td>
+                    <td data-label="Title">{{ row.original.title }}</td>
+                    <td data-label="Category">{{ row.original.category ?? '—' }}</td>
+                    <td data-label="RAWG">{{ row.original.rawg_rating ?? '—' }}</td>
+                    <td data-label="OpenCritic">{{ row.original.opencritic_rating ?? '—' }}</td>
+                    <td data-label="PS Store">{{ row.original.psn_rating ?? '—' }}</td>
+                    <td data-label="PS Store page">
                       @if (psnStoreUrl(row.original.psn_product_id); as url) {
                         <a [href]="url" target="_blank" rel="noopener noreferrer">View</a>
                       } @else {

@@ -1,0 +1,11 @@
+@if (items().length) {
+  <nav class="page-toc" aria-label="On this page">
+    <p class="page-toc-heading">On this page</p>
+    <ul>
+      @for (item of items(); track item.id) {
+        <li><a [href]="'#' + item.id" (click)="scrollToId(item.id, $event)">{{ item.label }}</a></li>
+      }
+    </ul>
+  </nav>
+}
+<a href="#top" class="back-to-top btn-ghost btn-sm" (click)="scrollToId('top', $event)">Back to top</a>

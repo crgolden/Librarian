@@ -4,12 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CuratorService } from '../curator/curator.service';
 import { ProfileSettingsResponse } from '../curator/curator.models';
+import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
 
 /** `/profile/settings` — owner-only (no `:sub` variant; settings are inherently self-scoped). Five
  * optimistic-update toggles mirroring `PsnSettingsComponent.onToggle`'s revert-on-error pattern. */
 @Component({
   selector: 'app-profile-settings',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, BreadcrumbComponent],
   templateUrl: './profile-settings.component.html',
   styleUrl: './profile-settings.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -17,6 +18,11 @@ import { ProfileSettingsResponse } from '../curator/curator.models';
 export class ProfileSettingsComponent implements OnInit {
   private readonly curator = inject(CuratorService);
   private readonly meta = inject(Meta);
+
+  protected readonly breadcrumbItems: BreadcrumbItem[] = [
+    { label: 'Profile', link: ['/profile'] },
+    { label: 'Settings' },
+  ];
 
   protected readonly settings = signal<ProfileSettingsResponse | null>(null);
   protected readonly loading = signal(true);

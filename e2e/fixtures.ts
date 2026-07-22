@@ -4,10 +4,18 @@
  * Provides:
  *  - `store`             HTTP control client for seeding/clearing mock server state.
  *  - `anonymousPage`     Page with /bff/user mocked as 401 and /bff/login as a mock page.
- *  - `authedPage`        Page with /bff/user mocked with standard user claims (sub: DEFAULT_E2E_SUB).
+ *  - `authedPage`        Page authenticated via a real /bff/login round trip against the mock OIDC
+ *    provider (sub: DEFAULT_E2E_SUB) -- see e2e/mocks/oidc.ts.
  *  - `secondAuthedPage`  Page authenticated as a second, distinct identity (sub: SECOND_E2E_SUB) --
  *    needed for follow/unfollow and cross-viewer profile tests, which genuinely require two
  *    simultaneous signed-in identities in one test (e.g. one page follows the other's profile).
+ *
+ * `authedPage`/`secondAuthedPage` perform a real `/bff/login` → mock OIDC → `/bff/callback` round
+ * trip rather than mocking `/bff/user` directly. A mocked `/bff/user` response only ever proved the
+ * browser's own client-side calls carried a cookie -- Angular's SSR HttpClient issues that same
+ * call from Node during rendering, a request Playwright's browser-level `page.route()` can never
+ * see, so it could never prove SSR itself was authenticated. Only a real session cookie, set by a
+ * real server-side login, can catch a regression in SSR cookie forwarding (src/app/app.interceptor.ts).
  *
  * Multi-user identity mechanism: the mock Curator server (`e2e/mocks/curator.ts`) has no real
  * bearer-token validation, so "who is calling" can't come from a real access token. Instead, each
@@ -24,6 +32,7 @@ import { test as base, type Page } from '@playwright/test';
 // ── Mock server control client ────────────────────────────────────────────────
 
 const MOCK_BASE = 'http://localhost:4101';
+const MOCK_OIDC_BASE = 'http://localhost:4102';
 
 export const DEFAULT_E2E_SUB = 'e2e-user-id';
 export const SECOND_E2E_SUB = 'e2e-user-2-id';
@@ -128,27 +137,12 @@ async function fetchControl(path: string, body?: unknown): Promise<void> {
   }
 }
 
-// ── Identity / claim payloads ───────────────────────────────────────────────
-
-interface Claim {
-  type: string;
-  value: string;
-}
+// ── Identity ─────────────────────────────────────────────────────────────────
 
 interface IdentityConfig {
   sub: string;
   email?: string;
   name?: string;
-}
-
-function claimsFor(identity: IdentityConfig): Claim[] {
-  const email = identity.email ?? `${identity.sub}@test.invalid`;
-  return [
-    { type: 'sub', value: identity.sub },
-    { type: 'email', value: email },
-    { type: 'name', value: email },
-    { type: 'bff:logout_url', value: `/bff/logout?sid=${identity.sub}` },
-  ];
 }
 
 // ── Route mock helpers ────────────────────────────────────────────────────────
@@ -167,24 +161,29 @@ async function applyAnonymousRoutes(page: Page): Promise<void> {
 }
 
 async function applyAuthRoutes(page: Page, identity: IdentityConfig): Promise<void> {
-  await page.route('**/bff/user**', route =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(claimsFor(identity)),
-    }),
-  );
-  await page.route('**/bff/logout**', route =>
-    route.fulfill({
-      status: 200,
-      contentType: 'text/html',
-      body: '<html><body><p>Logged out (mock)</p></body></html>',
-    }),
-  );
+  const email = identity.email ?? `${identity.sub}@test.invalid`;
+  const name = identity.name ?? email;
+
+  // page.route() cannot inject the test identity into the browser's navigation to the mock OIDC
+  // authorize endpoint -- Playwright does not intercept the *target* of an HTTP redirect (only the
+  // original request that produced it), which is a documented Playwright limitation, not something
+  // fixable with a different glob pattern (github.com/microsoft/playwright/issues/34994). A cookie
+  // scoped to the mock OIDC origin sidesteps this entirely: the browser attaches cookies to a
+  // redirect navigation automatically, no interception required. See e2e/mocks/oidc.ts's docstring.
+  await page.context().addCookies([
+    { name: 'e2e_identity', value: identity.sub, url: MOCK_OIDC_BASE },
+    { name: 'e2e_email', value: email, url: MOCK_OIDC_BASE },
+    { name: 'e2e_name', value: name, url: MOCK_OIDC_BASE },
+  ]);
+
   // Identifies this page's calling identity to the mock Curator server -- see the module docstring.
   await page.route('**/curator/api/**', route =>
     route.continue({ headers: { ...route.request().headers(), 'x-e2e-sub': identity.sub } }),
   );
+
+  // Real /bff/login -> mock OIDC -> /bff/callback round trip, ending with the browser holding a
+  // genuine session cookie backed by a real server-side session.
+  await page.goto('/bff/login');
 }
 
 // ── Fixture type ──────────────────────────────────────────────────────────────
@@ -262,8 +261,8 @@ export const test = base.extend<LibrarianFixtures>({
   },
 
   authedPage: async ({ page }, use) => {
-    await applyAuthRoutes(page, { sub: DEFAULT_E2E_SUB });
     page.setDefaultTimeout(60_000);
+    await applyAuthRoutes(page, { sub: DEFAULT_E2E_SUB });
     await use(page);
   },
 
@@ -277,8 +276,8 @@ export const test = base.extend<LibrarianFixtures>({
   secondAuthedPage: async ({ browser }, use) => {
     const context = await browser.newContext();
     const page = await context.newPage();
-    await applyAuthRoutes(page, { sub: SECOND_E2E_SUB });
     page.setDefaultTimeout(60_000);
+    await applyAuthRoutes(page, { sub: SECOND_E2E_SUB });
     await use(page);
     await context.close();
   },

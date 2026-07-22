@@ -1,0 +1,39 @@
+.page-toc {
+  margin-bottom: var(--space-6);
+  padding: var(--card-pad);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--color-primary);
+  border-radius: var(--radius-md);
+}
+
+.page-toc-heading {
+  font-family: var(--font-meta);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-2);
+}
+
+.page-toc ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+
+.back-to-top {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 15;
+}
+
+@media (max-width: 768px) {
+  .back-to-top {
+    bottom: calc(var(--nav-height) + var(--space-4));
+  }
+}

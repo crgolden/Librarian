@@ -6,13 +6,14 @@ import { AuthService } from '../auth/auth.service';
 import { CuratorService } from '../curator/curator.service';
 import { FollowListEntryResponse } from '../curator/curator.models';
 import { redirectIfOwnSub } from './own-sub-redirect';
+import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
 
 /** `/profile/following` (owner) and `/u/:sub/following` (viewer) — paginated list of the users the
  * profile owner follows, each entry linking to `/u/{sub}` (self-canonicalizes to `/profile` when the
  * entry is your own). Following lists are always visible, regardless of `is_public`. */
 @Component({
   selector: 'app-profile-following',
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, BreadcrumbComponent],
   templateUrl: './profile-following.component.html',
   styleUrl: './profile-following.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -28,6 +29,7 @@ export class ProfileFollowingComponent implements OnInit {
   protected readonly total = signal(0);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
+  protected readonly breadcrumbItems = signal<BreadcrumbItem[]>([]);
 
   ngOnInit(): void {
     this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
@@ -43,6 +45,11 @@ export class ProfileFollowingComponent implements OnInit {
       this.loading.set(false);
       return;
     }
+
+    this.breadcrumbItems.set([
+      { label: 'Profile', link: routeSub ? ['/u', routeSub] : ['/profile'] },
+      { label: 'Following' },
+    ]);
 
     this.load(sub);
   }

@@ -31,6 +31,18 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  transition: box-shadow 200ms ease-out, transform 200ms ease-out;
+}
+
+.catalog-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalog-card:hover {
+    transform: none;
+  }
 }
 
 .catalog-pager {

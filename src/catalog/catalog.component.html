@@ -22,16 +22,14 @@
 
   @if (error()) {
     <p class="text-error">{{ error() }}</p>
-  }
-
-  @if (loading()) {
+  } @else if (loading()) {
     <p class="text-muted">Loading catalog...</p>
   } @else if (games().length === 0) {
     <p class="text-muted">No titles match these filters.</p>
   } @else {
     <ul class="catalog-list">
       @for (game of games(); track game.game_id) {
-        <li class="card catalog-card">
+        <li class="card catalog-card" [class.card-accent]="game.aaa_tier === 'AAA'">
           <span class="catalog-title">{{ game.canonical_title }}</span>
           @if (game.genre) {
             <span class="spine-label">{{ game.genre }}</span>

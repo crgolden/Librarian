@@ -113,7 +113,12 @@ describe('applySession', () => {
 
     expect(createClient).toHaveBeenCalledWith(
       expect.objectContaining({
-        socket: { host: 'redis.dev.local', port: 6379 },
+        socket: expect.objectContaining({
+          host: 'redis.dev.local',
+          port: 6379,
+          socketTimeout: 90_000,
+          reconnectStrategy: expect.any(Function),
+        }),
       }),
     );
     const callArg = vi.mocked(createClient).mock.calls[0][0] as Record<string, unknown>;
@@ -131,11 +136,29 @@ describe('applySession', () => {
 
     expect(createClient).toHaveBeenCalledWith(
       expect.objectContaining({
-        socket: { host: 'redis.azure.com', port: 6380, tls: true },
+        socket: expect.objectContaining({
+          host: 'redis.azure.com',
+          port: 6380,
+          tls: true,
+          socketTimeout: 90_000,
+          reconnectStrategy: expect.any(Function),
+        }),
         password: 'secret-password',
       }),
     );
     expect(RedisStore).toHaveBeenCalledOnce();
+  });
+
+  it('the reconnect strategy backs off with a cap, so a Redis outage cannot become an unbounded reconnect storm', () => {
+    process.env['RedisHost'] = 'redis.dev.local';
+    process.env['RedisPort'] = '6379';
+
+    applySession(makeApp() as unknown as Express);
+
+    const callArg = vi.mocked(createClient).mock.calls[0][0] as { socket: { reconnectStrategy: (retries: number) => number } };
+    const delay = callArg.socket.reconnectStrategy(1000);
+    expect(delay).toBeGreaterThanOrEqual(3_000);
+    expect(delay).toBeLessThan(3_200);
   });
 
   it('defaults RedisPort to 6380 when RedisPort is not set', () => {

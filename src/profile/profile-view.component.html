@@ -5,7 +5,7 @@
     <p class="text-error">{{ loadError() }}</p>
   } @else if (profile(); as current) {
     <div class="card status-card profile-identity-card">
-      <h1>{{ current.psn_account_id ?? 'Unlinked user' }}</h1>
+      <h1>{{ current.identity?.online_id ?? (current.psn_account_id ? 'PlayStation account' : 'Unlinked user') }}</h1>
 
       @if (!current.viewer_is_owner) {
         @if (followError()) {

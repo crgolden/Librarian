@@ -92,14 +92,28 @@ describe('ProfileViewComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unlinked user');
   });
 
-  it('shows the PSN account id as the heading when linked and visible', () => {
+  it('shows the PSN online id as the heading when identity is available, never the raw account id', () => {
     configure('other-sub', null);
     const fixture = createAndLoad(
-      profile({ psn_account_id: 'psn-account-other' }),
+      profile({ psn_account_id: 'psn-account-other', identity: { online_id: 'other_gamer' } }),
       '/curator/api/users/other-sub/profile',
     );
 
-    expect(fixture.nativeElement.querySelector('h1')?.textContent).toContain('psn-account-other');
+    const heading = fixture.nativeElement.querySelector('h1')?.textContent;
+    expect(heading).toContain('other_gamer');
+    expect(heading).not.toContain('psn-account-other');
+  });
+
+  it('falls back to a generic label (never the raw account id) when linked but identity is unavailable', () => {
+    configure('other-sub', null);
+    const fixture = createAndLoad(
+      profile({ psn_account_id: 'psn-account-other', identity: null }),
+      '/curator/api/users/other-sub/profile',
+    );
+
+    const heading = fixture.nativeElement.querySelector('h1')?.textContent;
+    expect(heading).toContain('PlayStation account');
+    expect(heading).not.toContain('psn-account-other');
   });
 
   it('uses singular "follower" when the count is exactly 1', () => {

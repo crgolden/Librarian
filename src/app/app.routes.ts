@@ -8,6 +8,7 @@ import { CollectionsComponent } from '../collections/collections.component';
 import { LibraryComponent } from '../library/library.component';
 import { FaqComponent } from '../faq/faq.component';
 import { PrivacyComponent } from '../privacy/privacy.component';
+import { NotFoundComponent } from '../not-found/not-found.component';
 import { ProfileViewComponent } from '../profile/profile-view.component';
 import { ProfileFollowersComponent } from '../profile/profile-followers.component';
 import { ProfileFollowingComponent } from '../profile/profile-following.component';
@@ -36,5 +37,5 @@ export const routes: Routes = [
   { path: 'u/:sub/following', component: ProfileFollowingComponent, canActivate: [authGuard], title: 'Following' },
   { path: 'faq', component: FaqComponent, title: 'FAQ' },
   { path: 'privacy', component: PrivacyComponent, title: 'Privacy Policy' },
-  { path: '**', redirectTo: '' },
+  { path: '**', component: NotFoundComponent, title: 'Page Not Found' },
 ];

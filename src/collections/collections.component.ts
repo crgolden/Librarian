@@ -13,6 +13,7 @@ import {
   ProfileDefinitionResponse,
 } from '../curator/curator.models';
 import { redirectIfOwnSub } from '../profile/own-sub-redirect';
+import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
 
 type CollectionKind = 'filter_list' | 'capacity_fill';
 type View = 'list' | 'create' | 'detail';
@@ -28,7 +29,7 @@ type View = 'list' | 'create' | 'detail';
  * needed to re-run it. A 403 renders an inline "this section isn't available" message. */
 @Component({
   selector: 'app-collections',
-  imports: [FormsModule],
+  imports: [FormsModule, BreadcrumbComponent],
   templateUrl: './collections.component.html',
   styleUrl: './collections.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -40,6 +41,7 @@ export class CollectionsComponent implements OnInit {
   private readonly curator = inject(CuratorService);
 
   protected readonly viewerMode = signal(false);
+  protected readonly breadcrumbItems = signal<BreadcrumbItem[]>([]);
   protected readonly viewerForbidden = signal(false);
   protected readonly viewerDefinitions = signal<ProfileDefinitionResponse[]>([]);
   protected readonly viewerDefinitionsError = signal<string | null>(null);
@@ -85,6 +87,7 @@ export class CollectionsComponent implements OnInit {
     const sub = this.route.snapshot.paramMap.get('sub');
     if (sub !== null) {
       this.viewerMode.set(true);
+      this.breadcrumbItems.set([{ label: 'Profile', link: ['/u', sub] }, { label: 'Collections' }]);
       this.loadViewerDefinitions(sub);
     } else {
       this.loadDefinitions();

@@ -16,6 +16,7 @@ import { AuthService } from '../auth/auth.service';
 import { CuratorService, LibraryQuery, LibrarySortField } from '../curator/curator.service';
 import { LibraryGameResponse, LibraryRefreshStatusResponse, ProfileLibraryGameResponse } from '../curator/curator.models';
 import { redirectIfOwnSub } from '../profile/own-sub-redirect';
+import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
 
 const POLL_INTERVAL_MS = 2500;
 const TERMINAL_STATUSES = new Set(['succeeded', 'failed']);
@@ -50,7 +51,7 @@ const LIBRARY_COLUMNS: ColumnDef<LibraryGame>[] = [
  * message instead of the table. */
 @Component({
   selector: 'app-library',
-  imports: [FormsModule],
+  imports: [FormsModule, BreadcrumbComponent],
   templateUrl: './library.component.html',
   styleUrl: './library.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -68,6 +69,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
   protected readonly viewerMode = signal(false);
   protected readonly viewerForbidden = signal(false);
   protected readonly sub = signal<string | null>(null);
+  protected readonly breadcrumbItems = signal<BreadcrumbItem[]>([]);
 
   protected readonly refreshing = signal(false);
   protected readonly status = signal<LibraryRefreshStatusResponse | null>(null);
@@ -111,6 +113,13 @@ export class LibraryComponent implements OnInit, OnDestroy {
   protected readonly hasNextPage = computed(() => this.table().getCanNextPage());
   protected readonly hasPrevPage = computed(() => this.table().getCanPreviousPage());
 
+  /** Column headers double as sort toggles on desktop, but the mobile card layout hides the
+   * table header row entirely (there's nothing to click) — this drives a `<select>` instead. */
+  protected readonly mobileSortValue = computed(() => {
+    const current = this.sorting()[0];
+    return current ? `${current.id}:${current.desc ? 'desc' : 'asc'}` : 'title:asc';
+  });
+
   ngOnInit(): void {
     if (redirectIfOwnSub(this.route, this.router, this.auth, ['/library'])) {
       return;
@@ -128,6 +137,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
     if (sub !== null) {
       this.viewerMode.set(true);
       this.sub.set(sub);
+      this.breadcrumbItems.set([{ label: 'Profile', link: ['/u', sub] }, { label: 'Library' }]);
     }
 
     this.loadCategories();
@@ -211,6 +221,13 @@ export class LibraryComponent implements OnInit, OnDestroy {
 
   protected onCategoryFilterChange(value: string): void {
     this.categoryFilter.set(value);
+    this.pagination.update((old) => ({ ...old, pageIndex: 0 }));
+    this.reload();
+  }
+
+  protected onMobileSortChange(value: string): void {
+    const [id, dir] = value.split(':');
+    this.sorting.set([{ id, desc: dir === 'desc' }]);
     this.pagination.update((old) => ({ ...old, pageIndex: 0 }));
     this.reload();
   }

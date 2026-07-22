@@ -1,0 +1,27 @@
+@if (auth.isAuthenticated()) {
+  <nav class="site-nav-desktop" aria-label="Primary">
+    @for (link of links; track link.path) {
+      <a [routerLink]="link.path" routerLinkActive="nav-active" [routerLinkActiveOptions]="{ exact: !!link.exact }">{{ link.label }}</a>
+    }
+    <div class="user-chip">
+      @if (auth.picture(); as picture) {
+        <img [src]="picture" [alt]="auth.email() ?? auth.username() ?? 'Account picture'" class="avatar" />
+      } @else {
+        <span class="avatar avatar-fallback" aria-hidden="true">{{ (auth.email() ?? auth.username() ?? '?').charAt(0).toUpperCase() }}</span>
+      }
+      <span class="user-email">{{ auth.email() ?? auth.username() ?? 'you' }}</span>
+    </div>
+    <a routerLink="/psn" routerLinkActive="nav-active">PSN Settings</a>
+    <a [href]="auth.logoutUrl() ?? '#'" class="btn-ghost btn-sm">Sign out</a>
+  </nav>
+
+  <nav class="site-nav-tabbar" aria-label="Primary">
+    @for (link of links; track link.path) {
+      <a [routerLink]="link.path" routerLinkActive="nav-active" [routerLinkActiveOptions]="{ exact: !!link.exact }" class="tab-link">{{ link.label }}</a>
+    }
+  </nav>
+} @else {
+  <nav class="site-nav-desktop" aria-label="Primary">
+    <a [href]="auth.loginUrl" class="btn-primary btn-sm">Sign in</a>
+  </nav>
+}

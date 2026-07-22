@@ -97,6 +97,11 @@ Redis automatically once `RedisHost` is set.
 
 **Key Vault secrets required at runtime (production):**
 
+Each is wired up as an App Service setting holding a `@Microsoft.KeyVault(SecretUri=...)` reference, so
+App Service resolves it from Key Vault at startup using the app's managed identity and hands it to the
+process as an ordinary environment variable. The app has no Key Vault SDK dependency and makes no vault
+calls of its own.
+
 | Secret name | Description |
 |-------------|-------------|
 | `LibrarianClientId` | OIDC client ID |
@@ -151,6 +156,7 @@ instrumentation.mjs # OpenTelemetry Node SDK init (loaded via --import)
 
 Deployed to Azure App Service (Linux, Node 22) as `crgolden-librarian` via GitHub Actions
 (`.github/workflows/main_crgolden-librarian.yml`) — build, SonarCloud analysis, Vitest + Playwright
-E2E, then deploy and post-deploy smoke test. Secrets fetched from Azure Key Vault via the app's
-system-assigned managed identity. See the workspace-level [DEPLOYMENT.md](../DEPLOYMENT.md) for the
-full hosting fleet and Key Vault reference.
+E2E, then deploy and post-deploy smoke test. Secrets are Key Vault-referenced App Service settings
+(`@Microsoft.KeyVault(SecretUri=...)`), resolved by the platform via the app's system-assigned managed
+identity before the app starts — the app itself never calls the Key Vault SDK. See the workspace-level
+[DEPLOYMENT.md](../DEPLOYMENT.md) for the full hosting fleet and Key Vault reference.

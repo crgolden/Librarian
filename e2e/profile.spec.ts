@@ -30,7 +30,10 @@ test.describe('Profile — owner mode', () => {
     await store.seedUserPsnLink(DEFAULT_E2E_SUB, { psn_account_id: 'psn-account-owner' });
 
     await page.goto('/profile');
-    await expect(page.locator('h1')).toContainText('psn-account-owner');
+    // No identity harvested/seeded here, so the heading falls back to a generic label — it must
+    // never show the raw PSN account id (psn-account-owner).
+    await expect(page.locator('h1')).toContainText('PlayStation account');
+    await expect(page.locator('h1')).not.toContainText('psn-account-owner');
     await expect(page.getByRole('button', { name: 'Follow' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Unfollow' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'View library' })).toBeVisible();
@@ -93,7 +96,10 @@ test.describe('Profile — viewing another user', () => {
     await page.goto('/profile'); // registers DEFAULT_E2E_SUB with the mock
 
     await viewerPage.goto(`/u/${DEFAULT_E2E_SUB}`);
-    await expect(viewerPage.locator('h1')).toContainText('psn-account-owner');
+    // Identity is harvested and shown here, so the heading uses the friendly online id, never
+    // the raw PSN account id.
+    await expect(viewerPage.locator('h1')).toContainText('e2e_gamer');
+    await expect(viewerPage.locator('h1')).not.toContainText('psn-account-owner');
     await expect(viewerPage.getByRole('link', { name: 'View library' })).toBeVisible();
     await expect(viewerPage.getByRole('link', { name: 'View collections' })).toBeVisible();
     await expect(viewerPage.locator('.psn-category-card', { hasText: 'Trophies' })).toBeVisible();
@@ -114,7 +120,9 @@ test.describe('Profile — viewing another user', () => {
     await page.goto('/profile');
     await viewerPage.goto(`/u/${DEFAULT_E2E_SUB}`);
 
-    await expect(viewerPage.locator('h1')).toContainText('psn-account-owner');
+    // No identity harvested here, so the heading falls back to a generic label, not the raw id.
+    await expect(viewerPage.locator('h1')).toContainText('PlayStation account');
+    await expect(viewerPage.locator('h1')).not.toContainText('psn-account-owner');
     await expect(viewerPage.locator('.psn-category-card')).toHaveCount(0);
     await expect(viewerPage.locator('.text-error')).toHaveCount(0);
   });

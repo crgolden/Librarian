@@ -27,7 +27,7 @@
 .library-table td {
   text-align: left;
   padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--border-color, #ddd);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .library-table-check {
@@ -43,15 +43,20 @@
 }
 
 .library-search,
-.library-category-filter {
+.library-category-filter,
+.library-mobile-sort {
   padding: var(--space-2);
-  border: 1px solid var(--border-color, #ddd);
-  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
 }
 
 .library-search {
   flex: 1 1 auto;
   min-width: 12rem;
+}
+
+.library-mobile-sort {
+  display: none;
 }
 
 .library-table-scroll {
@@ -79,4 +84,61 @@ th.library-sortable:hover {
   align-items: center;
   gap: var(--space-3);
   margin-top: var(--space-3);
+}
+
+/* Below md, the table's own header row (the click-to-sort affordance) is hidden — there's
+   nothing to click on a card layout — and the mobile sort <select> above takes over instead. */
+@media (max-width: 768px) {
+  .library-mobile-sort {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 10rem;
+  }
+
+  .library-table-scroll {
+    overflow-x: visible;
+  }
+
+  .library-table thead {
+    display: none;
+  }
+
+  .library-table,
+  .library-table tbody,
+  .library-table tr {
+    display: block;
+    width: 100%;
+  }
+
+  .library-table tr {
+    margin-bottom: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-top: 3px solid var(--color-primary);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .library-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--color-border);
+    text-align: right;
+  }
+
+  .library-table td:last-child {
+    border-bottom: none;
+  }
+
+  .library-table td::before {
+    content: attr(data-label);
+    font-family: var(--font-meta);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-align: left;
+  }
 }
