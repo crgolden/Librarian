@@ -12,3 +12,38 @@
   gap: var(--space-4);
   align-items: flex-start;
 }
+
+.who-for {
+  padding: var(--card-pad);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.who-for-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.who-for-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.who-for-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  color: var(--color-primary);
+}
+
+.who-for-title {
+  font-size: 1rem;
+  margin: 0 0 var(--space-1);
+}
+
+.who-for-item p.text-muted {
+  margin: 0;
+}

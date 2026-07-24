@@ -1,4 +1,4 @@
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
@@ -38,7 +38,7 @@ describe('LibraryComponent', () => {
     TestBed.configureTestingModule({
       imports: [LibraryComponent],
       providers: [
-        provideHttpClient(),
+        provideHttpClient(withXhr()),
         provideHttpClientTesting(),
         provideRouter([]),
         { provide: ActivatedRoute, useValue: activatedRouteWithSub(null) },
@@ -344,7 +344,7 @@ describe('LibraryComponent', () => {
       TestBed.configureTestingModule({
         imports: [LibraryComponent],
         providers: [
-          provideHttpClient(),
+          provideHttpClient(withXhr()),
           provideHttpClientTesting(),
           provideRouter([]),
           { provide: ActivatedRoute, useValue: activatedRouteWithSub(routeSub) },

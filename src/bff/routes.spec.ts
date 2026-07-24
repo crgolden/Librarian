@@ -33,6 +33,10 @@ vi.mock('openid-client', () => ({
   randomState: vi.fn().mockReturnValue('oauth-state'),
 }));
 
+vi.mock('../telemetry/logging', () => ({
+  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+}));
+
 import { getOidcConfig } from './oidc';
 import {
   authorizationCodeGrant,
@@ -152,7 +156,6 @@ describe('/bff/login', () => {
 
   it('responds 500 when OIDC configuration fails', async () => {
     vi.mocked(getOidcConfig).mockRejectedValueOnce(new Error('discovery failed'));
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const req = makeReq();
     const res = makeRes();
 
@@ -160,7 +163,6 @@ describe('/bff/login', () => {
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ error: 'Login initiation failed' });
-    consoleSpy.mockRestore();
   });
 
   it('stores a same-origin returnTo path from the query string', async () => {
@@ -217,7 +219,6 @@ describe('/bff/callback', () => {
       expires_in: 3600,
       claims: () => ({ iss: 'https://identity.example.com' }), // no sub
     } as never);
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const req = makeReq({
       session: { pkceCodeVerifier: 'pkce-verifier', oauthState: 'oauth-state' },
     });
@@ -227,7 +228,6 @@ describe('/bff/callback', () => {
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ error: 'Missing sub claim in ID token' });
-    consoleSpy.mockRestore();
   });
 
   it('stores tokens in session and redirects to "/" on success', async () => {
@@ -280,7 +280,6 @@ describe('/bff/callback', () => {
 
   it('responds 500 when authorizationCodeGrant throws', async () => {
     vi.mocked(authorizationCodeGrant).mockRejectedValueOnce(new Error('code exchange failed'));
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const req = makeReq({
       session: { pkceCodeVerifier: 'pkce-verifier', oauthState: 'oauth-state' },
     });
@@ -290,7 +289,6 @@ describe('/bff/callback', () => {
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ error: 'Callback processing failed' });
-    consoleSpy.mockRestore();
   });
 
   it('flattens array claim values into one entry per element', async () => {
@@ -413,7 +411,6 @@ describe('/bff/logout', () => {
 
   it('falls back to redirect("/") when OIDC configuration throws during logout', async () => {
     vi.mocked(getOidcConfig).mockRejectedValueOnce(new Error('oidc down'));
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     const req = makeReq({
       sessionID: 'valid-session-id',
@@ -425,7 +422,6 @@ describe('/bff/logout', () => {
     await handler()(req, res as unknown as Response);
 
     expect(res.redirect).toHaveBeenCalledWith('/');
-    consoleSpy.mockRestore();
   });
 
   it('redirects without id_token_hint when no ID token is in the session', async () => {

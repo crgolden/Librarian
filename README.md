@@ -4,7 +4,7 @@
 
 [![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=crgolden_Librarian)](https://sonarcloud.io/summary/new_code?id=crgolden_Librarian)
 
-The end-user surface of the PlayStation game-curation project: an **Angular 21 SSR** application
+The end-user surface of the PlayStation game-curation project: an **Angular 22 SSR** application
 with a **Node.js Express** Backend-for-Frontend (BFF), served by a single Node process. The BFF holds
 the OIDC session and proxies every data call to the standalone [Curator](https://github.com/crgolden/Curator)
 API; the browser never sees an access token directly.
@@ -19,7 +19,7 @@ API; the browser never sees an access token directly.
 
 ## Architecture
 
-A single Node process runs both the Angular 21 SSR renderer and an Express BFF. The BFF owns the
+A single Node process runs both the Angular 22 SSR renderer and an Express BFF. The BFF owns the
 OIDC session (`openid-client` v6, PKCE; scopes `offline_access openid profile email curator`),
 proxies `/curator/api/**` to the Curator API with the session's Bearer token, and requires
 `X-CSRF: 1` on mutating calls. The app surface covers a home page, a `/psn` settings page
@@ -71,7 +71,7 @@ page-slicing implementation.
 |---|---|
 | Framework | Node.js 22 / Express 5 |
 | Auth / BFF | `openid-client` v6 + `express-session` + `connect-redis` |
-| Frontend | Angular 21 SSR (`@angular/ssr`) |
+| Frontend | Angular 22 SSR (`@angular/ssr`) |
 | Observability | OpenTelemetry → Grafana Alloy (OTLP), `pino` → Elasticsearch |
 | Hosting | Azure App Service (Linux, Node 22) |
 | Secrets | Azure Key Vault (Managed Identity) |
