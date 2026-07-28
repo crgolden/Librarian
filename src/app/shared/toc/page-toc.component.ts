@@ -44,10 +44,15 @@ export class PageTocComponent {
   /** Angular apps always render `<base href="/">`, and per the URL spec a `<base>` tag changes
    * the resolution baseline for EVERY relative URL on the page — including fragment-only ones. A
    * plain `href="#id"` anchor therefore silently navigates to `/#id` instead of staying on the
-   * current page (e.g. `/faq#id`). Scrolling manually on click sidesteps that entirely. */
+   * current page (e.g. `/faq#id`). Scrolling manually on click sidesteps that entirely.
+   *
+   * Left at the default (instant) behavior on purpose — `behavior: 'smooth'` is driven by
+   * animation frames, and where frames aren't running the scroll is dropped outright. On these
+   * pages the TOC and its back-to-top link are the only way to move around, so they have to land
+   * every time. */
   protected scrollToId(id: string, event: MouseEvent): void {
     event.preventDefault();
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById(id)?.scrollIntoView({ block: 'start' });
   }
 
   private buildToc(): void {

@@ -18,11 +18,20 @@ import { PsnStatus } from './psn-status.resolver';
 
 type MeResponse = PsnStatus;
 
+// The npsso returned by https://ca.account.sony.com/api/v1/ssocookie is always exactly this long. Checking
+// it before the request turns the most common paste error (a token short a character or two) into an
+// immediate, specific message instead of a round-trip that PSN rejects as a generic auth failure.
+const NPSSO_LENGTH = 64;
+
 const LINK_ERROR_MESSAGES: Record<string, string> = {
   mismatch:
     "The PlayStation Network account you linked doesn't match your account email. Sign into the PSN account that uses this same email, then try again.",
   unverified:
     "That PlayStation Network account's email address isn't verified. Verify it with PlayStation, then try linking again.",
+  auth_failed:
+    'PlayStation rejected that NPSSO token. It has most likely expired, or was copied incompletely. Get a fresh one and try again — see the FAQ.',
+  invalid_npsso:
+    "That doesn't look like an NPSSO token. Paste either the token itself or the whole {\"npsso\": \"...\"} response — see the FAQ.",
 };
 
 const GENERIC_LINK_ERROR_MESSAGE =
@@ -324,6 +333,12 @@ export class PsnSettingsComponent implements OnInit {
     const token = this.npsso().trim();
     if (!token) {
       this.error.set('Enter your NPSSO token.');
+      return;
+    }
+    if (!token.startsWith('{') && token.length !== NPSSO_LENGTH) {
+      this.error.set(
+        `That NPSSO token is ${token.length} characters; it should be ${NPSSO_LENGTH}. Copy the whole value and try again.`,
+      );
       return;
     }
 

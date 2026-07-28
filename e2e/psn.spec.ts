@@ -4,6 +4,9 @@
 
 import { test, expect } from './fixtures.js';
 
+// The link form rejects anything that isn't a full-length npsso before it reaches the mock Curator API.
+const VALID_NPSSO = 'a'.repeat(64);
+
 test.describe('PSN settings — auth guard', () => {
   test('unauthenticated visitor is redirected to login', async ({ anonymousPage: page, store }) => {
     await store.reset();
@@ -42,7 +45,7 @@ test.describe('PSN settings — authenticated', () => {
     await store.reset();
 
     await page.goto('/psn');
-    await page.getByLabel('NPSSO token').fill('fake-npsso-token');
+    await page.getByLabel('NPSSO token').fill(VALID_NPSSO);
     await page.getByRole('button', { name: 'Link account' }).click();
     await expect(page.getByRole('button', { name: 'Unlink' })).toBeVisible({ timeout: 10_000 });
   });
@@ -89,7 +92,7 @@ test.describe('PSN settings — action history', () => {
     await store.reset();
 
     await page.goto('/psn');
-    await page.getByLabel('NPSSO token').fill('fake-npsso-token');
+    await page.getByLabel('NPSSO token').fill(VALID_NPSSO);
     await page.getByRole('button', { name: 'Link account' }).click();
     await expect(page.getByRole('button', { name: 'Unlink' })).toBeVisible({ timeout: 10_000 });
 

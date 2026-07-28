@@ -33,6 +33,10 @@ function harness(fixture: ComponentFixture<PsnSettingsComponent>): PsnSettingsHa
   return fixture.componentInstance as unknown as PsnSettingsHarness;
 }
 
+// link() rejects anything that isn't a full-length npsso before making a request, so every test that
+// expects the POST to happen has to supply a real-length (64-character) token.
+const VALID_NPSSO = 'a'.repeat(64);
+
 describe('PsnSettingsComponent', () => {
   let httpMock: HttpTestingController;
   let routeSnapshotData: { status: MeResponse | null };
@@ -164,14 +168,14 @@ describe('PsnSettingsComponent', () => {
   it('link() posts the trimmed NPSSO token, clears it, and reloads status on success', () => {
     const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
     const h = harness(fixture);
-    h.npsso.set('  a-real-token  ');
+    h.npsso.set(`  ${VALID_NPSSO}  `);
 
     h.link();
     fixture.detectChanges();
 
     const linkReq = httpMock.expectOne('/curator/api/psn/link');
     expect(linkReq.request.method).toBe('POST');
-    expect(linkReq.request.body).toEqual({ npsso: 'a-real-token' });
+    expect(linkReq.request.body).toEqual({ npsso: VALID_NPSSO });
     linkReq.flush({});
 
     const reloadReq = httpMock.expectOne('/curator/api/me');
@@ -190,7 +194,7 @@ describe('PsnSettingsComponent', () => {
   it('link() surfaces a generic error message when the request fails with no known error code', () => {
     const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
     const h = harness(fixture);
-    h.npsso.set('bad-token');
+    h.npsso.set(VALID_NPSSO);
 
     h.link();
     fixture.detectChanges();
@@ -203,10 +207,77 @@ describe('PsnSettingsComponent', () => {
       .toContain('Failed to link PlayStation Network account.');
   });
 
+  it('link() rejects a token that is not exactly 64 characters without making a request', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+    const h = harness(fixture);
+    h.npsso.set('a'.repeat(63));
+
+    h.link();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'That NPSSO token is 63 characters; it should be 64.',
+    );
+    httpMock.expectNone('/curator/api/psn/link');
+  });
+
+  it('link() sends a JSON-blob npsso through without applying the length check', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+    const h = harness(fixture);
+    const blob = `{"npsso":"${VALID_NPSSO}"}`;
+    h.npsso.set(blob);
+
+    h.link();
+    fixture.detectChanges();
+
+    const req = httpMock.expectOne('/curator/api/psn/link');
+    expect(req.request.body).toEqual({ npsso: blob });
+  });
+
+  it('link() surfaces a token-rejected message when PSN refuses the NPSSO token', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+    const h = harness(fixture);
+    h.npsso.set(VALID_NPSSO);
+
+    h.link();
+    fixture.detectChanges();
+
+    const req = httpMock.expectOne('/curator/api/psn/link');
+    req.flush(
+      { detail: { error: 'auth_failed', message: 'PSN authentication failed' } },
+      { status: 401, statusText: 'Unauthorized' },
+    );
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'PlayStation rejected that NPSSO token.',
+    );
+  });
+
+  it('link() surfaces a malformed-token message when Curator cannot parse the NPSSO input', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+    const h = harness(fixture);
+    h.npsso.set('{"npsso":}');
+
+    h.link();
+    fixture.detectChanges();
+
+    const req = httpMock.expectOne('/curator/api/psn/link');
+    req.flush(
+      { detail: { error: 'invalid_npsso', message: 'Malformed JSON passed as npsso input.' } },
+      { status: 400, statusText: 'Bad Request' },
+    );
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      "That doesn't look like an NPSSO token.",
+    );
+  });
+
   it('link() surfaces an email-mismatch message when the account emails do not match', () => {
     const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
     const h = harness(fixture);
-    h.npsso.set('good-token');
+    h.npsso.set(VALID_NPSSO);
 
     h.link();
     fixture.detectChanges();
@@ -224,7 +295,7 @@ describe('PsnSettingsComponent', () => {
   it('link() surfaces an unverified-email message when the PSN account email is not verified', () => {
     const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
     const h = harness(fixture);
-    h.npsso.set('good-token');
+    h.npsso.set(VALID_NPSSO);
 
     h.link();
     fixture.detectChanges();
