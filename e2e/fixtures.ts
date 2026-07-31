@@ -69,6 +69,7 @@ export interface LibraryGameFixture {
   psn_product_id?: string | null;
   rawg_enriched: boolean;
   opencritic_enriched: boolean;
+  percent_completed?: number | null;
 }
 
 export interface LibraryRefreshResultSummaryFixture {

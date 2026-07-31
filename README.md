@@ -26,7 +26,7 @@ proxies `/curator/api/**` to the Curator API with the session's Bearer token, an
 (link/unlink a PlayStation Network account via NPSSO token, backed by Curator's `/me` and
 `/psn/link` routes, plus per-category data-harvest preferences and bring-your-own-key RAWG/OpenCritic
 enrichment key management), `/catalog` (browse the shared game catalog), `/collections` (create/save/run
-curated collections), and `/library` (trigger a refresh and browse the caller's own library — server-side
+curated collections — filterable by genre, minimum score, AAA tier, and minimum trophy completion), and `/library` (trigger a refresh and browse the caller's own library — server-side
 search, category filtering, sortable columns, and paging; see "The library page" below) — all
 backed by real Curator endpoints. A public social-profile feature adds `/profile` and its sub-keyed
 counterpart `/u/:sub`: a viewable, followable profile with opt-in display toggles for library,
@@ -57,10 +57,14 @@ Columns:
 | RAWG | RAWG's critic score, 0–100 |
 | OpenCritic | OpenCritic's top-critic score, 0–100 |
 | PS Store | PlayStation Store's own star rating (1–5), from Sony's official catalog API |
+| % Completed | How far through the game's trophy list you are — needs a linked PlayStation account with trophy harvesting turned on. The one column that can't be sorted |
 | PS Store page | A link to the game's PlayStation Store product page, opens in a new tab |
 
 Any rating that hasn't resolved yet — enrichment still pending, or you haven't configured a
-RAWG/OpenCritic key — shows as a dash rather than blocking the row. Table structure, sortable
+RAWG/OpenCritic key — shows as a dash rather than blocking the row. `% Completed` dashes for three
+reasons of its own: no PlayStation account linked, trophy harvesting switched off, or no confident match
+between the game and a PlayStation trophy list. It stays blank when you're viewing someone else's
+library, and says so on hover. Table structure, sortable
 headers, and pagination controls are built on [TanStack Table](https://tanstack.com/table)
 (`@tanstack/angular-table`) running in manual (server-driven) mode, not a hand-rolled comparator or
 page-slicing implementation.
@@ -159,4 +163,4 @@ Deployed to Azure App Service (Linux, Node 22) as `crgolden-librarian` via GitHu
 E2E, then deploy and post-deploy smoke test. Secrets are Key Vault-referenced App Service settings
 (`@Microsoft.KeyVault(SecretUri=...)`), resolved by the platform via the app's system-assigned managed
 identity before the app starts — the app itself never calls the Key Vault SDK. See the workspace-level
-[DEPLOYMENT.md](../DEPLOYMENT.md) for the full hosting fleet and Key Vault reference.
+[DEPLOYMENT.md](../AGENTS/DEPLOYMENT.md) for the full hosting fleet and Key Vault reference.

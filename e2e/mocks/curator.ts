@@ -123,6 +123,7 @@ export interface LibraryGame {
   psn_product_id: string | null;
   rawg_enriched: boolean;
   opencritic_enriched: boolean;
+  percent_completed: number | null;
 }
 
 const LIBRARY_SORT_FIELDS = ['title', 'category', 'rawg_rating', 'opencritic_rating', 'psn_rating'] as const;
@@ -182,6 +183,7 @@ function normalizeLibraryGames(games: SeededLibraryGame[]): LibraryGame[] {
     psn_product_id: g.psn_product_id ?? null,
     rawg_enriched: g.rawg_enriched,
     opencritic_enriched: g.opencritic_enriched,
+    percent_completed: g.percent_completed ?? null,
   }));
 }
 

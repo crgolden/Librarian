@@ -146,6 +146,9 @@
                     <td data-label="RAWG">{{ row.original.rawg_rating ?? '—' }}</td>
                     <td data-label="OpenCritic">{{ row.original.opencritic_rating ?? '—' }}</td>
                     <td data-label="PS Store">{{ row.original.psn_rating ?? '—' }}</td>
+                    <td data-label="% Completed" [title]="percentCompletedTitle()">
+                      {{ percentCompletedDisplay(row.original.percent_completed) }}
+                    </td>
                     <td data-label="PS Store page">
                       @if (psnStoreUrl(row.original.psn_product_id); as url) {
                         <a [href]="url" target="_blank" rel="noopener noreferrer">View</a>

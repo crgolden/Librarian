@@ -60,6 +60,7 @@ export class CollectionsComponent implements OnInit {
   protected readonly genreFilter = signal('');
   protected readonly minScore = signal<number | null>(null);
   protected readonly aaaTierFilter = signal('');
+  protected readonly minPercentCompleted = signal<number | null>(null);
   protected readonly createError = signal<string | null>(null);
   protected readonly previewing = signal(false);
   protected readonly previewResult = signal<CollectionPreviewResponse | null>(null);
@@ -134,6 +135,7 @@ export class CollectionsComponent implements OnInit {
     this.genreFilter.set('');
     this.minScore.set(null);
     this.aaaTierFilter.set('');
+    this.minPercentCompleted.set(null);
     this.createError.set(null);
     this.previewResult.set(null);
     this.name.set('');
@@ -156,6 +158,7 @@ export class CollectionsComponent implements OnInit {
         .filter((value) => value.length > 0),
       min_score: this.minScore(),
       aaa_tier_filter: this.aaaTierFilter() || null,
+      min_percent_completed: this.minPercentCompleted(),
     };
   }
 

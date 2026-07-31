@@ -19,6 +19,7 @@ export interface CollectionSpecRequest {
   genre_filter: string[];
   min_score?: number | null;
   aaa_tier_filter?: string | null;
+  min_percent_completed?: number | null;
 }
 
 export interface CollectionGameResponse {
@@ -30,6 +31,7 @@ export interface CollectionGameResponse {
   composite_score: number | null;
   rank_score: number;
   size_gb: number;
+  percent_completed: number | null;
 }
 
 export interface CollectionPreviewResponse {
@@ -50,6 +52,7 @@ export interface DefinitionResponse {
   genre_filter: string[];
   min_score: number | null;
   aaa_tier_filter: string | null;
+  min_percent_completed: number | null;
 }
 
 export interface CollectionRunResponse {
@@ -92,6 +95,7 @@ export interface LibraryGameResponse {
   psn_product_id: string | null;
   rawg_enriched: boolean;
   opencritic_enriched: boolean;
+  percent_completed: number | null;
 }
 
 export interface LibraryPageResponse {
@@ -236,6 +240,8 @@ export interface ProfileLibraryGameResponse {
   psn_product_id: string | null;
   rawg_enriched: boolean;
   opencritic_enriched: boolean;
+  /** Always null for now -- viewer-mode trophy completion isn't built yet. */
+  percent_completed: number | null;
 }
 
 export interface ProfileLibraryPageResponse {

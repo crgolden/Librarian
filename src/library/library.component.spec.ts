@@ -28,6 +28,7 @@ const FULL_GAME: LibraryGameResponse = {
   psn_product_id: 'UP0700-CUSA23100_00-ELDENRING0000000',
   rawg_enriched: true,
   opencritic_enriched: true,
+  percent_completed: 87,
 };
 
 describe('LibraryComponent', () => {
@@ -204,6 +205,7 @@ describe('LibraryComponent', () => {
         psn_product_id: null,
         rawg_enriched: false,
         opencritic_enriched: false,
+        percent_completed: null,
       },
     ]);
     const compiled: HTMLElement = fixture.nativeElement;
@@ -215,6 +217,7 @@ describe('LibraryComponent', () => {
     expect(rows[0].textContent).toContain('96');
     expect(rows[0].textContent).toContain('94');
     expect(rows[0].textContent).toContain('4.8');
+    expect(rows[0].textContent).toContain('87%');
     expect(rows[1].textContent).toContain('Unmatched Game');
     expect(rows[1].textContent).toContain('—');
   });
@@ -232,6 +235,7 @@ describe('LibraryComponent', () => {
         psn_product_id: null,
         rawg_enriched: false,
         opencritic_enriched: false,
+        percent_completed: null,
       },
     ]);
     const compiled: HTMLElement = fixture.nativeElement;
@@ -383,6 +387,23 @@ describe('LibraryComponent', () => {
       const buttonLabels = Array.from(compiled.querySelectorAll('button')).map((b) => b.textContent?.trim());
       expect(buttonLabels).not.toContain('Refresh library');
       httpMock.expectNone('/curator/api/library');
+    });
+
+    it("shows a dash with an explanatory title for % Completed on another user's library", async () => {
+      configureForViewer('other-sub', null);
+
+      const fixture = TestBed.createComponent(LibraryComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const games: ProfileLibraryGameResponse[] = [{ ...FULL_GAME, percent_completed: null }];
+      httpMock.expectOne((req) => req.url === '/curator/api/users/other-sub/library').flush(page(games));
+      httpMock.expectOne('/curator/api/users/other-sub/library/categories').flush({ categories: [] });
+      fixture.detectChanges();
+
+      const compiled: HTMLElement = fixture.nativeElement;
+      const cell = compiled.querySelector('td[data-label="% Completed"]');
+      expect(cell?.textContent?.trim()).toBe('—');
+      expect(cell?.getAttribute('title')).toBe("Trophy completion isn't shown for other users' libraries yet.");
     });
 
     it('shows an empty state for another user with no games', async () => {

@@ -15,11 +15,12 @@ function definition(overrides: Partial<DefinitionResponse> = {}): DefinitionResp
     genre_filter: [],
     min_score: null,
     aaa_tier_filter: null,
+    min_percent_completed: null,
     ...overrides,
   };
 }
 
-function game(id: string): CollectionGameResponse {
+function game(id: string, percentCompleted: number | null = null): CollectionGameResponse {
   return {
     game_id: id,
     title: `Game ${id}`,
@@ -29,6 +30,7 @@ function game(id: string): CollectionGameResponse {
     composite_score: 8.5,
     rank_score: 1,
     size_gb: 40,
+    percent_completed: percentCompleted,
   };
 }
 
@@ -36,6 +38,7 @@ interface CollectionsHarness {
   kind: { set(value: string): void };
   consoleId: { set(value: string): void };
   name: { set(value: string): void };
+  minPercentCompleted: { set(value: number | null): void };
   showCreate(): void;
   preview(): void;
   saveDefinition(): void;
@@ -110,7 +113,20 @@ describe('CollectionsComponent', () => {
     httpMock.expectNone('/curator/api/collections/preview');
   });
 
-  it('preview() renders included/excluded games, then saveDefinition() persists and returns to the list', () => {
+  it('preview() sends minPercentCompleted through to the request body', () => {
+    const fixture = createAndLoad([]);
+    const h = harness(fixture);
+    h.showCreate();
+    fixture.detectChanges();
+    h.minPercentCompleted.set(50);
+
+    h.preview();
+    const previewReq = httpMock.expectOne('/curator/api/collections/preview');
+    expect(previewReq.request.body).toEqual(expect.objectContaining({ min_percent_completed: 50 }));
+    previewReq.flush({ included: [], excluded: [], used_gb: null });
+  });
+
+  it('preview() renders included/excluded games with percent_completed, then saveDefinition() persists and returns to the list', () => {
     const fixture = createAndLoad([]);
     const h = harness(fixture);
     h.showCreate();
@@ -118,10 +134,11 @@ describe('CollectionsComponent', () => {
 
     h.preview();
     const previewReq = httpMock.expectOne('/curator/api/collections/preview');
-    previewReq.flush({ included: [game('g1')], excluded: [], used_gb: 40 });
+    previewReq.flush({ included: [game('g1', 87)], excluded: [], used_gb: 40 });
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Game g1');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('87% complete');
 
     h.name.set('My picks');
     h.saveDefinition();

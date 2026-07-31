@@ -82,6 +82,28 @@ test.describe('Library — authenticated', () => {
     await expect(unmatchedRow.getByRole('link', { name: 'View' })).toHaveCount(0);
   });
 
+  test('renders trophy completion percentage, with a dash when no match was found', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedLibraryGames([
+      { game_id: 'g1', title: 'Elden Ring', rawg_enriched: false, opencritic_enriched: false, percent_completed: 42 },
+      { game_id: 'g2', title: 'Bloodborne', rawg_enriched: false, opencritic_enriched: false, percent_completed: 0 },
+      { game_id: 'g3', title: 'Unmatched Game', rawg_enriched: false, opencritic_enriched: false },
+    ]);
+
+    await page.goto('/library');
+    const rows = page.locator('.library-table tbody tr');
+    await expect(rows).toHaveCount(3);
+
+    await expect(rows.filter({ hasText: 'Elden Ring' }).locator('td[data-label="% Completed"]')).toHaveText('42%');
+    // 0 is a real, meaningful value (trophy list matched, nothing earned yet) -- must render as "0%",
+    // never fall through to the null/no-match dash the way a falsy check would.
+    await expect(rows.filter({ hasText: 'Bloodborne' }).locator('td[data-label="% Completed"]')).toHaveText('0%');
+    await expect(rows.filter({ hasText: 'Unmatched Game' }).locator('td[data-label="% Completed"]')).toHaveText('—');
+  });
+
   test('searches by title', async ({ authedPage: page, store }) => {
     await store.reset();
     await store.seedLibraryGames([

@@ -33,6 +33,11 @@ const LIBRARY_COLUMNS: ColumnDef<LibraryGame>[] = [
   { id: 'rawg_rating', accessorKey: 'rawg_rating', header: 'RAWG' },
   { id: 'opencritic_rating', accessorKey: 'opencritic_rating', header: 'OpenCritic' },
   { id: 'psn_rating', accessorKey: 'psn_rating', header: 'PS Store' },
+  // Sorting is off because `percent_completed` is absent from Curator's server-side sort allowlist
+  // (`LibrarySortField` / `_SORT_COLUMNS` in curator.library.repository), not because it can't be sorted:
+  // it is a real column (`library_entries.trophy_percent_completed`) now. Adding it to both is all this
+  // needs.
+  { id: 'percent_completed', accessorKey: 'percent_completed', header: '% Completed', enableSorting: false },
   { id: 'psn_link', header: 'PS Store page', enableSorting: false },
 ];
 
@@ -242,6 +247,19 @@ export class LibraryComponent implements OnInit, OnDestroy {
 
   protected psnStoreUrl(productId: string | null): string | null {
     return productId ? `https://store.playstation.com/en-us/product/${productId}` : null;
+  }
+
+  /** `null` covers both "no PSN link / trophy harvesting off / no confident title match" for the owner
+   * and, always, the not-yet-built viewer-mode case (see the `percentCompletedTitle` note below). */
+  protected percentCompletedDisplay(percentCompleted: number | null): string {
+    return percentCompleted === null ? '—' : `${percentCompleted}%`;
+  }
+
+  /** Viewer mode's `percent_completed` is always `null` today (showing another user's trophy completion
+   * needs their own PSN client looked up against the *viewer's* account, not built in this pass) -- this
+   * explains the otherwise-unexplained blank column rather than leaving it a silent, permanent dash. */
+  protected percentCompletedTitle(): string | undefined {
+    return this.viewerMode() ? "Trophy completion isn't shown for other users' libraries yet." : undefined;
   }
 
   protected headerLabel(header: Header<LibraryGame, unknown>): string {
