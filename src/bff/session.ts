@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import type { Express } from 'express';
 import session from 'express-session';
 import { createClient } from 'redis';
@@ -55,7 +56,7 @@ const SOCKET_TIMEOUT_MS = 90_000;
 // Setting socketTimeout therefore REQUIRES a custom strategy that does reconnect. Backoff is capped
 // with jitter so a Redis outage doesn't turn into a reconnect storm.
 function reconnectStrategy(retries: number): number {
-  return Math.min(retries * 100, 3_000) + Math.floor(Math.random() * 200);
+  return Math.min(retries * 100, 3_000) + randomInt(200);
 }
 
 /**

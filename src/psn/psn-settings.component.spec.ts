@@ -712,7 +712,12 @@ describe('PsnSettingsComponent', () => {
 
   describe('enrichment API keys', () => {
     function createLinkedWithEnrichmentKeys(
-      status: Partial<{ rawg_configured: boolean; opencritic_configured: boolean }>,
+      status: Partial<{
+        rawg_configured: boolean;
+        opencritic_configured: boolean;
+        rawg_key_rejected_at: string | null;
+        opencritic_key_rejected_at: string | null;
+      }>,
     ): ComponentFixture<PsnSettingsComponent> {
       routeSnapshotData.status = LINKED_STATUS;
       const fixture = TestBed.createComponent(PsnSettingsComponent);
@@ -724,6 +729,8 @@ describe('PsnSettingsComponent', () => {
         opencritic_configured: false,
         rawg_added_at: null,
         opencritic_added_at: null,
+        rawg_key_rejected_at: null,
+        opencritic_key_rejected_at: null,
         ...status,
       });
       fixture.detectChanges();
@@ -751,6 +758,28 @@ describe('PsnSettingsComponent', () => {
       // OpenCritic independently still shows its own input + get-a-key link.
       expect(compiled.querySelector('#opencritic-key')).not.toBeNull();
       expect(compiled.textContent).toContain('RapidAPI quick-start guide');
+    });
+
+    it('shows a "stopped working" warning and a re-enter input when a configured RAWG key was rejected', () => {
+      const fixture = createLinkedWithEnrichmentKeys({
+        rawg_configured: true,
+        rawg_key_rejected_at: '2026-03-01T00:00:00Z',
+      });
+      const compiled: HTMLElement = fixture.nativeElement;
+
+      expect(compiled.textContent).toContain('This key stopped working');
+      expect(compiled.textContent).toContain('Configured'); // still configured, not the same as unset
+      expect(compiled.querySelector('#rawg-key')).not.toBeNull(); // re-enter input, not the get-a-key form
+      expect(compiled.textContent).toContain('Re-enter RAWG key');
+      // OpenCritic is unaffected -- no warning, no re-enter copy for it.
+      expect(compiled.textContent).not.toContain('OpenCritic rejected it');
+    });
+
+    it('a configured, non-rejected key shows no "stopped working" warning', () => {
+      const fixture = createLinkedWithEnrichmentKeys({ rawg_configured: true, opencritic_configured: true });
+      const compiled: HTMLElement = fixture.nativeElement;
+
+      expect(compiled.textContent).not.toContain('stopped working');
     });
 
     it('setRawgKey() shows a validation error and makes no request when the field is empty', () => {

@@ -125,7 +125,10 @@
                               ? 'descending'
                               : null
                         "
+                        [attr.tabindex]="header.column.getCanSort() ? 0 : null"
                         (click)="header.column.getToggleSortingHandler()?.($event)"
+                        (keydown.enter)="onHeaderKeydown($event, header)"
+                        (keydown.space)="onHeaderKeydown($event, header)"
                       >
                         {{ headerLabel(header) }}
                         @if (header.column.getIsSorted() === 'asc') {

@@ -1,0 +1,51 @@
+<section class="page-section public-collection">
+  @if (loading()) {
+    <p class="text-muted">Loading collection...</p>
+  } @else if (notFound()) {
+    <h1>Collection not found</h1>
+    <p class="text-muted">This link is invalid, or the collection it pointed to is no longer shared.</p>
+  } @else if (error()) {
+    <p class="text-error">{{ error() }}</p>
+  } @else if (collection(); as collection) {
+    <h1>{{ collection.name }}</h1>
+    @if (collection.description) {
+      <p class="text-muted">{{ collection.description }}</p>
+    }
+
+    <div class="form-actions">
+      @if (isAuthenticated()) {
+        <button type="button" class="btn-primary" [disabled]="followPending()" (click)="toggleFollow()">
+          {{ following() ? 'Unfollow' : 'Follow this collection' }}
+        </button>
+      } @else {
+        <a class="btn-primary" [href]="returnToUrl()">Sign in to follow this collection</a>
+      }
+    </div>
+    @if (followError()) {
+      <p class="text-error">{{ followError() }}</p>
+    }
+
+    <h2>Games ({{ collection.items.length }})</h2>
+    @if (collection.items.length === 0) {
+      <p class="text-muted">This collection is empty.</p>
+    } @else {
+      <ul class="catalog-list">
+        @for (item of collection.items; track item.game_id) {
+          <li class="card catalog-card" [class.item-unavailable]="!item.owner_has_access">
+            @if (item.cover_image_url) {
+              <img class="cover-art" [src]="item.cover_image_url" [alt]="item.title" loading="lazy" />
+            }
+            <span class="catalog-title">{{ item.title }}</span>
+            @if (item.genre) {
+              <span class="spine-label">{{ item.genre }}</span>
+            }
+            <span class="catalog-meta">{{ item.franchise }} &middot; {{ item.aaa_tier }}</span>
+            @if (!item.owner_has_access) {
+              <span class="text-muted">No longer in the owner's library</span>
+            }
+          </li>
+        }
+      </ul>
+    }
+  }
+</section>

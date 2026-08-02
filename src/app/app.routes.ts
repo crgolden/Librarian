@@ -5,6 +5,8 @@ import { PsnSettingsComponent } from '../psn/psn-settings.component';
 import { psnStatusResolver } from '../psn/psn-status.resolver';
 import { CatalogComponent } from '../catalog/catalog.component';
 import { CollectionsComponent } from '../collections/collections.component';
+import { ConsolesComponent } from '../consoles/consoles.component';
+import { PublicCollectionComponent } from '../public-collection/public-collection.component';
 import { LibraryComponent } from '../library/library.component';
 import { FaqComponent } from '../faq/faq.component';
 import { PrivacyComponent } from '../privacy/privacy.component';
@@ -26,6 +28,8 @@ export const routes: Routes = [
   { path: 'catalog', component: CatalogComponent, canActivate: [authGuard], title: 'Catalog' },
   { path: 'collections', component: CollectionsComponent, canActivate: [authGuard], title: 'Collections' },
   { path: 'collections/:sub', component: CollectionsComponent, canActivate: [authGuard], title: 'Collections' },
+  { path: 'consoles', component: ConsolesComponent, canActivate: [authGuard], title: 'Consoles & Storage' },
+  { path: 'c/:slug', component: PublicCollectionComponent, title: 'Shared Collection' },
   { path: 'library', component: LibraryComponent, canActivate: [authGuard], title: 'Library' },
   { path: 'library/:sub', component: LibraryComponent, canActivate: [authGuard], title: 'Library' },
   { path: 'profile', component: ProfileViewComponent, canActivate: [authGuard], title: 'Profile' },

@@ -28,6 +28,16 @@ describe('PrivacyComponent', () => {
     expect(compiled.textContent).toContain('one year');
   });
 
+  it('discloses that a shared collection link works without signing in and reveals no account identity', () => {
+    const fixture = TestBed.createComponent(PrivacyComponent);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Sharing and visibility');
+    expect(text).toContain("doesn't require signing in at all");
+    expect(text).toContain('not your account identity, your PlayStation ID');
+  });
+
   // The page has to distinguish the two, because they are handled differently in Curator: an earned-trophy
   // list really is live-read and 15-minute-cached, but the per-game percentage is a stored column
   // (library_entries.trophy_percent_completed). Listing trophies flatly under "never collect" — as this

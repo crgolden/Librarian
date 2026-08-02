@@ -270,6 +270,13 @@ export class LibraryComponent implements OnInit, OnDestroy {
     return typeof label === 'string' ? label : '';
   }
 
+  /** Keyboard equivalent for the sortable header's click handler -- Enter/Space toggle sorting the same
+   * way a click does. Space is prevented from also scrolling the page, matching native button behavior. */
+  protected onHeaderKeydown(event: Event, header: Header<LibraryGame, unknown>): void {
+    event.preventDefault();
+    header.column.getToggleSortingHandler()?.(event);
+  }
+
   protected summaryTitles(titles: string[]): { shown: string[]; more: number } {
     return {
       shown: titles.slice(0, SUMMARY_TITLE_DISPLAY_CAP),

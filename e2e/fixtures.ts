@@ -57,6 +57,8 @@ export interface EnrichmentKeyStatusFixture {
   opencritic_configured?: boolean;
   rawg_added_at?: string | null;
   opencritic_added_at?: string | null;
+  rawg_key_rejected_at?: string | null;
+  opencritic_key_rejected_at?: string | null;
 }
 
 export interface LibraryGameFixture {
@@ -91,6 +93,8 @@ export interface DefinitionFixture {
   name: string;
   kind: string;
   console_id?: string | null;
+  visibility?: 'private' | 'unlisted' | 'public';
+  game_ids?: string[];
 }
 
 export interface TestStore {
@@ -194,6 +198,7 @@ type LibrarianFixtures = {
   anonymousPage: Page;
   authedPage: Page;
   secondAuthedPage: Page;
+  secondAnonymousPage: Page;
 };
 
 // ── Extended test instance ────────────────────────────────────────────────────
@@ -279,6 +284,19 @@ export const test = base.extend<LibrarianFixtures>({
     const page = await context.newPage();
     page.setDefaultTimeout(60_000);
     await applyAuthRoutes(page, { sub: SECOND_E2E_SUB });
+    await use(page);
+    await context.close();
+  },
+
+  // Same isolation reasoning as `secondAuthedPage` above, for the "owner page + anonymous visitor
+  // page in the same test" shape (e.g. a share-link test): `anonymousPage` shares the base `page`
+  // fixture, so combining it with `authedPage` in one test would apply both fixtures' route
+  // interceptors to a single page and one identity would silently clobber the other.
+  secondAnonymousPage: async ({ browser }, use) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await applyAnonymousRoutes(page);
+    page.setDefaultTimeout(60_000);
     await use(page);
     await context.close();
   },

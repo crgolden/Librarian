@@ -19,6 +19,7 @@
     @for (link of links; track link.path) {
       <a [routerLink]="link.path" routerLinkActive="nav-active" [routerLinkActiveOptions]="{ exact: !!link.exact }" class="tab-link">{{ link.label }}</a>
     }
+    <a routerLink="/psn" routerLinkActive="nav-active" class="tab-link">PSN</a>
   </nav>
 } @else {
   <nav class="site-nav-desktop" aria-label="Primary">

@@ -37,6 +37,8 @@ export interface EnrichmentKeyStatus {
   opencritic_configured: boolean;
   rawg_added_at: string | null;
   opencritic_added_at: string | null;
+  rawg_key_rejected_at: string | null;
+  opencritic_key_rejected_at: string | null;
 }
 
 const DEFAULT_ENRICHMENT_KEY_STATUS: EnrichmentKeyStatus = {
@@ -44,6 +46,8 @@ const DEFAULT_ENRICHMENT_KEY_STATUS: EnrichmentKeyStatus = {
   opencritic_configured: false,
   rawg_added_at: null,
   opencritic_added_at: null,
+  rawg_key_rejected_at: null,
+  opencritic_key_rejected_at: null,
 };
 
 export interface UserRecord {
@@ -104,13 +108,56 @@ interface CollectionGame {
 }
 
 interface DefinitionRecord {
+  identity_sub: string;
   definition_id: string;
   name: string;
+  description: string | null;
   kind: string;
   console_id: string | null;
   genre_filter: string[];
   min_score: number | null;
   aaa_tier_filter: string | null;
+  include_inactive: boolean;
+  min_percent_completed: number | null;
+  visibility: 'private' | 'unlisted' | 'public';
+  share_slug: string;
+  game_ids: string[];
+}
+
+interface CollectionItem {
+  game_id: string;
+  rank: number;
+  title: string;
+  franchise: string | null;
+  genre: string | null;
+  aaa_tier: string | null;
+  critical_score: number | null;
+  oc_score: number | null;
+  psn_rating: number | null;
+  cover_image_url: string | null;
+  owner_has_access: boolean;
+}
+
+interface ConsoleRecord {
+  console_id: string;
+  identity_sub: string;
+  name: string;
+  platform: string;
+  raw_capacity_gb: number;
+  model: string | null;
+  update_buffer_gb: number;
+  routing_genres: string[];
+  fill_order: number;
+}
+
+interface StorageDeviceRecord {
+  device_id: string;
+  identity_sub: string;
+  console_id: string | null;
+  name: string;
+  kind: string;
+  capacity_gb: number;
+  buffer_gb: number;
 }
 
 export interface LibraryGame {
@@ -214,9 +261,19 @@ interface ActionLogEntry {
   occurred_at: string;
 }
 
+interface CollectionFollowEdge {
+  follower: string;
+  definitionId: string;
+  followedAt: string;
+}
+
 const users = new Map<string, UserRecord>();
-const consoles = new Map<string, Set<string>>();
+const consoleRecords = new Map<string, ConsoleRecord[]>();
+const storageDeviceRecords = new Map<string, StorageDeviceRecord[]>();
+const consoleInstalls = new Map<string, Set<string>>();
+const deviceInstalls = new Map<string, Set<string>>();
 const definitions = new Map<string, DefinitionRecord[]>();
+const collectionFollows: CollectionFollowEdge[] = [];
 const libraryRuns = new Map<string, LibraryRun>();
 const nextLibraryOutcome = new Map<string, LibraryRefreshOutcome>();
 const actionLog = new Map<string, ActionLogEntry[]>();
@@ -225,6 +282,9 @@ const profileSettings = new Map<string, ProfileSettings>();
 const followEdges: FollowEdge[] = [];
 
 const DEFAULT_SUB = 'e2e-user-id';
+let nextShareSlug = 1;
+let nextConsoleId = 1;
+let nextDeviceId = 1;
 
 function logAction(sub: string, action: string, detail: string | null = null): void {
   const entries = actionLog.get(sub) ?? [];
@@ -325,13 +385,34 @@ function findUser(sub: string): UserRecord | undefined {
   return users.get(sub);
 }
 
-function ownedConsoles(sub: string): Set<string> {
-  let owned = consoles.get(sub);
-  if (!owned) {
-    owned = new Set();
-    consoles.set(sub, owned);
+function userConsoles(sub: string): ConsoleRecord[] {
+  let list = consoleRecords.get(sub);
+  if (!list) {
+    list = [];
+    consoleRecords.set(sub, list);
   }
-  return owned;
+  return list;
+}
+
+function ownedConsoles(sub: string): Set<string> {
+  return new Set(userConsoles(sub).map((c) => c.console_id));
+}
+
+function findOwnedConsole(sub: string, consoleId: string): ConsoleRecord | undefined {
+  return userConsoles(sub).find((c) => c.console_id === consoleId);
+}
+
+function userDevices(sub: string): StorageDeviceRecord[] {
+  let list = storageDeviceRecords.get(sub);
+  if (!list) {
+    list = [];
+    storageDeviceRecords.set(sub, list);
+  }
+  return list;
+}
+
+function findOwnedDevice(sub: string, deviceId: string): StorageDeviceRecord | undefined {
+  return userDevices(sub).find((d) => d.device_id === deviceId);
 }
 
 function userDefinitions(sub: string): DefinitionRecord[] {
@@ -341,6 +422,83 @@ function userDefinitions(sub: string): DefinitionRecord[] {
     definitions.set(sub, list);
   }
   return list;
+}
+
+function findDefinitionAnyOwner(definitionId: string): DefinitionRecord | undefined {
+  for (const list of definitions.values()) {
+    const found = list.find((d) => d.definition_id === definitionId);
+    if (found) {
+      return found;
+    }
+  }
+  return undefined;
+}
+
+function toDefinitionResponse(d: DefinitionRecord): Omit<DefinitionRecord, 'identity_sub' | 'game_ids'> & { item_count: number } {
+  return {
+    definition_id: d.definition_id,
+    name: d.name,
+    description: d.description,
+    kind: d.kind,
+    console_id: d.console_id,
+    genre_filter: d.genre_filter,
+    min_score: d.min_score,
+    aaa_tier_filter: d.aaa_tier_filter,
+    include_inactive: d.include_inactive,
+    min_percent_completed: d.min_percent_completed,
+    visibility: d.visibility,
+    share_slug: d.share_slug,
+    item_count: d.game_ids.length,
+  };
+}
+
+/** Deterministic mock artwork/score fixtures for a collection item, matched to CATALOG_GAMES. */
+function toCollectionItem(gameId: string, rank: number): CollectionItem {
+  const game = CATALOG_GAMES.find((g) => g.game_id === gameId);
+  return {
+    game_id: gameId,
+    rank,
+    title: game?.canonical_title ?? gameId,
+    franchise: game?.franchise ?? null,
+    genre: game?.genre ?? null,
+    aaa_tier: game?.aaa_tier ?? null,
+    critical_score: 85,
+    oc_score: 82,
+    psn_rating: 4.5,
+    cover_image_url: null,
+    owner_has_access: game !== undefined,
+  };
+}
+
+function toDefinitionItems(d: DefinitionRecord): CollectionItem[] {
+  return d.game_ids.map((gameId, index) => toCollectionItem(gameId, index + 1));
+}
+
+function toConsoleResponse(c: ConsoleRecord): Omit<ConsoleRecord, 'identity_sub'> & { effective_capacity_gb: number; capacity_is_default: boolean } {
+  return {
+    console_id: c.console_id,
+    name: c.name,
+    platform: c.platform,
+    raw_capacity_gb: c.raw_capacity_gb,
+    model: c.model,
+    update_buffer_gb: c.update_buffer_gb,
+    effective_capacity_gb: c.raw_capacity_gb - c.update_buffer_gb,
+    routing_genres: c.routing_genres,
+    fill_order: c.fill_order,
+    capacity_is_default: false,
+  };
+}
+
+function toDeviceResponse(d: StorageDeviceRecord): Omit<StorageDeviceRecord, 'identity_sub'> & { effective_capacity_gb: number } {
+  return {
+    device_id: d.device_id,
+    console_id: d.console_id,
+    name: d.name,
+    kind: d.kind,
+    capacity_gb: d.capacity_gb,
+    buffer_gb: d.buffer_gb,
+    effective_capacity_gb: d.capacity_gb - d.buffer_gb,
+  };
 }
 
 function settingsFor(sub: string): ProfileSettings {
@@ -415,8 +573,10 @@ function generateCollection(
   return { included, excluded, used_gb: usedGb };
 }
 
-function toProfileDefinition(d: DefinitionRecord): { definition_id: string; name: string; kind: string; console_id: string | null } {
-  return { definition_id: d.definition_id, name: d.name, kind: d.kind, console_id: d.console_id };
+function toProfileDefinition(
+  d: DefinitionRecord,
+): { definition_id: string; name: string; kind: string; console_id: string | null; item_count: number } {
+  return { definition_id: d.definition_id, name: d.name, kind: d.kind, console_id: d.console_id, item_count: d.game_ids.length };
 }
 
 // ── Express app factory ───────────────────────────────────────────────────────
@@ -445,14 +605,21 @@ export function createCuratorApp(): Express {
   /** Clear all state (called at the start of each test). */
   app.post('/_test/reset', (_req: Request, res: Response) => {
     users.clear();
-    consoles.clear();
+    consoleRecords.clear();
+    storageDeviceRecords.clear();
+    consoleInstalls.clear();
+    deviceInstalls.clear();
     definitions.clear();
+    collectionFollows.length = 0;
     libraryRuns.clear();
     nextLibraryOutcome.clear();
     actionLog.clear();
     libraryGames.clear();
     profileSettings.clear();
     followEdges.length = 0;
+    nextShareSlug = 1;
+    nextConsoleId = 1;
+    nextDeviceId = 1;
     res.status(204).end();
   });
 
@@ -463,11 +630,24 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** Seed the current (DEFAULT_SUB) user's owned console ids (empty by default — capacity_fill/
-   * install-toggle 404s are the default path, matching the real "no console CRUD" situation). */
+  /** Seed the current (DEFAULT_SUB) user's owned console ids as minimal PS5 console records (empty
+   * by default — capacity_fill/install-toggle 404s are the default path). */
   app.post('/_test/consoles', (req: Request, res: Response) => {
     const body = req.body as { consoleIds?: string[] };
-    consoles.set(DEFAULT_SUB, new Set(body.consoleIds ?? []));
+    consoleRecords.set(
+      DEFAULT_SUB,
+      (body.consoleIds ?? []).map((consoleId) => ({
+        console_id: consoleId,
+        identity_sub: DEFAULT_SUB,
+        name: consoleId,
+        platform: 'PS5',
+        raw_capacity_gb: 825,
+        model: null,
+        update_buffer_gb: 0,
+        routing_genres: [],
+        fill_order: 0,
+      })),
+    );
     res.status(204).end();
   });
 
@@ -570,19 +750,33 @@ export function createCuratorApp(): Express {
   app.post('/_test/user/collections', (req: Request, res: Response) => {
     const body = req.body as {
       sub: string;
-      definitions?: { definition_id: string; name: string; kind: string; console_id?: string | null }[];
+      definitions?: {
+        definition_id: string;
+        name: string;
+        kind: string;
+        console_id?: string | null;
+        visibility?: 'private' | 'unlisted' | 'public';
+        game_ids?: string[];
+      }[];
     };
     getUser(body.sub);
     definitions.set(
       body.sub,
       (body.definitions ?? []).map((d) => ({
+        identity_sub: body.sub,
         definition_id: d.definition_id,
         name: d.name,
+        description: null,
         kind: d.kind,
         console_id: d.console_id ?? null,
         genre_filter: [],
         min_score: null,
         aaa_tier_filter: null,
+        include_inactive: false,
+        min_percent_completed: null,
+        visibility: d.visibility ?? 'private',
+        share_slug: `slug-${nextShareSlug++}`,
+        game_ids: d.game_ids ?? [],
       })),
     );
     res.status(204).end();
@@ -622,7 +816,8 @@ export function createCuratorApp(): Express {
     const sub = subFromRequest(req);
     logAction(sub, 'account_deleted');
     users.delete(sub);
-    consoles.delete(sub);
+    consoleRecords.delete(sub);
+    storageDeviceRecords.delete(sub);
     definitions.delete(sub);
     libraryGames.delete(sub);
     profileSettings.delete(sub);
@@ -706,9 +901,11 @@ export function createCuratorApp(): Express {
     if (provider === 'rawg') {
       user.enrichmentKeys.rawg_configured = true;
       user.enrichmentKeys.rawg_added_at = now;
+      user.enrichmentKeys.rawg_key_rejected_at = null; // a successful save proves any prior rejection is stale
     } else {
       user.enrichmentKeys.opencritic_configured = true;
       user.enrichmentKeys.opencritic_added_at = now;
+      user.enrichmentKeys.opencritic_key_rejected_at = null;
     }
     logAction(sub, 'enrichment_key_added', provider);
     res.status(204).end();
@@ -838,39 +1035,161 @@ export function createCuratorApp(): Express {
     );
   });
 
-  /** POST /collections — save a named collection definition. */
+  /** POST /collections — save a named collection definition, freezing `game_ids` as its membership. */
   app.post('/collections', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const body = req.body as {
       name: string;
+      description?: string | null;
       kind: string;
       console_id?: string | null;
       genre_filter?: string[];
       min_score?: number | null;
       aaa_tier_filter?: string | null;
+      include_inactive?: boolean;
+      min_percent_completed?: number | null;
+      game_ids?: string[];
     };
 
     if (body.kind !== 'capacity_fill' && body.kind !== 'filter_list') {
       res.status(400).json({ detail: "kind must be 'capacity_fill' or 'filter_list'." });
       return;
     }
+    if (userDefinitions(sub).some((d) => d.name === body.name)) {
+      res.status(409).json({ detail: `You already have a collection named '${body.name}'.` });
+      return;
+    }
 
     const definition: DefinitionRecord = {
+      identity_sub: sub,
       definition_id: `def-${userDefinitions(sub).length + 1}`,
       name: body.name,
+      description: body.description ?? null,
       kind: body.kind,
       console_id: body.console_id ?? null,
       genre_filter: body.genre_filter ?? [],
       min_score: body.min_score ?? null,
       aaa_tier_filter: body.aaa_tier_filter ?? null,
+      include_inactive: body.include_inactive ?? false,
+      min_percent_completed: body.min_percent_completed ?? null,
+      visibility: 'private',
+      share_slug: `slug-${nextShareSlug++}`,
+      game_ids: body.game_ids ?? [],
     };
     userDefinitions(sub).push(definition);
-    res.status(201).json(definition);
+    res.status(201).json(toDefinitionResponse(definition));
   });
 
   /** GET /collections — list the caller's saved definitions. */
   app.get('/collections', (req: Request, res: Response) => {
-    res.json(userDefinitions(subFromRequest(req)));
+    res.json(userDefinitions(subFromRequest(req)).map(toDefinitionResponse));
+  });
+
+  /** GET /collections/followed — every collection the caller follows. Registered before
+   * GET /collections/:id below -- Express matches routes in registration order, same reasoning as
+   * the real Curator route. */
+  app.get('/collections/followed', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const followed = collectionFollows
+      .filter((f) => f.follower === sub)
+      .sort((a, b) => b.followedAt.localeCompare(a.followedAt))
+      .map((f) => findDefinitionAnyOwner(f.definitionId))
+      .filter((d): d is DefinitionRecord => d !== undefined);
+    res.json(followed.map(toDefinitionResponse));
+  });
+
+  /** GET /collections/{id} — the caller's own collection, with its items. */
+  app.get('/collections/:id', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const definition = userDefinitions(sub).find((d) => d.definition_id === req.params['id']);
+    if (!definition) {
+      res.status(404).json({ detail: 'Collection definition not found.' });
+      return;
+    }
+    res.json({ ...toDefinitionResponse(definition), items: toDefinitionItems(definition) });
+  });
+
+  /** PATCH /collections/{id} — rename, change description, and/or replace membership. */
+  app.patch('/collections/:id', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const definition = userDefinitions(sub).find((d) => d.definition_id === req.params['id']);
+    if (!definition) {
+      res.status(404).json({ detail: 'Collection definition not found.' });
+      return;
+    }
+    const body = req.body as { name?: string; description?: string | null; game_ids?: string[] };
+    if (body.name !== undefined && userDefinitions(sub).some((d) => d !== definition && d.name === body.name)) {
+      res.status(409).json({ detail: `You already have a collection named '${body.name}'.` });
+      return;
+    }
+    if (body.name !== undefined) {
+      definition.name = body.name;
+    }
+    if ('description' in body) {
+      definition.description = body.description ?? null;
+    }
+    if (body.game_ids !== undefined) {
+      definition.game_ids = body.game_ids;
+    }
+    res.json({ ...toDefinitionResponse(definition), items: toDefinitionItems(definition) });
+  });
+
+  /** PUT /collections/{id}/visibility — change private/unlisted/public. */
+  app.put('/collections/:id/visibility', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const definition = userDefinitions(sub).find((d) => d.definition_id === req.params['id']);
+    if (!definition) {
+      res.status(404).json({ detail: 'Collection definition not found.' });
+      return;
+    }
+    const body = req.body as { visibility: string };
+    if (body.visibility !== 'private' && body.visibility !== 'unlisted' && body.visibility !== 'public') {
+      res.status(400).json({ detail: 'visibility must be "private", "unlisted", or "public".' });
+      return;
+    }
+    definition.visibility = body.visibility;
+    res.json(toDefinitionResponse(definition));
+  });
+
+  /** DELETE /collections/{id} — delete one of the caller's collections. */
+  app.delete('/collections/:id', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const list = userDefinitions(sub);
+    const idx = list.findIndex((d) => d.definition_id === req.params['id']);
+    if (idx < 0) {
+      res.status(404).json({ detail: 'Collection definition not found.' });
+      return;
+    }
+    list.splice(idx, 1);
+    res.status(204).end();
+  });
+
+  /** POST /collections/{id}/follow — follow a collection that isn't the caller's own. */
+  app.post('/collections/:id/follow', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const definition = findDefinitionAnyOwner(req.params['id']);
+    if (!definition || definition.visibility === 'private') {
+      res.status(404).json({ detail: 'Collection definition not found.' });
+      return;
+    }
+    if (definition.identity_sub === sub) {
+      res.status(400).json({ detail: 'Cannot follow your own collection.' });
+      return;
+    }
+    if (!collectionFollows.some((f) => f.follower === sub && f.definitionId === definition.definition_id)) {
+      collectionFollows.push({ follower: sub, definitionId: definition.definition_id, followedAt: new Date().toISOString() });
+    }
+    res.status(204).end();
+  });
+
+  /** DELETE /collections/{id}/follow — unfollow. Always 204, idempotent. */
+  app.delete('/collections/:id/follow', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const idx = collectionFollows.findIndex((f) => f.follower === sub && f.definitionId === req.params['id']);
+    if (idx >= 0) {
+      collectionFollows.splice(idx, 1);
+    }
+    res.status(204).end();
   });
 
   /** POST /collections/{id}/runs — generate + persist a run against a saved definition. */
@@ -886,6 +1205,113 @@ export function createCuratorApp(): Express {
     res.status(201).json({ run_id: `run-${Date.now()}`, ...result });
   });
 
+  // ── Public (anonymous) collection share ──────────────────────────────────
+
+  /** GET /public/collections/{shareSlug} — the one anonymous route in the real API. No caller
+   * identity is trusted; an unknown slug and a currently-private collection's slug are
+   * indistinguishable 404s. */
+  app.get('/public/collections/:shareSlug', (req: Request, res: Response) => {
+    const shareSlug = req.params['shareSlug'];
+    let found: DefinitionRecord | undefined;
+    for (const list of definitions.values()) {
+      found = list.find((d) => d.share_slug === shareSlug);
+      if (found) break;
+    }
+    if (!found || found.visibility === 'private') {
+      res.status(404).json({ detail: 'Collection not found.' });
+      return;
+    }
+    res.json({
+      definition_id: found.definition_id,
+      name: found.name,
+      description: found.description,
+      visibility: found.visibility,
+      items: toDefinitionItems(found),
+    });
+  });
+
+  // ── Consoles ──────────────────────────────────────────────────────────────
+
+  /** POST /consoles — create a console for the caller. */
+  app.post('/consoles', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const body = req.body as {
+      name: string;
+      platform: string;
+      raw_capacity_gb?: number | null;
+      model?: string | null;
+      update_buffer_gb?: number;
+      routing_genres?: string[];
+      fill_order?: number;
+    };
+    if (body.platform !== 'PS5' && body.platform !== 'PS4') {
+      res.status(400).json({ detail: 'platform must be "PS5" or "PS4".' });
+      return;
+    }
+    const capacityIsDefault = body.raw_capacity_gb === undefined || body.raw_capacity_gb === null;
+    const record: ConsoleRecord = {
+      console_id: `console-${nextConsoleId++}`,
+      identity_sub: sub,
+      name: body.name,
+      platform: body.platform,
+      raw_capacity_gb: body.raw_capacity_gb ?? (body.platform === 'PS5' ? 825 : 500),
+      model: body.model ?? null,
+      update_buffer_gb: body.update_buffer_gb ?? 0,
+      routing_genres: body.routing_genres ?? [],
+      fill_order: body.fill_order ?? 0,
+    };
+    userConsoles(sub).push(record);
+    res.status(201).json({ ...toConsoleResponse(record), capacity_is_default: capacityIsDefault });
+  });
+
+  /** GET /consoles — list the caller's own consoles. */
+  app.get('/consoles', (req: Request, res: Response) => {
+    res.json(userConsoles(subFromRequest(req)).map(toConsoleResponse));
+  });
+
+  /** PATCH /consoles/{id} — patch a console's editable fields. */
+  app.patch('/consoles/:id', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const record = findOwnedConsole(sub, req.params['id']);
+    if (!record) {
+      res.status(404).json({ detail: 'Console not found.' });
+      return;
+    }
+    const body = req.body as Partial<Pick<ConsoleRecord, 'name' | 'raw_capacity_gb' | 'update_buffer_gb' | 'routing_genres' | 'fill_order'>>;
+    Object.assign(record, body);
+    res.json(toConsoleResponse(record));
+  });
+
+  /** DELETE /consoles/{id} — delete a console (its own installs go with it; an attached storage
+   * device is detached, not deleted). */
+  app.delete('/consoles/:id', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const list = userConsoles(sub);
+    const idx = list.findIndex((c) => c.console_id === req.params['id']);
+    if (idx < 0) {
+      res.status(404).json({ detail: 'Console not found.' });
+      return;
+    }
+    const [removed] = list.splice(idx, 1);
+    consoleInstalls.delete(removed.console_id);
+    for (const device of userDevices(sub)) {
+      if (device.console_id === removed.console_id) {
+        device.console_id = null;
+      }
+    }
+    res.status(204).end();
+  });
+
+  /** GET /consoles/{id}/installs — every game id currently marked installed on this console. */
+  app.get('/consoles/:id/installs', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    if (!findOwnedConsole(sub, req.params['id'])) {
+      res.status(404).json({ detail: 'Console not found.' });
+      return;
+    }
+    res.json({ game_ids: Array.from(consoleInstalls.get(req.params['id']) ?? []).sort() });
+  });
+
   /** PUT /consoles/{consoleId}/installs/{gameId} — set install-checked state on an owned console. */
   app.put('/consoles/:consoleId/installs/:gameId', (req: Request, res: Response) => {
     const { consoleId, gameId } = req.params;
@@ -895,7 +1321,138 @@ export function createCuratorApp(): Express {
     }
 
     const body = req.body as { installed: boolean };
+    let installed = consoleInstalls.get(consoleId);
+    if (!installed) {
+      installed = new Set();
+      consoleInstalls.set(consoleId, installed);
+    }
+    if (body.installed) {
+      installed.add(gameId);
+    } else {
+      installed.delete(gameId);
+    }
     res.json({ console_id: consoleId, game_id: gameId, installed: body.installed });
+  });
+
+  // ── Storage devices ───────────────────────────────────────────────────────
+
+  /** POST /storage-devices — create a storage device for the caller, optionally attached. */
+  app.post('/storage-devices', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const body = req.body as { name: string; kind: string; capacity_gb: number; buffer_gb?: number; console_id?: string | null };
+    if (body.kind !== 'm2' && body.kind !== 'usb') {
+      res.status(400).json({ detail: 'kind must be "m2" or "usb".' });
+      return;
+    }
+    if (body.console_id && !findOwnedConsole(sub, body.console_id)) {
+      res.status(400).json({ detail: `Unknown console_id '${body.console_id}' for this user.` });
+      return;
+    }
+    const record: StorageDeviceRecord = {
+      device_id: `device-${nextDeviceId++}`,
+      identity_sub: sub,
+      console_id: body.console_id ?? null,
+      name: body.name,
+      kind: body.kind,
+      capacity_gb: body.capacity_gb,
+      buffer_gb: body.buffer_gb ?? 0,
+    };
+    userDevices(sub).push(record);
+    res.status(201).json(toDeviceResponse(record));
+  });
+
+  /** GET /storage-devices — list the caller's own devices, attached or not. */
+  app.get('/storage-devices', (req: Request, res: Response) => {
+    res.json(userDevices(subFromRequest(req)).map(toDeviceResponse));
+  });
+
+  /** PATCH /storage-devices/{id} — patch a device's editable fields. */
+  app.patch('/storage-devices/:id', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const record = findOwnedDevice(sub, req.params['id']);
+    if (!record) {
+      res.status(404).json({ detail: 'Storage device not found.' });
+      return;
+    }
+    const body = req.body as Partial<Pick<StorageDeviceRecord, 'name' | 'capacity_gb' | 'buffer_gb'>>;
+    Object.assign(record, body);
+    res.json(toDeviceResponse(record));
+  });
+
+  /** DELETE /storage-devices/{id} — delete a device (cascades to its own install rows). */
+  app.delete('/storage-devices/:id', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const list = userDevices(sub);
+    const idx = list.findIndex((d) => d.device_id === req.params['id']);
+    if (idx < 0) {
+      res.status(404).json({ detail: 'Storage device not found.' });
+      return;
+    }
+    const [removed] = list.splice(idx, 1);
+    deviceInstalls.delete(removed.device_id);
+    res.status(204).end();
+  });
+
+  /** PUT /storage-devices/{id}/attach/{consoleId} — attach a device to one of the caller's consoles. */
+  app.put('/storage-devices/:id/attach/:consoleId', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const record = findOwnedDevice(sub, req.params['id']);
+    if (!record) {
+      res.status(404).json({ detail: 'Storage device not found.' });
+      return;
+    }
+    if (!findOwnedConsole(sub, req.params['consoleId'])) {
+      res.status(400).json({ detail: `Unknown console_id '${req.params['consoleId']}' for this user.` });
+      return;
+    }
+    record.console_id = req.params['consoleId'];
+    res.json(toDeviceResponse(record));
+  });
+
+  /** DELETE /storage-devices/{id}/attach — detach a device from whichever console it's on. */
+  app.delete('/storage-devices/:id/attach', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const record = findOwnedDevice(sub, req.params['id']);
+    if (!record) {
+      res.status(404).json({ detail: 'Storage device not found.' });
+      return;
+    }
+    record.console_id = null;
+    res.json(toDeviceResponse(record));
+  });
+
+  /** GET /storage-devices/{id}/installs — every game id currently marked installed on this device. */
+  app.get('/storage-devices/:id/installs', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    if (!findOwnedDevice(sub, req.params['id'])) {
+      res.status(404).json({ detail: 'Storage device not found.' });
+      return;
+    }
+    res.json({ game_ids: Array.from(deviceInstalls.get(req.params['id']) ?? []).sort() });
+  });
+
+  /** PUT /storage-devices/{id}/installs/{gameId} — set install-checked state on a device. Marking a
+   * PS5 title installed on kind="usb" is allowed (Sony's own Extended Storage) -- see the real
+   * route's docstring; this mock never rejects it either. */
+  app.put('/storage-devices/:deviceId/installs/:gameId', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const { deviceId, gameId } = req.params;
+    if (!findOwnedDevice(sub, deviceId)) {
+      res.status(404).json({ detail: 'Storage device not found.' });
+      return;
+    }
+    const body = req.body as { installed: boolean };
+    let installed = deviceInstalls.get(deviceId);
+    if (!installed) {
+      installed = new Set();
+      deviceInstalls.set(deviceId, installed);
+    }
+    if (body.installed) {
+      installed.add(gameId);
+    } else {
+      installed.delete(gameId);
+    }
+    res.json({ device_id: deviceId, game_id: gameId, installed: body.installed });
   });
 
   /** GET /library — the caller's own library: server-side search/filter/sort/paging. */

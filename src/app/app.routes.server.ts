@@ -9,6 +9,12 @@ export const serverRoutes: ServerRoute[] = [
   { path: 'catalog', renderMode: RenderMode.Client },
   { path: 'collections', renderMode: RenderMode.Client },
   { path: 'collections/:sub', renderMode: RenderMode.Client },
+  { path: 'consoles', renderMode: RenderMode.Client },
+  // Anonymous (no authGuard), but still data-fetching like every other per-entity route above — same
+  // Client treatment, not Server: this app has no precedent yet for a data-fetching route rendering on
+  // the server (only '', faq, and privacy are Server, and none of them make an HTTP call in ngOnInit),
+  // and there's no SEO/link-unfurl payoff to justify being the first, given the page is noindex anyway.
+  { path: 'c/:slug', renderMode: RenderMode.Client },
   { path: 'library', renderMode: RenderMode.Client },
   { path: 'library/:sub', renderMode: RenderMode.Client },
   { path: 'profile', renderMode: RenderMode.Client },

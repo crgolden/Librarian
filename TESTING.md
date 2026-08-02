@@ -73,11 +73,17 @@ Failure artifacts (screenshot, trace, video) are written to `playwright-artifact
 link/unlink flows, and the per-category data-harvest preference toggles — all off by default after
 linking, toggling a category on shows its card and persists across reload, toggling off hides it
 immediately — against the mock Curator API), `faq.spec.ts`/`privacy.spec.ts` (SSR + anonymous access to
-the trust pages), `catalog.spec.ts`, `collections.spec.ts`, `library.spec.ts` (owner mode — ratings/
-category/PS-Store-link rendering, server-driven title search, category filter, column-header sort
-with direction toggling, paging, and a combined search+sort+page interaction, all against the mock's
-real query-param handling, not a client-side array; sub-keyed viewer mode covered jointly with
-`profile.spec.ts` below), and `profile.spec.ts` (owner vs.
+the trust pages), `catalog.spec.ts`, `collections.spec.ts` (create/preview/save, a capacity_fill run's
+console-install toggle including its 404-after-ownership-change case, and the detail view's
+rename/visibility/share-link/delete flow), `consoles.spec.ts` (auth guard; console + storage-device
+CRUD, attach/detach, and the auto-assigned-default-capacity flag), `public-collection.spec.ts` (the one
+anonymous route in the app — an owner publishes a collection and shares its link; an anonymous visitor
+opens it with no account; a second signed-in user follows it from the share page and sees it in
+"Collections I follow"; setting visibility back to private immediately breaks the old link),
+`library.spec.ts` (owner mode — ratings/category/PS-Store-link rendering, server-driven title search,
+category filter, column-header sort with direction toggling, paging, and a combined search+sort+page
+interaction, all against the mock's real query-param handling, not a client-side array; sub-keyed viewer
+mode covered jointly with `profile.spec.ts` below), and `profile.spec.ts` (owner vs.
 viewer profile rendering; a private-by-default profile shows only account-id-or-"Unlinked user" plus
 follower/following counts; a fully public profile with every `show_*`/`harvest_*` flag on shows every
 gated section; a viewer with no PSN link of their own sees trophies silently omitted, not an error;

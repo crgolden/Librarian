@@ -318,4 +318,206 @@ describe('CuratorService', () => {
     expect(req.request.method).toBe('GET');
     req.flush([]);
   });
+
+  // ── Collections: detail, edit, visibility, follow, public share ─────────
+
+  it('listFollowedCollections gets the followed list', () => {
+    service.listFollowedCollections().subscribe();
+
+    const req = httpMock.expectOne('/curator/api/collections/followed');
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
+
+  it('getDefinition gets the definition-scoped detail (with items)', () => {
+    service.getDefinition('d1').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/collections/d1');
+    expect(req.request.method).toBe('GET');
+    req.flush(null);
+  });
+
+  it('updateDefinition patches the definition', () => {
+    const body = { name: 'Renamed' };
+    service.updateDefinition('d1', body).subscribe();
+
+    const req = httpMock.expectOne('/curator/api/collections/d1');
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toEqual(body);
+    req.flush(null);
+  });
+
+  it('deleteDefinition deletes the definition', () => {
+    service.deleteDefinition('d1').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/collections/d1');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+  });
+
+  it('setDefinitionVisibility puts the visibility body', () => {
+    service.setDefinitionVisibility('d1', 'public').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/collections/d1/visibility');
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ visibility: 'public' });
+    req.flush(null);
+  });
+
+  it('followDefinition posts to the follow endpoint with no body', () => {
+    service.followDefinition('d1').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/collections/d1/follow');
+    expect(req.request.method).toBe('POST');
+    req.flush(null);
+  });
+
+  it('unfollowDefinition deletes the follow endpoint', () => {
+    service.unfollowDefinition('d1').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/collections/d1/follow');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+  });
+
+  it('getPublicCollection gets the anonymous share-slug route', () => {
+    service.getPublicCollection('slug1').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/public/collections/slug1');
+    expect(req.request.method).toBe('GET');
+    req.flush(null);
+  });
+
+  // ── Consoles ──────────────────────────────────────────────────────────────
+
+  it('createConsole posts the console body', () => {
+    const body = { name: 'Living room PS5', platform: 'PS5' };
+    service.createConsole(body).subscribe();
+
+    const req = httpMock.expectOne('/curator/api/consoles');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(body);
+    req.flush(null);
+  });
+
+  it('listConsoles gets the caller\'s consoles', () => {
+    service.listConsoles().subscribe();
+
+    const req = httpMock.expectOne('/curator/api/consoles');
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
+
+  it('getConsole gets one console', () => {
+    service.getConsole('c1').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/consoles/c1');
+    expect(req.request.method).toBe('GET');
+    req.flush(null);
+  });
+
+  it('updateConsole patches the console', () => {
+    const body = { name: 'Bedroom PS5' };
+    service.updateConsole('c1', body).subscribe();
+
+    const req = httpMock.expectOne('/curator/api/consoles/c1');
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toEqual(body);
+    req.flush(null);
+  });
+
+  it('deleteConsole deletes the console', () => {
+    service.deleteConsole('c1').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/consoles/c1');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+  });
+
+  it('getConsoleInstalls gets the console-scoped install worklist', () => {
+    service.getConsoleInstalls('c1').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/consoles/c1/installs');
+    expect(req.request.method).toBe('GET');
+    req.flush({ game_ids: [] });
+  });
+
+  // ── Storage devices ───────────────────────────────────────────────────────
+
+  it('createStorageDevice posts the device body', () => {
+    const body = { name: 'Samsung T7', kind: 'm2', capacity_gb: 1000 };
+    service.createStorageDevice(body).subscribe();
+
+    const req = httpMock.expectOne('/curator/api/storage-devices');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(body);
+    req.flush(null);
+  });
+
+  it('listStorageDevices gets the caller\'s devices', () => {
+    service.listStorageDevices().subscribe();
+
+    const req = httpMock.expectOne('/curator/api/storage-devices');
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
+
+  it('getStorageDevice gets one device', () => {
+    service.getStorageDevice('sd1').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/storage-devices/sd1');
+    expect(req.request.method).toBe('GET');
+    req.flush(null);
+  });
+
+  it('updateStorageDevice patches the device', () => {
+    const body = { name: 'Renamed drive' };
+    service.updateStorageDevice('sd1', body).subscribe();
+
+    const req = httpMock.expectOne('/curator/api/storage-devices/sd1');
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toEqual(body);
+    req.flush(null);
+  });
+
+  it('deleteStorageDevice deletes the device', () => {
+    service.deleteStorageDevice('sd1').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/storage-devices/sd1');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+  });
+
+  it('attachStorageDevice puts to the device/console attach route with no body', () => {
+    service.attachStorageDevice('sd1', 'c1').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/storage-devices/sd1/attach/c1');
+    expect(req.request.method).toBe('PUT');
+    req.flush(null);
+  });
+
+  it('detachStorageDevice deletes the device attach route', () => {
+    service.detachStorageDevice('sd1').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/storage-devices/sd1/attach');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+  });
+
+  it('getStorageDeviceInstalls gets the device-scoped install worklist', () => {
+    service.getStorageDeviceInstalls('sd1').subscribe();
+
+    const req = httpMock.expectOne('/curator/api/storage-devices/sd1/installs');
+    expect(req.request.method).toBe('GET');
+    req.flush({ game_ids: [] });
+  });
+
+  it('setStorageDeviceInstall puts the installed flag', () => {
+    service.setStorageDeviceInstall('sd1', 'g1', true).subscribe();
+
+    const req = httpMock.expectOne('/curator/api/storage-devices/sd1/installs/g1');
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ installed: true });
+    req.flush({ device_id: 'sd1', game_id: 'g1', installed: true });
+  });
 });
