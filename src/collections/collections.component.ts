@@ -172,6 +172,14 @@ export class CollectionsComponent implements OnInit {
     return this.viewerFollowPending().has(definitionId);
   }
 
+  protected kindLabel(kind: string): string {
+    return kind === 'capacity_fill' ? 'Capacity fill' : kind === 'filter_list' ? 'Filter list' : kind;
+  }
+
+  protected consoleName(consoleId: string): string {
+    return this.consoles().find((console) => console.console_id === consoleId)?.name ?? consoleId;
+  }
+
   protected toggleFollowViewerDefinition(definitionId: string): void {
     const currentlyFollowing = this.viewerFollowedIds().has(definitionId);
     this.viewerFollowPending.update((ids) => new Set(ids).add(definitionId));

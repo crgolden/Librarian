@@ -20,7 +20,7 @@
           @for (definition of viewerDefinitions(); track definition.definition_id) {
             <li class="card definition-card">
               <span class="catalog-title">{{ definition.name }}</span>
-              <span class="spine-label">{{ definition.kind }}</span>
+              <span class="spine-label">{{ kindLabel(definition.kind) }}</span>
               <span class="catalog-meta">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
               <button
                 type="button"
@@ -60,7 +60,7 @@
           @for (definition of definitions(); track definition.definition_id) {
             <li class="card definition-card">
               <span class="catalog-title">{{ definition.name }}</span>
-              <span class="spine-label">{{ definition.kind }}</span>
+              <span class="spine-label">{{ kindLabel(definition.kind) }}</span>
               <span class="catalog-meta">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
               <span class="visibility-badge" [class.visibility-shared]="definition.visibility !== 'private'">
                 {{ definition.visibility }}
@@ -288,9 +288,9 @@
           <button type="button" class="btn-ghost" (click)="startEditingMeta()">Rename / edit description</button>
         }
 
-        <span class="spine-label">{{ definition.kind }}</span>
+        <span class="spine-label">{{ kindLabel(definition.kind) }}</span>
         @if (definition.console_id) {
-          <p class="catalog-meta">Console: {{ definition.console_id }}</p>
+          <p class="catalog-meta">Console: {{ consoleName(definition.console_id) }}</p>
         }
         @if (definition.genre_filter.length > 0) {
           <p class="catalog-meta">Genres: {{ definition.genre_filter.join(', ') }}</p>

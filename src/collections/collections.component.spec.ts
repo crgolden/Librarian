@@ -6,6 +6,7 @@ import { CollectionsComponent } from './collections.component';
 import {
   CollectionGameResponse,
   CollectionItemResponse,
+  ConsoleResponse,
   DefinitionDetailResponse,
   DefinitionResponse,
   ProfileDefinitionResponse,
@@ -127,11 +128,14 @@ describe('CollectionsComponent', () => {
     httpMock.verify();
   });
 
-  function createAndLoad(definitions: DefinitionResponse[]): ComponentFixture<CollectionsComponent> {
+  function createAndLoad(
+    definitions: DefinitionResponse[],
+    consoles: ConsoleResponse[] = [],
+  ): ComponentFixture<CollectionsComponent> {
     const fixture = TestBed.createComponent(CollectionsComponent);
     fixture.detectChanges();
     httpMock.expectOne('/curator/api/collections').flush(definitions);
-    httpMock.expectOne('/curator/api/consoles').flush([]);
+    httpMock.expectOne('/curator/api/consoles').flush(consoles);
     fixture.detectChanges();
     return fixture;
   }
@@ -147,6 +151,46 @@ describe('CollectionsComponent', () => {
     expect(text).toContain('Weekend picks');
     expect(text).toContain('3 games');
     expect(text).toContain('public');
+  });
+
+  it('shows a humanized label for a collection kind instead of the raw enum value', () => {
+    const fixture = createAndLoad([
+      definition({ definition_id: 'd1', kind: 'filter_list' }),
+      definition({ definition_id: 'd2', kind: 'capacity_fill', console_id: 'c1' }),
+    ]);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Filter list');
+    expect(text).toContain('Capacity fill');
+    expect(text).not.toContain('filter_list');
+    expect(text).not.toContain('capacity_fill');
+  });
+
+  it("shows a capacity-fill collection's console name in the detail view, not its raw id", () => {
+    const consoles: ConsoleResponse[] = [
+      {
+        console_id: 'c1',
+        name: 'Living Room PS5',
+        platform: 'ps5',
+        raw_capacity_gb: 800,
+        model: null,
+        update_buffer_gb: 40,
+        effective_capacity_gb: 760,
+        routing_genres: [],
+        fill_order: 0,
+      },
+    ];
+    const fixture = createAndLoad([definition({ kind: 'capacity_fill', console_id: 'c1' })], consoles);
+    const h = harness(fixture);
+    h.openDefinition('d1');
+    httpMock
+      .expectOne('/curator/api/collections/d1')
+      .flush(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]));
+    httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: [] });
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Console: Living Room PS5');
+    expect(text).not.toContain('Console: c1');
   });
 
   it('preview() shows a validation error and makes no request when capacity_fill has no console', () => {
