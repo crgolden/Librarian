@@ -11,7 +11,7 @@ import {
   type PaginationState,
   type SortingState,
 } from '@tanstack/angular-table';
-import { Subject, Subscription, debounceTime, distinctUntilChanged, interval, switchMap, takeWhile } from 'rxjs';
+import { Subject, Subscription, debounceTime, distinctUntilChanged, interval, retry, switchMap, takeWhile } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import { CuratorService, LibraryQuery, LibrarySortField } from '../curator/curator.service';
 import { LibraryGameResponse, LibraryRefreshStatusResponse, ProfileLibraryGameResponse } from '../curator/curator.models';
@@ -19,6 +19,13 @@ import { redirectIfOwnSub } from '../profile/own-sub-redirect';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
 
 const POLL_INTERVAL_MS = 2500;
+// How many *consecutive* transient poll failures (a single non-2xx response, e.g. a BFF-proxy blip) to
+// retry before giving up and showing "Lost track of the refresh job." The job itself is completely
+// unaffected by a failed poll -- it keeps running server-side regardless -- so a one-off transient error
+// must not silently stop watching it. resetOnSuccess means this budget is per-incident, not cumulative
+// over a whole multi-hour polling session (a rate_limited run can legitimately poll for hours).
+const POLL_ERROR_RETRY_COUNT = 3;
+const POLL_ERROR_RETRY_DELAY_MS = 2000;
 const TERMINAL_STATUSES = new Set(['succeeded', 'failed']);
 const KNOWN_STATUSES = new Set(['queued', 'running', 'succeeded', 'failed']);
 const SUMMARY_TITLE_DISPLAY_CAP = 10;
@@ -309,6 +316,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
     this.pollSubscription = interval(POLL_INTERVAL_MS)
       .pipe(
         switchMap(() => this.curator.getLibraryRefreshStatus(runId)),
+        retry({ count: POLL_ERROR_RETRY_COUNT, delay: POLL_ERROR_RETRY_DELAY_MS, resetOnSuccess: true }),
         takeWhile((response) => !TERMINAL_STATUSES.has(response.status) && KNOWN_STATUSES.has(response.status), true),
       )
       .subscribe({

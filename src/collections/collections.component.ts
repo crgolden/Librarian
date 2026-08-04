@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { isPlatformBrowser } from '@angular/common';
+import { Location, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -41,6 +41,7 @@ type View = 'list' | 'create' | 'detail' | 'followed';
 export class CollectionsComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly location = inject(Location);
   private readonly auth = inject(AuthService);
   private readonly curator = inject(CuratorService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
@@ -128,12 +129,21 @@ export class CollectionsComponent implements OnInit {
       this.viewerMode.set(true);
       this.breadcrumbItems.set([{ label: 'Profile', link: ['/u', sub] }, { label: 'Collections' }]);
       this.loadViewerDefinitions(sub);
+      return;
+    }
+
+    this.curator.listConsoles().subscribe({
+      next: (consoles) => this.consoles.set(consoles),
+      error: () => undefined,
+    });
+
+    // `/collections/d/:definitionId` -- a reload or a deep link (e.g. a copied share link's owner-side
+    // equivalent) lands directly on the detail view instead of always starting from the list.
+    const definitionId = this.route.snapshot.paramMap.get('definitionId');
+    if (definitionId !== null) {
+      this.openDefinition(definitionId);
     } else {
       this.loadDefinitions();
-      this.curator.listConsoles().subscribe({
-        next: (consoles) => this.consoles.set(consoles),
-        error: () => undefined,
-      });
     }
   }
 
@@ -369,6 +379,12 @@ export class CollectionsComponent implements OnInit {
   }
 
   protected openDefinition(definitionId: string): void {
+    // Location.go(), not Router.navigate() -- this only needs the address bar/history entry to reflect
+    // the current view for reload/deep-link purposes. A real Router navigation would re-run authGuard and
+    // re-resolve the route for a view-state change within the same already-loaded component instance,
+    // which is unnecessary here (and harmless when landing directly on this URL via ngOnInit's deep-link
+    // branch, since it's a no-op history replacement either way).
+    this.location.go(`/collections/d/${definitionId}`);
     this.view.set('detail');
     this.detailLoading.set(true);
     this.detailError.set(null);
@@ -417,6 +433,7 @@ export class CollectionsComponent implements OnInit {
   }
 
   protected backToList(): void {
+    this.location.go('/collections');
     this.selectedDefinition.set(null);
     this.view.set('list');
     this.loadDefinitions();

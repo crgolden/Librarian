@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -191,6 +192,51 @@ describe('CollectionsComponent', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Console: Living Room PS5');
     expect(text).not.toContain('Console: c1');
+  });
+
+  it('opening a definition updates the URL to /collections/d/:definitionId, and going back restores /collections', () => {
+    const fixture = createAndLoad([definition()]);
+    const h = harness(fixture);
+    const location = TestBed.inject(Location);
+
+    h.openDefinition('d1');
+    httpMock.expectOne('/curator/api/collections/d1').flush(definitionDetail());
+    fixture.detectChanges();
+
+    expect(location.path()).toBe('/collections/d/d1');
+
+    h.backToList();
+    httpMock.expectOne('/curator/api/collections').flush([]);
+    fixture.detectChanges();
+
+    expect(location.path()).toBe('/collections');
+  });
+
+  it('a direct deep link to /collections/d/:definitionId opens the detail view immediately, without loading the list first', () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [CollectionsComponent],
+      providers: [
+        provideHttpClient(withXhr()),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ definitionId: 'd1' }) } } as unknown as ActivatedRoute,
+        },
+      ],
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+
+    const fixture = TestBed.createComponent(CollectionsComponent);
+    fixture.detectChanges();
+
+    httpMock.expectOne('/curator/api/consoles').flush([]);
+    httpMock.expectOne('/curator/api/collections/d1').flush(definitionDetail());
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Weekend picks');
+    httpMock.expectNone((req) => req.url === '/curator/api/collections');
   });
 
   it('preview() shows a validation error and makes no request when capacity_fill has no console', () => {

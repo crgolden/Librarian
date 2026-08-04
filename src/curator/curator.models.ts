@@ -161,6 +161,45 @@ export interface LibraryCategoriesResponse {
   categories: string[];
 }
 
+export interface PsnSummary {
+  access_token_expires_at: string | null;
+  refresh_token_expires_at: string | null;
+}
+
+export interface MeResponse {
+  sub: string;
+  email: string | null;
+  linked: boolean;
+  psn: PsnSummary | null;
+  is_admin: boolean;
+}
+
+export interface EnrichmentRunResponse {
+  run_id: string;
+}
+
+/** Loosely typed: each of the four passes (opencritic_cache_refresh/franchise_reclassification/
+ * tier_reclassification/enrichment) has its own inner shape that varies by its own nested `status`
+ * string -- see curator._enrichment_run_handler in app.py for the four passes' exact Python shapes. */
+export interface EnrichmentPassSummary {
+  status?: string;
+  [key: string]: unknown;
+}
+
+export interface EnrichmentRunResultSummary {
+  opencritic_cache_refresh?: EnrichmentPassSummary;
+  franchise_reclassification?: EnrichmentPassSummary;
+  tier_reclassification?: EnrichmentPassSummary;
+  enrichment?: EnrichmentPassSummary;
+}
+
+export interface EnrichmentRunStatusResponse {
+  run_id: string;
+  status: string;
+  error: string | null;
+  result_summary: EnrichmentRunResultSummary | null;
+}
+
 export interface EnrichmentKeyStatusResponse {
   rawg_configured: boolean;
   opencritic_configured: boolean;

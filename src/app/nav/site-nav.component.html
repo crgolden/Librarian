@@ -12,6 +12,9 @@
       <span class="user-email">{{ auth.email() ?? auth.username() ?? 'you' }}</span>
     </div>
     <a routerLink="/psn" routerLinkActive="nav-active">PSN Settings</a>
+    @if (admin.isAdmin()) {
+      <a routerLink="/admin/enrichment" routerLinkActive="nav-active">Enrichment Runs</a>
+    }
     <a [href]="auth.logoutUrl() ?? '#'" class="btn-ghost btn-sm">Sign out</a>
   </nav>
 

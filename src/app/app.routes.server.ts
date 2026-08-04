@@ -8,6 +8,7 @@ export const serverRoutes: ServerRoute[] = [
   { path: 'psn', renderMode: RenderMode.Client },
   { path: 'catalog', renderMode: RenderMode.Client },
   { path: 'collections', renderMode: RenderMode.Client },
+  { path: 'collections/d/:definitionId', renderMode: RenderMode.Client },
   { path: 'collections/:sub', renderMode: RenderMode.Client },
   { path: 'consoles', renderMode: RenderMode.Client },
   // Anonymous (no authGuard), but still data-fetching like every other per-entity route above — same
@@ -24,6 +25,7 @@ export const serverRoutes: ServerRoute[] = [
   { path: 'u/:sub', renderMode: RenderMode.Client },
   { path: 'u/:sub/followers', renderMode: RenderMode.Client },
   { path: 'u/:sub/following', renderMode: RenderMode.Client },
+  { path: 'admin/enrichment', renderMode: RenderMode.Client },
   { path: 'faq', renderMode: RenderMode.Server },
   { path: 'privacy', renderMode: RenderMode.Server },
   // Server-rendered (not Client) so the NotFoundComponent can set a real HTTP 404 via

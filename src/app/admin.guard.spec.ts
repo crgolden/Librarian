@@ -1,0 +1,37 @@
+import { TestBed } from '@angular/core/testing';
+import { UrlTree, provideRouter, Router } from '@angular/router';
+import { firstValueFrom, isObservable, of } from 'rxjs';
+import { adminGuard } from './admin.guard';
+import { AdminService } from '../admin/admin.service';
+
+describe('adminGuard', () => {
+  function configure(isAdmin: boolean): void {
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        { provide: AdminService, useValue: { ensureLoaded: () => of(isAdmin) } },
+      ],
+    });
+  }
+
+  async function run(): Promise<boolean | UrlTree> {
+    const result = TestBed.runInInjectionContext(() => adminGuard({} as never, {} as never));
+    return isObservable(result) ? firstValueFrom(result) : (result as boolean | UrlTree);
+  }
+
+  it('allows navigation when the caller is an admin', async () => {
+    configure(true);
+
+    expect(await run()).toBe(true);
+  });
+
+  it('resolves to a UrlTree redirect to / when the caller is authenticated but not an admin', async () => {
+    configure(false);
+    const router = TestBed.inject(Router);
+
+    const result = await run();
+
+    expect(result).toBeInstanceOf(UrlTree);
+    expect(router.serializeUrl(result as UrlTree)).toBe('/');
+  });
+});

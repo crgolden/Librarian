@@ -57,6 +57,7 @@ export interface UserRecord {
   psnAccountId: string | null;
   psnPreferences: PsnPreferences;
   enrichmentKeys: EnrichmentKeyStatus;
+  isAdmin: boolean;
 }
 
 const DEFAULT_PSN_PREFERENCES: PsnPreferences = {
@@ -373,6 +374,7 @@ function getUser(sub: string): UserRecord {
       psnAccountId: null,
       psnPreferences: { ...DEFAULT_PSN_PREFERENCES },
       enrichmentKeys: { ...DEFAULT_ENRICHMENT_KEY_STATUS },
+      isAdmin: false,
     };
     users.set(sub, user);
   }
@@ -808,6 +810,7 @@ export function createCuratorApp(): Express {
       email: user.email,
       linked: user.psn !== null,
       psn: user.psn,
+      is_admin: user.isAdmin,
     });
   });
 

@@ -120,6 +120,52 @@ describe('LibraryComponent', () => {
     httpMock.expectNone('/curator/api/library/refresh/r1');
   });
 
+  it('retries a single transient poll failure instead of losing track of the job', async () => {
+    const fixture = await createAndLoad();
+
+    fixture.nativeElement.querySelector('button').click();
+    httpMock.expectOne('/curator/api/library/refresh').flush({ run_id: 'r1' });
+
+    await vi.advanceTimersByTimeAsync(2500);
+    httpMock.expectOne('/curator/api/library/refresh/r1').flush(null, { status: 502, statusText: 'Bad Gateway' });
+    fixture.detectChanges();
+
+    // A single transient failure must not surface an error -- the job is still running server-side.
+    expect((fixture.nativeElement as HTMLElement).textContent ?? '').not.toContain('Lost track of the refresh job.');
+
+    await vi.advanceTimersByTimeAsync(4500);
+    httpMock
+      .expectOne('/curator/api/library/refresh/r1')
+      .flush({ run_id: 'r1', status: 'succeeded', error: null, result_summary: null });
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Library catalogued.');
+
+    httpMock.expectOne((req) => req.url === '/curator/api/library').flush(page([]));
+    httpMock.expectOne('/curator/api/library/categories').flush({ categories: [] });
+  });
+
+  it('gives up and shows "Lost track" only after exhausting the retry budget', async () => {
+    const fixture = await createAndLoad();
+
+    fixture.nativeElement.querySelector('button').click();
+    httpMock.expectOne('/curator/api/library/refresh').flush({ run_id: 'r1' });
+
+    await vi.advanceTimersByTimeAsync(2500);
+    httpMock.expectOne('/curator/api/library/refresh/r1').flush(null, { status: 502, statusText: 'Bad Gateway' });
+    fixture.detectChanges();
+
+    // POLL_ERROR_RETRY_COUNT (3) retries, each after a retry delay + a fresh interval tick.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await vi.advanceTimersByTimeAsync(4500);
+      httpMock.expectOne('/curator/api/library/refresh/r1').flush(null, { status: 502, statusText: 'Bad Gateway' });
+      fixture.detectChanges();
+    }
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Lost track of the refresh job.');
+  });
+
   it('shows an error when the refresh trigger itself fails', async () => {
     const fixture = await createAndLoad();
 

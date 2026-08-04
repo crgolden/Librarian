@@ -17,12 +17,15 @@ import {
   DefinitionResponse,
   DevicesResponse,
   EnrichmentKeyStatusResponse,
+  EnrichmentRunResponse,
+  EnrichmentRunStatusResponse,
   FollowListResponse,
   IdentityResponse,
   LibraryCategoriesResponse,
   LibraryPageResponse,
   LibraryRefreshResponse,
   LibraryRefreshStatusResponse,
+  MeResponse,
   PresenceResponse,
   ProfileDefinitionResponse,
   ProfileLibraryPageResponse,
@@ -337,5 +340,21 @@ export class CuratorService {
 
   getUserCollections(sub: string): Observable<ProfileDefinitionResponse[]> {
     return this.http.get<ProfileDefinitionResponse[]>(`/curator/api/users/${sub}/collections`);
+  }
+
+  getMe(): Observable<MeResponse> {
+    return this.http.get<MeResponse>('/curator/api/me');
+  }
+
+  startEnrichmentRun(): Observable<EnrichmentRunResponse> {
+    return this.http.post<EnrichmentRunResponse>('/curator/api/enrichment/runs', {});
+  }
+
+  getLatestEnrichmentRun(): Observable<EnrichmentRunStatusResponse> {
+    return this.http.get<EnrichmentRunStatusResponse>('/curator/api/enrichment/runs/latest');
+  }
+
+  getEnrichmentRunStatus(runId: string): Observable<EnrichmentRunStatusResponse> {
+    return this.http.get<EnrichmentRunStatusResponse>(`/curator/api/enrichment/runs/${runId}`);
   }
 }
