@@ -1,0 +1,84 @@
+<section class="page-section admin-enrichment">
+  <h1>Enrichment Runs</h1>
+  <p class="text-muted">
+    Runs a global catalog-wide re-enrichment pass: refreshes the OpenCritic cache, reclassifies franchise
+    and AAA tier for the whole catalog against the current curation rules, and best-effort enriches any
+    game nobody has enriched yet. Spends real RAWG/OpenCritic quota and rewrites catalog data shared by
+    every user.
+  </p>
+
+  @if (loading()) {
+    <p class="text-muted">Loading the latest run...</p>
+  } @else {
+    @if (loadError()) {
+      <p class="text-error">{{ loadError() }}</p>
+    }
+
+    <div class="card status-card">
+      <h2>Start a run</h2>
+      @if (startError()) {
+        <p class="text-error">{{ startError() }}</p>
+      }
+      @if (confirming()) {
+        <p>Are you sure? This spends real provider quota and rewrites catalog data for every user.</p>
+        <div class="delete-confirm-actions">
+          <button type="button" class="btn-ghost-danger btn-ghost" (click)="confirmRun()" [disabled]="starting()">
+            {{ starting() ? 'Starting...' : 'Yes, start a run' }}
+          </button>
+          <button type="button" class="btn-ghost" (click)="cancelRun()" [disabled]="starting()">Cancel</button>
+        </div>
+      } @else {
+        <button type="button" class="btn-ghost-danger btn-ghost" (click)="requestRun()">Start enrichment run</button>
+      }
+    </div>
+
+    @if (run(); as current) {
+      <div class="card status-card">
+        <h2>Latest run</h2>
+        <p class="catalog-meta">Run id: {{ current.run_id }}</p>
+        <p class="catalog-meta">Status: {{ current.status }}</p>
+        @if (current.error) {
+          <p class="text-error">{{ current.error }}</p>
+        }
+
+        @if (current.result_summary; as summary) {
+          <div class="admin-pass-summaries">
+            @if (summary.opencritic_cache_refresh; as pass) {
+              <div class="admin-pass">
+                <h3>OpenCritic cache refresh</h3>
+                <p class="catalog-meta">Status: {{ pass.status }}</p>
+              </div>
+            }
+            @if (summary.franchise_reclassification; as pass) {
+              <div class="admin-pass">
+                <h3>Franchise reclassification</h3>
+                <p class="catalog-meta">Status: {{ pass.status }}</p>
+              </div>
+            }
+            @if (summary.tier_reclassification; as pass) {
+              <div class="admin-pass">
+                <h3>Tier reclassification</h3>
+                <p class="catalog-meta">Status: {{ pass.status }}</p>
+              </div>
+            }
+            @if (summary.enrichment; as pass) {
+              <div class="admin-pass">
+                <h3>Enrichment</h3>
+                @if (pass['remaining_count'] !== undefined) {
+                  <p class="catalog-meta">
+                    {{ pass['enriched_count'] }} enriched, {{ pass['remaining_count'] }} remaining
+                  </p>
+                }
+                @if (pass['stopped_provider']) {
+                  <p class="catalog-meta">Stopped: {{ pass['stopped_provider'] }} ({{ pass['stopped_reason'] }})</p>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+    } @else if (!loadError()) {
+      <p class="text-muted">No enrichment run has been started yet.</p>
+    }
+  }
+</section>

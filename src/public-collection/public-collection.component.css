@@ -1,0 +1,38 @@
+.public-collection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.catalog-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+
+.catalog-card {
+  padding: var(--card-pad);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.cover-art {
+  width: 100%;
+  max-width: 180px;
+  border-radius: var(--radius-sm, 4px);
+  object-fit: cover;
+}
+
+.item-unavailable {
+  opacity: 0.6;
+}
+
+.form-actions {
+  display: flex;
+  gap: var(--space-3);
+}

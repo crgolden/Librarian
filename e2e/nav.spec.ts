@@ -44,13 +44,24 @@ test.describe('SiteNavComponent — desktop', () => {
 test.describe('SiteNavComponent — mobile bottom tab bar', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('renders a 5-item bottom tab bar instead of the desktop nav', async ({ authedPage: page, store }) => {
+  test('renders a 6-item bottom tab bar (5 primary destinations + PSN) instead of the desktop nav', async ({
+    authedPage: page,
+    store,
+  }) => {
     await store.reset();
 
     await page.goto('/');
     await expect(page.locator('.site-nav-tabbar')).toBeVisible();
     await expect(page.locator('.site-nav-desktop')).toBeHidden();
-    await expect(page.locator('.site-nav-tabbar a.tab-link')).toHaveCount(5);
+    await expect(page.locator('.site-nav-tabbar a.tab-link')).toHaveCount(6);
+  });
+
+  test('PSN is reachable from the mobile tab bar', async ({ authedPage: page, store }) => {
+    await store.reset();
+
+    await page.goto('/');
+    await page.locator('.site-nav-tabbar').getByRole('link', { name: 'PSN', exact: true }).click();
+    await page.waitForURL('**/psn', { timeout: 10_000 });
   });
 
   test('tapping a tab navigates correctly', async ({ authedPage: page, store }) => {

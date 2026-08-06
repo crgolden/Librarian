@@ -20,10 +20,16 @@
           @for (definition of viewerDefinitions(); track definition.definition_id) {
             <li class="card definition-card">
               <span class="catalog-title">{{ definition.name }}</span>
-              <span class="spine-label">{{ definition.kind }}</span>
-              @if (definition.console_id) {
-                <span class="catalog-meta">Console: {{ definition.console_id }}</span>
-              }
+              <span class="spine-label">{{ kindLabel(definition.kind) }}</span>
+              <span class="catalog-meta">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
+              <button
+                type="button"
+                class="btn-ghost"
+                [disabled]="isFollowPending(definition.definition_id)"
+                (click)="toggleFollowViewerDefinition(definition.definition_id)"
+              >
+                {{ isFollowingViewerDefinition(definition.definition_id) ? 'Unfollow' : 'Follow' }}
+              </button>
             </li>
           }
         </ul>
@@ -36,6 +42,11 @@
   </p>
 
   @if (view() === 'list') {
+    <div class="form-actions">
+      <button type="button" class="btn-primary" (click)="showCreate()">New collection</button>
+      <button type="button" class="btn-ghost" (click)="showFollowed()">Collections I follow</button>
+    </div>
+
     @if (loadingDefinitions()) {
       <p class="text-muted">Loading your collections...</p>
     } @else {
@@ -49,16 +60,53 @@
           @for (definition of definitions(); track definition.definition_id) {
             <li class="card definition-card">
               <span class="catalog-title">{{ definition.name }}</span>
-              <span class="spine-label">{{ definition.kind }}</span>
-              @if (definition.console_id) {
-                <span class="catalog-meta">Console: {{ definition.console_id }}</span>
-              }
-              <button type="button" class="btn-ghost" (click)="selectDefinition(definition)">View / Run</button>
+              <span class="spine-label">{{ kindLabel(definition.kind) }}</span>
+              <span class="catalog-meta">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
+              <span class="visibility-badge" [class.visibility-shared]="definition.visibility !== 'private'">
+                {{ definition.visibility }}
+              </span>
+              <button type="button" class="btn-ghost" (click)="openDefinition(definition.definition_id)">View / Edit</button>
             </li>
           }
         </ul>
       }
-      <button type="button" class="btn-primary" (click)="showCreate()">New collection</button>
+    }
+  }
+
+  @if (view() === 'followed') {
+    <button type="button" class="btn-ghost" (click)="view.set('list')">&larr; Back to your collections</button>
+
+    @if (loadingFollowed()) {
+      <p class="text-muted">Loading followed collections...</p>
+    } @else {
+      @if (followedError()) {
+        <p class="text-error">{{ followedError() }}</p>
+      }
+      @if (followedDefinitions().length === 0) {
+        <p class="text-muted">You aren't following any collections yet.</p>
+      } @else {
+        <ul class="definition-list">
+          @for (definition of followedDefinitions(); track definition.definition_id) {
+            <li class="card definition-card">
+              <span class="catalog-title">{{ definition.name }}</span>
+              <span class="catalog-meta">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
+              @if (definition.share_slug && definition.visibility !== 'private') {
+                <a class="btn-ghost" [href]="shareUrlFor(definition.share_slug)" target="_blank" rel="noopener">View</a>
+              } @else {
+                <span class="catalog-meta">No longer shared.</span>
+              }
+              <button
+                type="button"
+                class="btn-ghost"
+                [disabled]="unfollowingIds().has(definition.definition_id)"
+                (click)="unfollow(definition.definition_id)"
+              >
+                Unfollow
+              </button>
+            </li>
+          }
+        </ul>
+      }
     }
   }
 
@@ -71,8 +119,17 @@
       </select>
 
       @if (kind() === 'capacity_fill') {
-        <label for="consoleId">Console ID</label>
-        <input id="consoleId" name="consoleId" type="text" [ngModel]="consoleId()" (ngModelChange)="consoleId.set($event)" />
+        <label for="consoleId">Console</label>
+        <select id="consoleId" name="consoleId" [ngModel]="consoleId()" (ngModelChange)="consoleId.set($event)">
+          <option value="">Select a console&hellip;</option>
+          @for (console of consoles(); track console.console_id) {
+            <option [value]="console.console_id">{{ console.name }} ({{ console.platform }})</option>
+          }
+        </select>
+        @if (consoles().length === 0) {
+          <p class="text-muted"><a routerLink="/consoles">Add a console first &rarr;</a></p>
+        }
+        <a class="catalog-meta" routerLink="/consoles">Manage consoles &amp; storage &rarr;</a>
       }
 
       <label for="genreFilter">Genres (comma-separated)</label>
@@ -108,6 +165,16 @@
         (ngModelChange)="minPercentCompleted.set($event)"
       />
 
+      <label class="checkbox-label">
+        <input
+          type="checkbox"
+          name="includeInactive"
+          [ngModel]="includeInactive()"
+          (ngModelChange)="includeInactive.set($event)"
+        />
+        Include titles you no longer have active access to
+      </label>
+
       @if (createError()) {
         <p class="text-error">{{ createError() }}</p>
       }
@@ -120,16 +187,16 @@
       </div>
     </form>
 
-    @if (previewResult()) {
+    @if (previewResult(); as preview) {
       <div class="card preview-results">
         <h2>Preview</h2>
-        @if (previewResult()?.used_gb !== null) {
-          <p class="catalog-meta">Estimated size: {{ previewResult()?.used_gb }} GB</p>
+        @if (preview.used_gb !== null) {
+          <p class="catalog-meta">Estimated size: {{ preview.used_gb }} GB</p>
         }
 
-        <h3>Included ({{ previewResult()?.included?.length }})</h3>
+        <h3>Included ({{ preview.included.length }})</h3>
         <ul class="catalog-list">
-          @for (game of previewResult()?.included ?? []; track game.game_id) {
+          @for (game of preview.included; track game.game_id) {
             <li class="card catalog-card">
               <span class="catalog-title">{{ game.title }}</span>
               <span class="spine-label">{{ game.genre }}</span>
@@ -141,10 +208,10 @@
           }
         </ul>
 
-        @if ((previewResult()?.excluded?.length ?? 0) > 0) {
-          <h3>Excluded ({{ previewResult()?.excluded?.length }})</h3>
+        @if (preview.excluded.length > 0) {
+          <h3>Excluded ({{ preview.excluded.length }})</h3>
           <ul class="catalog-list">
-            @for (game of previewResult()?.excluded ?? []; track game.game_id) {
+            @for (game of preview.excluded; track game.game_id) {
               <li class="card catalog-card">
                 <span class="catalog-title">{{ game.title }}</span>
                 <span class="spine-label">{{ game.genre }}</span>
@@ -156,93 +223,288 @@
             }
           </ul>
         }
-
-        <form class="save-form" (submit)="$event.preventDefault(); saveDefinition()">
-          <label for="name">Name this collection</label>
-          <input id="name" name="name" type="text" [ngModel]="name()" (ngModelChange)="name.set($event)" />
-          @if (saveError()) {
-            <p class="text-error">{{ saveError() }}</p>
-          }
-          <button type="submit" class="btn-primary" [disabled]="saving()">
-            {{ saving() ? 'Saving...' : 'Save this collection' }}
-          </button>
-        </form>
       </div>
     }
+
+    <form class="card save-form" (submit)="$event.preventDefault(); saveDefinition()">
+      <label for="name">Name this collection</label>
+      <input id="name" name="name" type="text" [ngModel]="name()" (ngModelChange)="name.set($event)" />
+      <label for="description">Description (optional)</label>
+      <textarea id="description" name="description" rows="2" [ngModel]="description()" (ngModelChange)="description.set($event)"></textarea>
+      @if (!previewResult()) {
+        <p class="text-muted">
+          Saving now creates an empty collection with these settings recorded — add games afterward from the
+          detail view, or run Preview first to save its results directly.
+        </p>
+      }
+      @if (saveError()) {
+        <p class="text-error">{{ saveError() }}</p>
+      }
+      <button type="submit" class="btn-primary" [disabled]="saving()">
+        {{ saving() ? 'Saving...' : previewResult() ? 'Save this collection' : 'Save empty collection' }}
+      </button>
+    </form>
   }
 
-  @if (view() === 'detail' && selectedDefinition(); as definition) {
-    <div class="card definition-detail">
-      <button type="button" class="btn-ghost" (click)="backToList()">&larr; Back to collections</button>
-      <h2 class="catalog-title">{{ definition.name }}</h2>
-      <span class="spine-label">{{ definition.kind }}</span>
-      @if (definition.console_id) {
-        <p class="catalog-meta">Console: {{ definition.console_id }}</p>
-      }
-      @if (definition.genre_filter.length > 0) {
-        <p class="catalog-meta">Genres: {{ definition.genre_filter.join(', ') }}</p>
-      }
+  @if (view() === 'detail') {
+    <button type="button" class="btn-ghost" (click)="backToList()">&larr; Back to collections</button>
 
-      @if (runError()) {
-        <p class="text-error">{{ runError() }}</p>
-      }
+    @if (detailLoading()) {
+      <p class="text-muted">Loading collection...</p>
+    }
+    @if (detailError()) {
+      <p class="text-error">{{ detailError() }}</p>
+    }
 
-      <button type="button" class="btn-primary" [disabled]="running()" (click)="runSelected()">
-        {{ running() ? 'Running...' : 'Run' }}
-      </button>
-
-      @if (runResult(); as result) {
-        <div class="run-results">
-          @if (result.used_gb !== null) {
-            <p class="catalog-meta">Estimated size: {{ result.used_gb }} GB</p>
+    @if (selectedDefinition(); as definition) {
+      <div class="card definition-detail">
+        @if (editingMeta()) {
+          <form class="meta-edit-form" (submit)="$event.preventDefault(); saveMeta()">
+            <label for="editName">Name</label>
+            <input id="editName" name="editName" type="text" [ngModel]="editName()" (ngModelChange)="editName.set($event)" />
+            <label for="editDescription">Description</label>
+            <textarea
+              id="editDescription"
+              name="editDescription"
+              rows="2"
+              [ngModel]="editDescription()"
+              (ngModelChange)="editDescription.set($event)"
+            ></textarea>
+            @if (metaError()) {
+              <p class="text-error">{{ metaError() }}</p>
+            }
+            <div class="form-actions">
+              <button type="button" class="btn-ghost" (click)="cancelEditingMeta()">Cancel</button>
+              <button type="submit" class="btn-primary" [disabled]="savingMeta()">
+                {{ savingMeta() ? 'Saving...' : 'Save' }}
+              </button>
+            </div>
+          </form>
+        } @else {
+          <h2 class="catalog-title">{{ definition.name }}</h2>
+          @if (definition.description) {
+            <p class="catalog-meta">{{ definition.description }}</p>
           }
+          <button type="button" class="btn-ghost" (click)="startEditingMeta()">Rename / edit description</button>
+        }
 
-          <h3>Included ({{ result.included.length }})</h3>
+        <span class="spine-label">{{ kindLabel(definition.kind) }}</span>
+        @if (definition.console_id) {
+          <p class="catalog-meta">Console: {{ consoleName(definition.console_id) }}</p>
+        }
+        @if (definition.genre_filter.length > 0) {
+          <p class="catalog-meta">Genres: {{ definition.genre_filter.join(', ') }}</p>
+        }
+
+        <div class="visibility-control">
+          <label for="visibility">Visibility</label>
+          <select
+            id="visibility"
+            name="visibility"
+            [ngModel]="definition.visibility"
+            (ngModelChange)="setVisibility($event)"
+            [disabled]="visibilitySaving()"
+          >
+            <option value="private">Private — only you</option>
+            <option value="unlisted">Unlisted — anyone with the link</option>
+            <option value="public">Public — anyone with the link, listed on your profile</option>
+          </select>
+          @if (definition.visibility !== 'private' && definition.share_slug) {
+            <button type="button" class="btn-ghost" (click)="copyShareLink()">
+              {{ shareLinkCopied() ? 'Copied!' : 'Copy share link' }}
+            </button>
+            <p class="catalog-meta share-url">{{ shareUrlFor(definition.share_slug) }}</p>
+          }
+          @if (visibilityError()) {
+            <p class="text-error">{{ visibilityError() }}</p>
+          }
+        </div>
+
+        <h3>Games ({{ definition.items.length }})</h3>
+        @if (itemsError()) {
+          <p class="text-error">{{ itemsError() }}</p>
+        }
+        @if (definition.items.length === 0) {
+          <p class="text-muted">No games in this collection yet.</p>
+        } @else {
           <ul class="catalog-list">
-            @for (game of result.included; track game.game_id) {
-              <li class="card catalog-card">
-                <span class="catalog-title">{{ game.title }}</span>
-                <span class="spine-label">{{ game.genre }}</span>
-                <span class="catalog-meta">{{ game.franchise }} &middot; {{ game.aaa_tier }} &middot; {{ game.size_gb }} GB</span>
-                @if (game.percent_completed !== null) {
-                  <span class="catalog-meta">{{ game.percent_completed }}% complete</span>
+            @for (item of definition.items; track item.game_id) {
+              <li class="card catalog-card" [class.item-unavailable]="!item.owner_has_access">
+                @if (item.cover_image_url) {
+                  <img class="cover-art" [src]="item.cover_image_url" [alt]="item.title" loading="lazy" />
+                }
+                <span class="catalog-title">{{ item.title }}</span>
+                @if (item.genre) {
+                  <span class="spine-label">{{ item.genre }}</span>
+                }
+                <span class="catalog-meta">{{ item.franchise }} &middot; {{ item.aaa_tier }}</span>
+                @if (!item.owner_has_access) {
+                  <span class="text-muted">No longer in owner's library</span>
                 }
 
                 @if (canToggleInstall()) {
                   <button
                     type="button"
                     class="btn-ghost"
-                    [disabled]="installingGameIds().has(game.game_id)"
-                    (click)="toggleInstall(game)"
+                    [disabled]="installingGameIds().has(item.game_id)"
+                    (click)="toggleInstall(item.game_id)"
                   >
-                    {{ installedGameIds().has(game.game_id) ? 'Installed' : 'Mark installed' }}
+                    {{ installedGameIds().has(item.game_id) ? 'Installed' : 'Mark installed' }}
                   </button>
-                  @if (installErrors().get(game.game_id); as installError) {
+                  @if (installErrors().get(item.game_id); as installError) {
                     <span class="text-error">{{ installError }}</span>
                   }
+                  @for (device of attachedDevices(); track device.device_id) {
+                    <button
+                      type="button"
+                      class="btn-ghost"
+                      [disabled]="isDeviceInstallPending(device.device_id, item.game_id)"
+                      (click)="toggleDeviceInstall(device.device_id, item.game_id)"
+                    >
+                      {{ isDeviceInstalled(device.device_id, item.game_id) ? 'On ' + device.name : 'Mark on ' + device.name }}
+                    </button>
+                    @if (deviceInstallError(device.device_id, item.game_id); as deviceInstallErrorMessage) {
+                      <span class="text-error">{{ deviceInstallErrorMessage }}</span>
+                    }
+                  }
+
+                  <button type="button" class="btn-ghost" (click)="toggleMeasuredSizePanel(item.game_id)">
+                    {{ expandedSizeGameId() === item.game_id ? 'Hide measured size' : 'Measured size' }}
+                  </button>
+                  @if (expandedSizeGameId() === item.game_id) {
+                    <div class="measured-size-panel">
+                      @if (measuredSizesLoading()) {
+                        <p class="text-muted">Loading measured sizes...</p>
+                      } @else {
+                        @if (measuredSizesFor(item.game_id).length === 0) {
+                          <p class="text-muted">Nobody has reported an install size for this game yet.</p>
+                        } @else {
+                          @for (size of measuredSizesFor(item.game_id); track size.platform) {
+                            <p class="catalog-meta">{{ size.platform }}: {{ size.size_gb }} GB</p>
+                          }
+                        }
+                      }
+
+                      <label [attr.for]="'measured-size-platform-' + item.game_id" class="sr-only">Platform</label>
+                      <select
+                        [attr.id]="'measured-size-platform-' + item.game_id"
+                        [ngModel]="measuredSizePlatform()"
+                        (ngModelChange)="measuredSizePlatform.set($event)"
+                        name="measuredSizePlatform"
+                      >
+                        <option value="PS5">PS5</option>
+                        <option value="PS4">PS4</option>
+                      </select>
+                      <label [attr.for]="'measured-size-value-' + item.game_id" class="sr-only">Size in GB</label>
+                      <input
+                        [attr.id]="'measured-size-value-' + item.game_id"
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        placeholder="Size in GB"
+                        [ngModel]="measuredSizeValue()"
+                        (ngModelChange)="measuredSizeValue.set($event)"
+                        name="measuredSizeValue"
+                      />
+                      <button
+                        type="button"
+                        class="btn-ghost"
+                        [disabled]="measuredSizeSaving()"
+                        (click)="submitMeasuredSize(item.game_id)"
+                      >
+                        {{ measuredSizeSaving() ? 'Saving...' : 'Report size' }}
+                      </button>
+                      @if (measuredSizeError()) {
+                        <p class="text-error">{{ measuredSizeError() }}</p>
+                      }
+                    </div>
+                  }
                 }
+
+                <button
+                  type="button"
+                  class="btn-ghost"
+                  [disabled]="removingGameIds().has(item.game_id)"
+                  (click)="removeItem(item.game_id)"
+                >
+                  Remove
+                </button>
               </li>
             }
           </ul>
+        }
 
-          @if (result.excluded.length > 0) {
-            <h3>Excluded ({{ result.excluded.length }})</h3>
+        @if (runError()) {
+          <p class="text-error">{{ runError() }}</p>
+        }
+
+        <button type="button" class="btn-primary" [disabled]="running()" (click)="runSelected()">
+          {{ running() ? 'Running...' : 'Propose a fresh list' }}
+        </button>
+
+        @if (runResult(); as result) {
+          <div class="run-results">
+            @if (result.used_gb !== null) {
+              <p class="catalog-meta">Estimated size: {{ result.used_gb }} GB</p>
+            }
+
+            <h3>Proposed ({{ result.included.length }})</h3>
             <ul class="catalog-list">
-              @for (game of result.excluded; track game.game_id) {
+              @for (game of result.included; track game.game_id) {
                 <li class="card catalog-card">
                   <span class="catalog-title">{{ game.title }}</span>
                   <span class="spine-label">{{ game.genre }}</span>
-                  <span class="catalog-meta">{{ game.franchise }} &middot; {{ game.aaa_tier }}</span>
+                  <span class="catalog-meta">{{ game.franchise }} &middot; {{ game.aaa_tier }} &middot; {{ game.size_gb }} GB</span>
                   @if (game.percent_completed !== null) {
                     <span class="catalog-meta">{{ game.percent_completed }}% complete</span>
                   }
                 </li>
               }
             </ul>
-          }
-        </div>
-      }
-    </div>
+
+            @if (result.excluded.length > 0) {
+              <h3>Excluded ({{ result.excluded.length }})</h3>
+              <ul class="catalog-list">
+                @for (game of result.excluded; track game.game_id) {
+                  <li class="card catalog-card">
+                    <span class="catalog-title">{{ game.title }}</span>
+                    <span class="spine-label">{{ game.genre }}</span>
+                    <span class="catalog-meta">{{ game.franchise }} &middot; {{ game.aaa_tier }}</span>
+                    @if (game.percent_completed !== null) {
+                      <span class="catalog-meta">{{ game.percent_completed }}% complete</span>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+
+            @if (adoptError()) {
+              <p class="text-error">{{ adoptError() }}</p>
+            }
+            <button type="button" class="btn-primary" [disabled]="adopting()" (click)="adoptRunResult()">
+              {{ adopting() ? 'Adopting...' : 'Adopt this list' }}
+            </button>
+          </div>
+        }
+
+        @if (confirmingDelete()) {
+          <div class="danger-zone">
+            <p class="text-error">Delete "{{ definition.name }}"? This can't be undone.</p>
+            @if (deleteError()) {
+              <p class="text-error">{{ deleteError() }}</p>
+            }
+            <div class="form-actions">
+              <button type="button" class="btn-ghost" (click)="cancelDelete()">Cancel</button>
+              <button type="button" class="btn-primary btn-danger" [disabled]="deleting()" (click)="deleteDefinition()">
+                {{ deleting() ? 'Deleting...' : 'Confirm delete' }}
+              </button>
+            </div>
+          </div>
+        } @else {
+          <button type="button" class="btn-ghost btn-danger" (click)="confirmDelete()">Delete collection</button>
+        }
+      </div>
+    }
   }
   }
 </section>

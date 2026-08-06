@@ -25,16 +25,21 @@ proxies `/curator/api/**` to the Curator API with the session's Bearer token, an
 `X-CSRF: 1` on mutating calls. The app surface covers a home page, a `/psn` settings page
 (link/unlink a PlayStation Network account via NPSSO token, backed by Curator's `/me` and
 `/psn/link` routes, plus per-category data-harvest preferences and bring-your-own-key RAWG/OpenCritic
-enrichment key management), `/catalog` (browse the shared game catalog), `/collections` (create/save/run
-curated collections — filterable by genre, minimum score, AAA tier, and minimum trophy completion), and `/library` (trigger a refresh and browse the caller's own library — server-side
-search, category filtering, sortable columns, and paging; see "The library page" below) — all
-backed by real Curator endpoints. A public social-profile feature adds `/profile` and its sub-keyed
-counterpart `/u/:sub`: a viewable, followable profile with opt-in display toggles for library,
-collections, PSN trophies, and PSN identity, plus always-visible follower/following lists. `/library` and
-`/collections` are themselves now sub-keyed (`/library/:sub`, `/collections/:sub`) so the same components
-render a read-only view of another user's library/collections when their profile makes that section
-public; the bare paths always mean "mine," and a sub-keyed URL for your own sub redirects straight back to
-the bare one. Frontend is zoneless Angular. Observability:
+enrichment key management), `/catalog` (browse the shared game catalog), `/collections` (create, save, and
+run curated collections — filterable by genre, minimum score, AAA tier, and minimum trophy completion —
+plus a detail view for renaming, editing membership, deleting, and setting a collection's visibility to
+private, unlisted, or public with a copyable share link), `/consoles` (manage consoles and swappable
+storage devices, attach/detach a device between consoles, and track install state), and `/library`
+(trigger a refresh and browse the caller's own library — server-side search, category filtering, sortable
+columns, and paging; see "The library page" below) — all backed by real Curator endpoints. A public
+social-profile feature adds `/profile` and its sub-keyed counterpart `/u/:sub`: a viewable, followable
+profile with opt-in display toggles for library, collections, PSN trophies, and PSN identity, plus
+always-visible follower/following lists — collections can also be followed individually, from a "Collections
+I follow" view. `/library` and `/collections` are themselves now sub-keyed (`/library/:sub`,
+`/collections/:sub`) so the same components render a read-only view of another user's library/collections
+when their profile makes that section public; the bare paths always mean "mine," and a sub-keyed URL for
+your own sub redirects straight back to the bare one. `/c/:slug` is the one page that needs no sign-in at
+all — a collection's public share link. Frontend is zoneless Angular. Observability:
 OTLP traces/metrics → Grafana Alloy; structured logs → Elasticsearch (`pino-elasticsearch`).
 `GET /health` → `Healthy`.
 
@@ -142,18 +147,24 @@ See [TESTING.md](TESTING.md) for the full E2E / smoke test guide and CI configur
 
 ```
 src/
-  server.ts        # Express app: session, BFF routes, SSR catch-all
-  bff/              # openid-client auth, session, Curator proxy, CSRF
-  app/              # Angular application shell (routing, guard, interceptor)
-  auth/             # auth service + claim helpers
-  home/             # home page
-  psn/              # PSN link/unlink + per-category data-harvest preferences panel
-  profile/          # public social profile: view, followers, following, settings, own-sub redirect
-  shared/           # reusable UI pieces (e.g. loading-overlay, a pointer-blocking async-action overlay)
-  environments/     # per-environment config (allowedHosts, etc.)
-  telemetry/        # pino → Elasticsearch logging
-e2e/                # TypeScript Playwright E2E + smoke tests
-instrumentation.mjs # OpenTelemetry Node SDK init (loaded via --import)
+  server.ts          # Express app: session, BFF routes, SSR catch-all
+  bff/                # openid-client auth, session, Curator proxy, CSRF
+  app/                # Angular application shell (routing, guard, interceptor)
+  auth/               # auth service + claim helpers
+  home/               # home page
+  curator/            # CuratorService (HTTP wrapper) + shared DTOs
+  catalog/            # browse the shared game catalog
+  collections/        # create/save/run/edit/delete a collection; visibility + share link; follow
+  consoles/           # console + storage-device CRUD, attach/detach
+  public-collection/  # /c/:slug — anonymous public share page
+  library/            # server-driven library table (own + read-only viewer mode)
+  psn/                # PSN link/unlink + per-category data-harvest preferences panel
+  profile/            # public social profile: view, followers, following, settings, own-sub redirect
+  shared/             # reusable UI pieces (e.g. loading-overlay, a pointer-blocking async-action overlay)
+  environments/       # per-environment config (allowedHosts, etc.)
+  telemetry/          # pino → Elasticsearch logging
+e2e/                  # TypeScript Playwright E2E + smoke tests
+instrumentation.mjs   # OpenTelemetry Node SDK init (loaded via --import)
 ```
 
 ## Deployment

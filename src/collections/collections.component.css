@@ -10,7 +10,7 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: var(--space-3);
 }
 
@@ -42,11 +42,80 @@
   gap: var(--space-3);
 }
 
+.measured-size-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+  width: 100%;
+}
+
 .save-form {
+  padding: var(--card-pad);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.meta-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+  width: 100%;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 400;
+}
+
+.visibility-badge {
+  font-family: var(--font-meta);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.visibility-badge.visibility-shared {
+  color: var(--color-primary);
+}
+
+.visibility-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.share-url {
+  word-break: break-all;
+}
+
+.cover-art {
+  width: 100%;
+  max-width: 180px;
+  border-radius: var(--radius-sm, 4px);
+  object-fit: cover;
+}
+
+.item-unavailable {
+  opacity: 0.6;
+}
+
+.danger-zone {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   align-items: flex-start;
   border-top: 1px solid var(--color-border);
   padding-top: var(--space-3);
+}
+
+.btn-danger {
+  color: var(--color-error, #c0392b);
 }

@@ -119,6 +119,13 @@
 
           <div class="psn-preference-toggle">
             <h3>RAWG</h3>
+            @if (keys.rawg_key_rejected_at) {
+              <p class="text-error">
+                This key stopped working as of {{ keys.rawg_key_rejected_at | date: 'medium' }} — RAWG
+                rejected it during your last library refresh. Enrichment from RAWG is skipped until you
+                re-enter a working key.
+              </p>
+            }
             @if (keys.rawg_configured) {
               <p class="text-muted">
                 Configured
@@ -128,6 +135,21 @@
               </p>
               @if (rawgKeyError()) {
                 <p class="text-error">{{ rawgKeyError() }}</p>
+              }
+              @if (keys.rawg_key_rejected_at) {
+                <label for="rawg-key" class="sr-only">New RAWG API key</label>
+                <input
+                  id="rawg-key"
+                  name="rawg-key"
+                  type="password"
+                  autocomplete="off"
+                  [ngModel]="rawgKeyInput()"
+                  (ngModelChange)="rawgKeyInput.set($event)"
+                  placeholder="New RAWG API key"
+                />
+                <button type="button" class="btn-primary" (click)="setRawgKey()" [disabled]="settingRawgKey()">
+                  {{ settingRawgKey() ? 'Saving...' : 'Re-enter RAWG key' }}
+                </button>
               }
               <button
                 type="button"
@@ -143,6 +165,7 @@
                   >rawg.io/apidocs</a
                 >.</span
               >
+              <label for="rawg-key" class="sr-only">RAWG API key</label>
               <input
                 id="rawg-key"
                 name="rawg-key"
@@ -164,6 +187,13 @@
 
           <div class="psn-preference-toggle">
             <h3>OpenCritic</h3>
+            @if (keys.opencritic_key_rejected_at) {
+              <p class="text-error">
+                This key stopped working as of {{ keys.opencritic_key_rejected_at | date: 'medium' }} —
+                OpenCritic rejected it during your last library refresh. Enrichment from OpenCritic is
+                skipped until you re-enter a working key.
+              </p>
+            }
             @if (keys.opencritic_configured) {
               <p class="text-muted">
                 Configured
@@ -173,6 +203,26 @@
               </p>
               @if (opencriticKeyError()) {
                 <p class="text-error">{{ opencriticKeyError() }}</p>
+              }
+              @if (keys.opencritic_key_rejected_at) {
+                <label for="opencritic-key" class="sr-only">New OpenCritic API key</label>
+                <input
+                  id="opencritic-key"
+                  name="opencritic-key"
+                  type="password"
+                  autocomplete="off"
+                  [ngModel]="opencriticKeyInput()"
+                  (ngModelChange)="opencriticKeyInput.set($event)"
+                  placeholder="New OpenCritic (RapidAPI) key"
+                />
+                <button
+                  type="button"
+                  class="btn-primary"
+                  (click)="setOpenCriticKey()"
+                  [disabled]="settingOpencriticKey()"
+                >
+                  {{ settingOpencriticKey() ? 'Saving...' : 'Re-enter OpenCritic key' }}
+                </button>
               }
               <button
                 type="button"
@@ -190,6 +240,7 @@
                 >
                 to sign up and subscribe to the OpenCritic API.</span
               >
+              <label for="opencritic-key" class="sr-only">OpenCritic API key</label>
               <input
                 id="opencritic-key"
                 name="opencritic-key"

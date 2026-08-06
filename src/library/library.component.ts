@@ -11,7 +11,7 @@ import {
   type PaginationState,
   type SortingState,
 } from '@tanstack/angular-table';
-import { Subject, Subscription, debounceTime, distinctUntilChanged, interval, switchMap, takeWhile } from 'rxjs';
+import { Subject, Subscription, debounceTime, distinctUntilChanged, interval, retry, switchMap, takeWhile } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import { CuratorService, LibraryQuery, LibrarySortField } from '../curator/curator.service';
 import { LibraryGameResponse, LibraryRefreshStatusResponse, ProfileLibraryGameResponse } from '../curator/curator.models';
@@ -19,6 +19,13 @@ import { redirectIfOwnSub } from '../profile/own-sub-redirect';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
 
 const POLL_INTERVAL_MS = 2500;
+// How many *consecutive* transient poll failures (a single non-2xx response, e.g. a BFF-proxy blip) to
+// retry before giving up and showing "Lost track of the refresh job." The job itself is completely
+// unaffected by a failed poll -- it keeps running server-side regardless -- so a one-off transient error
+// must not silently stop watching it. resetOnSuccess means this budget is per-incident, not cumulative
+// over a whole multi-hour polling session (a rate_limited run can legitimately poll for hours).
+const POLL_ERROR_RETRY_COUNT = 3;
+const POLL_ERROR_RETRY_DELAY_MS = 2000;
 const TERMINAL_STATUSES = new Set(['succeeded', 'failed']);
 const KNOWN_STATUSES = new Set(['queued', 'running', 'succeeded', 'failed']);
 const SUMMARY_TITLE_DISPLAY_CAP = 10;
@@ -28,16 +35,14 @@ const SEARCH_DEBOUNCE_MS = 300;
 type LibraryGame = LibraryGameResponse | ProfileLibraryGameResponse;
 
 const LIBRARY_COLUMNS: ColumnDef<LibraryGame>[] = [
+  // Not a real sortable/searchable field -- box art, rendered from `cover_image_url` in the template.
+  { id: 'cover', header: 'Cover', enableSorting: false },
   { id: 'title', accessorKey: 'title', header: 'Title' },
   { id: 'category', accessorKey: 'category', header: 'Category' },
   { id: 'rawg_rating', accessorKey: 'rawg_rating', header: 'RAWG' },
   { id: 'opencritic_rating', accessorKey: 'opencritic_rating', header: 'OpenCritic' },
   { id: 'psn_rating', accessorKey: 'psn_rating', header: 'PS Store' },
-  // Sorting is off because `percent_completed` is absent from Curator's server-side sort allowlist
-  // (`LibrarySortField` / `_SORT_COLUMNS` in curator.library.repository), not because it can't be sorted:
-  // it is a real column (`library_entries.trophy_percent_completed`) now. Adding it to both is all this
-  // needs.
-  { id: 'percent_completed', accessorKey: 'percent_completed', header: '% Completed', enableSorting: false },
+  { id: 'percent_completed', accessorKey: 'percent_completed', header: '% Completed' },
   { id: 'psn_link', header: 'PS Store page', enableSorting: false },
 ];
 
@@ -270,6 +275,13 @@ export class LibraryComponent implements OnInit, OnDestroy {
     return typeof label === 'string' ? label : '';
   }
 
+  /** Keyboard equivalent for the sortable header's click handler -- Enter/Space toggle sorting the same
+   * way a click does. Space is prevented from also scrolling the page, matching native button behavior. */
+  protected onHeaderKeydown(event: Event, header: Header<LibraryGame, unknown>): void {
+    event.preventDefault();
+    header.column.getToggleSortingHandler()?.(event);
+  }
+
   protected summaryTitles(titles: string[]): { shown: string[]; more: number } {
     return {
       shown: titles.slice(0, SUMMARY_TITLE_DISPLAY_CAP),
@@ -302,6 +314,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
     this.pollSubscription = interval(POLL_INTERVAL_MS)
       .pipe(
         switchMap(() => this.curator.getLibraryRefreshStatus(runId)),
+        retry({ count: POLL_ERROR_RETRY_COUNT, delay: POLL_ERROR_RETRY_DELAY_MS, resetOnSuccess: true }),
         takeWhile((response) => !TERMINAL_STATUSES.has(response.status) && KNOWN_STATUSES.has(response.status), true),
       )
       .subscribe({

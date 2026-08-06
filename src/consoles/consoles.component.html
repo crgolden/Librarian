@@ -1,0 +1,312 @@
+<section class="page-section consoles">
+  <h1>Consoles &amp; Storage</h1>
+  <p class="text-muted">
+    Consoles and swappable storage feed the "capacity fill" collection kind — a pack sized to fit what's
+    physically available. PS5 games can't run from USB storage; only a console's own drive or an M.2
+    expansion.
+  </p>
+
+  @if (defaultCapacityNote()) {
+    <p class="text-muted">{{ defaultCapacityNote() }}</p>
+  }
+
+  <h2>Consoles</h2>
+  @if (consolesLoading()) {
+    <p class="text-muted">Loading consoles...</p>
+  } @else {
+    @if (consolesError()) {
+      <p class="text-error">{{ consolesError() }}</p>
+    }
+    @if (consoles().length === 0) {
+      <p class="text-muted">No consoles yet.</p>
+    }
+    <ul class="entity-list">
+      @for (console of consoles(); track console.console_id) {
+        <li class="card entity-card">
+          @if (editingConsoleId() === console.console_id) {
+            <form class="entity-edit-form" (submit)="$event.preventDefault(); saveConsole(console.console_id)">
+              <label>
+                Name
+                <input type="text" [ngModel]="editConsoleName()" (ngModelChange)="editConsoleName.set($event)" name="editConsoleName" />
+              </label>
+              <label>
+                Capacity (GB)
+                <input
+                  type="number"
+                  min="1"
+                  [ngModel]="editConsoleCapacityGb()"
+                  (ngModelChange)="editConsoleCapacityGb.set($event)"
+                  name="editConsoleCapacityGb"
+                />
+              </label>
+              <label>
+                Update buffer (GB)
+                <input
+                  type="number"
+                  min="0"
+                  [ngModel]="editConsoleUpdateBufferGb()"
+                  (ngModelChange)="editConsoleUpdateBufferGb.set($event)"
+                  name="editConsoleUpdateBufferGb"
+                />
+              </label>
+              <label>
+                Routing genres (comma-separated)
+                <input
+                  type="text"
+                  [ngModel]="editConsoleRoutingGenres()"
+                  (ngModelChange)="editConsoleRoutingGenres.set($event)"
+                  name="editConsoleRoutingGenres"
+                />
+              </label>
+              <label>
+                Fill order
+                <input
+                  type="number"
+                  [ngModel]="editConsoleFillOrder()"
+                  (ngModelChange)="editConsoleFillOrder.set($event)"
+                  name="editConsoleFillOrder"
+                />
+              </label>
+              @if (consoleEditError()) {
+                <p class="text-error">{{ consoleEditError() }}</p>
+              }
+              <div class="form-actions">
+                <button type="button" class="btn-ghost" (click)="cancelEditingConsole()">Cancel</button>
+                <button type="submit" class="btn-primary" [disabled]="savingConsoleId() === console.console_id">
+                  {{ savingConsoleId() === console.console_id ? 'Saving...' : 'Save' }}
+                </button>
+              </div>
+            </form>
+          } @else {
+            <span class="catalog-title">{{ console.name }}</span>
+            <span class="spine-label">{{ console.platform }}</span>
+            @if (console.model) {
+              <span class="catalog-meta">{{ console.model }}</span>
+            }
+            <span class="catalog-meta">
+              {{ console.effective_capacity_gb }} GB usable of {{ console.raw_capacity_gb }} GB
+              ({{ console.update_buffer_gb }} GB reserved)
+            </span>
+            @if (console.routing_genres.length > 0) {
+              <span class="catalog-meta">Routing genres: {{ console.routing_genres.join(', ') }}</span>
+            }
+
+            @if (confirmingDeleteConsoleId() === console.console_id) {
+              <p class="text-error">Delete "{{ console.name }}"? Any attached storage device is detached, not deleted.</p>
+              <div class="form-actions">
+                <button type="button" class="btn-ghost" (click)="cancelDeleteConsole()">Cancel</button>
+                <button
+                  type="button"
+                  class="btn-primary btn-danger"
+                  [disabled]="deletingConsoleId() === console.console_id"
+                  (click)="deleteConsole(console.console_id)"
+                >
+                  {{ deletingConsoleId() === console.console_id ? 'Deleting...' : 'Confirm delete' }}
+                </button>
+              </div>
+            } @else {
+              <div class="form-actions">
+                <button type="button" class="btn-ghost" (click)="startEditingConsole(console)">Edit</button>
+                <button type="button" class="btn-ghost btn-danger" (click)="confirmDeleteConsole(console.console_id)">Delete</button>
+              </div>
+            }
+          }
+        </li>
+      }
+    </ul>
+  }
+
+  @if (showConsoleForm()) {
+    <form class="card entity-form" (submit)="$event.preventDefault(); createConsole()">
+      <label for="consoleName">Name</label>
+      <input id="consoleName" name="consoleName" type="text" [ngModel]="consoleName()" (ngModelChange)="consoleName.set($event)" />
+
+      <label for="consolePlatform">Platform</label>
+      <select id="consolePlatform" name="consolePlatform" [ngModel]="consolePlatform()" (ngModelChange)="consolePlatform.set($event)">
+        <option value="PS5">PS5</option>
+        <option value="PS4">PS4</option>
+      </select>
+
+      <label for="consoleModel">Model (optional)</label>
+      <input id="consoleModel" name="consoleModel" type="text" [ngModel]="consoleModel()" (ngModelChange)="consoleModel.set($event)" />
+
+      <label for="consoleCapacityGb">Capacity in GB (optional — auto-assigned from model/platform if left blank)</label>
+      <input
+        id="consoleCapacityGb"
+        name="consoleCapacityGb"
+        type="number"
+        min="1"
+        [ngModel]="consoleCapacityGb()"
+        (ngModelChange)="consoleCapacityGb.set($event)"
+      />
+
+      @if (consoleFormError()) {
+        <p class="text-error">{{ consoleFormError() }}</p>
+      }
+
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" (click)="cancelCreatingConsole()">Cancel</button>
+        <button type="submit" class="btn-primary" [disabled]="creatingConsole()">
+          {{ creatingConsole() ? 'Adding...' : 'Add console' }}
+        </button>
+      </div>
+    </form>
+  } @else {
+    <button type="button" class="btn-primary" (click)="startCreatingConsole()">Add console</button>
+  }
+
+  <h2>Storage devices</h2>
+  @if (devicesLoading()) {
+    <p class="text-muted">Loading storage devices...</p>
+  } @else {
+    @if (devicesError()) {
+      <p class="text-error">{{ devicesError() }}</p>
+    }
+    @if (devices().length === 0) {
+      <p class="text-muted">No storage devices yet.</p>
+    }
+    <ul class="entity-list">
+      @for (device of devices(); track device.device_id) {
+        <li class="card entity-card">
+          @if (editingDeviceId() === device.device_id) {
+            <form class="entity-edit-form" (submit)="$event.preventDefault(); saveDevice(device.device_id)">
+              <label>
+                Name
+                <input type="text" [ngModel]="editDeviceName()" (ngModelChange)="editDeviceName.set($event)" name="editDeviceName" />
+              </label>
+              <label>
+                Capacity (GB)
+                <input
+                  type="number"
+                  min="1"
+                  [ngModel]="editDeviceCapacityGb()"
+                  (ngModelChange)="editDeviceCapacityGb.set($event)"
+                  name="editDeviceCapacityGb"
+                />
+              </label>
+              <label>
+                Buffer (GB)
+                <input
+                  type="number"
+                  min="0"
+                  [ngModel]="editDeviceBufferGb()"
+                  (ngModelChange)="editDeviceBufferGb.set($event)"
+                  name="editDeviceBufferGb"
+                />
+              </label>
+              @if (deviceEditError()) {
+                <p class="text-error">{{ deviceEditError() }}</p>
+              }
+              <div class="form-actions">
+                <button type="button" class="btn-ghost" (click)="cancelEditingDevice()">Cancel</button>
+                <button type="submit" class="btn-primary" [disabled]="savingDeviceId() === device.device_id">
+                  {{ savingDeviceId() === device.device_id ? 'Saving...' : 'Save' }}
+                </button>
+              </div>
+            </form>
+          } @else {
+            <span class="catalog-title">{{ device.name }}</span>
+            <span class="spine-label">{{ device.kind === 'usb' ? 'USB (PS4 only)' : 'M.2' }}</span>
+            <span class="catalog-meta">
+              {{ device.effective_capacity_gb }} GB usable of {{ device.capacity_gb }} GB ({{ device.buffer_gb }} GB reserved)
+            </span>
+            <span class="catalog-meta">
+              {{ device.console_id ? 'Attached to ' + consoleLabel(device.console_id) : 'Not attached' }}
+            </span>
+
+            @if (attachingDeviceId() === device.device_id) {
+              <label [attr.for]="'attach-target-' + device.device_id" class="sr-only">Attach to console</label>
+              <select
+                [attr.id]="'attach-target-' + device.device_id"
+                [ngModel]="attachTargetConsoleId()"
+                (ngModelChange)="attachTargetConsoleId.set($event)"
+                name="attachTarget"
+              >
+                <option value="">Select a console&hellip;</option>
+                @for (console of consoles(); track console.console_id) {
+                  <option [value]="console.console_id">{{ console.name }}</option>
+                }
+              </select>
+              @if (attachError()) {
+                <p class="text-error">{{ attachError() }}</p>
+              }
+              <div class="form-actions">
+                <button type="button" class="btn-ghost" (click)="cancelAttaching()">Cancel</button>
+                <button type="button" class="btn-primary" (click)="attachDevice(device.device_id)">Attach</button>
+              </div>
+            }
+
+            @if (confirmingDeleteDeviceId() === device.device_id) {
+              <p class="text-error">Delete "{{ device.name }}"?</p>
+              <div class="form-actions">
+                <button type="button" class="btn-ghost" (click)="cancelDeleteDevice()">Cancel</button>
+                <button
+                  type="button"
+                  class="btn-primary btn-danger"
+                  [disabled]="deletingDeviceId() === device.device_id"
+                  (click)="deleteDevice(device.device_id)"
+                >
+                  {{ deletingDeviceId() === device.device_id ? 'Deleting...' : 'Confirm delete' }}
+                </button>
+              </div>
+            } @else if (attachingDeviceId() !== device.device_id) {
+              <div class="form-actions">
+                <button type="button" class="btn-ghost" (click)="startEditingDevice(device)">Edit</button>
+                @if (device.console_id) {
+                  <button type="button" class="btn-ghost" (click)="detachDevice(device.device_id)">Detach</button>
+                } @else {
+                  <button type="button" class="btn-ghost" (click)="startAttaching(device.device_id)">Attach</button>
+                }
+                <button type="button" class="btn-ghost btn-danger" (click)="confirmDeleteDevice(device.device_id)">Delete</button>
+              </div>
+            }
+          }
+        </li>
+      }
+    </ul>
+  }
+
+  @if (showDeviceForm()) {
+    <form class="card entity-form" (submit)="$event.preventDefault(); createDevice()">
+      <label for="deviceName">Name</label>
+      <input id="deviceName" name="deviceName" type="text" [ngModel]="deviceName()" (ngModelChange)="deviceName.set($event)" />
+
+      <label for="deviceKind">Kind</label>
+      <select id="deviceKind" name="deviceKind" [ngModel]="deviceKind()" (ngModelChange)="deviceKind.set($event)">
+        <option value="m2">M.2 (internal expansion — plays PS5 and PS4 games)</option>
+        <option value="usb">USB (external — PS4 games only)</option>
+      </select>
+
+      <label for="deviceCapacityGb">Capacity in GB</label>
+      <input
+        id="deviceCapacityGb"
+        name="deviceCapacityGb"
+        type="number"
+        min="1"
+        [ngModel]="deviceCapacityGb()"
+        (ngModelChange)="deviceCapacityGb.set($event)"
+      />
+
+      <label for="deviceConsoleId">Attach to (optional)</label>
+      <select id="deviceConsoleId" name="deviceConsoleId" [ngModel]="deviceConsoleId()" (ngModelChange)="deviceConsoleId.set($event)">
+        <option value="">Not attached</option>
+        @for (console of consoles(); track console.console_id) {
+          <option [value]="console.console_id">{{ console.name }}</option>
+        }
+      </select>
+
+      @if (deviceFormError()) {
+        <p class="text-error">{{ deviceFormError() }}</p>
+      }
+
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" (click)="cancelCreatingDevice()">Cancel</button>
+        <button type="submit" class="btn-primary" [disabled]="creatingDevice()">
+          {{ creatingDevice() ? 'Adding...' : 'Add storage device' }}
+        </button>
+      </div>
+    </form>
+  } @else {
+    <button type="button" class="btn-primary" (click)="startCreatingDevice()">Add storage device</button>
+  }
+</section>

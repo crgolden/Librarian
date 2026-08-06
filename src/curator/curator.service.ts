@@ -7,16 +7,26 @@ import {
   CollectionPreviewResponse,
   CollectionRunResponse,
   CollectionSpecRequest,
+  CollectionVisibility,
   ConsoleInstallResponse,
+  ConsoleInstallsResponse,
+  ConsoleRequest,
+  ConsoleResponse,
+  ConsoleUpdateRequest,
+  DefinitionDetailResponse,
   DefinitionResponse,
   DevicesResponse,
   EnrichmentKeyStatusResponse,
+  EnrichmentRunResponse,
+  EnrichmentRunStatusResponse,
   FollowListResponse,
   IdentityResponse,
   LibraryCategoriesResponse,
   LibraryPageResponse,
   LibraryRefreshResponse,
   LibraryRefreshStatusResponse,
+  MeasuredSizeResponse,
+  MeResponse,
   PresenceResponse,
   ProfileDefinitionResponse,
   ProfileLibraryPageResponse,
@@ -24,9 +34,16 @@ import {
   ProfileSettingsResponse,
   PsnPreferencesRequest,
   PsnPreferencesResponse,
+  PublicCollectionResponse,
   PublicProfileResponse,
   SaveDefinitionRequest,
+  StorageDeviceInstallResponse,
+  StorageDeviceInstallsResponse,
+  StorageDeviceRequest,
+  StorageDeviceResponse,
+  StorageDeviceUpdateRequest,
   TrophySummaryResponse,
+  UpdateDefinitionRequest,
 } from './curator.models';
 
 export interface CatalogGamesQuery {
@@ -37,7 +54,13 @@ export interface CatalogGamesQuery {
   offset?: number;
 }
 
-export type LibrarySortField = 'title' | 'category' | 'rawg_rating' | 'opencritic_rating' | 'psn_rating';
+export type LibrarySortField =
+  | 'title'
+  | 'category'
+  | 'rawg_rating'
+  | 'opencritic_rating'
+  | 'psn_rating'
+  | 'percent_completed';
 
 export interface LibraryQuery {
   q?: string;
@@ -109,13 +132,122 @@ export class CuratorService {
     return this.http.get<DefinitionResponse[]>('/curator/api/collections');
   }
 
+  listFollowedCollections(): Observable<DefinitionResponse[]> {
+    return this.http.get<DefinitionResponse[]>('/curator/api/collections/followed');
+  }
+
+  getDefinition(definitionId: string): Observable<DefinitionDetailResponse> {
+    return this.http.get<DefinitionDetailResponse>(`/curator/api/collections/${definitionId}`);
+  }
+
+  updateDefinition(definitionId: string, body: UpdateDefinitionRequest): Observable<DefinitionDetailResponse> {
+    return this.http.patch<DefinitionDetailResponse>(`/curator/api/collections/${definitionId}`, body);
+  }
+
+  deleteDefinition(definitionId: string): Observable<void> {
+    return this.http.delete<void>(`/curator/api/collections/${definitionId}`);
+  }
+
+  setDefinitionVisibility(definitionId: string, visibility: CollectionVisibility): Observable<DefinitionResponse> {
+    return this.http.put<DefinitionResponse>(`/curator/api/collections/${definitionId}/visibility`, { visibility });
+  }
+
+  followDefinition(definitionId: string): Observable<void> {
+    return this.http.post<void>(`/curator/api/collections/${definitionId}/follow`, {});
+  }
+
+  unfollowDefinition(definitionId: string): Observable<void> {
+    return this.http.delete<void>(`/curator/api/collections/${definitionId}/follow`);
+  }
+
+  getPublicCollection(shareSlug: string): Observable<PublicCollectionResponse> {
+    return this.http.get<PublicCollectionResponse>(`/curator/api/public/collections/${shareSlug}`);
+  }
+
   runDefinition(definitionId: string): Observable<CollectionRunResponse> {
     return this.http.post<CollectionRunResponse>(`/curator/api/collections/${definitionId}/runs`, {});
+  }
+
+  createConsole(body: ConsoleRequest): Observable<ConsoleResponse> {
+    return this.http.post<ConsoleResponse>('/curator/api/consoles', body);
+  }
+
+  listConsoles(): Observable<ConsoleResponse[]> {
+    return this.http.get<ConsoleResponse[]>('/curator/api/consoles');
+  }
+
+  getConsole(consoleId: string): Observable<ConsoleResponse> {
+    return this.http.get<ConsoleResponse>(`/curator/api/consoles/${consoleId}`);
+  }
+
+  updateConsole(consoleId: string, body: ConsoleUpdateRequest): Observable<ConsoleResponse> {
+    return this.http.patch<ConsoleResponse>(`/curator/api/consoles/${consoleId}`, body);
+  }
+
+  deleteConsole(consoleId: string): Observable<void> {
+    return this.http.delete<void>(`/curator/api/consoles/${consoleId}`);
+  }
+
+  getConsoleInstalls(consoleId: string): Observable<ConsoleInstallsResponse> {
+    return this.http.get<ConsoleInstallsResponse>(`/curator/api/consoles/${consoleId}/installs`);
   }
 
   setConsoleInstall(consoleId: string, gameId: string, installed: boolean): Observable<ConsoleInstallResponse> {
     return this.http.put<ConsoleInstallResponse>(`/curator/api/consoles/${consoleId}/installs/${gameId}`, {
       installed,
+    });
+  }
+
+  createStorageDevice(body: StorageDeviceRequest): Observable<StorageDeviceResponse> {
+    return this.http.post<StorageDeviceResponse>('/curator/api/storage-devices', body);
+  }
+
+  listStorageDevices(): Observable<StorageDeviceResponse[]> {
+    return this.http.get<StorageDeviceResponse[]>('/curator/api/storage-devices');
+  }
+
+  getStorageDevice(deviceId: string): Observable<StorageDeviceResponse> {
+    return this.http.get<StorageDeviceResponse>(`/curator/api/storage-devices/${deviceId}`);
+  }
+
+  updateStorageDevice(deviceId: string, body: StorageDeviceUpdateRequest): Observable<StorageDeviceResponse> {
+    return this.http.patch<StorageDeviceResponse>(`/curator/api/storage-devices/${deviceId}`, body);
+  }
+
+  deleteStorageDevice(deviceId: string): Observable<void> {
+    return this.http.delete<void>(`/curator/api/storage-devices/${deviceId}`);
+  }
+
+  attachStorageDevice(deviceId: string, consoleId: string): Observable<StorageDeviceResponse> {
+    return this.http.put<StorageDeviceResponse>(`/curator/api/storage-devices/${deviceId}/attach/${consoleId}`, {});
+  }
+
+  detachStorageDevice(deviceId: string): Observable<StorageDeviceResponse> {
+    return this.http.delete<StorageDeviceResponse>(`/curator/api/storage-devices/${deviceId}/attach`);
+  }
+
+  getStorageDeviceInstalls(deviceId: string): Observable<StorageDeviceInstallsResponse> {
+    return this.http.get<StorageDeviceInstallsResponse>(`/curator/api/storage-devices/${deviceId}/installs`);
+  }
+
+  setStorageDeviceInstall(
+    deviceId: string,
+    gameId: string,
+    installed: boolean,
+  ): Observable<StorageDeviceInstallResponse> {
+    return this.http.put<StorageDeviceInstallResponse>(
+      `/curator/api/storage-devices/${deviceId}/installs/${gameId}`,
+      { installed },
+    );
+  }
+
+  getMeasuredSizes(gameId: string): Observable<MeasuredSizeResponse[]> {
+    return this.http.get<MeasuredSizeResponse[]>(`/curator/api/games/${gameId}/measured-sizes`);
+  }
+
+  setMeasuredSize(gameId: string, platform: string, sizeGb: number): Observable<MeasuredSizeResponse> {
+    return this.http.put<MeasuredSizeResponse>(`/curator/api/games/${gameId}/measured-sizes/${platform}`, {
+      size_gb: sizeGb,
     });
   }
 
@@ -225,5 +357,21 @@ export class CuratorService {
 
   getUserCollections(sub: string): Observable<ProfileDefinitionResponse[]> {
     return this.http.get<ProfileDefinitionResponse[]>(`/curator/api/users/${sub}/collections`);
+  }
+
+  getMe(): Observable<MeResponse> {
+    return this.http.get<MeResponse>('/curator/api/me');
+  }
+
+  startEnrichmentRun(): Observable<EnrichmentRunResponse> {
+    return this.http.post<EnrichmentRunResponse>('/curator/api/enrichment/runs', {});
+  }
+
+  getLatestEnrichmentRun(): Observable<EnrichmentRunStatusResponse> {
+    return this.http.get<EnrichmentRunStatusResponse>('/curator/api/enrichment/runs/latest');
+  }
+
+  getEnrichmentRunStatus(runId: string): Observable<EnrichmentRunStatusResponse> {
+    return this.http.get<EnrichmentRunStatusResponse>(`/curator/api/enrichment/runs/${runId}`);
   }
 }
