@@ -354,6 +354,71 @@
                   @if (installErrors().get(item.game_id); as installError) {
                     <span class="text-error">{{ installError }}</span>
                   }
+                  @for (device of attachedDevices(); track device.device_id) {
+                    <button
+                      type="button"
+                      class="btn-ghost"
+                      [disabled]="isDeviceInstallPending(device.device_id, item.game_id)"
+                      (click)="toggleDeviceInstall(device.device_id, item.game_id)"
+                    >
+                      {{ isDeviceInstalled(device.device_id, item.game_id) ? 'On ' + device.name : 'Mark on ' + device.name }}
+                    </button>
+                    @if (deviceInstallError(device.device_id, item.game_id); as deviceInstallErrorMessage) {
+                      <span class="text-error">{{ deviceInstallErrorMessage }}</span>
+                    }
+                  }
+
+                  <button type="button" class="btn-ghost" (click)="toggleMeasuredSizePanel(item.game_id)">
+                    {{ expandedSizeGameId() === item.game_id ? 'Hide measured size' : 'Measured size' }}
+                  </button>
+                  @if (expandedSizeGameId() === item.game_id) {
+                    <div class="measured-size-panel">
+                      @if (measuredSizesLoading()) {
+                        <p class="text-muted">Loading measured sizes...</p>
+                      } @else {
+                        @if (measuredSizesFor(item.game_id).length === 0) {
+                          <p class="text-muted">Nobody has reported an install size for this game yet.</p>
+                        } @else {
+                          @for (size of measuredSizesFor(item.game_id); track size.platform) {
+                            <p class="catalog-meta">{{ size.platform }}: {{ size.size_gb }} GB</p>
+                          }
+                        }
+                      }
+
+                      <label [attr.for]="'measured-size-platform-' + item.game_id" class="sr-only">Platform</label>
+                      <select
+                        [attr.id]="'measured-size-platform-' + item.game_id"
+                        [ngModel]="measuredSizePlatform()"
+                        (ngModelChange)="measuredSizePlatform.set($event)"
+                        name="measuredSizePlatform"
+                      >
+                        <option value="PS5">PS5</option>
+                        <option value="PS4">PS4</option>
+                      </select>
+                      <label [attr.for]="'measured-size-value-' + item.game_id" class="sr-only">Size in GB</label>
+                      <input
+                        [attr.id]="'measured-size-value-' + item.game_id"
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        placeholder="Size in GB"
+                        [ngModel]="measuredSizeValue()"
+                        (ngModelChange)="measuredSizeValue.set($event)"
+                        name="measuredSizeValue"
+                      />
+                      <button
+                        type="button"
+                        class="btn-ghost"
+                        [disabled]="measuredSizeSaving()"
+                        (click)="submitMeasuredSize(item.game_id)"
+                      >
+                        {{ measuredSizeSaving() ? 'Saving...' : 'Report size' }}
+                      </button>
+                      @if (measuredSizeError()) {
+                        <p class="text-error">{{ measuredSizeError() }}</p>
+                      }
+                    </div>
+                  }
                 }
 
                 <button

@@ -35,6 +35,14 @@
   width: 6rem;
 }
 
+.cover-art {
+  display: block;
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--radius-sm, 4px);
+  object-fit: cover;
+}
+
 .library-controls {
   display: flex;
   gap: var(--space-3);

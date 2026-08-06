@@ -25,6 +25,12 @@ export interface CollectionSpecRequest {
   filter_predicate?: Record<string, unknown> | null;
   include_inactive?: boolean;
   min_percent_completed?: number | null;
+  /** A named sort-order variant (Curator's curator.collections.sort_order). No authoring UI exists in
+   * Librarian yet -- this is a pass-through type only, same as filter_predicate above. */
+  sort_order?: string | null;
+  /** Console ids (the caller's own) whose currently-installed games are excluded from this run's
+   * candidate pool entirely. No authoring UI exists in Librarian yet. */
+  exclude_installed_on?: string[];
 }
 
 export interface CollectionGameResponse {
@@ -76,6 +82,8 @@ export interface DefinitionResponse {
   filter_predicate?: Record<string, unknown> | null;
   include_inactive: boolean;
   min_percent_completed: number | null;
+  sort_order: string | null;
+  exclude_installed_on: string[];
   visibility: CollectionVisibility;
   share_slug: string | null;
   item_count: number;
@@ -150,6 +158,7 @@ export interface LibraryGameResponse {
   rawg_enriched: boolean;
   opencritic_enriched: boolean;
   percent_completed: number | null;
+  cover_image_url: string | null;
 }
 
 export interface LibraryPageResponse {
@@ -339,6 +348,7 @@ export interface ProfileLibraryGameResponse {
   opencritic_enriched: boolean;
   /** Always null for now -- viewer-mode trophy completion isn't built yet. */
   percent_completed: number | null;
+  cover_image_url: string | null;
 }
 
 export interface ProfileLibraryPageResponse {
@@ -424,4 +434,13 @@ export interface StorageDeviceInstallResponse {
 
 export interface StorageDeviceInstallsResponse {
   game_ids: string[];
+}
+
+// WP13: global, per-(game, platform) contributed install-size cache — see curator.measured_sizes_routes.
+export interface MeasuredSizeResponse {
+  game_id: string;
+  platform: string;
+  size_gb: number;
+  recorded_by: string | null;
+  recorded_at: string;
 }

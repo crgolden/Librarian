@@ -102,6 +102,7 @@
             <option value="rawg_rating:desc">RAWG rating (high to low)</option>
             <option value="opencritic_rating:desc">OpenCritic rating (high to low)</option>
             <option value="psn_rating:desc">PS Store rating (high to low)</option>
+            <option value="percent_completed:desc">% Completed (high to low)</option>
           </select>
         </div>
 
@@ -144,6 +145,11 @@
               <tbody>
                 @for (row of table().getRowModel().rows; track row.original.game_id) {
                   <tr>
+                    <td data-label="Cover">
+                      @if (row.original.cover_image_url) {
+                        <img class="cover-art" [src]="row.original.cover_image_url" [alt]="row.original.title" loading="lazy" />
+                      }
+                    </td>
                     <td data-label="Title">{{ row.original.title }}</td>
                     <td data-label="Category">{{ row.original.category ?? '—' }}</td>
                     <td data-label="RAWG">{{ row.original.rawg_rating ?? '—' }}</td>

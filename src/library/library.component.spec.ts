@@ -29,6 +29,7 @@ const FULL_GAME: LibraryGameResponse = {
   rawg_enriched: true,
   opencritic_enriched: true,
   percent_completed: 87,
+  cover_image_url: 'https://cdn.example/elden-ring.jpg',
 };
 
 describe('LibraryComponent', () => {
@@ -252,6 +253,7 @@ describe('LibraryComponent', () => {
         rawg_enriched: false,
         opencritic_enriched: false,
         percent_completed: null,
+        cover_image_url: null,
       },
     ]);
     const compiled: HTMLElement = fixture.nativeElement;
@@ -268,6 +270,20 @@ describe('LibraryComponent', () => {
     expect(rows[1].textContent).toContain('—');
   });
 
+  it('renders cover art when present, nothing when absent', async () => {
+    const fixture = await createAndLoad([
+      FULL_GAME,
+      { ...FULL_GAME, game_id: 'g2', title: 'No Cover', cover_image_url: null },
+    ]);
+    const compiled: HTMLElement = fixture.nativeElement;
+    const rows = compiled.querySelectorAll('tbody tr');
+
+    const img = rows[0].querySelector('img.cover-art');
+    expect(img?.getAttribute('src')).toBe('https://cdn.example/elden-ring.jpg');
+    expect(img?.getAttribute('alt')).toBe('Elden Ring');
+    expect(rows[1].querySelector('img.cover-art')).toBeNull();
+  });
+
   it('renders a PS Store link that opens in a new tab when a product id is present, a dash otherwise', async () => {
     const fixture = await createAndLoad([
       FULL_GAME,
@@ -282,6 +298,7 @@ describe('LibraryComponent', () => {
         rawg_enriched: false,
         opencritic_enriched: false,
         percent_completed: null,
+        cover_image_url: null,
       },
     ]);
     const compiled: HTMLElement = fixture.nativeElement;

@@ -26,6 +26,8 @@ function definition(overrides: Partial<DefinitionResponse> = {}): DefinitionResp
     aaa_tier_filter: null,
     include_inactive: false,
     min_percent_completed: null,
+    sort_order: null,
+    exclude_installed_on: [],
     visibility: 'private',
     share_slug: 'abc123xyz',
     item_count: 0,
@@ -93,6 +95,11 @@ interface CollectionsHarness {
   runSelected(): void;
   adoptRunResult(): void;
   toggleInstall(gameId: string): void;
+  toggleDeviceInstall(deviceId: string, gameId: string): void;
+  measuredSizePlatform: { set(value: string): void };
+  measuredSizeValue: { set(value: number | null): void };
+  toggleMeasuredSizePanel(gameId: string): void;
+  submitMeasuredSize(gameId: string): void;
   unfollow(definitionId: string): void;
   toggleFollowViewerDefinition(definitionId: string): void;
 }
@@ -178,6 +185,7 @@ describe('CollectionsComponent', () => {
         effective_capacity_gb: 760,
         routing_genres: [],
         fill_order: 0,
+        capacity_is_default: false,
       },
     ];
     const fixture = createAndLoad([definition({ kind: 'capacity_fill', console_id: 'c1' })], consoles);
@@ -187,6 +195,7 @@ describe('CollectionsComponent', () => {
       .expectOne('/curator/api/collections/d1')
       .flush(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]));
     httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: [] });
+    httpMock.expectOne('/curator/api/storage-devices').flush([]);
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
@@ -413,6 +422,7 @@ describe('CollectionsComponent', () => {
       .expectOne('/curator/api/collections/d1')
       .flush(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g0')]));
     httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: [] });
+    httpMock.expectOne('/curator/api/storage-devices').flush([]);
     fixture.detectChanges();
 
     h.runSelected();
@@ -437,6 +447,7 @@ describe('CollectionsComponent', () => {
       .expectOne('/curator/api/collections/d1')
       .flush(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]));
     httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: ['g0'] });
+    httpMock.expectOne('/curator/api/storage-devices').flush([]);
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
@@ -452,6 +463,92 @@ describe('CollectionsComponent', () => {
     expect(compiled.textContent).toContain('Installed');
   });
 
+  it('device install toggle hydrates from GET storage-devices + installs and persists via PUT', () => {
+    const fixture = createAndLoad([definition({ kind: 'capacity_fill', console_id: 'c1' })]);
+    const h = harness(fixture);
+    h.openDefinition('d1');
+    httpMock
+      .expectOne('/curator/api/collections/d1')
+      .flush(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]));
+    httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: [] });
+    httpMock.expectOne('/curator/api/storage-devices').flush([
+      {
+        device_id: 'dev1',
+        console_id: 'c1',
+        name: 'M.2 Expansion',
+        kind: 'm2',
+        capacity_gb: 1000,
+        buffer_gb: 0,
+        effective_capacity_gb: 1000,
+      },
+      {
+        device_id: 'dev2',
+        console_id: 'some-other-console',
+        name: 'Unrelated USB',
+        kind: 'usb',
+        capacity_gb: 500,
+        buffer_gb: 0,
+        effective_capacity_gb: 500,
+      },
+    ]);
+    httpMock.expectOne('/curator/api/storage-devices/dev1/installs').flush({ game_ids: ['g0'] });
+    fixture.detectChanges();
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.textContent).toContain('Mark on M.2 Expansion');
+    expect(compiled.textContent).not.toContain('Unrelated USB');
+
+    h.toggleDeviceInstall('dev1', 'g1');
+    const installReq = httpMock.expectOne('/curator/api/storage-devices/dev1/installs/g1');
+    expect(installReq.request.method).toBe('PUT');
+    expect(installReq.request.body).toEqual({ installed: true });
+    installReq.flush({ device_id: 'dev1', game_id: 'g1', installed: true });
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('On M.2 Expansion');
+  });
+
+  it('measured-size panel lazily hydrates on first expand and PUTs a new contribution', () => {
+    const fixture = createAndLoad([definition({ kind: 'capacity_fill', console_id: 'c1' })]);
+    const h = harness(fixture);
+    h.openDefinition('d1');
+    httpMock
+      .expectOne('/curator/api/collections/d1')
+      .flush(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]));
+    httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: [] });
+    httpMock.expectOne('/curator/api/storage-devices').flush([]);
+    fixture.detectChanges();
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    // No GET fired yet -- the panel is collapsed, so nothing has been hydrated.
+    httpMock.expectNone('/curator/api/games/g1/measured-sizes');
+
+    h.toggleMeasuredSizePanel('g1');
+    httpMock.expectOne('/curator/api/games/g1/measured-sizes').flush([
+      { game_id: 'g1', platform: 'PS5', size_gb: 42.5, recorded_by: 'sub-other', recorded_at: '2026-01-01T00:00:00Z' },
+    ]);
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('PS5: 42.5 GB');
+
+    h.measuredSizePlatform.set('PS4');
+    h.measuredSizeValue.set(30);
+    h.submitMeasuredSize('g1');
+    const putReq = httpMock.expectOne('/curator/api/games/g1/measured-sizes/PS4');
+    expect(putReq.request.method).toBe('PUT');
+    expect(putReq.request.body).toEqual({ size_gb: 30 });
+    putReq.flush({ game_id: 'g1', platform: 'PS4', size_gb: 30, recorded_by: 'sub-a', recorded_at: '2026-01-02T00:00:00Z' });
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('PS4: 30 GB');
+    expect(compiled.textContent).toContain('PS5: 42.5 GB');
+
+    // Collapsing and re-expanding must not re-fetch -- the result is cached per game.
+    h.toggleMeasuredSizePanel('g1');
+    h.toggleMeasuredSizePanel('g1');
+    httpMock.expectNone('/curator/api/games/g1/measured-sizes');
+  });
+
   it('install toggle surfaces an inline 404 error when the console is unknown', () => {
     const fixture = createAndLoad([definition({ kind: 'capacity_fill', console_id: 'unknown-console' })]);
     const h = harness(fixture);
@@ -460,6 +557,7 @@ describe('CollectionsComponent', () => {
       .expectOne('/curator/api/collections/d1')
       .flush(definitionDetail({ kind: 'capacity_fill', console_id: 'unknown-console' }, [item('g1')]));
     httpMock.expectOne('/curator/api/consoles/unknown-console/installs').flush(null, { status: 404, statusText: 'Not Found' });
+    httpMock.expectOne('/curator/api/storage-devices').flush([]);
     fixture.detectChanges();
 
     h.toggleInstall('g1');

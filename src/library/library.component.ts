@@ -35,16 +35,14 @@ const SEARCH_DEBOUNCE_MS = 300;
 type LibraryGame = LibraryGameResponse | ProfileLibraryGameResponse;
 
 const LIBRARY_COLUMNS: ColumnDef<LibraryGame>[] = [
+  // Not a real sortable/searchable field -- box art, rendered from `cover_image_url` in the template.
+  { id: 'cover', header: 'Cover', enableSorting: false },
   { id: 'title', accessorKey: 'title', header: 'Title' },
   { id: 'category', accessorKey: 'category', header: 'Category' },
   { id: 'rawg_rating', accessorKey: 'rawg_rating', header: 'RAWG' },
   { id: 'opencritic_rating', accessorKey: 'opencritic_rating', header: 'OpenCritic' },
   { id: 'psn_rating', accessorKey: 'psn_rating', header: 'PS Store' },
-  // Sorting is off because `percent_completed` is absent from Curator's server-side sort allowlist
-  // (`LibrarySortField` / `_SORT_COLUMNS` in curator.library.repository), not because it can't be sorted:
-  // it is a real column (`library_entries.trophy_percent_completed`) now. Adding it to both is all this
-  // needs.
-  { id: 'percent_completed', accessorKey: 'percent_completed', header: '% Completed', enableSorting: false },
+  { id: 'percent_completed', accessorKey: 'percent_completed', header: '% Completed' },
   { id: 'psn_link', header: 'PS Store page', enableSorting: false },
 ];
 

@@ -25,6 +25,7 @@ import {
   LibraryPageResponse,
   LibraryRefreshResponse,
   LibraryRefreshStatusResponse,
+  MeasuredSizeResponse,
   MeResponse,
   PresenceResponse,
   ProfileDefinitionResponse,
@@ -53,7 +54,13 @@ export interface CatalogGamesQuery {
   offset?: number;
 }
 
-export type LibrarySortField = 'title' | 'category' | 'rawg_rating' | 'opencritic_rating' | 'psn_rating';
+export type LibrarySortField =
+  | 'title'
+  | 'category'
+  | 'rawg_rating'
+  | 'opencritic_rating'
+  | 'psn_rating'
+  | 'percent_completed';
 
 export interface LibraryQuery {
   q?: string;
@@ -232,6 +239,16 @@ export class CuratorService {
       `/curator/api/storage-devices/${deviceId}/installs/${gameId}`,
       { installed },
     );
+  }
+
+  getMeasuredSizes(gameId: string): Observable<MeasuredSizeResponse[]> {
+    return this.http.get<MeasuredSizeResponse[]>(`/curator/api/games/${gameId}/measured-sizes`);
+  }
+
+  setMeasuredSize(gameId: string, platform: string, sizeGb: number): Observable<MeasuredSizeResponse> {
+    return this.http.put<MeasuredSizeResponse>(`/curator/api/games/${gameId}/measured-sizes/${platform}`, {
+      size_gb: sizeGb,
+    });
   }
 
   refreshLibrary(): Observable<LibraryRefreshResponse> {
