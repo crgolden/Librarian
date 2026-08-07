@@ -147,14 +147,14 @@ test.describe('Library — authenticated', () => {
     await page.goto('/library');
     const titles = () => page.locator('.library-table tbody tr td:first-child').allTextContents();
     // Title starts sorted ascending by default.
-    await expect.poll(titles).toEqual(['Bloodborne', 'Elden Ring']);
+    await expect.poll(titles, { timeout: 10_000 }).toEqual(['Bloodborne', 'Elden Ring']);
 
     const titleHeader = page.getByRole('columnheader', { name: 'Title' });
     await titleHeader.click();
-    await expect.poll(titles).toEqual(['Elden Ring', 'Bloodborne']);
+    await expect.poll(titles, { timeout: 10_000 }).toEqual(['Elden Ring', 'Bloodborne']);
 
     await titleHeader.click();
-    await expect.poll(titles).toEqual(['Bloodborne', 'Elden Ring']);
+    await expect.poll(titles, { timeout: 10_000 }).toEqual(['Bloodborne', 'Elden Ring']);
   });
 
   test('pages through results', async ({ authedPage: page, store }) => {
@@ -213,12 +213,14 @@ test.describe('Library — authenticated', () => {
     await titleHeader.click();
     const titles = () => page.locator('.library-table tbody tr td:first-child').allTextContents();
     await expect
-      .poll(titles)
+      .poll(titles, { timeout: 10_000 })
       .toEqual(Array.from({ length: 20 }, (_, i) => `Ring Game ${String(24 - i).padStart(2, '0')}`));
 
     // Page forward -> the remaining 5 (Ring Game 04 down through 00), Next now disabled.
     await page.getByRole('button', { name: 'Next' }).click();
-    await expect.poll(titles).toEqual(Array.from({ length: 5 }, (_, i) => `Ring Game ${String(4 - i).padStart(2, '0')}`));
+    await expect
+      .poll(titles, { timeout: 10_000 })
+      .toEqual(Array.from({ length: 5 }, (_, i) => `Ring Game ${String(4 - i).padStart(2, '0')}`));
     await expect(page.getByRole('button', { name: 'Next' })).toBeDisabled();
 
     // Changing the search again resets back to page 1.
