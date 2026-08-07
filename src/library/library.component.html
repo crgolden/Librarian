@@ -150,7 +150,7 @@
                         <img class="cover-art" [src]="row.original.cover_image_url" [alt]="row.original.title" loading="lazy" />
                       }
                     </td>
-                    <td data-label="Title">{{ row.original.title }}</td>
+                    <td data-label="Title" [attr.id]="'library-title-' + $index">{{ row.original.title }}</td>
                     <td data-label="Category">{{ row.original.category ?? '—' }}</td>
                     <td data-label="RAWG">{{ row.original.rawg_rating ?? '—' }}</td>
                     <td data-label="OpenCritic">{{ row.original.opencritic_rating ?? '—' }}</td>

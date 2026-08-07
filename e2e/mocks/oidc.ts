@@ -55,7 +55,6 @@ export async function createOidcApp(issuer: string): Promise<Express> {
   jwk.alg = 'RS256';
   jwk.use = 'sig';
 
-  // code -> pending record (consumed once by /token); access_token -> record (read by /userinfo).
   const codes = new Map<string, AuthorizationCodeRecord>();
   const sessions = new Map<string, AuthorizationCodeRecord>();
 

@@ -20,7 +20,6 @@ type StorageKind = 'm2' | 'usb';
 export class ConsolesComponent implements OnInit {
   private readonly curator = inject(CuratorService);
 
-  // Consoles
   protected readonly consoles = signal<ConsoleResponse[]>([]);
   protected readonly consolesLoading = signal(true);
   protected readonly consolesError = signal<string | null>(null);
@@ -49,7 +48,6 @@ export class ConsolesComponent implements OnInit {
   protected readonly confirmingDeleteConsoleId = signal<string | null>(null);
   protected readonly deletingConsoleId = signal<string | null>(null);
 
-  // Storage devices
   protected readonly devices = signal<StorageDeviceResponse[]>([]);
   protected readonly devicesLoading = signal(true);
   protected readonly devicesError = signal<string | null>(null);
@@ -115,8 +113,6 @@ export class ConsolesComponent implements OnInit {
   protected consoleLabel(consoleId: string): string {
     return this.consoles().find((console) => console.console_id === consoleId)?.name ?? 'Unknown console';
   }
-
-  // ── Consoles ──────────────────────────────────────────────────────────────
 
   protected startCreatingConsole(): void {
     this.consoleName.set('');
@@ -245,8 +241,6 @@ export class ConsolesComponent implements OnInit {
       },
     });
   }
-
-  // ── Storage devices ──────────────────────────────────────────────────────
 
   protected startCreatingDevice(): void {
     this.deviceName.set('');

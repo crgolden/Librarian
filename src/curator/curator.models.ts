@@ -25,11 +25,7 @@ export interface CollectionSpecRequest {
   filter_predicate?: Record<string, unknown> | null;
   include_inactive?: boolean;
   min_percent_completed?: number | null;
-  /** A named sort-order variant (Curator's curator.collections.sort_order). No authoring UI exists in
-   * Librarian yet -- this is a pass-through type only, same as filter_predicate above. */
   sort_order?: string | null;
-  /** Console ids (the caller's own) whose currently-installed games are excluded from this run's
-   * candidate pool entirely. No authoring UI exists in Librarian yet. */
   exclude_installed_on?: string[];
 }
 
@@ -214,8 +210,6 @@ export interface EnrichmentKeyStatusResponse {
   opencritic_configured: boolean;
   rawg_added_at: string | null;
   opencritic_added_at: string | null;
-  // Set when a library refresh had this provider reject the configured key (401/403) -- the key is
-  // still configured, it just no longer works. Cleared by the next successful save for that provider.
   rawg_key_rejected_at: string | null;
   opencritic_key_rejected_at: string | null;
 }
@@ -436,7 +430,6 @@ export interface StorageDeviceInstallsResponse {
   game_ids: string[];
 }
 
-// WP13: global, per-(game, platform) contributed install-size cache — see curator.measured_sizes_routes.
 export interface MeasuredSizeResponse {
   game_id: string;
   platform: string;

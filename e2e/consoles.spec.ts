@@ -23,13 +23,11 @@ test.describe('Consoles & Storage — authenticated', () => {
     await expect(page.locator('text=No consoles yet.')).toBeVisible();
     await expect(page.locator('text=No storage devices yet.')).toBeVisible();
 
-    // "Add console" toggles from an open-the-form button to the form's own submit button (mutually
-    // exclusive via @if/@else in the template) -- re-querying the same role/name locator after the
-    // form appears resolves to the submit button, since the toggle button is gone by then.
+
     await page.getByRole('button', { name: 'Add console' }).click();
     await page.getByLabel('Name').fill('Living room PS5');
     await page.getByLabel('Platform', { exact: true }).selectOption('PS5');
-    // Capacity left blank -- auto-assigned from the platform default.
+
     await page.getByRole('button', { name: 'Add console' }).click();
 
     await expect(page.getByText('Living room PS5', { exact: true })).toBeVisible({ timeout: 10_000 });

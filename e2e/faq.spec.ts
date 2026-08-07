@@ -29,7 +29,7 @@ test.describe('FaqPage', () => {
 
     await page.goto('/faq');
     await expect(page.locator('h1')).toContainText('Frequently Asked Questions');
-    // The page-toc's own anchor link now shares this same text, so scope to the heading itself.
+
     await expect(page.getByRole('heading', { name: 'What is an NPSSO token?' })).toBeVisible();
 
     await page.getByRole('main').getByRole('link', { name: 'privacy policy' }).first().click();
@@ -43,9 +43,7 @@ test.describe('FaqPage', () => {
     await store.reset();
 
     await page.goto('/faq');
-    // Scrolling is handled on click (not via href navigation — a plain href="#id" anchor would
-    // resolve against Angular's <base href="/"> and silently redirect to "/", not stay on /faq),
-    // so assert the target scrolled into view rather than checking the URL.
+
     const tocLink = page.locator('.page-toc').getByRole('link', { name: 'How do I get mine?' });
     await expect(tocLink).toBeVisible();
     await tocLink.click();

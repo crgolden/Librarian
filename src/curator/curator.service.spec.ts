@@ -182,8 +182,6 @@ describe('CuratorService', () => {
     req.flush(null);
   });
 
-  // ── Social profile / follow ──────────────────────────────────────────────
-
   it('getProfileSettings gets the caller\'s own profile settings', () => {
     service.getProfileSettings().subscribe();
 
@@ -319,8 +317,6 @@ describe('CuratorService', () => {
     req.flush([]);
   });
 
-  // ── Collections: detail, edit, visibility, follow, public share ─────────
-
   it('listFollowedCollections gets the followed list', () => {
     service.listFollowedCollections().subscribe();
 
@@ -388,8 +384,6 @@ describe('CuratorService', () => {
     req.flush(null);
   });
 
-  // ── Consoles ──────────────────────────────────────────────────────────────
-
   it('createConsole posts the console body', () => {
     const body = { name: 'Living room PS5', platform: 'PS5' };
     service.createConsole(body).subscribe();
@@ -441,8 +435,6 @@ describe('CuratorService', () => {
     expect(req.request.method).toBe('GET');
     req.flush({ game_ids: [] });
   });
-
-  // ── Storage devices ───────────────────────────────────────────────────────
 
   it('createStorageDevice posts the device body', () => {
     const body = { name: 'Samsung T7', kind: 'm2', capacity_gb: 1000 };

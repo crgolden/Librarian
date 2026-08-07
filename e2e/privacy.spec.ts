@@ -30,7 +30,6 @@ test.describe('PrivacyPage', () => {
 
     await page.goto('/privacy');
     await expect(page.locator('h1')).toContainText('Privacy Policy');
-    // The page-toc's own anchor link now shares this same text, so scope to the heading itself.
     await expect(page.getByRole('heading', { name: 'What we never collect' })).toBeVisible();
 
     await page.getByRole('main').getByRole('link', { name: 'FAQ' }).click();

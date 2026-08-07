@@ -54,8 +54,6 @@ describe('LibraryComponent', () => {
     vi.useRealTimers();
   });
 
-  /** ngOnInit/the sort-filter-page effect fire GET /library and GET /library/categories immediately --
-   * flush both (empty by default) so every test starts settled. */
   async function createAndLoad(
     games: LibraryGameResponse[] = [],
     total = games.length,
@@ -94,7 +92,6 @@ describe('LibraryComponent', () => {
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Library catalogued.');
 
-    // succeeded -> reloads the library table and the category options.
     httpMock.expectOne((req) => req.url === '/curator/api/library').flush(page([]));
     httpMock.expectOne('/curator/api/library/categories').flush({ categories: [] });
     fixture.detectChanges();
@@ -131,7 +128,6 @@ describe('LibraryComponent', () => {
     httpMock.expectOne('/curator/api/library/refresh/r1').flush(null, { status: 502, statusText: 'Bad Gateway' });
     fixture.detectChanges();
 
-    // A single transient failure must not surface an error -- the job is still running server-side.
     expect((fixture.nativeElement as HTMLElement).textContent ?? '').not.toContain('Lost track of the refresh job.');
 
     await vi.advanceTimersByTimeAsync(4500);
@@ -157,7 +153,6 @@ describe('LibraryComponent', () => {
     httpMock.expectOne('/curator/api/library/refresh/r1').flush(null, { status: 502, statusText: 'Bad Gateway' });
     fixture.detectChanges();
 
-    // POLL_ERROR_RETRY_COUNT (3) retries, each after a retry delay + a fresh interval tick.
     for (let attempt = 0; attempt < 3; attempt++) {
       await vi.advanceTimersByTimeAsync(4500);
       httpMock.expectOne('/curator/api/library/refresh/r1').flush(null, { status: 502, statusText: 'Bad Gateway' });
@@ -345,9 +340,6 @@ describe('LibraryComponent', () => {
   it('sorts by clicking a column header, toggling direction on a second click', async () => {
     const fixture = await createAndLoad([FULL_GAME]);
     const compiled: HTMLElement = fixture.nativeElement;
-    // Toggling a sort re-triggers loading state, which briefly unmounts and remounts the table (and
-    // its <th> elements) -- re-query the header from the live DOM after each reload rather than
-    // reusing a reference that may now be detached.
     const findCategoryHeader = (): HTMLElement | undefined =>
       Array.from(compiled.querySelectorAll('th')).find((th) => th.textContent?.includes('Category'));
 
@@ -403,9 +395,6 @@ describe('LibraryComponent', () => {
   });
 
   describe('viewer mode', () => {
-    // The outer beforeEach already injects HttpTestingController, which instantiates the testing
-    // module -- TestBed.overrideProvider() can no longer be used past that point. Reconfigure a
-    // fresh module per viewer test instead, with route/auth providers specific to that test.
     function configureForViewer(routeSub: string, ownSub: string | null): void {
       TestBed.resetTestingModule();
       TestBed.configureTestingModule({

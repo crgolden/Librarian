@@ -30,8 +30,7 @@ test.describe('Profile — owner mode', () => {
     await store.seedUserPsnLink(DEFAULT_E2E_SUB, { psn_account_id: 'psn-account-owner' });
 
     await page.goto('/profile');
-    // No identity harvested/seeded here, so the heading falls back to a generic label — it must
-    // never show the raw PSN account id (psn-account-owner).
+
     await expect(page.locator('h1')).toContainText('PlayStation account');
     await expect(page.locator('h1')).not.toContainText('psn-account-owner');
     await expect(page.getByRole('button', { name: 'Follow' })).toHaveCount(0);
@@ -56,11 +55,11 @@ test.describe('Profile — viewing another user', () => {
   }) => {
     await store.reset();
     await store.seedUserPsnLink(DEFAULT_E2E_SUB, { psn_account_id: 'psn-account-owner' });
-    // Second user must exist (visits at least once) for the mock to know its sub.
+
     await viewerPage.goto('/profile');
 
     await viewerPage.goto(`/u/${DEFAULT_E2E_SUB}`);
-    // Private (is_public defaults false) -> psn_account_id hidden even though it's linked.
+
     await expect(viewerPage.locator('h1')).toContainText('Unlinked user');
     await expect(viewerPage.locator('.profile-counts')).toContainText('followers');
     await expect(viewerPage.locator('.profile-section-links a')).toHaveCount(0);
@@ -90,14 +89,13 @@ test.describe('Profile — viewing another user', () => {
     await store.seedUserLibraryGames(DEFAULT_E2E_SUB, [
       { game_id: 'g1', title: 'Bloodborne', rawg_enriched: true, opencritic_enriched: false },
     ]);
-    // The viewer needs their own PSN link for cross-user trophies/identity to render.
+
     await store.seedUserPsnLink(SECOND_E2E_SUB, { psn_account_id: 'psn-account-viewer' });
 
-    await page.goto('/profile'); // registers DEFAULT_E2E_SUB with the mock
+    await page.goto('/profile');
 
     await viewerPage.goto(`/u/${DEFAULT_E2E_SUB}`);
-    // Identity is harvested and shown here, so the heading uses the friendly online id, never
-    // the raw PSN account id.
+
     await expect(viewerPage.locator('h1')).toContainText('e2e_gamer');
     await expect(viewerPage.locator('h1')).not.toContainText('psn-account-owner');
     await expect(viewerPage.getByRole('link', { name: 'View library' })).toBeVisible();
@@ -115,12 +113,12 @@ test.describe('Profile — viewing another user', () => {
     await store.seedUserPsnLink(DEFAULT_E2E_SUB, { psn_account_id: 'psn-account-owner' });
     await store.seedUserPsnPreferences(DEFAULT_E2E_SUB, { harvest_trophies: true });
     await store.seedUserProfileSettings(DEFAULT_E2E_SUB, { is_public: true, show_trophies: true });
-    // Viewer (SECOND_E2E_SUB) deliberately has no PSN link seeded.
+
 
     await page.goto('/profile');
     await viewerPage.goto(`/u/${DEFAULT_E2E_SUB}`);
 
-    // No identity harvested here, so the heading falls back to a generic label, not the raw id.
+
     await expect(viewerPage.locator('h1')).toContainText('PlayStation account');
     await expect(viewerPage.locator('h1')).not.toContainText('psn-account-owner');
     await expect(viewerPage.locator('.psn-category-card')).toHaveCount(0);
@@ -135,7 +133,7 @@ test.describe('Profile — follow / unfollow', () => {
     store,
   }) => {
     await store.reset();
-    await page.goto('/profile'); // registers DEFAULT_E2E_SUB
+    await page.goto('/profile');
 
     await viewerPage.goto(`/u/${DEFAULT_E2E_SUB}`);
     await expect(viewerPage.locator('.profile-counts')).toContainText('0 followers');
@@ -166,7 +164,7 @@ test.describe('Profile — followers / following pages', () => {
     store,
   }) => {
     await store.reset();
-    await otherPage.goto('/profile'); // registers SECOND_E2E_SUB
+    await otherPage.goto('/profile');
     await store.seedFollow(SECOND_E2E_SUB, DEFAULT_E2E_SUB);
 
     await page.goto('/profile/followers');
@@ -179,7 +177,7 @@ test.describe('Profile — followers / following pages', () => {
 
   test('following page renders entries', async ({ authedPage: page, secondAuthedPage: otherPage, store }) => {
     await store.reset();
-    await otherPage.goto('/profile'); // registers SECOND_E2E_SUB
+    await otherPage.goto('/profile');
     await store.seedFollow(DEFAULT_E2E_SUB, SECOND_E2E_SUB);
 
     await page.goto('/profile/following');
@@ -270,7 +268,7 @@ test.describe('Profile — library / collections sub-keyed routes', () => {
     store,
   }) => {
     await store.reset();
-    await page.goto('/profile'); // registers DEFAULT_E2E_SUB, profile stays private/default
+    await page.goto('/profile');
 
     await viewerPage.goto(`/library/${DEFAULT_E2E_SUB}`);
     await expect(viewerPage.getByText("This section isn't available.")).toBeVisible();
@@ -319,7 +317,7 @@ test.describe('Profile — own-sub canonicalization redirects', () => {
     store,
   }) => {
     await store.reset();
-    await otherPage.goto('/profile'); // registers SECOND_E2E_SUB
+    await otherPage.goto('/profile');
 
     await page.goto(`/u/${SECOND_E2E_SUB}`);
     await expect(page).toHaveURL(new RegExp(`/u/${SECOND_E2E_SUB}$`));

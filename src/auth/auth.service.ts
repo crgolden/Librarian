@@ -15,8 +15,6 @@ export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly _refresh$ = new Subject<void>();
 
-  // Emits null on error, Array<Claim> on success (even empty).
-  // Nothing emits until _refresh$.next() is called — no I/O at construction time.
   private readonly _fetchResult$ = this._refresh$.pipe(
     switchMap(() =>
       this.http.get<Claim[]>('bff/user').pipe(
@@ -26,7 +24,6 @@ export class AuthService {
     shareReplay({ bufferSize: 1, refCount: true })
   );
 
-  // Null = not yet loaded or unauthenticated; Array<Claim> = authenticated session.
   private readonly _fetchResult = toSignal(this._fetchResult$, {
     initialValue: null as Claim[] | null
   });

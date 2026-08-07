@@ -14,8 +14,6 @@ function authServiceWithSub(sub: string | null): AuthService {
   return { sub: () => sub } as unknown as AuthService;
 }
 
-/** getFollowing() always appends limit/offset query params, so a plain string match against the
- * bare path never matches -- match on the path only, like curator.service.spec.ts's pattern. */
 function expectFollowingRequest(httpMock: HttpTestingController, sub: string) {
   return httpMock.expectOne((r) => r.url === `/curator/api/users/${sub}/following`);
 }

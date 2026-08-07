@@ -19,11 +19,6 @@ import { redirectIfOwnSub } from '../profile/own-sub-redirect';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
 
 const POLL_INTERVAL_MS = 2500;
-// How many *consecutive* transient poll failures (a single non-2xx response, e.g. a BFF-proxy blip) to
-// retry before giving up and showing "Lost track of the refresh job." The job itself is completely
-// unaffected by a failed poll -- it keeps running server-side regardless -- so a one-off transient error
-// must not silently stop watching it. resetOnSuccess means this budget is per-incident, not cumulative
-// over a whole multi-hour polling session (a rate_limited run can legitimately poll for hours).
 const POLL_ERROR_RETRY_COUNT = 3;
 const POLL_ERROR_RETRY_DELAY_MS = 2000;
 const TERMINAL_STATUSES = new Set(['succeeded', 'failed']);
@@ -35,7 +30,6 @@ const SEARCH_DEBOUNCE_MS = 300;
 type LibraryGame = LibraryGameResponse | ProfileLibraryGameResponse;
 
 const LIBRARY_COLUMNS: ColumnDef<LibraryGame>[] = [
-  // Not a real sortable/searchable field -- box art, rendered from `cover_image_url` in the template.
   { id: 'cover', header: 'Cover', enableSorting: false },
   { id: 'title', accessorKey: 'title', header: 'Title' },
   { id: 'category', accessorKey: 'category', header: 'Category' },

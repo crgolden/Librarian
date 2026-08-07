@@ -29,8 +29,6 @@
 
 import { test as base, type Page } from '@playwright/test';
 
-// ── Mock server control client ────────────────────────────────────────────────
-
 const MOCK_BASE = 'http://localhost:4101';
 const MOCK_OIDC_BASE = 'http://localhost:4102';
 
@@ -114,7 +112,6 @@ export interface TestStore {
     resultSummary?: LibraryRefreshResultSummaryFixture,
   ): Promise<void>;
 
-  // ── Multi-user-aware profile/follow seeding (explicit `sub`) ──────────────
   seedUser(sub: string): Promise<void>;
   seedUserPsnLink(
     sub: string,
@@ -142,15 +139,11 @@ async function fetchControl(path: string, body?: unknown): Promise<void> {
   }
 }
 
-// ── Identity ─────────────────────────────────────────────────────────────────
-
 interface IdentityConfig {
   sub: string;
   email?: string;
   name?: string;
 }
-
-// ── Route mock helpers ────────────────────────────────────────────────────────
 
 async function applyAnonymousRoutes(page: Page): Promise<void> {
   await page.route('**/bff/user**', route =>
@@ -169,29 +162,18 @@ async function applyAuthRoutes(page: Page, identity: IdentityConfig): Promise<vo
   const email = identity.email ?? `${identity.sub}@test.invalid`;
   const name = identity.name ?? email;
 
-  // page.route() cannot inject the test identity into the browser's navigation to the mock OIDC
-  // authorize endpoint -- Playwright does not intercept the *target* of an HTTP redirect (only the
-  // original request that produced it), which is a documented Playwright limitation, not something
-  // fixable with a different glob pattern (github.com/microsoft/playwright/issues/34994). A cookie
-  // scoped to the mock OIDC origin sidesteps this entirely: the browser attaches cookies to a
-  // redirect navigation automatically, no interception required. See e2e/mocks/oidc.ts's docstring.
   await page.context().addCookies([
     { name: 'e2e_identity', value: identity.sub, url: MOCK_OIDC_BASE },
     { name: 'e2e_email', value: email, url: MOCK_OIDC_BASE },
     { name: 'e2e_name', value: name, url: MOCK_OIDC_BASE },
   ]);
 
-  // Identifies this page's calling identity to the mock Curator server -- see the module docstring.
   await page.route('**/curator/api/**', route =>
     route.continue({ headers: { ...route.request().headers(), 'x-e2e-sub': identity.sub } }),
   );
 
-  // Real /bff/login -> mock OIDC -> /bff/callback round trip, ending with the browser holding a
-  // genuine session cookie backed by a real server-side session.
   await page.goto('/bff/login');
 }
-
-// ── Fixture type ──────────────────────────────────────────────────────────────
 
 type LibrarianFixtures = {
   store: TestStore;
@@ -200,8 +182,6 @@ type LibrarianFixtures = {
   secondAuthedPage: Page;
   secondAnonymousPage: Page;
 };
-
-// ── Extended test instance ────────────────────────────────────────────────────
 
 export const test = base.extend<LibrarianFixtures>({
   store: async ({}, use) => {
@@ -272,13 +252,6 @@ export const test = base.extend<LibrarianFixtures>({
     await use(page);
   },
 
-  // `authedPage` and `secondAuthedPage` must be two genuinely independent pages when a test
-  // requests both simultaneously (follow/unfollow, viewer-mode profile tests, etc.) -- depending
-  // on the shared `page` fixture here (like `authedPage` does) would apply both fixtures'
-  // page.route() interceptors to the SAME underlying page, and Playwright evaluates routes
-  // most-recently-registered-first, so the second fixture's identity would silently win for
-  // every request on both "pages". Depending on `browser` instead and opening a fresh
-  // BrowserContext gives this identity its own page, isolated from `authedPage`'s.
   secondAuthedPage: async ({ browser }, use) => {
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -288,10 +261,6 @@ export const test = base.extend<LibrarianFixtures>({
     await context.close();
   },
 
-  // Same isolation reasoning as `secondAuthedPage` above, for the "owner page + anonymous visitor
-  // page in the same test" shape (e.g. a share-link test): `anonymousPage` shares the base `page`
-  // fixture, so combining it with `authedPage` in one test would apply both fixtures' route
-  // interceptors to a single page and one identity would silently clobber the other.
   secondAnonymousPage: async ({ browser }, use) => {
     const context = await browser.newContext();
     const page = await context.newPage();

@@ -1,8 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
 
-// ── Handler capture ───────────────────────────────────────────────────────────
-// The Router mock stores every registered handler so tests can invoke them directly.
-
 const capturedHandlers = new Map<string, ((...args: unknown[]) => unknown)[]>();
 
 vi.mock('express', () => ({
@@ -12,8 +9,6 @@ vi.mock('express', () => ({
     }),
   })),
 }));
-
-// ── Mocks (hoisted before imports) ────────────────────────────────────────────
 
 vi.mock('./oidc', () => ({
   getOidcConfig: vi.fn().mockResolvedValue({ issuer: 'https://identity.example.com' }),
@@ -44,8 +39,6 @@ import {
   fetchUserInfo,
 } from 'openid-client';
 import { buildBffRouter, requireCsrf } from './routes';
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 interface Session {
   pkceCodeVerifier?: string;
@@ -96,8 +89,6 @@ function makeRes() {
 
 const mockNext = vi.fn() as unknown as NextFunction;
 
-// ── Setup ─────────────────────────────────────────────────────────────────────
-
 beforeAll(() => {
   buildBffRouter();
 });
@@ -105,8 +96,6 @@ beforeAll(() => {
 beforeEach(() => {
   vi.clearAllMocks();
 });
-
-// ── requireCsrf ───────────────────────────────────────────────────────────────
 
 describe('requireCsrf', () => {
   it('calls next when X-CSRF header is present', () => {
@@ -130,8 +119,6 @@ describe('requireCsrf', () => {
     expect(mockNext).not.toHaveBeenCalled();
   });
 });
-
-// ── /bff/login ────────────────────────────────────────────────────────────────
 
 describe('/bff/login', () => {
   function handler() {
@@ -193,8 +180,6 @@ describe('/bff/login', () => {
   });
 });
 
-// ── /bff/callback ─────────────────────────────────────────────────────────────
-
 describe('/bff/callback', () => {
   function handler() {
     const fns = capturedHandlers.get('/callback')!;
@@ -217,7 +202,7 @@ describe('/bff/callback', () => {
       refresh_token: 'refresh',
       id_token: 'id',
       expires_in: 3600,
-      claims: () => ({ iss: 'https://identity.example.com' }), // no sub
+      claims: () => ({ iss: 'https://identity.example.com' }),
     } as never);
     const req = makeReq({
       session: { pkceCodeVerifier: 'pkce-verifier', oauthState: 'oauth-state' },
@@ -317,10 +302,7 @@ describe('/bff/callback', () => {
   });
 });
 
-// ── /bff/user ─────────────────────────────────────────────────────────────────
-
 describe('/bff/user', () => {
-  // handlers[0] = requireCsrf (the exported function), handlers[1] = the user handler
   function handler() {
     const fns = capturedHandlers.get('/user')!;
     return fns[1] as (req: Request, res: Response) => void;
@@ -353,8 +335,6 @@ describe('/bff/user', () => {
     );
   });
 });
-
-// ── /bff/logout ───────────────────────────────────────────────────────────────
 
 describe('/bff/logout', () => {
   function handler() {

@@ -29,9 +29,6 @@ export class AdminService {
     shareReplay({ bufferSize: 1, refCount: true }),
   );
 
-  // false both before the first GET /me resolves and once it resolves non-admin -- isAdmin() collapses
-  // "not yet loaded" and "loaded, not an admin" to the same UI-facing answer (hide admin-only affordances)
-  // rather than needing a third null/loading state.
   public readonly isAdmin: Signal<boolean> = toSignal(this._isAdmin$, { initialValue: false });
 
   /** Triggers the first (cached) `GET /me` fetch if one hasn't already happened this session, and

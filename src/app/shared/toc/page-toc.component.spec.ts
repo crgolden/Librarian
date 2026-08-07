@@ -30,7 +30,7 @@ describe('PageTocComponent', () => {
 
     const headings = compiled.querySelectorAll('.item-heading');
     const ids = Array.from(headings).map((h) => h.id);
-    expect(new Set(ids).size).toBe(3); // all unique despite duplicate text
+    expect(new Set(ids).size).toBe(3);
     expect(ids[0]).not.toBe(ids[2]);
 
     expect(compiled.querySelector('.back-to-top')?.getAttribute('href')).toBe('#top');
