@@ -305,9 +305,6 @@ describe('CollectionsComponent', () => {
   });
 
   it('saveDefinition() without a preview saves an empty collection rather than silently dropping membership', () => {
-    // Regression test: Librarian's original SaveDefinitionRequest never sent game_ids at all, so every
-    // saved collection silently had zero members no matter what the create form said. This asserts the
-    // request is explicit about that (game_ids: []), not merely "some field was missing."
     const fixture = createAndLoad([]);
     const h = harness(fixture);
     h.showCreate();
@@ -520,7 +517,6 @@ describe('CollectionsComponent', () => {
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    // No GET fired yet -- the panel is collapsed, so nothing has been hydrated.
     httpMock.expectNone('/curator/api/games/g1/measured-sizes');
 
     h.toggleMeasuredSizePanel('g1');
@@ -543,7 +539,6 @@ describe('CollectionsComponent', () => {
     expect(compiled.textContent).toContain('PS4: 30 GB');
     expect(compiled.textContent).toContain('PS5: 42.5 GB');
 
-    // Collapsing and re-expanding must not re-fetch -- the result is cached per game.
     h.toggleMeasuredSizePanel('g1');
     h.toggleMeasuredSizePanel('g1');
     httpMock.expectNone('/curator/api/games/g1/measured-sizes');
@@ -590,9 +585,6 @@ describe('CollectionsComponent', () => {
       return { definition_id: 'd1', name: 'Weekend picks', kind: 'filter_list', console_id: null, item_count: 5, ...overrides };
     }
 
-    // The outer beforeEach already injects HttpTestingController, which instantiates the testing
-    // module -- TestBed.overrideProvider() can no longer be used past that point. Reconfigure a
-    // fresh module per viewer test instead, with route/auth providers specific to that test.
     function configureForViewer(routeSub: string, ownSub: string | null): void {
       TestBed.resetTestingModule();
       TestBed.configureTestingModule({

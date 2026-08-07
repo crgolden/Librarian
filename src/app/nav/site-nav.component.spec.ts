@@ -53,8 +53,6 @@ describe('SiteNavComponent', () => {
     for (const label of ['Home', 'Catalog', 'Collections', 'Library', 'Profile']) {
       expect(compiled.textContent).toContain(label);
     }
-    // Desktop nav has PSN Settings + Sign out; mobile tab bar renders the same 5 primary links
-    // plus its own PSN tab, so PSN linking is reachable from mobile nav too.
     expect(compiled.querySelector('.site-nav-desktop')?.textContent).toContain('PSN Settings');
     expect(compiled.querySelector('.site-nav-desktop a.btn-ghost')?.textContent).toContain('Sign out');
     expect(compiled.querySelectorAll('.site-nav-tabbar a.tab-link')).toHaveLength(6);

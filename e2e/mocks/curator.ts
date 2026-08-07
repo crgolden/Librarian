@@ -18,7 +18,7 @@
 
 import express, { type Express, type Request, type Response } from 'express';
 
-// ── Data model ────────────────────────────────────────────────────────────────
+
 
 export interface PsnLink {
   access_token_expires_at: string | null;
@@ -254,7 +254,7 @@ interface LibraryRefreshOutcome {
   result_summary?: LibraryRefreshResultSummary;
 }
 
-// ── In-memory store ───────────────────────────────────────────────────────────
+
 
 interface ActionLogEntry {
   action: string;
@@ -563,7 +563,7 @@ function generateCollection(
     }
     return true;
   };
-  void sub; // generateCollection operates on the shared CATALOG_GAMES fixture, not per-user state.
+  void sub;
 
   const included: CollectionGame[] = [];
   const excluded: CollectionGame[] = [];
@@ -581,20 +581,12 @@ function toProfileDefinition(
   return { definition_id: d.definition_id, name: d.name, kind: d.kind, console_id: d.console_id, item_count: d.game_ids.length };
 }
 
-// ── Express app factory ───────────────────────────────────────────────────────
+
 
 export function createCuratorApp(): Express {
   const app = express();
   app.use(express.json());
 
-  // A real bearer token always implies an existing `app_users` row (Identity account creation
-  // + Curator's own upsert-on-first-authenticated-request precede any Curator call reaching this
-  // point). Mirror that here: auto-register the CALLING identity on every non-control route, so a
-  // freshly-signed-in user's own `/me`/`/library`/`/users/{ownSub}/profile` call never spuriously
-  // 404s just because no other seed/control call happened to touch their sub first. This only
-  // registers the caller (from `X-E2E-Sub`, via `getUser`) -- a *target* sub named in a path
-  // parameter (`/users/{sub}/...`) is still resolved through the non-mutating `findUser`, so an
-  // unseeded/unknown target sub still correctly 404s.
   app.use((req: Request, _res: Response, next: () => void) => {
     if (!req.path.startsWith('/_test') && req.path !== '/health') {
       getUser(subFromRequest(req));
@@ -602,7 +594,7 @@ export function createCuratorApp(): Express {
     next();
   });
 
-  // ── Control API (/_test/*) — test state management ──────────────────────
+
 
   /** Clear all state (called at the start of each test). */
   app.post('/_test/reset', (_req: Request, res: Response) => {
@@ -700,7 +692,7 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  // ── Multi-user-aware profile/follow control API (explicit `sub`) ────────
+
 
   /** Register a sub as "known" (an `app_users` row exists) without seeding any other state --
    * covers the "viewing another user's default, unlinked, private profile" case. */
@@ -795,7 +787,7 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  // ── Curator API routes (no path prefix, matches the real upstream API) ──────
+
 
   /** GET /health — anonymous liveness check. */
   app.get('/health', (_req: Request, res: Response) => {
@@ -1208,7 +1200,7 @@ export function createCuratorApp(): Express {
     res.status(201).json({ run_id: `run-${Date.now()}`, ...result });
   });
 
-  // ── Public (anonymous) collection share ──────────────────────────────────
+
 
   /** GET /public/collections/{shareSlug} — the one anonymous route in the real API. No caller
    * identity is trusted; an unknown slug and a currently-private collection's slug are
@@ -1233,7 +1225,7 @@ export function createCuratorApp(): Express {
     });
   });
 
-  // ── Consoles ──────────────────────────────────────────────────────────────
+
 
   /** POST /consoles — create a console for the caller. */
   app.post('/consoles', (req: Request, res: Response) => {
@@ -1337,7 +1329,7 @@ export function createCuratorApp(): Express {
     res.json({ console_id: consoleId, game_id: gameId, installed: body.installed });
   });
 
-  // ── Storage devices ───────────────────────────────────────────────────────
+
 
   /** POST /storage-devices — create a storage device for the caller, optionally attached. */
   app.post('/storage-devices', (req: Request, res: Response) => {
@@ -1512,7 +1504,7 @@ export function createCuratorApp(): Express {
     res.json({ run_id: req.params['runId'], status: run.status, error: run.error, result_summary: run.result_summary });
   });
 
-  // ── Social profile / follow routes ───────────────────────────────────────
+
 
   /** GET /me/profile-settings — the caller's own display-visibility toggles. Never 404s. */
   app.get('/me/profile-settings', (req: Request, res: Response) => {
@@ -1558,9 +1550,6 @@ export function createCuratorApp(): Express {
       viewerCanSeePublicSections && settings.show_identity && targetUser.psn !== null && targetUser.psnPreferences.harvest_identity;
 
     if (trophiesGateOpen || identityGateOpen) {
-      // Mirrors the real profile_routes.py's "viewer's own PSN client" mechanism: the sections
-      // degrade silently (stay null) when the viewer has no PSN link of their own, rather than
-      // erroring — a stale/missing viewer token must never break rendering another user's profile.
       const viewerUser = findUser(viewer);
       const viewerHasPsn = viewerUser?.psn != null;
       if (trophiesGateOpen && viewerHasPsn) {

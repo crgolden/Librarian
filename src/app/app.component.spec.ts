@@ -64,7 +64,6 @@ describe('AppComponent', () => {
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.querySelector('.avatar-fallback')?.textContent?.trim()).toBe('C');
     expect(compiled.querySelector('img.avatar')).toBeNull();
-    // Falls back to '#' rather than a broken link when there is no logout URL claim yet.
     expect(compiled.querySelector('a.btn-ghost')?.getAttribute('href')).toBe('#');
   });
 

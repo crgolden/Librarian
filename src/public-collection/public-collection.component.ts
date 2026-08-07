@@ -66,8 +66,6 @@ export class PublicCollectionComponent implements OnInit {
   }
 
   private loadFollowState(definitionId: string): void {
-    // Fails silently for an anonymous visitor (401) — following.set(false) is already the initial
-    // state, so there's nothing more to do for that case.
     this.curator.listFollowedCollections().subscribe({
       next: (definitions) => this.following.set(definitions.some((definition) => definition.definition_id === definitionId)),
       error: () => undefined,

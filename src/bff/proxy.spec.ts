@@ -1,7 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
 
-// ── Mocks (hoisted before imports) ────────────────────────────────────────────
-
 vi.mock('./oidc', () => ({
   getOidcConfig: vi.fn().mockResolvedValue({ issuer: 'https://identity.example.com' }),
 }));
@@ -17,8 +15,6 @@ vi.mock('../telemetry/logging', () => ({
 import { refreshTokenGrant } from 'openid-client';
 import { logger } from '../telemetry/logging';
 import { csrfForMutating, curatorProxy } from './proxy';
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 interface SessionLike {
   accessToken?: string;
@@ -39,8 +35,6 @@ function makeReq(overrides: {
   const bodyChunk = overrides.body ?? (hasBody ? Buffer.from('{}') : undefined);
 
   const originalUrl = overrides.originalUrl ?? '/curator/api/me';
-  // Mirrors real Express behaviour for middleware mounted via app.use('/curator/api', ...):
-  // req.url is the original path with the mount prefix stripped.
   const url = originalUrl.replace(/^\/curator\/api/, '') || '/';
 
   const req: Record<string, unknown> = {
@@ -84,8 +78,6 @@ function stubFetch(responses: { status: number; headers?: Headers; body?: ArrayB
   let call = 0;
   vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.resolve(mocks[call++])));
 }
-
-// ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('csrfForMutating', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -241,10 +233,6 @@ describe('curatorProxy', () => {
   });
 
   it('does not retry a domain-level 401 lacking WWW-Authenticate (e.g. /psn/link auth_failed)', async () => {
-    // Regression test: Curator's own require_bearer sets WWW-Authenticate on a bearer-token 401, but a
-    // route's own business-logic 401 (e.g. /psn/link's LinkError "auth_failed" when PSN auth fails) never
-    // does. Retrying unconditionally on any 401 would blindly replay a non-idempotent mutating request --
-    // e.g. resubmitting /psn/link's npsso for a second, unwanted PSN OAuth round-trip.
     process.env['CuratorApiAddress'] = 'https://curator.example.com';
     stubFetch([{ status: 401 }]);
 
@@ -282,10 +270,6 @@ describe('curatorProxy', () => {
   });
 
   it('strips Content-Encoding and Content-Length since fetch() already decompressed the body', async () => {
-    // Regression test: fetch() transparently decompresses gzip/br/deflate bodies, so
-    // apiResponse.arrayBuffer() returns plain bytes. Forwarding the upstream
-    // Content-Encoding/Content-Length made clients try to decompress an already-decompressed
-    // body ("incorrect header check" gzip errors against the real deployed Curator API).
     process.env['CuratorApiAddress'] = 'https://curator.example.com';
     const responseHeaders = new Headers({
       'content-type': 'application/json',
@@ -324,7 +308,6 @@ describe('curatorProxy', () => {
     process.env['CuratorApiAddress'] = 'https://curator.example.com';
     stubFetch([{ status: 200 }]);
 
-    // Express allows array-valued headers; the proxy joins them.
     const req = makeReq({
       headers: { accept: ['application/json', 'text/plain'] as unknown as string },
     });
@@ -370,11 +353,9 @@ describe('curatorProxy', () => {
       method: 'POST',
       headers: { 'x-csrf': '1', 'content-type': 'application/json' },
       session: { accessToken: 'token' },
-      // Override the default Buffer yield with string chunks.
       body: undefined,
     });
 
-    // Replace the async iterator with one yielding a string chunk.
     (req as unknown as Record<PropertyKey, unknown>)[Symbol.asyncIterator] = async function* () {
       yield '{"npsso":"test"}';
     };

@@ -13,7 +13,6 @@ test.describe('SSR — raw HTML assertions', () => {
 
     const html = await res.text();
 
-    // Proves SSR (Angular writes this attribute on the server-rendered root).
     expect(html).toContain('ng-server-context');
     expect(html).toContain('Librarian');
   });

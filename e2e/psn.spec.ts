@@ -4,7 +4,6 @@
 
 import { test, expect } from './fixtures.js';
 
-// The link form rejects anything that isn't a full-length npsso before it reaches the mock Curator API.
 const VALID_NPSSO = 'a'.repeat(64);
 
 test.describe('PSN settings — auth guard', () => {
@@ -230,7 +229,7 @@ test.describe('PSN settings — enrichment API keys', () => {
     await page.getByRole('button', { name: 'Save RAWG key' }).click();
 
     await expect(page.getByRole('button', { name: 'Remove RAWG key' })).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('#opencritic-key')).toBeVisible(); // OpenCritic untouched
+    await expect(page.locator('#opencritic-key')).toBeVisible();
 
     await page.reload();
     await expect(page.getByRole('button', { name: 'Remove RAWG key' })).toBeVisible();

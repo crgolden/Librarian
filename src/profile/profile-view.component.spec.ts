@@ -80,7 +80,7 @@ describe('ProfileViewComponent', () => {
     );
 
     const compiled: HTMLElement = fixture.nativeElement;
-    expect(compiled.querySelector('button')).toBeNull(); // no Follow/Unfollow button for the owner
+    expect(compiled.querySelector('button')).toBeNull();
     expect(compiled.querySelector('a[href="/library"]')).not.toBeNull();
     expect(compiled.querySelector('a[href="/collections"]')).not.toBeNull();
   });

@@ -14,8 +14,6 @@ export class NotFoundComponent {
   private readonly meta = inject(Meta);
 
   constructor() {
-    // RESPONSE_INIT is null during CSR, SSG, build, and dev route extraction — only
-    // set the status when actually rendering a response on the server.
     if (this.responseInit !== null) {
       this.responseInit.status = 404;
     }

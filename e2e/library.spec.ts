@@ -98,8 +98,7 @@ test.describe('Library — authenticated', () => {
     await expect(rows).toHaveCount(3);
 
     await expect(rows.filter({ hasText: 'Elden Ring' }).locator('td[data-label="% Completed"]')).toHaveText('42%');
-    // 0 is a real, meaningful value (trophy list matched, nothing earned yet) -- must render as "0%",
-    // never fall through to the null/no-match dash the way a falsy check would.
+
     await expect(rows.filter({ hasText: 'Bloodborne' }).locator('td[data-label="% Completed"]')).toHaveText('0%');
     await expect(rows.filter({ hasText: 'Unmatched Game' }).locator('td[data-label="% Completed"]')).toHaveText('—');
   });
@@ -145,8 +144,7 @@ test.describe('Library — authenticated', () => {
     ]);
 
     await page.goto('/library');
-    const titles = () => page.locator('.library-table tbody tr td:first-child').allTextContents();
-    // Title starts sorted ascending by default.
+    const titles = () => page.locator('[id^="library-title-"]').allTextContents();
     await expect.poll(titles, { timeout: 10_000 }).toEqual(['Bloodborne', 'Elden Ring']);
 
     const titleHeader = page.getByRole('columnheader', { name: 'Title' });
@@ -200,30 +198,29 @@ test.describe('Library — authenticated', () => {
     );
 
     await page.goto('/library');
-    // 27 total, unfiltered -> first page is a full 20-row page.
+
     await expect(page.locator('.library-table tbody tr')).toHaveCount(20);
 
-    // Narrow to the 25 "Ring Game" titles -> still more than one page.
+
     await page.getByPlaceholder('Search titles...').fill('ring');
     await expect(page.locator('.library-table tbody tr')).toHaveCount(20, { timeout: 5_000 });
 
-    // Title starts sorted ascending by default -> one click flips it to descending: page 1 is
-    // Ring Game 24 down through 05.
+
     const titleHeader = page.getByRole('columnheader', { name: 'Title' });
     await titleHeader.click();
-    const titles = () => page.locator('.library-table tbody tr td:first-child').allTextContents();
+    const titles = () => page.locator('[id^="library-title-"]').allTextContents();
     await expect
       .poll(titles, { timeout: 10_000 })
       .toEqual(Array.from({ length: 20 }, (_, i) => `Ring Game ${String(24 - i).padStart(2, '0')}`));
 
-    // Page forward -> the remaining 5 (Ring Game 04 down through 00), Next now disabled.
+
     await page.getByRole('button', { name: 'Next' }).click();
     await expect
       .poll(titles, { timeout: 10_000 })
       .toEqual(Array.from({ length: 5 }, (_, i) => `Ring Game ${String(4 - i).padStart(2, '0')}`));
     await expect(page.getByRole('button', { name: 'Next' })).toBeDisabled();
 
-    // Changing the search again resets back to page 1.
+
     await page.getByPlaceholder('Search titles...').fill('ring game 01');
     await expect(page.locator('.library-table tbody tr')).toHaveCount(1, { timeout: 5_000 });
     await expect(page.locator('.library-table tbody tr')).toContainText('Ring Game 01');

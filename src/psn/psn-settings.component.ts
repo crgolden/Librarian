@@ -18,9 +18,6 @@ import { PsnStatus } from './psn-status.resolver';
 
 type MeResponse = PsnStatus;
 
-// The npsso returned by https://ca.account.sony.com/api/v1/ssocookie is always exactly this long. Checking
-// it before the request turns the most common paste error (a token short a character or two) into an
-// immediate, specific message instead of a round-trip that PSN rejects as a generic auth failure.
 const NPSSO_LENGTH = 64;
 
 const LINK_ERROR_MESSAGES: Record<string, string> = {
@@ -192,8 +189,6 @@ export class PsnSettingsComponent implements OnInit {
         }
       },
       error: () => {
-        // No PSN link (unexpected here since linked() is already true) — leave preferences null
-        // so no category UI renders rather than surfacing a confusing error.
         this.preferences.set(null);
       },
     });

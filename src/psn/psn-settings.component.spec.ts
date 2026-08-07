@@ -8,9 +8,6 @@ import { PsnPreferencesResponse } from '../curator/curator.models';
 
 type MeResponse = PsnStatus;
 
-// Internal signals/methods are `protected`, not part of the component's public API — but driving
-// link()/unlink() through simulated ngModel/DOM events is brittle for a password-type input, so
-// tests call the protected members directly and assert on rendered output instead.
 interface PsnSettingsHarness {
   npsso: { set(value: string): void };
   link(): void;
@@ -33,8 +30,6 @@ function harness(fixture: ComponentFixture<PsnSettingsComponent>): PsnSettingsHa
   return fixture.componentInstance as unknown as PsnSettingsHarness;
 }
 
-// link() rejects anything that isn't a full-length npsso before making a request, so every test that
-// expects the POST to happen has to supply a real-length (64-character) token.
 const VALID_NPSSO = 'a'.repeat(64);
 
 describe('PsnSettingsComponent', () => {
@@ -65,10 +60,6 @@ describe('PsnSettingsComponent', () => {
     harvest_devices: false,
   };
 
-  // Status now arrives pre-resolved via the route's `status` resolver data (see psn-status.resolver.ts)
-  // instead of a GET fired from ngOnInit -- `response: null` mirrors the resolver's own catchError(() =>
-  // of(null)) fallback for a failed /me request.
-  //
   const NO_ENRICHMENT_KEYS = {
     rawg_configured: false,
     opencritic_configured: false,
@@ -76,14 +67,10 @@ describe('PsnSettingsComponent', () => {
     opencritic_added_at: null,
   };
 
-  // When the resolved status is linked, the component also fires a GET for PSN preferences and a GET for
-  // enrichment-key status (see applyStatus -> loadPreferences / loadEnrichmentKeyStatus). Flush both with
-  // empty/off defaults so no per-category cascade requests are opened, keeping httpMock.verify() clean for
-  // tests that don't care about preferences or enrichment keys.
   function createAndLoad(response: MeResponse | null): ComponentFixture<PsnSettingsComponent> {
     routeSnapshotData.status = response;
     const fixture = TestBed.createComponent(PsnSettingsComponent);
-    fixture.detectChanges(); // ngOnInit -> reads route.snapshot.data['status']
+    fixture.detectChanges();
     if (response?.linked) {
       httpMock.expectOne('/curator/api/me/psn-preferences').flush(ALL_PREFS_OFF);
       httpMock.expectOne('/curator/api/me/enrichment-keys').flush(NO_ENRICHMENT_KEYS);
@@ -353,8 +340,6 @@ describe('PsnSettingsComponent', () => {
       .toContain('Failed to unlink PlayStation Network account.');
   });
 
-  // ── Action history ───────────────────────────────────────────────────────────
-
   it('shows a "View my action history" button initially, with no request fired', () => {
     const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
 
@@ -399,8 +384,6 @@ describe('PsnSettingsComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent)
       .toContain('Unable to load your action history.');
   });
-
-  // ── Delete my data ───────────────────────────────────────────────────────────
 
   it('shows a "Delete my data" button that requires confirmation before calling DELETE /curator/api/me', () => {
     const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
@@ -462,8 +445,6 @@ describe('PsnSettingsComponent', () => {
       .toContain('Failed to delete your account. Please try again.');
   });
 
-  // ── PSN data-sharing preferences ────────────────────────────────────────────
-
   const LINKED_STATUS: MeResponse = {
     sub: 'u1',
     email: null,
@@ -479,8 +460,6 @@ describe('PsnSettingsComponent', () => {
     account_id: 'acct-1',
   };
 
-  /** Like createAndLoad, but flushes psn-preferences with the given flags instead of all-off,
-   * then flushes a GET for each enabled category so the fixture ends up settled. */
   function createLinkedWithPreferences(
     prefs: Record<keyof PsnPreferencesResponse, boolean>,
   ): ComponentFixture<PsnSettingsComponent> {
@@ -755,7 +734,6 @@ describe('PsnSettingsComponent', () => {
       expect(compiled.querySelector('#rawg-key')).toBeNull();
       expect(compiled.textContent).toContain('Configured');
       expect(compiled.textContent).not.toContain('rawg.io/apidocs');
-      // OpenCritic independently still shows its own input + get-a-key link.
       expect(compiled.querySelector('#opencritic-key')).not.toBeNull();
       expect(compiled.textContent).toContain('RapidAPI quick-start guide');
     });
@@ -768,10 +746,9 @@ describe('PsnSettingsComponent', () => {
       const compiled: HTMLElement = fixture.nativeElement;
 
       expect(compiled.textContent).toContain('This key stopped working');
-      expect(compiled.textContent).toContain('Configured'); // still configured, not the same as unset
-      expect(compiled.querySelector('#rawg-key')).not.toBeNull(); // re-enter input, not the get-a-key form
+      expect(compiled.textContent).toContain('Configured');
+      expect(compiled.querySelector('#rawg-key')).not.toBeNull();
       expect(compiled.textContent).toContain('Re-enter RAWG key');
-      // OpenCritic is unaffected -- no warning, no re-enter copy for it.
       expect(compiled.textContent).not.toContain('OpenCritic rejected it');
     });
 

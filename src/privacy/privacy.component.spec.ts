@@ -38,10 +38,6 @@ describe('PrivacyComponent', () => {
     expect(text).toContain('not your account identity, your PlayStation ID');
   });
 
-  // The page has to distinguish the two, because they are handled differently in Curator: an earned-trophy
-  // list really is live-read and 15-minute-cached, but the per-game percentage is a stored column
-  // (library_entries.trophy_percent_completed). Listing trophies flatly under "never collect" — as this
-  // page once did — is a false statement in the one document whose whole value is being checkable.
   it('separates live-read trophy data from the stored completion percentage', () => {
     const fixture = TestBed.createComponent(PrivacyComponent);
     fixture.detectChanges();
@@ -53,15 +49,11 @@ describe('PrivacyComponent', () => {
     expect(text).toContain('how far through its trophy list you are');
   });
 
-  // Curator clears the stored percentages on both the harvest_trophies opt-out (preferences_routes) and
-  // DELETE /psn/link (psn_routes). If either call is ever dropped, this promise becomes a lie while every
-  // other test on this page still passes — so the wording is pinned here deliberately.
   it('promises that opting out or unlinking erases stored completion percentages, not just stops refreshing them', () => {
     const fixture = TestBed.createComponent(PrivacyComponent);
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    // Collapsed, because these sentences wrap across source lines and textContent keeps the newlines.
     const text = (compiled.textContent ?? '').replace(/\s+/g, ' ');
     expect(text).toContain("erases those numbers, it doesn't just stop refreshing them");
     expect(text).toContain('erased the moment you turn trophy harvesting off, unlink, or delete your account');

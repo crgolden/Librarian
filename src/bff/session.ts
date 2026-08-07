@@ -5,9 +5,6 @@ import { createClient } from 'redis';
 import { RedisStore } from 'connect-redis';
 import { logger } from '../telemetry/logging';
 
-// ── Session data shape ────────────────────────────────────────────────────────
-// Tokens and claims are stored server-side in Redis; nothing is sent to the
-// browser beyond the signed session cookie.
 declare module 'express-session' {
   interface SessionData {
     /** PKCE code verifier — present only during the login flow. */
@@ -51,15 +48,12 @@ function reconnectStrategy(retries: number): number {
 export function applySession(app: Express): void {
   const isProd = process.env['NODE_ENV'] === 'production';
 
-  // Opt-out of Redis when RedisHost is absent or the caller explicitly requests
-  // the in-memory store (useful for local dev and E2E tests).
   const useMemory =
     !process.env['RedisHost'] || process.env['SessionStore'] === 'memory';
 
   let store: session.Store;
 
   if (useMemory) {
-    // express-session's built-in store — no external dependency required.
     store = new session.MemoryStore();
     if (isProd) {
       logger.warn(
@@ -71,8 +65,6 @@ export function applySession(app: Express): void {
     const host = process.env['RedisHost'] ?? 'localhost';
     const port = parseInt(process.env['RedisPort'] ?? '6380', 10);
 
-    // The `redis` package uses a discriminated union for socket options where
-    // `tls: true` (literal) is required for TLS connections.
     const redisClient = isProd
       ? createClient({
           socket: {
@@ -96,8 +88,6 @@ export function applySession(app: Express): void {
           pingInterval: PING_INTERVAL_MS,
         });
 
-    // Log connection errors without crashing.  In local dev Redis may be
-    // absent; the session store will fail gracefully and log the issue.
     redisClient.on('error', (err: unknown) => {
       logger.error({ err }, '[Redis] Connection error');
     });
@@ -109,9 +99,6 @@ export function applySession(app: Express): void {
     store = new RedisStore({ client: redisClient });
   }
 
-  // SessionSecret must be a long random string set via App Service settings
-  // (or environment variable) in production.  In dev we fall back to an
-  // ephemeral random value — sessions won't survive restarts, which is fine.
   const secret = process.env['SessionSecret'] ?? crypto.randomUUID();
 
   app.use(
@@ -123,12 +110,6 @@ export function applySession(app: Express): void {
       saveUninitialized: false,
       cookie: {
         httpOnly: true,
-        // Lax (not Strict): the OIDC callback is a top-level GET navigation initiated by a
-        // redirect from Identity (a different origin). SameSite=Strict withholds the cookie on
-        // that navigation, so pkceCodeVerifier/oauthState never reach /bff/callback and login
-        // always 400s. Lax still blocks cross-site subrequests (CSRF protection intact) while
-        // allowing the cookie on top-level GET redirects — the standard choice for OIDC/OAuth
-        // correlation cookies.
         sameSite: 'lax',
         secure: isProd,
       },

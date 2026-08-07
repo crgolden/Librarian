@@ -80,8 +80,7 @@ test.describe('Collections — authenticated', () => {
     await page.getByRole('button', { name: 'Save this collection' }).click();
     await expect(page.locator('text=Console pack')).toBeVisible({ timeout: 10_000 });
 
-    // Saving a preview's results persists them as the collection's membership, so the install
-    // toggle is already available on the detail view without running anything first.
+
     await page.getByRole('button', { name: 'View / Edit' }).click();
     await expect(page.getByRole('button', { name: 'Mark installed' })).toBeVisible({ timeout: 10_000 });
 
@@ -93,10 +92,7 @@ test.describe('Collections — authenticated', () => {
     authedPage: page,
     store,
   }) => {
-    // The real Curator API validates console ownership both when generating a capacity_fill run
-    // (400 if unowned) and again on the install-toggle PUT (404 if unowned) — the only way to reach
-    // the toggle's 404 is for ownership to change *after* the collection was saved, so this seeds
-    // the console, saves successfully, then revokes ownership before toggling.
+
     await store.reset();
     await store.seedConsoles(['console-1']);
     await store.seedCatalogGames([

@@ -24,8 +24,6 @@ export class CatalogComponent implements OnInit {
   protected readonly aaaTier = signal('');
   protected readonly offset = signal(0);
 
-  // The catalog endpoint returns no total count, so "is there a next page" is inferred from a
-  // full page coming back, not a real known-total pager.
   protected readonly hasNextPage = signal(false);
   protected readonly hasPrevPage = signal(false);
 

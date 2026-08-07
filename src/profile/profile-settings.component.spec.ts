@@ -36,9 +36,6 @@ describe('ProfileSettingsComponent', () => {
     httpMock.verify();
   });
 
-  // Zoneless change detection settles asynchronously -- `fixture.whenStable()` is required (not
-  // just `detectChanges()`) before an `[ngModel]`-bound checkbox's `.checked` DOM property reliably
-  // reflects a signal update that happened inside an async subscribe callback.
   async function createAndLoad(settings: ProfileSettingsResponse = ALL_OFF): Promise<ComponentFixture<ProfileSettingsComponent>> {
     const fixture = TestBed.createComponent(ProfileSettingsComponent);
     fixture.detectChanges();

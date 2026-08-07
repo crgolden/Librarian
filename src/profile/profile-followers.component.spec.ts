@@ -14,8 +14,6 @@ function authServiceWithSub(sub: string | null): AuthService {
   return { sub: () => sub } as unknown as AuthService;
 }
 
-/** getFollowers() always appends limit/offset query params, so a plain string match against the
- * bare path never matches -- match on the path only, like curator.service.spec.ts's pattern. */
 function expectFollowersRequest(httpMock: HttpTestingController, sub: string) {
   return httpMock.expectOne((r) => r.url === `/curator/api/users/${sub}/followers`);
 }
@@ -85,9 +83,6 @@ describe('ProfileFollowersComponent', () => {
   });
 
   it('lists followers even when the profile is private -- follow lists are always visible', () => {
-    // The mock response itself is the contract under test here: this asserts the component simply
-    // renders whatever GET /users/{sub}/followers returns, with no client-side is_public gating of
-    // its own -- follower/following visibility is a server-side invariant, not a UI decision.
     configure('other-sub', 'viewer-sub');
     const fixture = TestBed.createComponent(ProfileFollowersComponent);
     fixture.detectChanges();

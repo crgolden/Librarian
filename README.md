@@ -22,7 +22,19 @@ API; the browser never sees an access token directly.
 A single Node process runs both the Angular 22 SSR renderer and an Express BFF. The BFF owns the
 OIDC session (`openid-client` v6, PKCE; scopes `offline_access openid profile email curator`),
 proxies `/curator/api/**` to the Curator API with the session's Bearer token, and requires
-`X-CSRF: 1` on mutating calls. The app surface covers a home page, a `/psn` settings page
+`X-CSRF: 1` on mutating calls. The session cookie uses `sameSite: 'lax'`, not `'strict'` — the OIDC
+callback is a top-level GET navigation initiated by a redirect from Identity (a different origin),
+and a `Strict` cookie would be withheld on that navigation, so the PKCE verifier/OAuth state would
+never reach `/bff/callback` and login would always 400. `Lax` still blocks cross-site subrequests
+(CSRF protection intact) while allowing the cookie on top-level GET redirects.
+
+Only `''`, `faq`, `privacy`, and the catch-all `**` render `RenderMode.Server` — the catch-all so
+`NotFoundComponent` can set a real HTTP 404 via `RESPONSE_INIT`, which stays `null` (and so can't
+carry a status) under `RenderMode.Client`. Every other route, including the anonymous `c/:slug`
+share link, renders `RenderMode.Client`: `authGuard` only works in the browser (it reads
+`AuthService`'s client-fetched session state and needs the DOM `location` global for its anonymous
+redirect), and none of the per-entity pages have an SEO/link-unfurl payoff that would justify paying
+for SSR. The app surface covers a home page, a `/psn` settings page
 (link/unlink a PlayStation Network account via NPSSO token, backed by Curator's `/me` and
 `/psn/link` routes, plus per-category data-harvest preferences and bring-your-own-key RAWG/OpenCritic
 enrichment key management), `/catalog` (browse the shared game catalog), `/collections` (create, save, and

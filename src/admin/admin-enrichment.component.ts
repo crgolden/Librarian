@@ -9,9 +9,6 @@ const POLL_INTERVAL_MS = 2500;
 const POLL_ERROR_RETRY_COUNT = 3;
 const POLL_ERROR_RETRY_DELAY_MS = 2000;
 const TERMINAL_STATUSES = new Set(['succeeded', 'failed']);
-// Unlike library-refresh jobs, an enrichment run never uses "rate_limited" -- a rate-limited provider is
-// recorded inside result_summary while the job itself still lands "succeeded" (see
-// curator._run_opencritic_refresh_pass/_run_enrichment_pass).
 const KNOWN_STATUSES = new Set(['queued', 'running', 'succeeded', 'failed']);
 
 /** `/admin/enrichment` -- admin-gated (`authGuard` + `adminGuard`). Triggers and polls
@@ -54,7 +51,6 @@ export class AdminEnrichmentComponent implements OnInit, OnDestroy {
         if (err.status !== 404) {
           this.loadError.set('Unable to load the latest enrichment run.');
         }
-        // A 404 just means no run has ever been queued yet -- not an error.
       },
     });
   }
