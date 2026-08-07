@@ -27,6 +27,7 @@ declare module 'express-session' {
 }
 
 const SOCKET_TIMEOUT_MS = 90_000;
+const PING_INTERVAL_MS = 30_000;
 
 function reconnectStrategy(retries: number): number {
   return Math.min(retries * 100, 3_000) + randomInt(200);
@@ -74,6 +75,7 @@ export function applySession(app: Express): void {
             reconnectStrategy,
           },
           password: process.env['RedisPassword'],
+          pingInterval: PING_INTERVAL_MS,
         })
       : createClient({
           socket: {
@@ -83,6 +85,7 @@ export function applySession(app: Express): void {
             reconnectStrategy,
           },
           password: process.env['RedisPassword'],
+          pingInterval: PING_INTERVAL_MS,
         });
 
     redisClient.on('error', (err: unknown) => {
