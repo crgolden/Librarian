@@ -202,8 +202,8 @@
                         <img class="cover-art" [src]="row.original.cover_image_url" [alt]="row.original.title" loading="lazy" />
                       }
                     </td>
-                    <td data-label="Title" [attr.id]="'library-title-' + $index">
-                      {{ row.original.title }}
+                    <td data-label="Title">
+                      <span [attr.id]="'library-title-' + $index">{{ row.original.title }}</span>
                       @if (isManual(row.original)) {
                         <span class="spine-label" [attr.id]="'library-manual-badge-' + $index">Added by hand</span>
                         @if (!viewerMode()) {

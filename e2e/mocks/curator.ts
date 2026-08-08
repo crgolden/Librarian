@@ -985,6 +985,7 @@ export function createCuratorApp(): Express {
 
   /** GET /catalog/games — filter + paginate the fixed catalog fixture. */
   app.get('/catalog/games', (req: Request, res: Response) => {
+    const q = req.query['q'] as string | undefined;
     const franchise = req.query['franchise'] as string | undefined;
     const genre = req.query['genre'] as string | undefined;
     const aaaTier = req.query['aaaTier'] as string | undefined;
@@ -993,11 +994,12 @@ export function createCuratorApp(): Express {
 
     const filtered = CATALOG_GAMES.filter(
       (game) =>
+        (!q || game.canonical_title.toLowerCase().includes(q.toLowerCase())) &&
         (!franchise || game.franchise === franchise) &&
         (!genre || game.genre === genre) &&
         (!aaaTier || game.aaa_tier === aaaTier),
     );
-    res.json({ games: filtered.slice(offset, offset + limit) });
+    res.json({ games: filtered.slice(offset, offset + limit), total: filtered.length });
   });
 
   /** POST /collections/preview — generate an unpersisted collection from an inline spec. */
