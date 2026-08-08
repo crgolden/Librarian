@@ -3,19 +3,43 @@
   <p class="text-muted">Browse the shared game catalog Curator has canonicalized across all libraries.</p>
 
   <form class="card catalog-filters" (submit)="$event.preventDefault(); applyFilters()">
-    <label for="franchise">Franchise</label>
-    <input id="franchise" name="franchise" type="text" [ngModel]="franchise()" (ngModelChange)="franchise.set($event)" />
+    <div class="filter-field">
+      <label for="catalog-search">Title</label>
+      <input
+        id="catalog-search"
+        name="catalogSearch"
+        type="search"
+        placeholder="Search the catalog"
+        [ngModel]="search()"
+        (ngModelChange)="search.set($event)"
+      />
+    </div>
 
-    <label for="genre">Genre</label>
-    <input id="genre" name="genre" type="text" [ngModel]="genre()" (ngModelChange)="genre.set($event)" />
+    <div class="filter-field">
+      <label for="franchise">Franchise</label>
+      <input
+        id="franchise"
+        name="franchise"
+        type="text"
+        [ngModel]="franchise()"
+        (ngModelChange)="franchise.set($event)"
+      />
+    </div>
 
-    <label for="aaaTier">Tier</label>
-    <select id="aaaTier" name="aaaTier" [ngModel]="aaaTier()" (ngModelChange)="aaaTier.set($event)">
-      <option value="">Any</option>
-      <option value="AAA">AAA</option>
-      <option value="AA">AA</option>
-      <option value="Indie">Indie</option>
-    </select>
+    <div class="filter-field">
+      <label for="genre">Genre</label>
+      <input id="genre" name="genre" type="text" [ngModel]="genre()" (ngModelChange)="genre.set($event)" />
+    </div>
+
+    <div class="filter-field">
+      <label for="aaaTier">Tier</label>
+      <select id="aaaTier" name="aaaTier" [ngModel]="aaaTier()" (ngModelChange)="aaaTier.set($event)">
+        <option value="">Any</option>
+        <option value="AAA">AAA</option>
+        <option value="AA">AA</option>
+        <option value="Indie">Indie</option>
+      </select>
+    </div>
 
     <button type="submit" class="btn-primary">Apply</button>
   </form>
@@ -28,9 +52,12 @@
     <p class="text-muted">No titles match these filters.</p>
   } @else {
     <ul class="catalog-list">
-      @for (game of games(); track game.game_id) {
+      @for (game of games(); track $index) {
         <li class="card catalog-card" [class.card-accent]="game.aaa_tier === 'AAA'">
-          <span class="catalog-title">{{ game.canonical_title }}</span>
+          @if (game.cover_image_url) {
+            <img class="cover-art" [src]="game.cover_image_url" [alt]="game.canonical_title" loading="lazy" />
+          }
+          <span class="catalog-title" [attr.id]="'catalog-title-' + $index">{{ game.canonical_title }}</span>
           @if (game.genre) {
             <span class="spine-label">{{ game.genre }}</span>
           }
@@ -42,13 +69,29 @@
               &middot; {{ game.aaa_tier }}
             }
           </span>
+          @if (storeUrl(game); as url) {
+            <a
+              class="link-button"
+              [attr.id]="'catalog-store-link-' + $index"
+              [href]="url"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              View on PlayStation Store
+            </a>
+          }
         </li>
       }
     </ul>
 
     <div class="catalog-pager">
-      <button type="button" class="btn-ghost" [disabled]="!hasPrevPage()" (click)="prevPage()">Previous</button>
-      <button type="button" class="btn-ghost" [disabled]="!hasNextPage()" (click)="nextPage()">Next</button>
+      <button id="catalog-prev" type="button" class="btn-ghost" [disabled]="!hasPrevPage()" (click)="prevPage()">
+        Previous
+      </button>
+      <span class="text-muted">{{ offset() + 1 }}&ndash;{{ offset() + games().length }} of {{ total() }}</span>
+      <button id="catalog-next" type="button" class="btn-ghost" [disabled]="!hasNextPage()" (click)="nextPage()">
+        Next
+      </button>
     </div>
   }
 </section>

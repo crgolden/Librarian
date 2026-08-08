@@ -224,11 +224,24 @@ rejected everywhere in this palette.
 --nav-height: 60px;    /* desktop header height; also the mobile bottom tab bar's height */
 ```
 
-- **Grid model**: a single centered content column (`.page-container`, `max-width: 1100px`,
-  `margin: 0 auto`, horizontal padding `1.5rem` — `1rem` below the `sm` breakpoint), not a
-  multi-column app-shell grid. Catalog uses a responsive card grid within that column
+- **Grid model**: a centered outer column (`.page-container`, `max-width: 1100px`, `margin: 0 auto`,
+  horizontal padding `1.5rem` — `1rem` below the `sm` breakpoint), not a multi-column app-shell grid.
+  Catalog uses a responsive card grid within that column
   (`grid-template-columns: repeat(auto-fill, minmax(220px, 1fr))`); Library's table becomes a
   stacked card list on narrow viewports (see Components).
+- **Measure**: `1100px` is the *shell*, not the reading measure. Each page sets its own inner
+  `max-width` sized to its content, and **every one of them must also centre itself**
+  (`margin-inline: auto`) — an inner column narrower than the shell that doesn't centre leaves the
+  page visibly weighted to the left on wide viewports. The four permitted measures:
+
+  | Measure | Used by | Why |
+  |---|---|---|
+  | `480px` | `/psn`, `/profile*` | Form and settings pages — single column of labelled controls |
+  | `640px` | `/`, `/collections` | Prose plus a short list |
+  | `720px` | `/faq`, `/privacy`, 404 | Long-form reading text |
+  | `1000px` | `/library` | The one data table wide enough to need it |
+
+  Don't introduce a fifth value without a reason that isn't already covered above.
 - **Breakpoint scale** (CSS custom properties can't be read inside `@media` conditions, so these
   pixel values are what every `@media` query in this app should use directly): `sm: 480px` (large
   phone — tighter `.page-container` padding), `md: 768px` (tablet — the nav pattern switch point:
@@ -281,11 +294,17 @@ rejected everywhere in this palette.
   actions. **`.btn-ghost-danger`** — the same shape with `--color-error` text/border, for destructive
   actions (unfollow, remove a key, delete).
 - **`.btn-sm`** — a smaller padding/font-size variant, composed with `.btn-primary`/`.btn-ghost`.
-- **Form inputs** (`input[type=text|email|password|number]`, `select`, `textarea`) — flat fill,
-  `--color-border` outline, `--radius-sm`, `--color-primary` focus ring.
+- **Form inputs** (`input[type=text|email|password|number|search]`, `select`, `textarea`) — flat fill,
+  `--color-border` outline, `--radius-sm`, `--color-primary` focus ring. A new input `type` must be added
+  to that selector list or it renders unstyled next to its neighbours — `search` was missing until the
+  catalog, collection-item and manual-add search boxes exposed it.
 - **`.spine-label`** — genre/platform classification tag (see Typography).
 - **`.catalog-title` / `.catalog-meta`** — game title and stamped-metadata treatments (see
   Typography). Live in production on the Catalog grid, Collections list, and Library table.
+- **`.cover-art`** — box art on a catalogued entry, used by the Collections detail list, the Library
+  table, and the public shared-collection view. Fixed max-width, `--radius-sm`, and it sits *beside*
+  the `.catalog-title` rather than replacing it: the title is the catalog entry, the cover is
+  provenance, so a row with no artwork must still read as a complete entry rather than a gap.
 - **`.psn-badge`** — PSN-linked-account indicator only (see Colors' `--color-psn` rule). A small dot
   + label in `--color-psn`.
 - **`app-site-nav`** (`src/app/nav/site-nav.component.ts`) — the single sitewide nav-link data
@@ -293,6 +312,12 @@ rejected everywhere in this palette.
   + user chip + PSN Settings + Sign out) above the `md` breakpoint, and a fixed bottom tab bar
   (`.site-nav-tabbar`, 5 primary destinations: Home/Catalog/Collections/Library/Profile) below it.
   Active route gets `routerLinkActive="nav-active"` → `--color-primary` text.
+  **The desktop bar sheds the whole `.user-chip` (avatar *and* email) below `xl`.** The chip is the widest
+  item in the row, and without dropping it an admin — who gets an extra "Enrichment Runs" link — overflows
+  and wraps "Sign out" onto a second line. Drop the pair, never just the email: the avatar exists to anchor
+  the address, so alone it reads as a stray image between two nav links rather than an account indicator.
+  Who is signed in stays evident from Profile and Sign out. If more top-level links are ever added, the
+  next thing to give is the link labels, not the breakpoint.
 - **`app-page-toc`** (`src/app/shared/toc/page-toc.component.ts`) — client-side-only in-page table
   of contents + back-to-top link, generated from a page's own headings via a CSS selector input.
   Used on `/faq` and `/privacy`.
@@ -376,9 +401,12 @@ not commerce.
 
 ---
 
-This document is the source of truth for all future Librarian UI work. As of this writing the app
-has 17 live routes (`/`, `/psn`, `/catalog`, `/collections[/:sub]`, `/library[/:sub]`,
-`/profile[/followers|/following|/settings]`, `/u/:sub[/followers|/following]`, `/faq`, `/privacy`) —
-this is a working, multi-page app, not the two-page (Home, PSN settings) state this document once
-described. Any new page or component should be checked against this document before merging, the
-same way `DESIGN-LANGUAGE.md` governs testing conventions at the workspace root.
+This document is the source of truth for all future Librarian UI work, and is linked from both
+`AGENTS/Librarian.md` and the repo `README.md` so it is reachable from wherever someone starts. Any
+new page or component should be checked against it before merging, the same way `DESIGN-LANGUAGE.md`
+governs testing conventions at the workspace root.
+
+Librarian is a working multi-page app, not the two-page (Home, PSN settings) state this document once
+described. The live route list is `src/app/app.routes.ts` — read it there rather than restating a
+count here, which is exactly the kind of number that rots quietly (it did: this paragraph claimed 17
+routes long after there were 21).

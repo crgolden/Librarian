@@ -29,7 +29,16 @@ const FULL_GAME: LibraryGameResponse = {
   rawg_enriched: true,
   opencritic_enriched: true,
   percent_completed: 87,
+  source: 'psn',
   cover_image_url: 'https://cdn.example/elden-ring.jpg',
+};
+
+const MANUAL_GAME: LibraryGameResponse = {
+  ...FULL_GAME,
+  game_id: 'g-manual',
+  title: 'Disc Only Game',
+  psn_product_id: null,
+  source: 'manual',
 };
 
 describe('LibraryComponent', () => {
@@ -68,6 +77,74 @@ describe('LibraryComponent', () => {
     await fixture.whenStable();
     return fixture;
   }
+
+  it('searches the shared catalog and adds the chosen game as a manual entry', async () => {
+    const fixture = await createAndLoad([FULL_GAME]);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    compiled.querySelector<HTMLButtonElement>('#library-add-manual-toggle')!.click();
+    fixture.detectChanges();
+
+    (fixture.componentInstance as unknown as { manualSearch: { set(v: string): void } }).manualSearch.set('disc');
+    fixture.detectChanges();
+    compiled.querySelector<HTMLButtonElement>('#library-manual-search-submit')!.click();
+
+    const searchReq = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
+    expect(searchReq.request.params.get('q')).toBe('disc');
+    searchReq.flush({
+      games: [
+        {
+          game_id: 'g-manual',
+          canonical_title: 'Disc Only Game',
+          franchise: null,
+          genre: 'Action',
+          aaa_tier: null,
+          cover_image_url: null,
+          store_product_id: null,
+        },
+      ],
+      total: 1,
+    });
+    fixture.detectChanges();
+
+    compiled.querySelector<HTMLButtonElement>('#library-manual-add-0')!.click();
+
+    const addReq = httpMock.expectOne('/curator/api/library/manual');
+    expect(addReq.request.method).toBe('POST');
+    expect(addReq.request.body).toEqual({ game_id: 'g-manual' });
+    addReq.flush(null);
+
+    httpMock.expectOne((r) => r.url === '/curator/api/library').flush(page([FULL_GAME, MANUAL_GAME]));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(compiled.textContent).toContain('Disc Only Game');
+  });
+
+  it('marks a manual entry and removes it via the manual route, never the refresh path', async () => {
+    const fixture = await createAndLoad([MANUAL_GAME]);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    expect(compiled.querySelector('#library-manual-badge-0')?.textContent).toContain('Added by hand');
+
+    compiled.querySelector<HTMLButtonElement>('#library-manual-remove-0')!.click();
+
+    const removeReq = httpMock.expectOne('/curator/api/library/manual/g-manual');
+    expect(removeReq.request.method).toBe('DELETE');
+    removeReq.flush(null);
+
+    httpMock.expectOne((r) => r.url === '/curator/api/library').flush(page([]));
+    fixture.detectChanges();
+    await fixture.whenStable();
+  });
+
+  it('offers no manual controls on a PSN-sourced entry', async () => {
+    const fixture = await createAndLoad([FULL_GAME]);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    expect(compiled.querySelector('#library-manual-badge-0')).toBeNull();
+    expect(compiled.querySelector('#library-manual-remove-0')).toBeNull();
+  });
 
   it('triggers a refresh, polls until succeeded, and shows a success message', async () => {
     const fixture = await createAndLoad();

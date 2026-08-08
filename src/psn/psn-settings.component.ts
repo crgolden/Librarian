@@ -6,6 +6,8 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CuratorService } from '../curator/curator.service';
 import {
   AccountActionResponse,
+  ConsoleResponse,
+  DeviceResponse,
   DevicesResponse,
   EnrichmentKeyStatusResponse,
   IdentityResponse,
@@ -97,6 +99,10 @@ export class PsnSettingsComponent implements OnInit {
   protected readonly devices = signal<DevicesResponse | null>(null);
   protected readonly devicesLoading = signal(false);
   protected readonly devicesError = signal<string | null>(null);
+
+  protected readonly consoles = signal<ConsoleResponse[]>([]);
+  protected readonly deviceLinkPending = signal<string | null>(null);
+  protected readonly deviceLinkError = signal<string | null>(null);
 
   protected readonly enrichmentKeyStatus = signal<EnrichmentKeyStatusResponse | null>(null);
   protected readonly enrichmentKeyStatusError = signal<string | null>(null);
@@ -250,6 +256,54 @@ export class PsnSettingsComponent implements OnInit {
       error: () => {
         this.devicesError.set('Unable to load registered devices.');
         this.devicesLoading.set(false);
+      },
+    });
+    this.curator.listConsoles().subscribe({
+      next: (consoles) => this.consoles.set(consoles),
+      error: () => this.consoles.set([]),
+    });
+  }
+
+  protected linkedConsoleName(device: DeviceResponse): string | null {
+    if (!device.linked_console_id) {
+      return null;
+    }
+    const linked = this.consoles().find((console) => console.console_id === device.linked_console_id);
+    return linked?.name ?? device.linked_console_id;
+  }
+
+  protected linkDevice(device: DeviceResponse, consoleId: string): void {
+    if (!consoleId) {
+      return;
+    }
+    this.deviceLinkPending.set(device.device_id);
+    this.deviceLinkError.set(null);
+    this.curator.linkConsoleDevice(consoleId, device.device_id).subscribe({
+      next: () => {
+        this.deviceLinkPending.set(null);
+        this.loadDevices();
+      },
+      error: () => {
+        this.deviceLinkPending.set(null);
+        this.deviceLinkError.set('Unable to link that console.');
+      },
+    });
+  }
+
+  protected unlinkDevice(device: DeviceResponse): void {
+    if (!device.linked_console_id) {
+      return;
+    }
+    this.deviceLinkPending.set(device.device_id);
+    this.deviceLinkError.set(null);
+    this.curator.unlinkConsoleDevice(device.linked_console_id).subscribe({
+      next: () => {
+        this.deviceLinkPending.set(null);
+        this.loadDevices();
+      },
+      error: () => {
+        this.deviceLinkPending.set(null);
+        this.deviceLinkError.set('Unable to unlink that console.');
       },
     });
   }

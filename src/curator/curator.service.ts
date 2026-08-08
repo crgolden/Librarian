@@ -13,8 +13,11 @@ import {
   ConsoleRequest,
   ConsoleResponse,
   ConsoleUpdateRequest,
+  CollectionItemSortField,
+  CollectionItemsPageResponse,
   DefinitionDetailResponse,
   DefinitionResponse,
+  DeviceLinkRequest,
   DevicesResponse,
   EnrichmentKeyStatusResponse,
   EnrichmentRunResponse,
@@ -25,6 +28,7 @@ import {
   LibraryPageResponse,
   LibraryRefreshResponse,
   LibraryRefreshStatusResponse,
+  ManualGameRequest,
   MeasuredSizeResponse,
   MeResponse,
   PresenceResponse,
@@ -47,6 +51,7 @@ import {
 } from './curator.models';
 
 export interface CatalogGamesQuery {
+  q?: string;
   franchise?: string;
   genre?: string;
   aaaTier?: string;
@@ -69,6 +74,38 @@ export interface LibraryQuery {
   sortDir?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
+}
+
+export interface CollectionItemsQuery {
+  q?: string;
+  genre?: string;
+  sort?: CollectionItemSortField;
+  sortDir?: 'asc' | 'desc';
+  limit?: number;
+  offset?: number;
+}
+
+function collectionItemsQueryParams(query: CollectionItemsQuery): HttpParams {
+  let params = new HttpParams();
+  if (query.q) {
+    params = params.set('q', query.q);
+  }
+  if (query.genre) {
+    params = params.set('genre', query.genre);
+  }
+  if (query.sort) {
+    params = params.set('sort', query.sort);
+  }
+  if (query.sortDir) {
+    params = params.set('sortDir', query.sortDir);
+  }
+  if (query.limit !== undefined) {
+    params = params.set('limit', query.limit);
+  }
+  if (query.offset !== undefined) {
+    params = params.set('offset', query.offset);
+  }
+  return params;
 }
 
 function libraryQueryParams(query: LibraryQuery): HttpParams {
@@ -102,6 +139,9 @@ export class CuratorService {
 
   listCatalogGames(query: CatalogGamesQuery): Observable<CatalogGamesResponse> {
     let params = new HttpParams();
+    if (query.q) {
+      params = params.set('q', query.q);
+    }
     if (query.franchise) {
       params = params.set('franchise', query.franchise);
     }
@@ -138,6 +178,25 @@ export class CuratorService {
 
   getDefinition(definitionId: string): Observable<DefinitionDetailResponse> {
     return this.http.get<DefinitionDetailResponse>(`/curator/api/collections/${definitionId}`);
+  }
+
+  getDefinitionItems(definitionId: string, query: CollectionItemsQuery = {}): Observable<CollectionItemsPageResponse> {
+    return this.http.get<CollectionItemsPageResponse>(`/curator/api/collections/${definitionId}/items`, {
+      params: collectionItemsQueryParams(query),
+    });
+  }
+
+  linkConsoleDevice(consoleId: string, deviceId: string): Observable<void> {
+    const body: DeviceLinkRequest = { device_id: deviceId };
+    return this.http.put<void>(`/curator/api/consoles/${consoleId}/device-link`, body);
+  }
+
+  unlinkConsoleDevice(consoleId: string): Observable<void> {
+    return this.http.delete<void>(`/curator/api/consoles/${consoleId}/device-link`);
+  }
+
+  removeDefinitionItem(definitionId: string, gameId: string): Observable<void> {
+    return this.http.delete<void>(`/curator/api/collections/${definitionId}/items/${gameId}`);
   }
 
   updateDefinition(definitionId: string, body: UpdateDefinitionRequest): Observable<DefinitionDetailResponse> {
@@ -261,6 +320,14 @@ export class CuratorService {
 
   getLibrary(query: LibraryQuery = {}): Observable<LibraryPageResponse> {
     return this.http.get<LibraryPageResponse>('/curator/api/library', { params: libraryQueryParams(query) });
+  }
+
+  addManualGame(body: ManualGameRequest): Observable<void> {
+    return this.http.post<void>('/curator/api/library/manual', body);
+  }
+
+  removeManualGame(gameId: string): Observable<void> {
+    return this.http.delete<void>(`/curator/api/library/manual/${gameId}`);
   }
 
   getLibraryCategories(): Observable<LibraryCategoriesResponse> {

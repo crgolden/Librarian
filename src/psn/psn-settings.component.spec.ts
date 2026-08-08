@@ -484,6 +484,7 @@ describe('PsnSettingsComponent', () => {
     }
     if (prefs.harvest_devices) {
       httpMock.expectOne('/curator/api/devices').flush({ devices: [] });
+      httpMock.expectOne('/curator/api/consoles').flush([]);
     }
     fixture.detectChanges();
 

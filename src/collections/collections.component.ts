@@ -6,6 +6,8 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
 import { CuratorService } from '../curator/curator.service';
 import {
+  CollectionItemResponse,
+  CollectionItemSortField,
   CollectionPreviewResponse,
   CollectionRunResponse,
   CollectionSpecRequest,
@@ -22,6 +24,8 @@ import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/br
 
 type CollectionKind = 'filter_list' | 'capacity_fill';
 type View = 'list' | 'create' | 'detail' | 'followed';
+
+const ITEMS_PAGE_SIZE = 50;
 
 /** `/collections` (owner) and `/collections/:sub` (viewer, canonicalized away from your own sub).
  *
@@ -100,6 +104,15 @@ export class CollectionsComponent implements OnInit {
 
   protected readonly removingGameIds = signal<ReadonlySet<string>>(new Set());
   protected readonly itemsError = signal<string | null>(null);
+
+  protected readonly items = signal<CollectionItemResponse[]>([]);
+  protected readonly itemsTotal = signal(0);
+  protected readonly itemsLoading = signal(false);
+  protected readonly itemSearch = signal('');
+  protected readonly itemSort = signal<CollectionItemSortField>('rank');
+  protected readonly itemSortDir = signal<'asc' | 'desc'>('asc');
+  protected readonly itemOffset = signal(0);
+  protected readonly itemsPageSize = ITEMS_PAGE_SIZE;
 
   protected readonly confirmingDelete = signal(false);
   protected readonly deleting = signal(false);
@@ -410,11 +423,17 @@ export class CollectionsComponent implements OnInit {
     this.expandedSizeGameId.set(null);
     this.measuredSizesByGame.set(new Map());
     this.measuredSizeError.set(null);
+    this.items.set([]);
+    this.itemsTotal.set(0);
+    this.itemSearch.set('');
+    this.itemSort.set('rank');
+    this.itemSortDir.set('asc');
+    this.itemOffset.set(0);
 
     this.curator.getDefinition(definitionId).subscribe({
       next: (definition) => {
         this.detailLoading.set(false);
-        this.selectedDefinition.set(definition);
+        this.applyDefinition(definition);
         this.editName.set(definition.name);
         this.editDescription.set(definition.description ?? '');
         if (definition.kind === 'capacity_fill' && definition.console_id) {
@@ -427,6 +446,69 @@ export class CollectionsComponent implements OnInit {
         this.detailError.set('Unable to load this collection.');
       },
     });
+  }
+
+  private applyDefinition(definition: DefinitionDetailResponse): void {
+    this.selectedDefinition.set(definition);
+    this.items.set(definition.items);
+    this.itemsTotal.set(definition.item_count);
+    this.itemOffset.set(0);
+  }
+
+  private loadItems(definitionId: string): void {
+    this.itemsLoading.set(true);
+    this.curator
+      .getDefinitionItems(definitionId, {
+        q: this.itemSearch() || undefined,
+        sort: this.itemSort(),
+        sortDir: this.itemSortDir(),
+        limit: ITEMS_PAGE_SIZE,
+        offset: this.itemOffset(),
+      })
+      .subscribe({
+        next: (page) => {
+          this.itemsLoading.set(false);
+          this.items.set(page.items);
+          this.itemsTotal.set(page.total);
+        },
+        error: () => {
+          this.itemsLoading.set(false);
+          this.itemsError.set('Unable to load this collection’s titles.');
+        },
+      });
+  }
+
+  protected searchItems(term: string): void {
+    this.itemSearch.set(term);
+    this.itemOffset.set(0);
+    this.reloadItems();
+  }
+
+  protected sortItemsBy(field: CollectionItemSortField): void {
+    if (this.itemSort() === field) {
+      this.itemSortDir.update((dir) => (dir === 'asc' ? 'desc' : 'asc'));
+    } else {
+      this.itemSort.set(field);
+      this.itemSortDir.set('asc');
+    }
+    this.itemOffset.set(0);
+    this.reloadItems();
+  }
+
+  protected pageItems(delta: number): void {
+    const next = this.itemOffset() + delta * ITEMS_PAGE_SIZE;
+    if (next < 0 || next >= this.itemsTotal()) {
+      return;
+    }
+    this.itemOffset.set(next);
+    this.reloadItems();
+  }
+
+  private reloadItems(): void {
+    const definition = this.selectedDefinition();
+    if (definition) {
+      this.loadItems(definition.definition_id);
+    }
   }
 
   private hydrateInstalls(consoleId: string): void {
@@ -511,7 +593,7 @@ export class CollectionsComponent implements OnInit {
         next: (updated) => {
           this.savingMeta.set(false);
           this.editingMeta.set(false);
-          this.selectedDefinition.set(updated);
+          this.applyDefinition(updated);
         },
         error: (err: HttpErrorResponse) => {
           this.savingMeta.set(false);
@@ -527,18 +609,16 @@ export class CollectionsComponent implements OnInit {
     if (!definition) {
       return;
     }
-    const remaining = definition.items.filter((item) => item.game_id !== gameId).map((item) => item.game_id);
-
     this.removingGameIds.update((ids) => new Set(ids).add(gameId));
     this.itemsError.set(null);
-    this.curator.updateDefinition(definition.definition_id, { game_ids: remaining }).subscribe({
-      next: (updated) => {
+    this.curator.removeDefinitionItem(definition.definition_id, gameId).subscribe({
+      next: () => {
         this.removingGameIds.update((ids) => {
           const next = new Set(ids);
           next.delete(gameId);
           return next;
         });
-        this.selectedDefinition.set(updated);
+        this.loadItems(definition.definition_id);
       },
       error: () => {
         this.removingGameIds.update((ids) => {
@@ -650,7 +730,7 @@ export class CollectionsComponent implements OnInit {
       .subscribe({
         next: (updated) => {
           this.adopting.set(false);
-          this.selectedDefinition.set(updated);
+          this.applyDefinition(updated);
           this.runResult.set(null);
         },
         error: () => {

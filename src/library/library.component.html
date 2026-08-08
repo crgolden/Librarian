@@ -15,6 +15,58 @@
           {{ refreshing() ? 'Refreshing...' : 'Refresh library' }}
         </button>
 
+        <button id="library-add-manual-toggle" type="button" class="btn-ghost" (click)="toggleAddManual()">
+          {{ addingManual() ? 'Cancel' : 'Add a game manually' }}
+        </button>
+
+        @if (addingManual()) {
+          <div class="manual-add">
+            <p class="text-muted">
+              For a game you own that PlayStation Network has no record of — a disc, typically. Search the shared
+              catalog for it; a refresh will never remove what you add here.
+            </p>
+            <form (submit)="$event.preventDefault(); searchCatalog()">
+              <input
+                id="library-manual-search"
+                name="manualSearch"
+                type="search"
+                placeholder="Search the catalog"
+                [ngModel]="manualSearch()"
+                (ngModelChange)="manualSearch.set($event)"
+              />
+              <button id="library-manual-search-submit" type="submit" class="btn-primary btn-sm">Search</button>
+            </form>
+
+            @if (manualSearching()) {
+              <p class="text-muted">Searching…</p>
+            }
+            @if (manualError()) {
+              <p class="text-error">{{ manualError() }}</p>
+            }
+            @if (manualResults().length > 0) {
+              <ul class="manual-add-results">
+                @for (candidate of manualResults(); track $index) {
+                  <li>
+                    <span class="catalog-title">{{ candidate.canonical_title }}</span>
+                    @if (candidate.genre) {
+                      <span class="spine-label">{{ candidate.genre }}</span>
+                    }
+                    <button
+                      type="button"
+                      class="btn-ghost btn-sm"
+                      [attr.id]="'library-manual-add-' + $index"
+                      [disabled]="manualPending() === candidate.game_id"
+                      (click)="addManualGame(candidate)"
+                    >
+                      Add
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        }
+
         @if (error()) {
           <p class="text-error">{{ error() }}</p>
         }
@@ -150,7 +202,23 @@
                         <img class="cover-art" [src]="row.original.cover_image_url" [alt]="row.original.title" loading="lazy" />
                       }
                     </td>
-                    <td data-label="Title" [attr.id]="'library-title-' + $index">{{ row.original.title }}</td>
+                    <td data-label="Title" [attr.id]="'library-title-' + $index">
+                      {{ row.original.title }}
+                      @if (isManual(row.original)) {
+                        <span class="spine-label" [attr.id]="'library-manual-badge-' + $index">Added by hand</span>
+                        @if (!viewerMode()) {
+                          <button
+                            type="button"
+                            class="link-button"
+                            [attr.id]="'library-manual-remove-' + $index"
+                            [disabled]="manualPending() === row.original.game_id"
+                            (click)="removeManualGame(row.original)"
+                          >
+                            Remove
+                          </button>
+                        }
+                      }
+                    </td>
                     <td data-label="Category">{{ row.original.category ?? '—' }}</td>
                     <td data-label="RAWG">{{ row.original.rawg_rating ?? '—' }}</td>
                     <td data-label="OpenCritic">{{ row.original.opencritic_rating ?? '—' }}</td>

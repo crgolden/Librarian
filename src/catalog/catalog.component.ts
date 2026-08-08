@@ -3,6 +3,8 @@ import { FormsModule } from '@angular/forms';
 import { CuratorService } from '../curator/curator.service';
 import { GameSummaryResponse } from '../curator/curator.models';
 
+const PS_STORE_PRODUCT_BASE = 'https://store.playstation.com/product/';
+
 const PAGE_SIZE = 50;
 
 @Component({
@@ -19,10 +21,17 @@ export class CatalogComponent implements OnInit {
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
 
+  protected readonly search = signal('');
   protected readonly franchise = signal('');
   protected readonly genre = signal('');
   protected readonly aaaTier = signal('');
   protected readonly offset = signal(0);
+  protected readonly total = signal(0);
+  protected readonly pageSize = PAGE_SIZE;
+
+  protected storeUrl(game: GameSummaryResponse): string | null {
+    return game.store_product_id ? PS_STORE_PRODUCT_BASE + encodeURIComponent(game.store_product_id) : null;
+  }
 
   protected readonly hasNextPage = signal(false);
   protected readonly hasPrevPage = signal(false);
@@ -52,6 +61,7 @@ export class CatalogComponent implements OnInit {
 
     this.curator
       .listCatalogGames({
+        q: this.search().trim() || undefined,
         franchise: this.franchise().trim() || undefined,
         genre: this.genre().trim() || undefined,
         aaaTier: this.aaaTier() || undefined,
@@ -61,7 +71,8 @@ export class CatalogComponent implements OnInit {
       .subscribe({
         next: (response) => {
           this.games.set(response.games);
-          this.hasNextPage.set(response.games.length === PAGE_SIZE);
+          this.total.set(response.total);
+          this.hasNextPage.set(this.offset() + response.games.length < response.total);
           this.hasPrevPage.set(this.offset() > 0);
           this.loading.set(false);
         },

@@ -7,10 +7,13 @@ export interface GameSummaryResponse {
   franchise: string | null;
   genre: string | null;
   aaa_tier: string | null;
+  cover_image_url: string | null;
+  store_product_id: string | null;
 }
 
 export interface CatalogGamesResponse {
   games: GameSummaryResponse[];
+  total: number;
 }
 
 export interface CollectionSpecRequest {
@@ -105,6 +108,13 @@ export interface DefinitionDetailResponse extends DefinitionResponse {
   items: CollectionItemResponse[];
 }
 
+export type CollectionItemSortField = 'rank' | 'title' | 'critical_score' | 'oc_score' | 'psn_rating';
+
+export interface CollectionItemsPageResponse {
+  items: CollectionItemResponse[];
+  total: number;
+}
+
 export interface PublicCollectionResponse {
   definition_id: string;
   name: string;
@@ -154,12 +164,21 @@ export interface LibraryGameResponse {
   rawg_enriched: boolean;
   opencritic_enriched: boolean;
   percent_completed: number | null;
+  /** `'psn'` for an entitlement-backed entry, `'manual'` for one the owner added by hand. */
+  source: string;
   cover_image_url: string | null;
 }
 
 export interface LibraryPageResponse {
   games: LibraryGameResponse[];
   total: number;
+}
+
+export interface ManualGameRequest {
+  game_id: string;
+  native_ps5?: boolean;
+  ps4_eligible?: boolean;
+  owned_edition?: string | null;
 }
 
 export interface LibraryCategoriesResponse {
@@ -267,6 +286,11 @@ export interface DeviceResponse {
   activation_type: string;
   activation_date: string | null;
   deactivation_date: string | null;
+  linked_console_id: string | null;
+}
+
+export interface DeviceLinkRequest {
+  device_id: string;
 }
 
 export interface DevicesResponse {

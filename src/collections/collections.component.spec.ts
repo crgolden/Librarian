@@ -360,7 +360,7 @@ describe('CollectionsComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Renamed');
   });
 
-  it('removeItem() PATCHes the remaining game_ids', () => {
+  it('removeItem() DELETEs the one title instead of rewriting the membership', () => {
     const fixture = createAndLoad([definition()]);
     const h = harness(fixture);
     h.openDefinition('d1');
@@ -368,14 +368,32 @@ describe('CollectionsComponent', () => {
     fixture.detectChanges();
 
     h.removeItem('g1');
-    const patchReq = httpMock.expectOne('/curator/api/collections/d1');
-    expect(patchReq.request.body).toEqual({ game_ids: ['g2'] });
-    patchReq.flush(definitionDetail({}, [item('g2')]));
+    const deleteReq = httpMock.expectOne({ url: '/curator/api/collections/d1/items/g1', method: 'DELETE' });
+    expect(deleteReq.request.body).toBeNull();
+    deleteReq.flush(null);
+
+    httpMock
+      .expectOne((r) => r.url === '/curator/api/collections/d1/items')
+      .flush({ items: [item('g2')], total: 1 });
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.textContent).not.toContain('Game g1');
     expect(compiled.textContent).toContain('Game g2');
+  });
+
+  it('removeItem() never sends a whole-membership replacement, which would drop other pages', () => {
+    const fixture = createAndLoad([definition()]);
+    const h = harness(fixture);
+    h.openDefinition('d1');
+    httpMock.expectOne('/curator/api/collections/d1').flush(definitionDetail({}, [item('g1'), item('g2')]));
+    fixture.detectChanges();
+
+    h.removeItem('g1');
+
+    httpMock.expectNone((r) => r.method === 'PATCH');
+    httpMock.expectOne({ url: '/curator/api/collections/d1/items/g1', method: 'DELETE' }).flush(null);
+    httpMock.expectOne((r) => r.url === '/curator/api/collections/d1/items').flush({ items: [], total: 0 });
   });
 
   it('setVisibility() shows a copyable share link once a collection stops being private', () => {

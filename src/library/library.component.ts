@@ -14,7 +14,12 @@ import {
 import { Subject, Subscription, debounceTime, distinctUntilChanged, interval, retry, switchMap, takeWhile } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import { CuratorService, LibraryQuery, LibrarySortField } from '../curator/curator.service';
-import { LibraryGameResponse, LibraryRefreshStatusResponse, ProfileLibraryGameResponse } from '../curator/curator.models';
+import {
+  GameSummaryResponse,
+  LibraryGameResponse,
+  LibraryRefreshStatusResponse,
+  ProfileLibraryGameResponse,
+} from '../curator/curator.models';
 import { redirectIfOwnSub } from '../profile/own-sub-redirect';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
 
@@ -90,6 +95,13 @@ export class LibraryComponent implements OnInit, OnDestroy {
   protected readonly committedSearch = signal('');
   protected readonly categoryFilter = signal('');
   protected readonly categoryOptions = signal<string[]>([]);
+
+  protected readonly addingManual = signal(false);
+  protected readonly manualSearch = signal('');
+  protected readonly manualResults = signal<GameSummaryResponse[]>([]);
+  protected readonly manualSearching = signal(false);
+  protected readonly manualPending = signal<string | null>(null);
+  protected readonly manualError = signal<string | null>(null);
 
   protected readonly sorting = signal<SortingState>([{ id: 'title', desc: false }]);
   protected readonly pagination = signal<PaginationState>({ pageIndex: 0, pageSize: LIBRARY_PAGE_SIZE });
@@ -176,6 +188,71 @@ export class LibraryComponent implements OnInit, OnDestroy {
     request.subscribe({
       next: (response) => this.categoryOptions.set(response.categories),
       error: () => undefined,
+    });
+  }
+
+  /** Viewer-mode rows carry no provenance, so the union needs narrowing before reading `source`. */
+  protected isManual(game: LibraryGame): boolean {
+    return 'source' in game && game.source === 'manual';
+  }
+
+  protected toggleAddManual(): void {
+    this.addingManual.update((open) => !open);
+    this.manualSearch.set('');
+    this.manualResults.set([]);
+    this.manualError.set(null);
+  }
+
+  protected searchCatalog(): void {
+    const term = this.manualSearch().trim();
+    if (!term) {
+      this.manualResults.set([]);
+      return;
+    }
+    this.manualSearching.set(true);
+    this.manualError.set(null);
+    this.curator.listCatalogGames({ q: term, limit: 10 }).subscribe({
+      next: (response) => {
+        this.manualSearching.set(false);
+        this.manualResults.set(response.games);
+      },
+      error: () => {
+        this.manualSearching.set(false);
+        this.manualError.set('Unable to search the catalog.');
+      },
+    });
+  }
+
+  protected addManualGame(game: GameSummaryResponse): void {
+    this.manualPending.set(game.game_id);
+    this.manualError.set(null);
+    this.curator.addManualGame({ game_id: game.game_id }).subscribe({
+      next: () => {
+        this.manualPending.set(null);
+        this.addingManual.set(false);
+        this.manualSearch.set('');
+        this.manualResults.set([]);
+        this.reload();
+      },
+      error: () => {
+        this.manualPending.set(null);
+        this.manualError.set(`Unable to add ${game.canonical_title}.`);
+      },
+    });
+  }
+
+  protected removeManualGame(game: LibraryGame): void {
+    this.manualPending.set(game.game_id);
+    this.manualError.set(null);
+    this.curator.removeManualGame(game.game_id).subscribe({
+      next: () => {
+        this.manualPending.set(null);
+        this.reload();
+      },
+      error: () => {
+        this.manualPending.set(null);
+        this.manualError.set(`Unable to remove ${game.title}.`);
+      },
     });
   }
 

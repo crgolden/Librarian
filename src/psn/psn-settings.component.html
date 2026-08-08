@@ -309,15 +309,43 @@
         <div class="card status-card psn-category-card">
           <h3>Registered Devices</h3>
           <ul class="psn-device-list">
-            @for (device of deviceList.devices; track device.device_id) {
+            @for (device of deviceList.devices; track $index) {
               <li>
                 {{ device.device_name }} ({{ device.device_type }})
                 @if (device.activation_date) {
                   <span class="catalog-meta"> &mdash; activated {{ device.activation_date | date: 'medium' }}</span>
                 }
+                @if (linkedConsoleName(device); as consoleName) {
+                  <span class="spine-label" [attr.id]="'device-linked-' + $index">
+                    Linked to {{ consoleName }}
+                  </span>
+                  <button
+                    type="button"
+                    class="link-button"
+                    [attr.id]="'device-unlink-' + $index"
+                    [disabled]="deviceLinkPending() === device.device_id"
+                    (click)="unlinkDevice(device)"
+                  >
+                    Unlink
+                  </button>
+                } @else if (consoles().length) {
+                  <select
+                    [attr.id]="'device-link-select-' + $index"
+                    [disabled]="deviceLinkPending() === device.device_id"
+                    (change)="linkDevice(device, $any($event.target).value)"
+                  >
+                    <option value="">Link to a console&hellip;</option>
+                    @for (console of consoles(); track console.console_id) {
+                      <option [value]="console.console_id">{{ console.name }}</option>
+                    }
+                  </select>
+                }
               </li>
             }
           </ul>
+          @if (deviceLinkError()) {
+            <p class="text-error">{{ deviceLinkError() }}</p>
+          }
         </div>
       } @else if (prefs.harvest_devices && devicesError()) {
         <p class="text-error">{{ devicesError() }}</p>

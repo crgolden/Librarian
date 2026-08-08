@@ -320,15 +320,39 @@
           }
         </div>
 
-        <h3>Games ({{ definition.items.length }})</h3>
+        <h3>Games ({{ itemsTotal() }})</h3>
+        <div class="collection-item-controls">
+          <input
+            id="collection-item-search"
+            type="search"
+            placeholder="Search titles"
+            [value]="itemSearch()"
+            (input)="searchItems($any($event.target).value)"
+          />
+          <button id="collection-sort-rank" type="button" class="link-button" (click)="sortItemsBy('rank')">
+            Rank
+          </button>
+          <button id="collection-sort-title" type="button" class="link-button" (click)="sortItemsBy('title')">
+            Title
+          </button>
+          <button id="collection-sort-oc" type="button" class="link-button" (click)="sortItemsBy('oc_score')">
+            OpenCritic
+          </button>
+          <button id="collection-sort-psn" type="button" class="link-button" (click)="sortItemsBy('psn_rating')">
+            PSN
+          </button>
+        </div>
         @if (itemsError()) {
           <p class="text-error">{{ itemsError() }}</p>
         }
-        @if (definition.items.length === 0) {
+        @if (itemsLoading()) {
+          <p class="text-muted">Loading titles…</p>
+        }
+        @if (items().length === 0 && !itemsLoading()) {
           <p class="text-muted">No games in this collection yet.</p>
         } @else {
           <ul class="catalog-list">
-            @for (item of definition.items; track item.game_id) {
+            @for (item of items(); track item.game_id) {
               <li class="card catalog-card" [class.item-unavailable]="!item.owner_has_access">
                 @if (item.cover_image_url) {
                   <img class="cover-art" [src]="item.cover_image_url" [alt]="item.title" loading="lazy" />
@@ -432,6 +456,31 @@
               </li>
             }
           </ul>
+          @if (itemsTotal() > itemsPageSize) {
+            <div class="collection-item-pager">
+              <button
+                id="collection-items-prev"
+                type="button"
+                class="link-button"
+                [disabled]="itemOffset() === 0"
+                (click)="pageItems(-1)"
+              >
+                Previous
+              </button>
+              <span class="text-muted">
+                {{ itemOffset() + 1 }}–{{ itemOffset() + items().length }} of {{ itemsTotal() }}
+              </span>
+              <button
+                id="collection-items-next"
+                type="button"
+                class="link-button"
+                [disabled]="itemOffset() + itemsPageSize >= itemsTotal()"
+                (click)="pageItems(1)"
+              >
+                Next
+              </button>
+            </div>
+          }
         }
 
         @if (runError()) {

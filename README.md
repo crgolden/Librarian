@@ -9,6 +9,9 @@ with a **Node.js Express** Backend-for-Frontend (BFF), served by a single Node p
 the OIDC session and proxies every data call to the standalone [Curator](https://github.com/crgolden/Curator)
 API; the browser never sees an access token directly.
 
+The visual design language — the two color moods, the type scale, the catalog-card component
+vocabulary, and the layout measures each page uses — is documented in [DESIGN.md](DESIGN.md).
+
 ## Sibling Applications
 
 | Repo | Role | How Librarian interacts |

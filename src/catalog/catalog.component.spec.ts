@@ -4,11 +4,21 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CatalogComponent } from './catalog.component';
 import { GameSummaryResponse } from '../curator/curator.models';
 
-function game(id: string, title: string): GameSummaryResponse {
-  return { game_id: id, canonical_title: title, franchise: 'Franchise', genre: 'Action', aaa_tier: 'AAA' };
+function game(id: string, title: string, overrides: Partial<GameSummaryResponse> = {}): GameSummaryResponse {
+  return {
+    game_id: id,
+    canonical_title: title,
+    franchise: 'Franchise',
+    genre: 'Action',
+    aaa_tier: 'AAA',
+    cover_image_url: null,
+    store_product_id: null,
+    ...overrides,
+  };
 }
 
 interface CatalogHarness {
+  search: { set(value: string): void };
   franchise: { set(value: string): void };
   genre: { set(value: string): void };
   aaaTier: { set(value: string): void };
@@ -41,7 +51,7 @@ describe('CatalogComponent', () => {
     fixture.detectChanges();
 
     const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
-    req.flush({ games: [game('g1', 'Bloodborne')] });
+    req.flush({ games: [game('g1', 'Bloodborne')], total: 1 });
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
@@ -49,10 +59,66 @@ describe('CatalogComponent', () => {
     expect(compiled.querySelector('button[disabled]')?.textContent).toContain('Previous');
   });
 
+  it('sends the title search term as q', () => {
+    const fixture = TestBed.createComponent(CatalogComponent);
+    fixture.detectChanges();
+    httpMock.expectOne((r) => r.url === '/curator/api/catalog/games').flush({ games: [], total: 0 });
+    fixture.detectChanges();
+
+    const h = harness(fixture);
+    h.search.set('tomb');
+    h.applyFilters();
+
+    const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
+    expect(req.request.params.get('q')).toBe('tomb');
+    req.flush({ games: [], total: 0 });
+  });
+
+  it('renders cover art and a PlayStation Store link when the catalog has them', () => {
+    const fixture = TestBed.createComponent(CatalogComponent);
+    fixture.detectChanges();
+
+    httpMock.expectOne((r) => r.url === '/curator/api/catalog/games').flush({
+      games: [game('g1', 'Bloodborne', { cover_image_url: 'https://img/cover.jpg', store_product_id: 'UP9000-CUSA00207_00-X' })],
+      total: 1,
+    });
+    fixture.detectChanges();
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.querySelector('img.cover-art')?.getAttribute('src')).toBe('https://img/cover.jpg');
+    const link = compiled.querySelector<HTMLAnchorElement>('#catalog-store-link-0');
+    expect(link?.href).toContain('store.playstation.com/product/');
+    expect(link?.rel).toContain('noopener');
+  });
+
+  it('omits the store link for a game with no store product id', () => {
+    const fixture = TestBed.createComponent(CatalogComponent);
+    fixture.detectChanges();
+
+    httpMock
+      .expectOne((r) => r.url === '/curator/api/catalog/games')
+      .flush({ games: [game('g1', 'Unknown')], total: 1 });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('#catalog-store-link-0')).toBeNull();
+  });
+
+  it('disables Next on the last page even when the page came back full', () => {
+    const fixture = TestBed.createComponent(CatalogComponent);
+    fixture.detectChanges();
+
+    const fullPage = Array.from({ length: 50 }, (_, i) => game(`g${i}`, `Game ${i}`));
+    httpMock.expectOne((r) => r.url === '/curator/api/catalog/games').flush({ games: fullPage, total: 50 });
+    fixture.detectChanges();
+
+    const next = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('#catalog-next')!;
+    expect(next.disabled).toBe(true);
+  });
+
   it('applying filters resets the offset and re-requests with the given params', () => {
     const fixture = TestBed.createComponent(CatalogComponent);
     fixture.detectChanges();
-    httpMock.expectOne((r) => r.url === '/curator/api/catalog/games').flush({ games: [] });
+    httpMock.expectOne((r) => r.url === '/curator/api/catalog/games').flush({ games: [], total: 0 });
     fixture.detectChanges();
 
     const h = harness(fixture);
@@ -62,7 +128,7 @@ describe('CatalogComponent', () => {
     const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
     expect(req.request.params.get('franchise')).toBe('Uncharted');
     expect(req.request.params.get('offset')).toBe('0');
-    req.flush({ games: [] });
+    req.flush({ games: [], total: 0 });
   });
 
   it('shows an error message when the catalog request fails', () => {
@@ -75,17 +141,17 @@ describe('CatalogComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load the catalog.');
   });
 
-  it('nextPage advances the offset only when a full page came back', () => {
+  it('nextPage advances the offset by one page', () => {
     const fixture = TestBed.createComponent(CatalogComponent);
     fixture.detectChanges();
 
     const fullPage = Array.from({ length: 50 }, (_, i) => game(`g${i}`, `Game ${i}`));
-    httpMock.expectOne((r) => r.url === '/curator/api/catalog/games').flush({ games: fullPage });
+    httpMock.expectOne((r) => r.url === '/curator/api/catalog/games').flush({ games: fullPage, total: 120 });
     fixture.detectChanges();
 
     harness(fixture).nextPage();
     const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
     expect(req.request.params.get('offset')).toBe('50');
-    req.flush({ games: [] });
+    req.flush({ games: [], total: 120 });
   });
 });
