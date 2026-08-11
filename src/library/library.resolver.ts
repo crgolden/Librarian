@@ -9,10 +9,6 @@ export const LIBRARY_PAGE_SIZE = 20;
 
 export type ResolvedLibraryGame = LibraryGameResponse | ProfileLibraryGameResponse;
 
-/**
- * "This library is private" is a different page from "this library failed to load", so a bare `null`
- * would flatten the two -- the same reason `publicCollectionResolver` returns a tagged result.
- */
 export type ResolvedLibrary =
   | { status: 'ok'; games: ResolvedLibraryGame[]; total: number; categories: string[] }
   | { status: 'forbidden' }
@@ -27,16 +23,8 @@ export const initialLibraryQuery: LibraryQuery = {
 };
 
 /**
- * Resolves the library's first page *and* its category options together, for either owner mode
- * (`/library`) or viewer mode (`/library/:sub`).
- *
- * Both were separate `ngOnInit` fetches with independent completion, which is what made the Library
- * E2E flaky enough to need `expect.poll(..., { timeout: 10_000 })` on every assertion (commit
- * `83f003f`): the table, the category `<select>` and the empty state each appeared on their own
- * schedule. Resolving them as one payload means the page has no half-rendered state to observe.
- *
- * The category list is best-effort -- a failure there yields an empty list rather than failing the
- * page, because the games are the page and the filter is an affordance on top of it.
+ * Resolves the library's first page and its category options, for owner (`/library`) or viewer
+ * (`/library/:sub`) mode. Categories are best-effort: a failure there yields an empty list.
  */
 export const libraryResolver: ResolveFn<ResolvedLibrary> = (route: ActivatedRouteSnapshot) => {
   const curator = inject(CuratorService);

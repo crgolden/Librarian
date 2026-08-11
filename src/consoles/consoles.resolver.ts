@@ -9,15 +9,7 @@ export interface ConsolesPageData {
   devices: StorageDeviceResponse[];
 }
 
-/**
- * Resolves both of /consoles' first payloads together. They were two independent `ngOnInit` fetches
- * with two loading flags, which meant the page could show its console list while the storage-device
- * list below it was still a placeholder -- a half-rendered page, not a loading one.
- *
- * `forkJoin` makes them one payload, so either both are on screen or the route hasn't activated.
- * Resolves to `null` if either fails, matching `psnStatusResolver`: the component renders its own
- * error state rather than the navigation failing.
- */
+/** Resolves the caller's consoles and storage devices together, or `null` if either could not be loaded. */
 export const consolesResolver: ResolveFn<ConsolesPageData | null> = () => {
   const curator = inject(CuratorService);
 

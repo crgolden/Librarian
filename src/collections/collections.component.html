@@ -1,4 +1,6 @@
 <section class="page-section collections">
+  <app-loading-overlay [visible]="loading()" />
+
   @if (viewerMode()) {
     <app-breadcrumb [items]="breadcrumbItems()" />
   }
@@ -7,8 +9,6 @@
   @if (viewerMode()) {
     @if (viewerForbidden()) {
       <p class="text-muted">This section isn't available.</p>
-    } @else if (viewerLoading()) {
-      <p class="text-muted">Loading collections...</p>
     } @else {
       @if (viewerDefinitionsError()) {
         <p class="text-error">{{ viewerDefinitionsError() }}</p>
@@ -47,66 +47,58 @@
       <button type="button" class="btn-ghost" (click)="showFollowed()">Collections I follow</button>
     </div>
 
-    @if (loadingDefinitions()) {
-      <p class="text-muted">Loading your collections...</p>
+    @if (definitionsError()) {
+      <p class="text-error">{{ definitionsError() }}</p>
+    }
+    @if (definitions().length === 0) {
+      <p class="text-muted">You haven't saved any collections yet.</p>
     } @else {
-      @if (definitionsError()) {
-        <p class="text-error">{{ definitionsError() }}</p>
-      }
-      @if (definitions().length === 0) {
-        <p class="text-muted">You haven't saved any collections yet.</p>
-      } @else {
-        <ul class="definition-list">
-          @for (definition of definitions(); track definition.definition_id) {
-            <li class="card definition-card">
-              <span class="catalog-title">{{ definition.name }}</span>
-              <span class="spine-label">{{ kindLabel(definition.kind) }}</span>
-              <span class="catalog-meta">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
-              <span class="visibility-badge" [class.visibility-shared]="definition.visibility !== 'private'">
-                {{ definition.visibility }}
-              </span>
-              <button type="button" class="btn-ghost" (click)="openDefinition(definition.definition_id)">View / Edit</button>
-            </li>
-          }
-        </ul>
-      }
+      <ul class="definition-list">
+        @for (definition of definitions(); track definition.definition_id) {
+          <li class="card definition-card">
+            <span class="catalog-title">{{ definition.name }}</span>
+            <span class="spine-label">{{ kindLabel(definition.kind) }}</span>
+            <span class="catalog-meta">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
+            <span class="visibility-badge" [class.visibility-shared]="definition.visibility !== 'private'">
+              {{ definition.visibility }}
+            </span>
+            <button type="button" class="btn-ghost" (click)="openDefinition(definition.definition_id)">View / Edit</button>
+          </li>
+        }
+      </ul>
     }
   }
 
   @if (view() === 'followed') {
     <button type="button" class="btn-ghost" (click)="view.set('list')">&larr; Back to your collections</button>
 
-    @if (loadingFollowed()) {
-      <p class="text-muted">Loading followed collections...</p>
+    @if (followedError()) {
+      <p class="text-error">{{ followedError() }}</p>
+    }
+    @if (followedDefinitions().length === 0) {
+      <p class="text-muted">You aren't following any collections yet.</p>
     } @else {
-      @if (followedError()) {
-        <p class="text-error">{{ followedError() }}</p>
-      }
-      @if (followedDefinitions().length === 0) {
-        <p class="text-muted">You aren't following any collections yet.</p>
-      } @else {
-        <ul class="definition-list">
-          @for (definition of followedDefinitions(); track definition.definition_id) {
-            <li class="card definition-card">
-              <span class="catalog-title">{{ definition.name }}</span>
-              <span class="catalog-meta">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
-              @if (definition.share_slug && definition.visibility !== 'private') {
-                <a class="btn-ghost" [href]="shareUrlFor(definition.share_slug)" target="_blank" rel="noopener">View</a>
-              } @else {
-                <span class="catalog-meta">No longer shared.</span>
-              }
-              <button
-                type="button"
-                class="btn-ghost"
-                [disabled]="unfollowingIds().has(definition.definition_id)"
-                (click)="unfollow(definition.definition_id)"
-              >
-                Unfollow
-              </button>
-            </li>
-          }
-        </ul>
-      }
+      <ul class="definition-list">
+        @for (definition of followedDefinitions(); track definition.definition_id) {
+          <li class="card definition-card">
+            <span class="catalog-title">{{ definition.name }}</span>
+            <span class="catalog-meta">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
+            @if (definition.share_slug && definition.visibility !== 'private') {
+              <a class="btn-ghost" [href]="shareUrlFor(definition.share_slug)" target="_blank" rel="noopener">View</a>
+            } @else {
+              <span class="catalog-meta">No longer shared.</span>
+            }
+            <button
+              type="button"
+              class="btn-ghost"
+              [disabled]="unfollowingIds().has(definition.definition_id)"
+              (click)="unfollow(definition.definition_id)"
+            >
+              Unfollow
+            </button>
+          </li>
+        }
+      </ul>
     }
   }
 
@@ -249,9 +241,6 @@
   @if (view() === 'detail') {
     <button type="button" class="btn-ghost" (click)="backToList()">&larr; Back to collections</button>
 
-    @if (detailLoading()) {
-      <p class="text-muted">Loading collection...</p>
-    }
     @if (detailError()) {
       <p class="text-error">{{ detailError() }}</p>
     }
@@ -345,9 +334,6 @@
         @if (itemsError()) {
           <p class="text-error">{{ itemsError() }}</p>
         }
-        @if (itemsLoading()) {
-          <p class="text-muted">Loading titles…</p>
-        }
         @if (items().length === 0 && !itemsLoading()) {
           <p class="text-muted">No games in this collection yet.</p>
         } @else {
@@ -397,9 +383,7 @@
                   </button>
                   @if (expandedSizeGameId() === item.game_id) {
                     <div class="measured-size-panel">
-                      @if (measuredSizesLoading()) {
-                        <p class="text-muted">Loading measured sizes...</p>
-                      } @else {
+                      @if (!measuredSizesLoading()) {
                         @if (measuredSizesFor(item.game_id).length === 0) {
                           <p class="text-muted">Nobody has reported an install size for this game yet.</p>
                         } @else {

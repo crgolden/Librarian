@@ -1,9 +1,8 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Location, isPlatformBrowser } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { AuthService } from '../auth/auth.service';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CuratorService } from '../curator/curator.service';
 import {
   CollectionItemResponse,
@@ -19,8 +18,9 @@ import {
   ProfileDefinitionResponse,
   StorageDeviceResponse,
 } from '../curator/curator.models';
-import { redirectIfOwnSub } from '../profile/own-sub-redirect';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
+import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
+import { ResolvedCollections } from './collections.resolver';
 
 type CollectionKind = 'filter_list' | 'capacity_fill';
 type View = 'list' | 'create' | 'detail' | 'followed';
@@ -39,16 +39,14 @@ const ITEMS_PAGE_SIZE = 50;
  * renders an inline "this section isn't available" message. */
 @Component({
   selector: 'app-collections',
-  imports: [FormsModule, RouterLink, BreadcrumbComponent],
+  imports: [FormsModule, RouterLink, BreadcrumbComponent, LoadingOverlayComponent],
   templateUrl: './collections.component.html',
   styleUrl: './collections.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CollectionsComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
   private readonly location = inject(Location);
-  private readonly auth = inject(AuthService);
   private readonly curator = inject(CuratorService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
@@ -57,14 +55,12 @@ export class CollectionsComponent implements OnInit {
   protected readonly viewerForbidden = signal(false);
   protected readonly viewerDefinitions = signal<ProfileDefinitionResponse[]>([]);
   protected readonly viewerDefinitionsError = signal<string | null>(null);
-  protected readonly viewerLoading = signal(true);
   protected readonly viewerFollowedIds = signal<ReadonlySet<string>>(new Set());
   protected readonly viewerFollowPending = signal<ReadonlySet<string>>(new Set());
 
   protected readonly view = signal<View>('list');
 
   protected readonly definitions = signal<DefinitionResponse[]>([]);
-  protected readonly loadingDefinitions = signal(true);
   protected readonly definitionsError = signal<string | null>(null);
 
   protected readonly followedDefinitions = signal<DefinitionResponse[]>([]);
@@ -142,50 +138,65 @@ export class CollectionsComponent implements OnInit {
   protected readonly measuredSizeSaving = signal(false);
   protected readonly measuredSizeError = signal<string | null>(null);
 
+  protected readonly reloadingDefinitions = signal(false);
+
+  protected readonly loading = computed(
+    () =>
+      this.reloadingDefinitions() ||
+      this.loadingFollowed() ||
+      this.detailLoading() ||
+      this.itemsLoading() ||
+      this.installsLoading() ||
+      this.measuredSizesLoading(),
+  );
+
   ngOnInit(): void {
-    if (redirectIfOwnSub(this.route, this.router, this.auth, ['/collections'])) {
-      return;
-    }
+    const resolved = this.route.snapshot.data['collections'] as ResolvedCollections;
 
-    const sub = this.route.snapshot.paramMap.get('sub');
-    if (sub !== null) {
+    if (resolved.mode.startsWith('viewer')) {
+      const sub = this.route.snapshot.paramMap.get('sub');
       this.viewerMode.set(true);
-      this.breadcrumbItems.set([{ label: 'Profile', link: ['/u', sub] }, { label: 'Collections' }]);
-      this.loadViewerDefinitions(sub);
-      return;
+      if (sub !== null) {
+        this.breadcrumbItems.set([{ label: 'Profile', link: ['/u', sub] }, { label: 'Collections' }]);
+      }
     }
 
-    this.curator.listConsoles().subscribe({
-      next: (consoles) => this.consoles.set(consoles),
-      error: () => undefined,
-    });
-
-    const definitionId = this.route.snapshot.paramMap.get('definitionId');
-    if (definitionId !== null) {
-      this.openDefinition(definitionId);
-    } else {
-      this.loadDefinitions();
-    }
-  }
-
-  private loadViewerDefinitions(sub: string): void {
-    this.viewerLoading.set(true);
-    this.viewerDefinitionsError.set(null);
-    this.curator.getUserCollections(sub).subscribe({
-      next: (definitions) => {
-        this.viewerDefinitions.set(definitions);
-        this.viewerLoading.set(false);
+    switch (resolved.mode) {
+      case 'viewer':
+        this.viewerDefinitions.set(resolved.definitions);
         this.loadViewerFollowedIds();
-      },
-      error: (err: HttpErrorResponse) => {
-        this.viewerLoading.set(false);
-        if (err.status === 403) {
-          this.viewerForbidden.set(true);
-        } else {
-          this.viewerDefinitionsError.set("Unable to load this user's collections.");
+        return;
+      case 'viewer-forbidden':
+        this.viewerForbidden.set(true);
+        return;
+      case 'viewer-error':
+        this.viewerDefinitionsError.set("Unable to load this user's collections.");
+        return;
+      case 'list':
+        this.consoles.set(resolved.consoles);
+        this.definitions.set(resolved.definitions);
+        return;
+      case 'list-error':
+        this.consoles.set(resolved.consoles);
+        this.definitionsError.set('Unable to load your saved collections.');
+        return;
+      case 'detail':
+        this.consoles.set(resolved.consoles);
+        this.view.set('detail');
+        this.applyDefinition(resolved.definition);
+        this.editName.set(resolved.definition.name);
+        this.editDescription.set(resolved.definition.description ?? '');
+        if (resolved.definition.kind === 'capacity_fill' && resolved.definition.console_id) {
+          this.hydrateInstalls(resolved.definition.console_id);
+          this.hydrateDeviceInstalls(resolved.definition.console_id);
         }
-      },
-    });
+        return;
+      case 'detail-error':
+        this.consoles.set(resolved.consoles);
+        this.view.set('detail');
+        this.detailError.set('Unable to load this collection.');
+        return;
+    }
   }
 
   private loadViewerFollowedIds(): void {
@@ -249,16 +260,16 @@ export class CollectionsComponent implements OnInit {
   }
 
   private loadDefinitions(): void {
-    this.loadingDefinitions.set(true);
+    this.reloadingDefinitions.set(true);
     this.definitionsError.set(null);
     this.curator.listDefinitions().subscribe({
       next: (definitions) => {
         this.definitions.set(definitions);
-        this.loadingDefinitions.set(false);
+        this.reloadingDefinitions.set(false);
       },
       error: () => {
         this.definitionsError.set('Unable to load your saved collections.');
-        this.loadingDefinitions.set(false);
+        this.reloadingDefinitions.set(false);
       },
     });
   }

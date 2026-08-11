@@ -7,10 +7,7 @@
     every user.
   </p>
 
-  @if (loading()) {
-    <p class="text-muted">Loading the latest run...</p>
-  } @else {
-    @if (loadError()) {
+  @if (loadError()) {
       <p class="text-error">{{ loadError() }}</p>
     }
 
@@ -77,8 +74,7 @@
           </div>
         }
       </div>
-    } @else if (!loadError()) {
-      <p class="text-muted">No enrichment run has been started yet.</p>
-    }
+  } @else if (!loadError()) {
+    <p class="text-muted">No enrichment run has been started yet.</p>
   }
 </section>

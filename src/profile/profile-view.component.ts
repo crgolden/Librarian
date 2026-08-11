@@ -1,10 +1,9 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { Meta } from '@angular/platform-browser';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { AuthService } from '../auth/auth.service';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CuratorService } from '../curator/curator.service';
 import { PublicProfileResponse } from '../curator/curator.models';
-import { redirectIfOwnSub } from './own-sub-redirect';
+import { ResolvedProfile } from './profile.resolver';
 
 /** `/profile` (owner) and `/u/:sub` (viewer, canonicalized away from your own sub) — renders the
  * PSN account id (or "Unlinked user"), a Follow/Unfollow button (hidden for the owner), follower/
@@ -19,13 +18,10 @@ import { redirectIfOwnSub } from './own-sub-redirect';
 })
 export class ProfileViewComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
-  private readonly auth = inject(AuthService);
   private readonly curator = inject(CuratorService);
   private readonly meta = inject(Meta);
 
   protected readonly profile = signal<PublicProfileResponse | null>(null);
-  protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
   protected readonly followBusy = signal(false);
   protected readonly followError = signal<string | null>(null);
@@ -38,18 +34,7 @@ export class ProfileViewComponent implements OnInit {
   ngOnInit(): void {
     this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
 
-    if (redirectIfOwnSub(this.route, this.router, this.auth, ['/profile'])) {
-      return;
-    }
-
     const routeSub = this.route.snapshot.paramMap.get('sub');
-    const sub = routeSub ?? this.auth.sub();
-    if (sub === null) {
-      this.loadError.set('Unable to determine the signed-in user.');
-      this.loading.set(false);
-      return;
-    }
-
     if (routeSub !== null) {
       this.followersLink.set(['/u', routeSub, 'followers']);
       this.followingLink.set(['/u', routeSub, 'following']);
@@ -57,22 +42,17 @@ export class ProfileViewComponent implements OnInit {
       this.collectionsLink.set(['/collections', routeSub]);
     }
 
-    this.loadProfile(sub);
-  }
+    const resolved = this.route.snapshot.data['profile'] as ResolvedProfile;
+    if (resolved.status === 'no-user') {
+      this.loadError.set('Unable to determine the signed-in user.');
+      return;
+    }
+    if (resolved.status === 'error') {
+      this.loadError.set('Unable to load this profile.');
+      return;
+    }
 
-  private loadProfile(sub: string): void {
-    this.loading.set(true);
-    this.loadError.set(null);
-    this.curator.getUserProfile(sub).subscribe({
-      next: (profile) => {
-        this.profile.set(profile);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.loadError.set('Unable to load this profile.');
-        this.loading.set(false);
-      },
-    });
+    this.profile.set(resolved.profile);
   }
 
   protected followerLabel(count: number): string {

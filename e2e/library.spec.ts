@@ -144,15 +144,15 @@ test.describe('Library — authenticated', () => {
     ]);
 
     await page.goto('/library');
-    const titles = () => page.locator('[id^="library-title-"]').allTextContents();
-    await expect.poll(titles, { timeout: 10_000 }).toEqual(['Bloodborne', 'Elden Ring']);
+    const titles = page.locator('[id^="library-title-"]');
+    await expect(titles).toHaveText(['Bloodborne', 'Elden Ring']);
 
     const titleHeader = page.getByRole('columnheader', { name: 'Title' });
     await titleHeader.click();
-    await expect.poll(titles, { timeout: 10_000 }).toEqual(['Elden Ring', 'Bloodborne']);
+    await expect(titles).toHaveText(['Elden Ring', 'Bloodborne']);
 
     await titleHeader.click();
-    await expect.poll(titles, { timeout: 10_000 }).toEqual(['Bloodborne', 'Elden Ring']);
+    await expect(titles).toHaveText(['Bloodborne', 'Elden Ring']);
   });
 
   test('pages through results', async ({ authedPage: page, store }) => {

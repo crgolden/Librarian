@@ -93,7 +93,6 @@ describe('ConsolesComponent', () => {
     httpMock.verify();
   });
 
-  /** Both lists now arrive from the route resolver, so the page starts fully rendered. */
   function createAndLoad(consoles: ConsoleResponse[], devices: StorageDeviceResponse[]): ComponentFixture<ConsolesComponent> {
     routeData.consoles = { consoles, devices };
     const fixture = TestBed.createComponent(ConsolesComponent);

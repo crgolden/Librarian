@@ -77,11 +77,6 @@ describe('LibraryComponent', () => {
     vi.useRealTimers();
   });
 
-  /**
-   * The first page and the category list both arrive from the resolver, so nothing is in flight here.
-   * Reconfigures the module rather than calling `overrideProvider`: the `beforeEach` above already
-   * instantiated it via `TestBed.inject`, and overriding after instantiation throws.
-   */
   async function createAndLoad(
     games: LibraryGameResponse[] = [],
     total = games.length,

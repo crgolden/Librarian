@@ -1,7 +1,9 @@
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ActivatedRoute } from '@angular/router';
 import { AdminEnrichmentComponent } from './admin-enrichment.component';
+import { ResolvedEnrichmentRun } from './admin-enrichment.resolver';
 
 describe('AdminEnrichmentComponent', () => {
   let httpMock: HttpTestingController;
@@ -20,7 +22,17 @@ describe('AdminEnrichmentComponent', () => {
     vi.useRealTimers();
   });
 
-  function create(): ComponentFixture<AdminEnrichmentComponent> {
+  function create(resolved: ResolvedEnrichmentRun = { status: 'none' }): ComponentFixture<AdminEnrichmentComponent> {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [AdminEnrichmentComponent],
+      providers: [
+        provideHttpClient(withXhr()),
+        provideHttpClientTesting(),
+        { provide: ActivatedRoute, useValue: { snapshot: { data: { latestRun: resolved } } } },
+      ],
+    });
+    httpMock = TestBed.inject(HttpTestingController);
     const fixture = TestBed.createComponent(AdminEnrichmentComponent);
     fixture.detectChanges();
     return fixture;
@@ -30,38 +42,35 @@ describe('AdminEnrichmentComponent', () => {
     Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.includes(text))!.click();
   }
 
-  it('shows "no run yet" (not an error) on a 404 latest-run response', () => {
-    const fixture = create();
-    httpMock.expectOne('/curator/api/enrichment/runs/latest').flush(null, { status: 404, statusText: 'Not Found' });
-    fixture.detectChanges();
+  it('shows "no run yet" (not an error) when no run has ever been started', () => {
+    const fixture = create({ status: 'none' });
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('No enrichment run has been started yet.');
     expect(text).not.toContain('Unable to load');
   });
 
-  it('shows an error message on a non-404 latest-run failure', () => {
-    const fixture = create();
-    httpMock.expectOne('/curator/api/enrichment/runs/latest').flush(null, { status: 500, statusText: 'Error' });
-    fixture.detectChanges();
+  it('shows an error message when the resolver could not load the latest run', () => {
+    const fixture = create({ status: 'error' });
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load the latest enrichment run.');
   });
 
   it('renders the latest run and its per-pass result summary on load', () => {
-    const fixture = create();
-    httpMock.expectOne('/curator/api/enrichment/runs/latest').flush({
-      run_id: 'run-1',
-      status: 'succeeded',
-      error: null,
-      result_summary: {
-        opencritic_cache_refresh: { status: 'ok', games_fetched: 40 },
-        franchise_reclassification: { status: 'skipped_unchanged' },
-        tier_reclassification: { status: 'ran', updated_count: 12 },
-        enrichment: { enriched_count: 5, remaining_count: 0 },
+    const fixture = create({
+      status: 'ok',
+      run: {
+        run_id: 'run-1',
+        status: 'succeeded',
+        error: null,
+        result_summary: {
+          opencritic_cache_refresh: { status: 'ok', games_fetched: 40 },
+          franchise_reclassification: { status: 'skipped_unchanged' },
+          tier_reclassification: { status: 'ran', updated_count: 12 },
+          enrichment: { enriched_count: 5, remaining_count: 0 },
+        },
       },
     });
-    fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('run-1');
@@ -72,8 +81,6 @@ describe('AdminEnrichmentComponent', () => {
 
   it('requires a two-step confirm before starting a run, and does not POST on cancel', () => {
     const fixture = create();
-    httpMock.expectOne('/curator/api/enrichment/runs/latest').flush(null, { status: 404, statusText: 'Not Found' });
-    fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
     clickButtonByText(compiled, 'Start enrichment run');
@@ -91,8 +98,6 @@ describe('AdminEnrichmentComponent', () => {
 
   it('starts a run on confirm and polls until succeeded', async () => {
     const fixture = create();
-    httpMock.expectOne('/curator/api/enrichment/runs/latest').flush(null, { status: 404, statusText: 'Not Found' });
-    fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
     clickButtonByText(compiled, 'Start enrichment run');
@@ -124,8 +129,6 @@ describe('AdminEnrichmentComponent', () => {
 
   it('retries a single transient poll failure instead of losing track of the run', async () => {
     const fixture = create();
-    httpMock.expectOne('/curator/api/enrichment/runs/latest').flush(null, { status: 404, statusText: 'Not Found' });
-    fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
     clickButtonByText(compiled, 'Start enrichment run');

@@ -2,8 +2,9 @@ import { Location } from '@angular/common';
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { CollectionsComponent } from './collections.component';
+import { ResolvedCollections } from './collections.resolver';
 import {
   CollectionGameResponse,
   CollectionItemResponse,
@@ -12,7 +13,6 @@ import {
   DefinitionResponse,
   ProfileDefinitionResponse,
 } from '../curator/curator.models';
-import { AuthService } from '../auth/auth.service';
 
 function definition(overrides: Partial<DefinitionResponse> = {}): DefinitionResponse {
   return {
@@ -108,28 +108,34 @@ function harness(fixture: ComponentFixture<CollectionsComponent>): CollectionsHa
   return fixture.componentInstance as unknown as CollectionsHarness;
 }
 
-function activatedRouteWithSub(sub: string | null): ActivatedRoute {
-  return { snapshot: { paramMap: convertToParamMap(sub !== null ? { sub } : {}) } } as unknown as ActivatedRoute;
-}
-
-function authServiceWithSub(sub: string | null): AuthService {
-  return { sub: () => sub } as unknown as AuthService;
+function activatedRouteStub(
+  params: Record<string, string>,
+  resolved: ResolvedCollections,
+): ActivatedRoute {
+  return {
+    snapshot: { paramMap: convertToParamMap(params), data: { collections: resolved } },
+  } as unknown as ActivatedRoute;
 }
 
 describe('CollectionsComponent', () => {
   let httpMock: HttpTestingController;
 
-  beforeEach(() => {
+  function configure(params: Record<string, string>, resolved: ResolvedCollections): void {
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [CollectionsComponent],
       providers: [
         provideHttpClient(withXhr()),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: ActivatedRoute, useValue: activatedRouteWithSub(null) },
+        { provide: ActivatedRoute, useValue: activatedRouteStub(params, resolved) },
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);
+  }
+
+  beforeEach(() => {
+    configure({}, { mode: 'list', definitions: [], consoles: [] });
   });
 
   afterEach(() => {
@@ -140,10 +146,8 @@ describe('CollectionsComponent', () => {
     definitions: DefinitionResponse[],
     consoles: ConsoleResponse[] = [],
   ): ComponentFixture<CollectionsComponent> {
+    configure({}, { mode: 'list', definitions, consoles });
     const fixture = TestBed.createComponent(CollectionsComponent);
-    fixture.detectChanges();
-    httpMock.expectOne('/curator/api/collections').flush(definitions);
-    httpMock.expectOne('/curator/api/consoles').flush(consoles);
     fixture.detectChanges();
     return fixture;
   }
@@ -222,30 +226,33 @@ describe('CollectionsComponent', () => {
   });
 
   it('a direct deep link to /collections/d/:definitionId opens the detail view immediately, without loading the list first', () => {
-    TestBed.resetTestingModule();
-    TestBed.configureTestingModule({
-      imports: [CollectionsComponent],
-      providers: [
-        provideHttpClient(withXhr()),
-        provideHttpClientTesting(),
-        provideRouter([]),
-        {
-          provide: ActivatedRoute,
-          useValue: { snapshot: { paramMap: convertToParamMap({ definitionId: 'd1' }) } } as unknown as ActivatedRoute,
-        },
-      ],
-    });
-    httpMock = TestBed.inject(HttpTestingController);
+    configure({ definitionId: 'd1' }, { mode: 'detail', definition: definitionDetail(), consoles: [] });
 
     const fixture = TestBed.createComponent(CollectionsComponent);
     fixture.detectChanges();
 
-    httpMock.expectOne('/curator/api/consoles').flush([]);
-    httpMock.expectOne('/curator/api/collections/d1').flush(definitionDetail());
-    fixture.detectChanges();
-
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Weekend picks');
     httpMock.expectNone((req) => req.url === '/curator/api/collections');
+    httpMock.expectNone((req) => req.url === '/curator/api/collections/d1');
+  });
+
+  it('a deep link to a definition that fails to load shows the detail error, not the list', () => {
+    configure({ definitionId: 'd1' }, { mode: 'detail-error', consoles: [] });
+
+    const fixture = TestBed.createComponent(CollectionsComponent);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load this collection.');
+    httpMock.expectNone((req) => req.url === '/curator/api/collections');
+  });
+
+  it('shows the list error when the resolver could not load saved collections', () => {
+    configure({}, { mode: 'list-error', consoles: [] });
+
+    const fixture = TestBed.createComponent(CollectionsComponent);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load your saved collections.');
   });
 
   it('preview() shows a validation error and makes no request when capacity_fill has no console', () => {
@@ -603,40 +610,15 @@ describe('CollectionsComponent', () => {
       return { definition_id: 'd1', name: 'Weekend picks', kind: 'filter_list', console_id: null, item_count: 5, ...overrides };
     }
 
-    function configureForViewer(routeSub: string, ownSub: string | null): void {
-      TestBed.resetTestingModule();
-      TestBed.configureTestingModule({
-        imports: [CollectionsComponent],
-        providers: [
-          provideHttpClient(withXhr()),
-          provideHttpClientTesting(),
-          provideRouter([]),
-          { provide: ActivatedRoute, useValue: activatedRouteWithSub(routeSub) },
-          { provide: AuthService, useValue: authServiceWithSub(ownSub) },
-        ],
-      });
-      httpMock = TestBed.inject(HttpTestingController);
+    function configureForViewer(routeSub: string, resolved: ResolvedCollections): void {
+      configure({ sub: routeSub }, resolved);
     }
 
-    it('redirects to the bare /collections path without fetching when :sub equals the signed-in user\'s own sub', () => {
-      configureForViewer('own-sub', 'own-sub');
-      const router = TestBed.inject(Router);
-      const navigateSpy = vi.spyOn(router, 'navigate');
-
-      const fixture = TestBed.createComponent(CollectionsComponent);
-      fixture.detectChanges();
-
-      expect(navigateSpy).toHaveBeenCalledWith(['/collections'], { replaceUrl: true });
-      httpMock.expectNone('/curator/api/collections');
-      httpMock.expectNone('/curator/api/users/own-sub/collections');
-    });
-
     it("renders another user's saved collections read-only, with a follow toggle", () => {
-      configureForViewer('other-sub', null);
+      configureForViewer('other-sub', { mode: 'viewer', definitions: [profileDefinition()] });
 
       const fixture = TestBed.createComponent(CollectionsComponent);
       fixture.detectChanges();
-      httpMock.expectOne('/curator/api/users/other-sub/collections').flush([profileDefinition()]);
       httpMock.expectOne('/curator/api/collections/followed').flush([]);
       fixture.detectChanges();
 
@@ -655,38 +637,29 @@ describe('CollectionsComponent', () => {
     });
 
     it('shows an empty state for another user with no saved collections', () => {
-      configureForViewer('other-sub', null);
+      configureForViewer('other-sub', { mode: 'viewer', definitions: [] });
 
       const fixture = TestBed.createComponent(CollectionsComponent);
       fixture.detectChanges();
-      httpMock.expectOne('/curator/api/users/other-sub/collections').flush([]);
       httpMock.expectOne('/curator/api/collections/followed').flush([]);
       fixture.detectChanges();
 
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('No saved collections yet.');
     });
 
-    it('shows an inline message on a 403 (section not public)', () => {
-      configureForViewer('other-sub', null);
+    it('shows an inline message when the resolver reports the section is not public', () => {
+      configureForViewer('other-sub', { mode: 'viewer-forbidden' });
 
       const fixture = TestBed.createComponent(CollectionsComponent);
-      fixture.detectChanges();
-      httpMock
-        .expectOne('/curator/api/users/other-sub/collections')
-        .flush(null, { status: 403, statusText: 'Forbidden' });
       fixture.detectChanges();
 
       expect((fixture.nativeElement as HTMLElement).textContent).toContain("This section isn't available.");
     });
 
-    it('shows a generic error message on a non-403 failure', () => {
-      configureForViewer('other-sub', null);
+    it('shows a generic error message when the resolver reports a non-403 failure', () => {
+      configureForViewer('other-sub', { mode: 'viewer-error' });
 
       const fixture = TestBed.createComponent(CollectionsComponent);
-      fixture.detectChanges();
-      httpMock
-        .expectOne('/curator/api/users/other-sub/collections')
-        .flush(null, { status: 500, statusText: 'Server Error' });
       fixture.detectChanges();
 
       expect((fixture.nativeElement as HTMLElement).textContent).toContain("Unable to load this user's collections.");

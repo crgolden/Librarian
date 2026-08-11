@@ -1,7 +1,5 @@
 <section class="page-section profile-view">
-  @if (loading()) {
-    <p class="text-muted">Loading profile...</p>
-  } @else if (loadError()) {
+  @if (loadError()) {
     <p class="text-error">{{ loadError() }}</p>
   } @else if (profile(); as current) {
     <div class="card status-card profile-identity-card">

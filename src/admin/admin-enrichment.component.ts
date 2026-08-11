@@ -1,9 +1,10 @@
 import { isPlatformBrowser } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
-import { HttpErrorResponse } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
 import { Subscription, interval, retry, switchMap, takeWhile } from 'rxjs';
 import { CuratorService } from '../curator/curator.service';
 import { EnrichmentRunStatusResponse } from '../curator/curator.models';
+import { ResolvedEnrichmentRun } from './admin-enrichment.resolver';
 
 const POLL_INTERVAL_MS = 2500;
 const POLL_ERROR_RETRY_COUNT = 3;
@@ -28,9 +29,9 @@ const KNOWN_STATUSES = new Set(['queued', 'running', 'succeeded', 'failed']);
 })
 export class AdminEnrichmentComponent implements OnInit, OnDestroy {
   private readonly curator = inject(CuratorService);
+  private readonly route = inject(ActivatedRoute);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
-  protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
   protected readonly run = signal<EnrichmentRunStatusResponse | null>(null);
 
@@ -41,18 +42,14 @@ export class AdminEnrichmentComponent implements OnInit, OnDestroy {
   private pollSubscription: Subscription | null = null;
 
   ngOnInit(): void {
-    this.curator.getLatestEnrichmentRun().subscribe({
-      next: (run) => {
-        this.loading.set(false);
-        this.run.set(run);
-      },
-      error: (err: HttpErrorResponse) => {
-        this.loading.set(false);
-        if (err.status !== 404) {
-          this.loadError.set('Unable to load the latest enrichment run.');
-        }
-      },
-    });
+    const resolved = this.route.snapshot.data['latestRun'] as ResolvedEnrichmentRun;
+    if (resolved.status === 'error') {
+      this.loadError.set('Unable to load the latest enrichment run.');
+      return;
+    }
+    if (resolved.status === 'ok') {
+      this.run.set(resolved.run);
+    }
   }
 
   ngOnDestroy(): void {

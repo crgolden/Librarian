@@ -2,12 +2,15 @@ import { Routes } from '@angular/router';
 import { authGuard } from './auth.guard';
 import { adminGuard } from './admin.guard';
 import { ownSubRedirectGuard } from '../profile/own-sub-redirect.guard';
+import { followListResolver } from '../profile/follow-list.resolver';
+import { profileResolver } from '../profile/profile.resolver';
 import { HomeComponent } from '../home/home.component';
 import { PsnSettingsComponent } from '../psn/psn-settings.component';
 import { psnStatusResolver } from '../psn/psn-status.resolver';
 import { CatalogComponent } from '../catalog/catalog.component';
 import { catalogResolver } from '../catalog/catalog.resolver';
 import { CollectionsComponent } from '../collections/collections.component';
+import { ownerCollectionsResolver, viewerCollectionsResolver } from '../collections/collections.resolver';
 import { ConsolesComponent } from '../consoles/consoles.component';
 import { consolesResolver } from '../consoles/consoles.resolver';
 import { PublicCollectionComponent } from '../public-collection/public-collection.component';
@@ -22,6 +25,7 @@ import { ProfileFollowersComponent } from '../profile/profile-followers.componen
 import { ProfileFollowingComponent } from '../profile/profile-following.component';
 import { ProfileSettingsComponent } from '../profile/profile-settings.component';
 import { AdminEnrichmentComponent } from '../admin/admin-enrichment.component';
+import { latestEnrichmentRunResolver } from '../admin/admin-enrichment.resolver';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent, title: 'Librarian' },
@@ -39,17 +43,25 @@ export const routes: Routes = [
     resolve: { catalog: catalogResolver },
     title: 'Catalog',
   },
-  { path: 'collections', component: CollectionsComponent, canActivate: [authGuard], title: 'Collections' },
+  {
+    path: 'collections',
+    component: CollectionsComponent,
+    canActivate: [authGuard],
+    resolve: { collections: ownerCollectionsResolver },
+    title: 'Collections',
+  },
   {
     path: 'collections/d/:definitionId',
     component: CollectionsComponent,
     canActivate: [authGuard],
+    resolve: { collections: ownerCollectionsResolver },
     title: 'Collections',
   },
   {
     path: 'collections/:sub',
     component: CollectionsComponent,
     canActivate: [authGuard, ownSubRedirectGuard(['/collections'])],
+    resolve: { collections: viewerCollectionsResolver },
     title: 'Collections',
   },
   {
@@ -79,32 +91,54 @@ export const routes: Routes = [
     resolve: { library: libraryResolver },
     title: 'Library',
   },
-  { path: 'profile', component: ProfileViewComponent, canActivate: [authGuard], title: 'Profile' },
-  { path: 'profile/followers', component: ProfileFollowersComponent, canActivate: [authGuard], title: 'Followers' },
-  { path: 'profile/following', component: ProfileFollowingComponent, canActivate: [authGuard], title: 'Following' },
+  {
+    path: 'profile',
+    component: ProfileViewComponent,
+    canActivate: [authGuard],
+    resolve: { profile: profileResolver },
+    title: 'Profile',
+  },
+  {
+    path: 'profile/followers',
+    component: ProfileFollowersComponent,
+    canActivate: [authGuard],
+    resolve: { followers: followListResolver('followers') },
+    title: 'Followers',
+  },
+  {
+    path: 'profile/following',
+    component: ProfileFollowingComponent,
+    canActivate: [authGuard],
+    resolve: { following: followListResolver('following') },
+    title: 'Following',
+  },
   { path: 'profile/settings', component: ProfileSettingsComponent, canActivate: [authGuard], title: 'Profile Settings' },
   {
     path: 'u/:sub',
     component: ProfileViewComponent,
     canActivate: [authGuard, ownSubRedirectGuard(['/profile'])],
+    resolve: { profile: profileResolver },
     title: 'Profile',
   },
   {
     path: 'u/:sub/followers',
     component: ProfileFollowersComponent,
     canActivate: [authGuard, ownSubRedirectGuard(['/profile', 'followers'])],
+    resolve: { followers: followListResolver('followers') },
     title: 'Followers',
   },
   {
     path: 'u/:sub/following',
     component: ProfileFollowingComponent,
     canActivate: [authGuard, ownSubRedirectGuard(['/profile', 'following'])],
+    resolve: { following: followListResolver('following') },
     title: 'Following',
   },
   {
     path: 'admin/enrichment',
     component: AdminEnrichmentComponent,
     canActivate: [authGuard, adminGuard],
+    resolve: { latestRun: latestEnrichmentRunResolver },
     title: 'Enrichment Runs',
   },
   { path: 'faq', component: FaqComponent, title: 'FAQ' },

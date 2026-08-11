@@ -40,7 +40,6 @@ describe('CatalogComponent', () => {
   let httpMock: HttpTestingController;
   const routeData: { catalog: CatalogGamesResponse | null } = { catalog: null };
 
-  /** Mutated in place rather than reassigned, so the ActivatedRoute stub keeps pointing at it. */
   function render(resolved: CatalogGamesResponse | null): ComponentFixture<CatalogComponent> {
     routeData.catalog = resolved;
     const fixture = TestBed.createComponent(CatalogComponent);
