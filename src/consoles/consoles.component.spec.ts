@@ -1,7 +1,9 @@
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ActivatedRoute } from '@angular/router';
 import { ConsolesComponent } from './consoles.component';
+import { ConsolesPageData } from './consoles.resolver';
 import { ConsoleResponse, StorageDeviceResponse } from '../curator/curator.models';
 
 function console_(overrides: Partial<ConsoleResponse> = {}): ConsoleResponse {
@@ -72,11 +74,17 @@ function harness(fixture: ComponentFixture<ConsolesComponent>): ConsolesHarness 
 
 describe('ConsolesComponent', () => {
   let httpMock: HttpTestingController;
+  const routeData: { consoles: ConsolesPageData | null } = { consoles: null };
 
   beforeEach(() => {
+    routeData.consoles = { consoles: [], devices: [] };
     TestBed.configureTestingModule({
       imports: [ConsolesComponent],
-      providers: [provideHttpClient(withXhr()), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(withXhr()),
+        provideHttpClientTesting(),
+        { provide: ActivatedRoute, useValue: { snapshot: { data: routeData } } },
+      ],
     });
     httpMock = TestBed.inject(HttpTestingController);
   });
@@ -85,11 +93,10 @@ describe('ConsolesComponent', () => {
     httpMock.verify();
   });
 
+  /** Both lists now arrive from the route resolver, so the page starts fully rendered. */
   function createAndLoad(consoles: ConsoleResponse[], devices: StorageDeviceResponse[]): ComponentFixture<ConsolesComponent> {
+    routeData.consoles = { consoles, devices };
     const fixture = TestBed.createComponent(ConsolesComponent);
-    fixture.detectChanges();
-    httpMock.expectOne('/curator/api/consoles').flush(consoles);
-    httpMock.expectOne('/curator/api/storage-devices').flush(devices);
     fixture.detectChanges();
     return fixture;
   }

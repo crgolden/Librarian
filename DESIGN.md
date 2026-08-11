@@ -325,6 +325,34 @@ rejected everywhere in this palette.
   for nested sub-routes (`/profile/followers`, `/collections/:sub`, `/library/:sub`, `/u/:sub/...`)
   back to their logical parent (the owning profile). Not sitewide — the persistent nav handles
   top-level cross-navigation.
+- **`app-loading-overlay`** (`src/shared/loading-overlay/loading-overlay.component.ts`) — a transparent
+  full-viewport layer that swallows clicks and announces `aria-busy` while an in-page request is in
+  flight. It deliberately does not dim the page: it exists to stop input, not to signal progress, and
+  the content underneath stays readable. Takes a classic `@Input()`, not a signal input — the Vitest
+  harness JIT-compiles without ngtsc, where signal inputs silently fail to bind (`NG0303`).
+
+## Loading & hydration
+
+**A data-backed route resolves its first payload before it activates; everything after that is an
+overlay.** These are two different problems and each has exactly one answer.
+
+- **First payload — route resolver.** A page that activates empty and fills in a moment later renders
+  a placeholder the user reads, then replaces it. Worse, it makes "still loading" and "there is nothing
+  here" indistinguishable, for the user and for tests alike. Resolvers remove the ambiguity by making
+  activation wait.
+- **Every later fetch — `app-loading-overlay`.** Paging, filtering, sorting and refreshing are still
+  async, and the page is still unstable while they run. Keep the current data on screen and block
+  interaction over it; do not blank the view back to a loading string. A user who can click a sort
+  header mid-fetch can queue a request against a state that no longer exists.
+
+**A resolver degrades, it never redirects.** Resolve to `null` on failure and let the component render
+its own error state — there is rarely a better page to send someone to, and a failed navigation loses
+the URL they were trying to reach.
+
+Two consequences worth stating plainly, because both were live defects before this rule existed: there
+is **no** "Loading…" text anywhere in a data-backed page, and no per-feature loading flag beyond the one
+driving the overlay. If a page needs a second loading concept, that is a signal its first payload
+belongs in a resolver.
 
 ## Do's and Don'ts
 

@@ -1,8 +1,11 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { CuratorService } from '../curator/curator.service';
 import { ConsoleResponse, StorageDeviceResponse } from '../curator/curator.models';
+import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
+import { ConsolesPageData } from './consoles.resolver';
 
 type ConsolePlatform = 'PS5' | 'PS4';
 type StorageKind = 'm2' | 'usb';
@@ -12,16 +15,18 @@ type StorageKind = 'm2' | 'usb';
  * per-device install worklists that `capacity_fill` collections size against. */
 @Component({
   selector: 'app-consoles',
-  imports: [FormsModule],
+  imports: [FormsModule, LoadingOverlayComponent],
   templateUrl: './consoles.component.html',
   styleUrl: './consoles.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ConsolesComponent implements OnInit {
+export class ConsolesComponent {
   private readonly curator = inject(CuratorService);
+  private readonly route = inject(ActivatedRoute);
+
+  protected readonly loading = signal(false);
 
   protected readonly consoles = signal<ConsoleResponse[]>([]);
-  protected readonly consolesLoading = signal(true);
   protected readonly consolesError = signal<string | null>(null);
 
   protected readonly showConsoleForm = signal(false);
@@ -49,7 +54,6 @@ export class ConsolesComponent implements OnInit {
   protected readonly deletingConsoleId = signal<string | null>(null);
 
   protected readonly devices = signal<StorageDeviceResponse[]>([]);
-  protected readonly devicesLoading = signal(true);
   protected readonly devicesError = signal<string | null>(null);
 
   protected readonly showDeviceForm = signal(false);
@@ -75,37 +79,27 @@ export class ConsolesComponent implements OnInit {
   protected readonly confirmingDeleteDeviceId = signal<string | null>(null);
   protected readonly deletingDeviceId = signal<string | null>(null);
 
-  ngOnInit(): void {
-    this.loadConsoles();
-    this.loadDevices();
-  }
-
-  private loadConsoles(): void {
-    this.consolesLoading.set(true);
-    this.consolesError.set(null);
-    this.curator.listConsoles().subscribe({
-      next: (consoles) => {
-        this.consoles.set(consoles);
-        this.consolesLoading.set(false);
-      },
-      error: () => {
-        this.consolesError.set('Unable to load your consoles.');
-        this.consolesLoading.set(false);
-      },
-    });
+  constructor() {
+    const resolved = this.route.snapshot.data['consoles'] as ConsolesPageData | null;
+    if (resolved === null) {
+      this.consolesError.set('Unable to load your consoles.');
+      return;
+    }
+    this.consoles.set(resolved.consoles);
+    this.devices.set(resolved.devices);
   }
 
   private loadDevices(): void {
-    this.devicesLoading.set(true);
+    this.loading.set(true);
     this.devicesError.set(null);
     this.curator.listStorageDevices().subscribe({
       next: (devices) => {
         this.devices.set(devices);
-        this.devicesLoading.set(false);
+        this.loading.set(false);
       },
       error: () => {
         this.devicesError.set('Unable to load your storage devices.');
-        this.devicesLoading.set(false);
+        this.loading.set(false);
       },
     });
   }

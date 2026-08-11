@@ -1,4 +1,6 @@
 <section class="page-section catalog">
+  <app-loading-overlay [visible]="loading()" />
+
   <h1>Catalog</h1>
   <p class="text-muted">Browse the shared game catalog Curator has canonicalized across all libraries.</p>
 
@@ -46,8 +48,6 @@
 
   @if (error()) {
     <p class="text-error">{{ error() }}</p>
-  } @else if (loading()) {
-    <p class="text-muted">Loading catalog...</p>
   } @else if (games().length === 0) {
     <p class="text-muted">No titles match these filters.</p>
   } @else {

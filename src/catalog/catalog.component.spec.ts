@@ -1,8 +1,9 @@
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ActivatedRoute } from '@angular/router';
 import { CatalogComponent } from './catalog.component';
-import { GameSummaryResponse } from '../curator/curator.models';
+import { CatalogGamesResponse, GameSummaryResponse } from '../curator/curator.models';
 
 function game(id: string, title: string, overrides: Partial<GameSummaryResponse> = {}): GameSummaryResponse {
   return {
@@ -15,6 +16,10 @@ function game(id: string, title: string, overrides: Partial<GameSummaryResponse>
     store_product_id: null,
     ...overrides,
   };
+}
+
+function fullPage(total: number): CatalogGamesResponse {
+  return { games: Array.from({ length: 50 }, (_, i) => game(`g${i}`, `Game ${i}`)), total };
 }
 
 interface CatalogHarness {
@@ -33,11 +38,25 @@ function harness(fixture: ComponentFixture<CatalogComponent>): CatalogHarness {
 
 describe('CatalogComponent', () => {
   let httpMock: HttpTestingController;
+  const routeData: { catalog: CatalogGamesResponse | null } = { catalog: null };
+
+  /** Mutated in place rather than reassigned, so the ActivatedRoute stub keeps pointing at it. */
+  function render(resolved: CatalogGamesResponse | null): ComponentFixture<CatalogComponent> {
+    routeData.catalog = resolved;
+    const fixture = TestBed.createComponent(CatalogComponent);
+    fixture.detectChanges();
+    return fixture;
+  }
 
   beforeEach(() => {
+    routeData.catalog = { games: [], total: 0 };
     TestBed.configureTestingModule({
       imports: [CatalogComponent],
-      providers: [provideHttpClient(withXhr()), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(withXhr()),
+        provideHttpClientTesting(),
+        { provide: ActivatedRoute, useValue: { snapshot: { data: routeData } } },
+      ],
     });
     httpMock = TestBed.inject(HttpTestingController);
   });
@@ -46,24 +65,23 @@ describe('CatalogComponent', () => {
     httpMock.verify();
   });
 
-  it('loads and renders a page of games on init', () => {
-    const fixture = TestBed.createComponent(CatalogComponent);
-    fixture.detectChanges();
-
-    const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
-    req.flush({ games: [game('g1', 'Bloodborne')], total: 1 });
-    fixture.detectChanges();
+  it('renders the first page from the resolver without issuing a request', () => {
+    const fixture = render({ games: [game('g1', 'Bloodborne')], total: 1 });
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.textContent).toContain('Bloodborne');
     expect(compiled.querySelector('button[disabled]')?.textContent).toContain('Previous');
+    httpMock.expectNone((r) => r.url === '/curator/api/catalog/games');
+  });
+
+  it('shows the error state when the resolver could not load the catalog', () => {
+    const fixture = render(null);
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load the catalog.');
   });
 
   it('sends the title search term as q', () => {
-    const fixture = TestBed.createComponent(CatalogComponent);
-    fixture.detectChanges();
-    httpMock.expectOne((r) => r.url === '/curator/api/catalog/games').flush({ games: [], total: 0 });
-    fixture.detectChanges();
+    const fixture = render({ games: [], total: 0 });
 
     const h = harness(fixture);
     h.search.set('tomb');
@@ -75,14 +93,15 @@ describe('CatalogComponent', () => {
   });
 
   it('renders cover art and a PlayStation Store link when the catalog has them', () => {
-    const fixture = TestBed.createComponent(CatalogComponent);
-    fixture.detectChanges();
-
-    httpMock.expectOne((r) => r.url === '/curator/api/catalog/games').flush({
-      games: [game('g1', 'Bloodborne', { cover_image_url: 'https://img/cover.jpg', store_product_id: 'UP9000-CUSA00207_00-X' })],
+    const fixture = render({
+      games: [
+        game('g1', 'Bloodborne', {
+          cover_image_url: 'https://img/cover.jpg',
+          store_product_id: 'UP9000-CUSA00207_00-X',
+        }),
+      ],
       total: 1,
     });
-    fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.querySelector('img.cover-art')?.getAttribute('src')).toBe('https://img/cover.jpg');
@@ -92,34 +111,20 @@ describe('CatalogComponent', () => {
   });
 
   it('omits the store link for a game with no store product id', () => {
-    const fixture = TestBed.createComponent(CatalogComponent);
-    fixture.detectChanges();
-
-    httpMock
-      .expectOne((r) => r.url === '/curator/api/catalog/games')
-      .flush({ games: [game('g1', 'Unknown')], total: 1 });
-    fixture.detectChanges();
+    const fixture = render({ games: [game('g1', 'Unknown')], total: 1 });
 
     expect((fixture.nativeElement as HTMLElement).querySelector('#catalog-store-link-0')).toBeNull();
   });
 
   it('disables Next on the last page even when the page came back full', () => {
-    const fixture = TestBed.createComponent(CatalogComponent);
-    fixture.detectChanges();
-
-    const fullPage = Array.from({ length: 50 }, (_, i) => game(`g${i}`, `Game ${i}`));
-    httpMock.expectOne((r) => r.url === '/curator/api/catalog/games').flush({ games: fullPage, total: 50 });
-    fixture.detectChanges();
+    const fixture = render(fullPage(50));
 
     const next = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('#catalog-next')!;
     expect(next.disabled).toBe(true);
   });
 
   it('applying filters resets the offset and re-requests with the given params', () => {
-    const fixture = TestBed.createComponent(CatalogComponent);
-    fixture.detectChanges();
-    httpMock.expectOne((r) => r.url === '/curator/api/catalog/games').flush({ games: [], total: 0 });
-    fixture.detectChanges();
+    const fixture = render({ games: [], total: 0 });
 
     const h = harness(fixture);
     h.franchise.set('Uncharted');
@@ -131,27 +136,44 @@ describe('CatalogComponent', () => {
     req.flush({ games: [], total: 0 });
   });
 
-  it('shows an error message when the catalog request fails', () => {
-    const fixture = TestBed.createComponent(CatalogComponent);
-    fixture.detectChanges();
-
-    httpMock.expectOne((r) => r.url === '/curator/api/catalog/games').flush(null, { status: 500, statusText: 'Error' });
-    fixture.detectChanges();
-
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load the catalog.');
-  });
-
   it('nextPage advances the offset by one page', () => {
-    const fixture = TestBed.createComponent(CatalogComponent);
-    fixture.detectChanges();
-
-    const fullPage = Array.from({ length: 50 }, (_, i) => game(`g${i}`, `Game ${i}`));
-    httpMock.expectOne((r) => r.url === '/curator/api/catalog/games').flush({ games: fullPage, total: 120 });
-    fixture.detectChanges();
+    const fixture = render(fullPage(120));
 
     harness(fixture).nextPage();
     const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
     expect(req.request.params.get('offset')).toBe('50');
     req.flush({ games: [], total: 120 });
+  });
+
+  it('blocks interaction with the overlay while an in-page load is in flight, and keeps the current page visible', () => {
+    const fixture = render({ games: [game('g1', 'Bloodborne')], total: 120 });
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.querySelector('.loading-overlay')).toBeNull();
+
+    harness(fixture).nextPage();
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.loading-overlay')).not.toBeNull();
+    expect(compiled.textContent).toContain('Bloodborne');
+
+    httpMock
+      .expectOne((r) => r.url === '/curator/api/catalog/games')
+      .flush({ games: [game('g2', 'Sekiro')], total: 120 });
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.loading-overlay')).toBeNull();
+    expect(compiled.textContent).toContain('Sekiro');
+  });
+
+  it('shows an error message when an in-page load fails', () => {
+    const fixture = render({ games: [], total: 0 });
+
+    harness(fixture).applyFilters();
+    httpMock
+      .expectOne((r) => r.url === '/curator/api/catalog/games')
+      .flush(null, { status: 500, statusText: 'Error' });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load the catalog.');
   });
 });

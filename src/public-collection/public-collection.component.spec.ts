@@ -5,6 +5,7 @@ import { Meta } from '@angular/platform-browser';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { signal } from '@angular/core';
 import { PublicCollectionComponent } from './public-collection.component';
+import { ResolvedPublicCollection } from './public-collection.resolver';
 import { PublicCollectionResponse } from '../curator/curator.models';
 import { AuthService } from '../auth/auth.service';
 
@@ -19,9 +20,17 @@ function publicCollection(overrides: Partial<PublicCollectionResponse> = {}): Pu
   };
 }
 
-function activatedRouteWithSlug(slug: string | null): ActivatedRoute {
+function ok(overrides: Partial<PublicCollectionResponse> = {}): ResolvedPublicCollection {
+  return { status: 'ok', collection: publicCollection(overrides) };
+}
+
+function activatedRoute(slug: string | null, resolved: ResolvedPublicCollection): ActivatedRoute {
   return {
-    snapshot: { paramMap: convertToParamMap(slug !== null ? { slug } : {}), url: slug !== null ? [{ path: 'c' }, { path: slug }] : [] },
+    snapshot: {
+      paramMap: convertToParamMap(slug !== null ? { slug } : {}),
+      url: slug !== null ? [{ path: 'c' }, { path: slug }] : [],
+      data: { collection: resolved },
+    },
   } as unknown as ActivatedRoute;
 }
 
@@ -32,13 +41,13 @@ function authService(isAuthenticated: boolean): AuthService {
 describe('PublicCollectionComponent', () => {
   let httpMock: HttpTestingController;
 
-  function configure(slug: string | null, authenticated: boolean): void {
+  function configure(slug: string | null, authenticated: boolean, resolved: ResolvedPublicCollection): void {
     TestBed.configureTestingModule({
       imports: [PublicCollectionComponent],
       providers: [
         provideHttpClient(withXhr()),
         provideHttpClientTesting(),
-        { provide: ActivatedRoute, useValue: activatedRouteWithSlug(slug) },
+        { provide: ActivatedRoute, useValue: activatedRoute(slug, resolved) },
         { provide: AuthService, useValue: authService(authenticated) },
       ],
     });
@@ -50,10 +59,9 @@ describe('PublicCollectionComponent', () => {
   });
 
   it('sets a noindex robots meta tag', () => {
-    configure('slug1', false);
+    configure('slug1', false, ok());
     const fixture = TestBed.createComponent(PublicCollectionComponent);
     fixture.detectChanges();
-    httpMock.expectOne('/curator/api/public/collections/slug1').flush(publicCollection());
     httpMock.expectOne('/curator/api/collections/followed').flush(null, { status: 401, statusText: 'Unauthorized' });
 
     const meta = TestBed.inject(Meta);
@@ -61,11 +69,10 @@ describe('PublicCollectionComponent', () => {
   });
 
   it('renders a shared collection with its items and cover art', () => {
-    configure('slug1', false);
-    const fixture = TestBed.createComponent(PublicCollectionComponent);
-    fixture.detectChanges();
-    httpMock.expectOne('/curator/api/public/collections/slug1').flush(
-      publicCollection({
+    configure(
+      'slug1',
+      false,
+      ok({
         items: [
           {
             game_id: 'g1',
@@ -83,6 +90,8 @@ describe('PublicCollectionComponent', () => {
         ],
       }),
     );
+    const fixture = TestBed.createComponent(PublicCollectionComponent);
+    fixture.detectChanges();
     httpMock.expectOne('/curator/api/collections/followed').flush(null, { status: 401, statusText: 'Unauthorized' });
     fixture.detectChanges();
 
@@ -92,31 +101,36 @@ describe('PublicCollectionComponent', () => {
     expect(compiled.querySelector('img.cover-art')?.getAttribute('src')).toBe('https://img.example/g1.jpg');
   });
 
-  it('shows a not-found message on a 404 (unknown slug or private collection)', () => {
-    configure('missing', false);
+  it('renders the collection on first paint, with no request of its own', () => {
+    configure('slug1', false, ok());
     const fixture = TestBed.createComponent(PublicCollectionComponent);
     fixture.detectChanges();
-    httpMock.expectOne('/curator/api/public/collections/missing').flush(null, { status: 404, statusText: 'Not Found' });
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Shared picks');
+    httpMock.expectNone('/curator/api/public/collections/slug1');
+    httpMock.expectOne('/curator/api/collections/followed').flush(null, { status: 401, statusText: 'Unauthorized' });
+  });
+
+  it('shows a not-found message when the share link is unknown or no longer shared', () => {
+    configure('missing', false, { status: 'not-found' });
+    const fixture = TestBed.createComponent(PublicCollectionComponent);
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Collection not found');
   });
 
   it('shows a generic error message on a non-404 failure', () => {
-    configure('slug1', false);
+    configure('slug1', false, { status: 'error' });
     const fixture = TestBed.createComponent(PublicCollectionComponent);
-    fixture.detectChanges();
-    httpMock.expectOne('/curator/api/public/collections/slug1').flush(null, { status: 500, statusText: 'Server Error' });
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load this collection.');
   });
 
   it('shows a "sign in to follow" link when anonymous', () => {
-    configure('slug1', false);
+    configure('slug1', false, ok());
     const fixture = TestBed.createComponent(PublicCollectionComponent);
     fixture.detectChanges();
-    httpMock.expectOne('/curator/api/public/collections/slug1').flush(publicCollection());
     httpMock.expectOne('/curator/api/collections/followed').flush(null, { status: 401, statusText: 'Unauthorized' });
     fixture.detectChanges();
 
@@ -126,10 +140,9 @@ describe('PublicCollectionComponent', () => {
   });
 
   it('follows and unfollows a collection when authenticated', () => {
-    configure('slug1', true);
+    configure('slug1', true, ok());
     const fixture = TestBed.createComponent(PublicCollectionComponent);
     fixture.detectChanges();
-    httpMock.expectOne('/curator/api/public/collections/slug1').flush(publicCollection());
     httpMock.expectOne('/curator/api/collections/followed').flush([]);
     fixture.detectChanges();
 
@@ -145,10 +158,9 @@ describe('PublicCollectionComponent', () => {
   });
 
   it('pre-selects the follow button as already-following when the viewer already follows it', () => {
-    configure('slug1', true);
+    configure('slug1', true, ok({ definition_id: 'd1' }));
     const fixture = TestBed.createComponent(PublicCollectionComponent);
     fixture.detectChanges();
-    httpMock.expectOne('/curator/api/public/collections/slug1').flush(publicCollection({ definition_id: 'd1' }));
     httpMock.expectOne('/curator/api/collections/followed').flush([{ definition_id: 'd1', name: 'x', kind: 'filter_list', console_id: null, description: null, genre_filter: [], min_score: null, aaa_tier_filter: null, include_inactive: false, min_percent_completed: null, visibility: 'unlisted', share_slug: 'slug1', item_count: 1 }]);
     fixture.detectChanges();
 

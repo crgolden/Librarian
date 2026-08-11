@@ -5,6 +5,7 @@ import { ActivatedRoute } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
 import { CuratorService } from '../curator/curator.service';
 import { PublicCollectionResponse } from '../curator/curator.models';
+import { ResolvedPublicCollection } from './public-collection.resolver';
 
 /** `/c/:slug` — the one anonymous, unauthenticated page in Librarian, mirroring Curator's one
  * anonymous route (`GET /public/collections/{share_slug}`). Reachable by anyone with the link,
@@ -25,7 +26,6 @@ export class PublicCollectionComponent implements OnInit {
   private readonly meta = inject(Meta);
   private readonly title = inject(Title);
 
-  protected readonly loading = signal(true);
   protected readonly notFound = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly collection = signal<PublicCollectionResponse | null>(null);
@@ -40,29 +40,19 @@ export class PublicCollectionComponent implements OnInit {
   ngOnInit(): void {
     this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
 
-    const slug = this.route.snapshot.paramMap.get('slug');
-    if (!slug) {
-      this.loading.set(false);
+    const resolved = this.route.snapshot.data['collection'] as ResolvedPublicCollection;
+    if (resolved.status === 'not-found') {
       this.notFound.set(true);
       return;
     }
+    if (resolved.status === 'error') {
+      this.error.set('Unable to load this collection.');
+      return;
+    }
 
-    this.curator.getPublicCollection(slug).subscribe({
-      next: (collection) => {
-        this.loading.set(false);
-        this.collection.set(collection);
-        this.title.setTitle(`${collection.name} — Librarian`);
-        this.loadFollowState(collection.definition_id);
-      },
-      error: (err: HttpErrorResponse) => {
-        this.loading.set(false);
-        if (err.status === 404) {
-          this.notFound.set(true);
-        } else {
-          this.error.set('Unable to load this collection.');
-        }
-      },
-    });
+    this.collection.set(resolved.collection);
+    this.title.setTitle(`${resolved.collection.name} — Librarian`);
+    this.loadFollowState(resolved.collection.definition_id);
   }
 
   private loadFollowState(definitionId: string): void {

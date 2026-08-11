@@ -1,14 +1,19 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './auth.guard';
 import { adminGuard } from './admin.guard';
+import { ownSubRedirectGuard } from '../profile/own-sub-redirect.guard';
 import { HomeComponent } from '../home/home.component';
 import { PsnSettingsComponent } from '../psn/psn-settings.component';
 import { psnStatusResolver } from '../psn/psn-status.resolver';
 import { CatalogComponent } from '../catalog/catalog.component';
+import { catalogResolver } from '../catalog/catalog.resolver';
 import { CollectionsComponent } from '../collections/collections.component';
 import { ConsolesComponent } from '../consoles/consoles.component';
+import { consolesResolver } from '../consoles/consoles.resolver';
 import { PublicCollectionComponent } from '../public-collection/public-collection.component';
+import { publicCollectionResolver } from '../public-collection/public-collection.resolver';
 import { LibraryComponent } from '../library/library.component';
+import { libraryResolver } from '../library/library.resolver';
 import { FaqComponent } from '../faq/faq.component';
 import { PrivacyComponent } from '../privacy/privacy.component';
 import { NotFoundComponent } from '../not-found/not-found.component';
@@ -27,7 +32,13 @@ export const routes: Routes = [
     resolve: { status: psnStatusResolver },
     title: 'PlayStation Network',
   },
-  { path: 'catalog', component: CatalogComponent, canActivate: [authGuard], title: 'Catalog' },
+  {
+    path: 'catalog',
+    component: CatalogComponent,
+    canActivate: [authGuard],
+    resolve: { catalog: catalogResolver },
+    title: 'Catalog',
+  },
   { path: 'collections', component: CollectionsComponent, canActivate: [authGuard], title: 'Collections' },
   {
     path: 'collections/d/:definitionId',
@@ -35,18 +46,61 @@ export const routes: Routes = [
     canActivate: [authGuard],
     title: 'Collections',
   },
-  { path: 'collections/:sub', component: CollectionsComponent, canActivate: [authGuard], title: 'Collections' },
-  { path: 'consoles', component: ConsolesComponent, canActivate: [authGuard], title: 'Consoles & Storage' },
-  { path: 'c/:slug', component: PublicCollectionComponent, title: 'Shared Collection' },
-  { path: 'library', component: LibraryComponent, canActivate: [authGuard], title: 'Library' },
-  { path: 'library/:sub', component: LibraryComponent, canActivate: [authGuard], title: 'Library' },
+  {
+    path: 'collections/:sub',
+    component: CollectionsComponent,
+    canActivate: [authGuard, ownSubRedirectGuard(['/collections'])],
+    title: 'Collections',
+  },
+  {
+    path: 'consoles',
+    component: ConsolesComponent,
+    canActivate: [authGuard],
+    resolve: { consoles: consolesResolver },
+    title: 'Consoles & Storage',
+  },
+  {
+    path: 'c/:slug',
+    component: PublicCollectionComponent,
+    resolve: { collection: publicCollectionResolver },
+    title: 'Shared Collection',
+  },
+  {
+    path: 'library',
+    component: LibraryComponent,
+    canActivate: [authGuard],
+    resolve: { library: libraryResolver },
+    title: 'Library',
+  },
+  {
+    path: 'library/:sub',
+    component: LibraryComponent,
+    canActivate: [authGuard, ownSubRedirectGuard(['/library'])],
+    resolve: { library: libraryResolver },
+    title: 'Library',
+  },
   { path: 'profile', component: ProfileViewComponent, canActivate: [authGuard], title: 'Profile' },
   { path: 'profile/followers', component: ProfileFollowersComponent, canActivate: [authGuard], title: 'Followers' },
   { path: 'profile/following', component: ProfileFollowingComponent, canActivate: [authGuard], title: 'Following' },
   { path: 'profile/settings', component: ProfileSettingsComponent, canActivate: [authGuard], title: 'Profile Settings' },
-  { path: 'u/:sub', component: ProfileViewComponent, canActivate: [authGuard], title: 'Profile' },
-  { path: 'u/:sub/followers', component: ProfileFollowersComponent, canActivate: [authGuard], title: 'Followers' },
-  { path: 'u/:sub/following', component: ProfileFollowingComponent, canActivate: [authGuard], title: 'Following' },
+  {
+    path: 'u/:sub',
+    component: ProfileViewComponent,
+    canActivate: [authGuard, ownSubRedirectGuard(['/profile'])],
+    title: 'Profile',
+  },
+  {
+    path: 'u/:sub/followers',
+    component: ProfileFollowersComponent,
+    canActivate: [authGuard, ownSubRedirectGuard(['/profile', 'followers'])],
+    title: 'Followers',
+  },
+  {
+    path: 'u/:sub/following',
+    component: ProfileFollowingComponent,
+    canActivate: [authGuard, ownSubRedirectGuard(['/profile', 'following'])],
+    title: 'Following',
+  },
   {
     path: 'admin/enrichment',
     component: AdminEnrichmentComponent,

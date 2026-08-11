@@ -1,13 +1,27 @@
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { LibraryComponent } from './library.component';
+import { ResolvedLibrary } from './library.resolver';
 import { LibraryGameResponse, LibraryPageResponse, ProfileLibraryGameResponse } from '../curator/curator.models';
 import { AuthService } from '../auth/auth.service';
 
-function activatedRouteWithSub(sub: string | null): ActivatedRoute {
-  return { snapshot: { paramMap: convertToParamMap(sub !== null ? { sub } : {}) } } as unknown as ActivatedRoute;
+function okLibrary(
+  games: LibraryGameResponse[] | ProfileLibraryGameResponse[] = [],
+  total = games.length,
+  categories: string[] = [],
+): ResolvedLibrary {
+  return { status: 'ok', games, total, categories };
+}
+
+function activatedRouteWithSub(sub: string | null, resolved: ResolvedLibrary = okLibrary()): ActivatedRoute {
+  return {
+    snapshot: {
+      paramMap: convertToParamMap(sub !== null ? { sub } : {}),
+      data: { library: resolved },
+    },
+  } as unknown as ActivatedRoute;
 }
 
 function authServiceWithSub(sub: string | null): AuthService {
@@ -63,19 +77,36 @@ describe('LibraryComponent', () => {
     vi.useRealTimers();
   });
 
+  /**
+   * The first page and the category list both arrive from the resolver, so nothing is in flight here.
+   * Reconfigures the module rather than calling `overrideProvider`: the `beforeEach` above already
+   * instantiated it via `TestBed.inject`, and overriding after instantiation throws.
+   */
   async function createAndLoad(
     games: LibraryGameResponse[] = [],
     total = games.length,
     categories: string[] = [],
   ): Promise<ComponentFixture<LibraryComponent>> {
+    configureOwner(okLibrary(games, total, categories));
     const fixture = TestBed.createComponent(LibraryComponent);
     fixture.detectChanges();
     await fixture.whenStable();
-    httpMock.expectOne((req) => req.url === '/curator/api/library').flush(page(games, total));
-    httpMock.expectOne('/curator/api/library/categories').flush({ categories });
     fixture.detectChanges();
-    await fixture.whenStable();
     return fixture;
+  }
+
+  function configureOwner(resolved: ResolvedLibrary): void {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [LibraryComponent],
+      providers: [
+        provideHttpClient(withXhr()),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: ActivatedRoute, useValue: activatedRouteWithSub(null, resolved) },
+      ],
+    });
+    httpMock = TestBed.inject(HttpTestingController);
   }
 
   it('searches the shared catalog and adds the chosen game as a manual entry', async () => {
@@ -460,19 +491,18 @@ describe('LibraryComponent', () => {
     expect(prevButtonAfter.disabled).toBe(false);
   });
 
-  it('shows an error when the library fails to load', async () => {
+  it('shows an error when the resolver could not load the library', async () => {
+    configureOwner({ status: 'error' });
     const fixture = TestBed.createComponent(LibraryComponent);
     fixture.detectChanges();
     await fixture.whenStable();
-    httpMock.expectOne((req) => req.url === '/curator/api/library').flush(null, { status: 500, statusText: 'Error' });
-    httpMock.expectOne('/curator/api/library/categories').flush({ categories: [] });
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load your library.');
   });
 
   describe('viewer mode', () => {
-    function configureForViewer(routeSub: string, ownSub: string | null): void {
+    function configureForViewer(routeSub: string, ownSub: string | null, resolved: ResolvedLibrary = okLibrary()): void {
       TestBed.resetTestingModule();
       TestBed.configureTestingModule({
         imports: [LibraryComponent],
@@ -480,35 +510,20 @@ describe('LibraryComponent', () => {
           provideHttpClient(withXhr()),
           provideHttpClientTesting(),
           provideRouter([]),
-          { provide: ActivatedRoute, useValue: activatedRouteWithSub(routeSub) },
+          { provide: ActivatedRoute, useValue: activatedRouteWithSub(routeSub, resolved) },
           { provide: AuthService, useValue: authServiceWithSub(ownSub) },
         ],
       });
       httpMock = TestBed.inject(HttpTestingController);
     }
 
-    it('redirects to the bare /library path without fetching when :sub equals the signed-in user\'s own sub', () => {
-      configureForViewer('own-sub', 'own-sub');
-      const router = TestBed.inject(Router);
-      const navigateSpy = vi.spyOn(router, 'navigate');
-
-      const fixture = TestBed.createComponent(LibraryComponent);
-      fixture.detectChanges();
-
-      expect(navigateSpy).toHaveBeenCalledWith(['/library'], { replaceUrl: true });
-      httpMock.expectNone('/curator/api/library');
-      httpMock.expectNone('/curator/api/users/own-sub/library');
-    });
-
     it('renders another user\'s library read-only, with no refresh button', async () => {
-      configureForViewer('other-sub', null);
+      const games: ProfileLibraryGameResponse[] = [FULL_GAME];
+      configureForViewer('other-sub', null, okLibrary(games));
 
       const fixture = TestBed.createComponent(LibraryComponent);
       fixture.detectChanges();
       await fixture.whenStable();
-      const games: ProfileLibraryGameResponse[] = [FULL_GAME];
-      httpMock.expectOne((req) => req.url === '/curator/api/users/other-sub/library').flush(page(games));
-      httpMock.expectOne('/curator/api/users/other-sub/library/categories').flush({ categories: [] });
       fixture.detectChanges();
 
       const compiled: HTMLElement = fixture.nativeElement;
@@ -519,14 +534,12 @@ describe('LibraryComponent', () => {
     });
 
     it("shows a dash with an explanatory title for % Completed on another user's library", async () => {
-      configureForViewer('other-sub', null);
+      const games: ProfileLibraryGameResponse[] = [{ ...FULL_GAME, percent_completed: null }];
+      configureForViewer('other-sub', null, okLibrary(games));
 
       const fixture = TestBed.createComponent(LibraryComponent);
       fixture.detectChanges();
       await fixture.whenStable();
-      const games: ProfileLibraryGameResponse[] = [{ ...FULL_GAME, percent_completed: null }];
-      httpMock.expectOne((req) => req.url === '/curator/api/users/other-sub/library').flush(page(games));
-      httpMock.expectOne('/curator/api/users/other-sub/library/categories').flush({ categories: [] });
       fixture.detectChanges();
 
       const compiled: HTMLElement = fixture.nativeElement;
@@ -536,43 +549,33 @@ describe('LibraryComponent', () => {
     });
 
     it('shows an empty state for another user with no games', async () => {
-      configureForViewer('other-sub', null);
+      configureForViewer('other-sub', null, okLibrary([]));
 
       const fixture = TestBed.createComponent(LibraryComponent);
       fixture.detectChanges();
       await fixture.whenStable();
-      httpMock.expectOne((req) => req.url === '/curator/api/users/other-sub/library').flush(page([]));
-      httpMock.expectOne('/curator/api/users/other-sub/library/categories').flush({ categories: [] });
       fixture.detectChanges();
 
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('No games in this library yet.');
     });
 
-    it('shows an inline message on a 403 (section not public)', async () => {
-      configureForViewer('other-sub', null);
+    it('shows an inline message when the resolver reports the section is not public', async () => {
+      configureForViewer('other-sub', null, { status: 'forbidden' });
 
       const fixture = TestBed.createComponent(LibraryComponent);
       fixture.detectChanges();
       await fixture.whenStable();
-      httpMock
-        .expectOne((req) => req.url === '/curator/api/users/other-sub/library')
-        .flush(null, { status: 403, statusText: 'Forbidden' });
-      httpMock.expectOne('/curator/api/users/other-sub/library/categories').flush({ categories: [] });
       fixture.detectChanges();
 
       expect((fixture.nativeElement as HTMLElement).textContent).toContain("This section isn't available.");
     });
 
-    it('shows a generic error message on a non-403 failure', async () => {
-      configureForViewer('other-sub', null);
+    it('shows a generic error message when the resolver reports a non-403 failure', async () => {
+      configureForViewer('other-sub', null, { status: 'error' });
 
       const fixture = TestBed.createComponent(LibraryComponent);
       fixture.detectChanges();
       await fixture.whenStable();
-      httpMock
-        .expectOne((req) => req.url === '/curator/api/users/other-sub/library')
-        .flush(null, { status: 500, statusText: 'Server Error' });
-      httpMock.expectOne('/curator/api/users/other-sub/library/categories').flush({ categories: [] });
       fixture.detectChanges();
 
       expect((fixture.nativeElement as HTMLElement).textContent).toContain("Unable to load this user's library.");

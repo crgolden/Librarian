@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { isPlatformBrowser } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import {
   ColumnDef,
   createAngularTable,
@@ -12,7 +12,6 @@ import {
   type SortingState,
 } from '@tanstack/angular-table';
 import { Subject, Subscription, debounceTime, distinctUntilChanged, interval, retry, switchMap, takeWhile } from 'rxjs';
-import { AuthService } from '../auth/auth.service';
 import { CuratorService, LibraryQuery, LibrarySortField } from '../curator/curator.service';
 import {
   GameSummaryResponse,
@@ -20,8 +19,9 @@ import {
   LibraryRefreshStatusResponse,
   ProfileLibraryGameResponse,
 } from '../curator/curator.models';
-import { redirectIfOwnSub } from '../profile/own-sub-redirect';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
+import { LIBRARY_PAGE_SIZE, ResolvedLibrary } from './library.resolver';
+import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
 
 const POLL_INTERVAL_MS = 2500;
 const POLL_ERROR_RETRY_COUNT = 3;
@@ -29,7 +29,6 @@ const POLL_ERROR_RETRY_DELAY_MS = 2000;
 const TERMINAL_STATUSES = new Set(['succeeded', 'failed']);
 const KNOWN_STATUSES = new Set(['queued', 'running', 'succeeded', 'failed']);
 const SUMMARY_TITLE_DISPLAY_CAP = 10;
-const LIBRARY_PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 300;
 
 type LibraryGame = LibraryGameResponse | ProfileLibraryGameResponse;
@@ -60,15 +59,13 @@ const LIBRARY_COLUMNS: ColumnDef<LibraryGame>[] = [
  * message instead of the table. */
 @Component({
   selector: 'app-library',
-  imports: [FormsModule, BreadcrumbComponent],
+  imports: [FormsModule, BreadcrumbComponent, LoadingOverlayComponent],
   templateUrl: './library.component.html',
   styleUrl: './library.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LibraryComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
-  private readonly auth = inject(AuthService);
   private readonly curator = inject(CuratorService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private pollSubscription: Subscription | null = null;
@@ -87,9 +84,8 @@ export class LibraryComponent implements OnInit, OnDestroy {
 
   protected readonly games = signal<LibraryGame[]>([]);
   protected readonly total = signal(0);
-  protected readonly gamesLoading = signal(true);
+  protected readonly gamesLoading = signal(false);
   protected readonly gamesError = signal<string | null>(null);
-  protected readonly hasLoadedOnce = signal(false);
 
   protected readonly searchInput = signal('');
   protected readonly committedSearch = signal('');
@@ -137,10 +133,6 @@ export class LibraryComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    if (redirectIfOwnSub(this.route, this.router, this.auth, ['/library'])) {
-      return;
-    }
-
     this.searchCommitSubscription = this.searchCommit
       .pipe(debounceTime(SEARCH_DEBOUNCE_MS), distinctUntilChanged())
       .subscribe((value) => {
@@ -156,8 +148,21 @@ export class LibraryComponent implements OnInit, OnDestroy {
       this.breadcrumbItems.set([{ label: 'Profile', link: ['/u', sub] }, { label: 'Library' }]);
     }
 
-    this.loadCategories();
-    this.reload();
+    const resolved = this.route.snapshot.data['library'] as ResolvedLibrary;
+    if (resolved.status === 'forbidden') {
+      this.viewerForbidden.set(true);
+      return;
+    }
+    if (resolved.status === 'error') {
+      this.gamesError.set(
+        sub !== null ? "Unable to load this user's library." : 'Unable to load your library.',
+      );
+      return;
+    }
+
+    this.games.set(resolved.games);
+    this.total.set(resolved.total);
+    this.categoryOptions.set(resolved.categories);
   }
 
   ngOnDestroy(): void {
@@ -266,11 +271,9 @@ export class LibraryComponent implements OnInit, OnDestroy {
           this.games.set(response.games);
           this.total.set(response.total);
           this.gamesLoading.set(false);
-          this.hasLoadedOnce.set(true);
         },
         error: (err: HttpErrorResponse) => {
           this.gamesLoading.set(false);
-          this.hasLoadedOnce.set(true);
           if (err.status === 403) {
             this.viewerForbidden.set(true);
           } else {
@@ -284,11 +287,9 @@ export class LibraryComponent implements OnInit, OnDestroy {
           this.games.set(response.games);
           this.total.set(response.total);
           this.gamesLoading.set(false);
-          this.hasLoadedOnce.set(true);
         },
         error: () => {
           this.gamesLoading.set(false);
-          this.hasLoadedOnce.set(true);
           this.gamesError.set('Unable to load your library.');
         },
       });

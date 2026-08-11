@@ -1,7 +1,5 @@
 <section class="page-section public-collection">
-  @if (loading()) {
-    <p class="text-muted">Loading collection...</p>
-  } @else if (notFound()) {
+  @if (notFound()) {
     <h1>Collection not found</h1>
     <p class="text-muted">This link is invalid, or the collection it pointed to is no longer shared.</p>
   } @else if (error()) {

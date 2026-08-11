@@ -1,24 +1,28 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { CuratorService } from '../curator/curator.service';
-import { GameSummaryResponse } from '../curator/curator.models';
+import { CatalogGamesResponse, GameSummaryResponse } from '../curator/curator.models';
+import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
+import { CATALOG_PAGE_SIZE } from './catalog.resolver';
 
 const PS_STORE_PRODUCT_BASE = 'https://store.playstation.com/product/';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = CATALOG_PAGE_SIZE;
 
 @Component({
   selector: 'app-catalog',
-  imports: [FormsModule],
+  imports: [FormsModule, LoadingOverlayComponent],
   templateUrl: './catalog.component.html',
   styleUrl: './catalog.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CatalogComponent implements OnInit {
+export class CatalogComponent {
   private readonly curator = inject(CuratorService);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly games = signal<GameSummaryResponse[]>([]);
-  protected readonly loading = signal(true);
+  protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
 
   protected readonly search = signal('');
@@ -36,8 +40,20 @@ export class CatalogComponent implements OnInit {
   protected readonly hasNextPage = signal(false);
   protected readonly hasPrevPage = signal(false);
 
-  ngOnInit(): void {
-    this.load();
+  constructor() {
+    const resolved = this.route.snapshot.data['catalog'] as CatalogGamesResponse | null;
+    if (resolved === null) {
+      this.error.set('Unable to load the catalog.');
+      return;
+    }
+    this.applyPage(resolved);
+  }
+
+  private applyPage(response: CatalogGamesResponse): void {
+    this.games.set(response.games);
+    this.total.set(response.total);
+    this.hasNextPage.set(this.offset() + response.games.length < response.total);
+    this.hasPrevPage.set(this.offset() > 0);
   }
 
   protected applyFilters(): void {
@@ -70,10 +86,7 @@ export class CatalogComponent implements OnInit {
       })
       .subscribe({
         next: (response) => {
-          this.games.set(response.games);
-          this.total.set(response.total);
-          this.hasNextPage.set(this.offset() + response.games.length < response.total);
-          this.hasPrevPage.set(this.offset() > 0);
+          this.applyPage(response);
           this.loading.set(false);
         },
         error: () => {

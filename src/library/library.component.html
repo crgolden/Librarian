@@ -1,4 +1,6 @@
 <section class="page-section library">
+  <app-loading-overlay [visible]="gamesLoading()" />
+
   @if (viewerMode()) {
     <app-breadcrumb [items]="breadcrumbItems()" />
   }
@@ -115,8 +117,6 @@
 
       @if (gamesError()) {
         <p class="text-error">{{ gamesError() }}</p>
-      } @else if (!hasLoadedOnce() && gamesLoading()) {
-        <p class="text-muted">Loading library...</p>
       } @else if (total() === 0 && !committedSearch() && !categoryFilter()) {
         <p class="text-muted">
           {{ viewerMode() ? 'No games in this library yet.' : 'No games yet — run a refresh to build your library.' }}
@@ -158,9 +158,7 @@
           </select>
         </div>
 
-        @if (gamesLoading()) {
-          <p class="text-muted">Loading...</p>
-        } @else if (total() === 0) {
+        @if (total() === 0) {
           <p class="text-muted">No games match your search/filter.</p>
         } @else {
           <div class="library-table-scroll">
