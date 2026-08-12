@@ -91,6 +91,28 @@
       signed-in visitor can additionally follow a collection they don't own from its share page or your
       profile; unfollowing is always available, even for a collection that's since been made private again.
     </p>
+    <p>
+      <strong>Share links are kept out of search engines.</strong> Librarian publishes a sitemap so the
+      public game catalog can be found on the web, and it lists only catalog pages — never a share link,
+      a profile, a library, or a collection. Our <code>robots.txt</code> additionally asks crawlers to stay
+      out of those areas entirely. An unlisted collection stays discoverable only by the link you hand out.
+    </p>
+  </div>
+
+  <div class="card privacy-section">
+    <h3>The public game catalog</h3>
+    <p>
+      The game catalog is public and needs no account to browse — it describes games, not people. It's built
+      from the PlayStation Store's own public listings plus the titles that turn up in users' libraries, and
+      a catalog page shows only facts about the game: its title, cover art, franchise, genre, tier, and
+      review scores. It never names who owns a game, how many people own it, or whose library it came from.
+    </p>
+    <p>
+      One thing on a catalog page is yours alone: if you're signed in and you own the game, the page shows
+      <em>your</em> trophy progress for it. That figure is only ever sent to you. Signed out, it isn't in
+      the response at all — not hidden with CSS, not blanked out in the browser, simply absent from what the
+      server sends. Nobody viewing the same page sees your progress, and you never see theirs.
+    </p>
   </div>
 
   <div class="card privacy-section">

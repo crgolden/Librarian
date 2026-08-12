@@ -183,6 +183,38 @@ test.describe('PSN settings — data-sharing preferences', () => {
     await expect(page.locator('.psn-category-card', { hasText: 'Trophies' })).toBeVisible();
   });
 
+  test('the two write-consent toggles are off by default and persist independently', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedPsnLink();
+
+    await page.goto('/psn');
+    await expect(page.getByLabel('Friend requests')).not.toBeChecked();
+    await expect(page.getByLabel('Chat groups')).not.toBeChecked();
+
+    await page.getByLabel('Friend requests').check();
+    await page.reload();
+
+    await expect(page.getByLabel('Friend requests')).toBeChecked();
+    await expect(page.getByLabel('Chat groups')).not.toBeChecked();
+  });
+
+  test('granting a write consent renders no category card, unlike the read preferences', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedPsnLink();
+
+    await page.goto('/psn');
+    await page.getByLabel('Chat groups').check();
+
+    await expect(page.getByLabel('Chat groups')).toBeChecked();
+    await expect(page.locator('.psn-category-card')).toHaveCount(0);
+  });
+
   test('toggling a category off hides its card immediately', async ({ authedPage: page, store }) => {
     await store.reset();
     await store.seedPsnLink();

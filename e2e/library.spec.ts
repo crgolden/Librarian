@@ -43,7 +43,7 @@ test.describe('Library — authenticated', () => {
     await expect(page.getByText('No games yet — run a refresh to build your library.')).toBeVisible();
   });
 
-  test('renders ratings, category, and a PS Store link, with a dash for unresolved values', async ({
+  test('renders ratings, category, and a catalog link, with a dash for unresolved values', async ({
     authedPage: page,
     store,
   }) => {
@@ -72,14 +72,11 @@ test.describe('Library — authenticated', () => {
     await expect(eldenRow).toContainText('96');
     await expect(eldenRow).toContainText('94');
     await expect(eldenRow).toContainText('4.8');
-    const link = eldenRow.getByRole('link', { name: 'View' });
-    await expect(link).toHaveAttribute('href', 'https://store.playstation.com/en-us/product/UP0700-CUSA23100_00-ELDENRING0000000');
-    await expect(link).toHaveAttribute('target', '_blank');
-    await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    await expect(eldenRow.getByRole('link', { name: 'Details' })).toHaveAttribute('href', '/catalog/g1');
 
     const unmatchedRow = rows.filter({ hasText: 'Unmatched Game' });
     await expect(unmatchedRow).toContainText('—');
-    await expect(unmatchedRow.getByRole('link', { name: 'View' })).toHaveCount(0);
+    await expect(unmatchedRow.getByRole('link', { name: 'Details' })).toHaveAttribute('href', '/catalog/g2');
   });
 
   test('renders trophy completion percentage, with a dash when no match was found', async ({

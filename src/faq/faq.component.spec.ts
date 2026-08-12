@@ -50,6 +50,35 @@ describe('FaqComponent', () => {
     expect(compiled.textContent).toContain('PS5 games play directly from those');
   });
 
+  it('explains how games get into the public catalog', () => {
+    const fixture = TestBed.createComponent(FaqComponent);
+    fixture.detectChanges();
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.textContent).toContain('How do games get into the public catalog?');
+    expect(compiled.textContent).toContain('no PSN account is needed to browse it');
+    expect(compiled.textContent).toContain("PlayStation's own full-game classification");
+  });
+
+  it('explains where a catalog game\'s franchise, genre, and tier come from', () => {
+    const fixture = TestBed.createComponent(FaqComponent);
+    fixture.detectChanges();
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.textContent).toContain("Where do a catalog game's franchise, genre, and tier come from?");
+    expect(compiled.textContent).toContain('PlayStation Store is the source of truth');
+    expect(compiled.textContent).toContain('fall back to RAWG');
+  });
+
+  it('explains why a catalog listing shows three separate scores', () => {
+    const fixture = TestBed.createComponent(FaqComponent);
+    fixture.detectChanges();
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.textContent).toContain('Why does a catalog listing show three separate scores?');
+    expect(compiled.textContent).toContain('never adjusted or replaced by anything from RAWG or OpenCritic');
+  });
+
   it('states there are no ads or ad tracking, and never will be', () => {
     const fixture = TestBed.createComponent(FaqComponent);
     fixture.detectChanges();

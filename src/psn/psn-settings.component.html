@@ -104,6 +104,50 @@
         </div>
       </div>
 
+      <div class="card status-card psn-preferences">
+        <h2>Account changes</h2>
+        <p class="text-muted">
+          Everything above only reads your PlayStation Network account. These two let Curator write to it
+          instead — both off by default, and capped together at 50 changes a day.
+        </p>
+
+        <div class="psn-preference-toggle">
+          <label for="pref-friend-writes">
+            <input
+              id="pref-friend-writes"
+              type="checkbox"
+              [ngModel]="prefs.allow_friend_writes"
+              (ngModelChange)="onToggle('allow_friend_writes', $event)"
+              [disabled]="savingPreference() !== null"
+            />
+            Friend requests
+          </label>
+          <span class="text-muted"
+            >Let Curator add or remove friends on your account. Every change affects one other player, and
+            PlayStation already requires their agreement before you're friends. Removing someone can't be
+            undone from here — they'd have to accept a new request.</span
+          >
+        </div>
+
+        <div class="psn-preference-toggle">
+          <label for="pref-chat-writes">
+            <input
+              id="pref-chat-writes"
+              type="checkbox"
+              [ngModel]="prefs.allow_chat_writes"
+              (ngModelChange)="onToggle('allow_chat_writes', $event)"
+              [disabled]="savingPreference() !== null"
+            />
+            Chat groups
+          </label>
+          <span class="text-muted"
+            >Let Curator create and leave chat groups on your account. Creating a group puts it in front of
+            everyone you invite, and none of them agreed to hear from Curator — that's publishing, not just
+            reading. Leaving a group can't be undone from here — you'd need a fresh invite to rejoin.</span
+          >
+        </div>
+      </div>
+
       @if (enrichmentKeyStatus(); as keys) {
         <div class="card status-card psn-preferences">
           <h2>Enrichment API keys (optional)</h2>

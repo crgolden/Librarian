@@ -30,6 +30,8 @@ export interface PsnPreferences {
   harvest_identity: boolean;
   harvest_presence: boolean;
   harvest_devices: boolean;
+  allow_friend_writes: boolean;
+  allow_chat_writes: boolean;
 }
 
 export interface EnrichmentKeyStatus {
@@ -65,6 +67,8 @@ const DEFAULT_PSN_PREFERENCES: PsnPreferences = {
   harvest_identity: false,
   harvest_presence: false,
   harvest_devices: false,
+  allow_friend_writes: false,
+  allow_chat_writes: false,
 };
 
 export interface ProfileSettings {
@@ -95,6 +99,9 @@ export interface GameSummary {
   franchise: string | null;
   genre: string | null;
   aaa_tier: string | null;
+  critical_score?: number | null;
+  oc_score?: number | null;
+  psn_rating?: number | null;
 }
 
 interface CollectionGame {
@@ -999,7 +1006,32 @@ export function createCuratorApp(): Express {
         (!genre || game.genre === genre) &&
         (!aaaTier || game.aaa_tier === aaaTier),
     );
-    res.json({ games: filtered.slice(offset, offset + limit), total: filtered.length });
+    const page = filtered.slice(offset, offset + limit).map((game) => ({
+      ...game,
+      cover_image_url: null,
+      store_product_id: null,
+      critical_score: game.critical_score ?? null,
+      oc_score: game.oc_score ?? null,
+      psn_rating: game.psn_rating ?? null,
+    }));
+    res.json({ games: page, total: filtered.length });
+  });
+
+  /** GET /catalog/games/:gameId — one catalogued game, 404 when the id is unknown. */
+  app.get('/catalog/games/:gameId', (req: Request, res: Response) => {
+    const game = CATALOG_GAMES.find((candidate) => candidate.game_id === req.params['gameId']);
+    if (!game) {
+      res.status(404).json({ detail: 'No such game.' });
+      return;
+    }
+    res.json({
+      ...game,
+      cover_image_url: null,
+      store_product_id: null,
+      critical_score: game.critical_score ?? null,
+      oc_score: game.oc_score ?? null,
+      psn_rating: game.psn_rating ?? null,
+    });
   });
 
   /** POST /collections/preview — generate an unpersisted collection from an inline spec. */

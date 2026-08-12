@@ -9,6 +9,10 @@ export interface GameSummaryResponse {
   aaa_tier: string | null;
   cover_image_url: string | null;
   store_product_id: string | null;
+  critical_score: number | null;
+  oc_score: number | null;
+  psn_rating: number | null;
+  percent_completed?: number | null;
 }
 
 export interface CatalogGamesResponse {
@@ -242,6 +246,8 @@ export interface PsnPreferencesResponse {
   harvest_identity: boolean;
   harvest_presence: boolean;
   harvest_devices: boolean;
+  allow_friend_writes: boolean;
+  allow_chat_writes: boolean;
 }
 
 export interface PsnPreferencesRequest {
@@ -249,6 +255,8 @@ export interface PsnPreferencesRequest {
   harvest_identity: boolean;
   harvest_presence: boolean;
   harvest_devices: boolean;
+  allow_friend_writes: boolean;
+  allow_chat_writes: boolean;
 }
 
 export interface TrophyCountsResponse {

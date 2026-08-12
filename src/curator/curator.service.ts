@@ -23,6 +23,7 @@ import {
   EnrichmentRunResponse,
   EnrichmentRunStatusResponse,
   FollowListResponse,
+  GameSummaryResponse,
   IdentityResponse,
   LibraryCategoriesResponse,
   LibraryPageResponse,
@@ -158,6 +159,10 @@ export class CuratorService {
       params = params.set('offset', query.offset);
     }
     return this.http.get<CatalogGamesResponse>('/curator/api/catalog/games', { params });
+  }
+
+  getCatalogGame(gameId: string): Observable<GameSummaryResponse> {
+    return this.http.get<GameSummaryResponse>(`/curator/api/catalog/games/${gameId}`);
   }
 
   previewCollection(spec: CollectionSpecRequest): Observable<CollectionPreviewResponse> {

@@ -165,6 +165,107 @@
   </div>
 
   <div class="card faq-item">
+    <h3>What do AAA, AA, and Indie mean next to a game?</h3>
+    <p>
+      That label is Curator's own, not PlayStation's and not a review site's, so here's exactly how it's
+      decided. It comes from the game's publisher — or its developer, when we don't have a publisher —
+      matched against a list of names. Match a name on the AAA list and the game is AAA; match the AA list
+      and it's AA; match neither and it's Indie. AAA is checked first, so a name on both lists counts as
+      AAA. If we don't know who published a game at all, it gets no tier rather than being guessed as
+      Indie.
+    </p>
+    <p>
+      Two things worth being clear about. It describes the publisher, not the game — an excellent game from
+      a small studio is still "Indie", and that isn't a comment on quality. And because it's a list of
+      names we maintain, it can be wrong or out of date; when we change the list, games classified under
+      the old one are reclassified to match.
+    </p>
+  </div>
+
+  <div class="card faq-item">
+    <h3>Where does the "Minimum score" number in a collection come from?</h3>
+    <p>
+      It's an average of the ratings we have for a game: RAWG's critic score, OpenCritic's top-critic
+      score, and the PlayStation Store's own star rating. Whichever of those exist are averaged, and the
+      ones that don't are left out rather than counted as zero. The Store's rating uses a 1–5 scale, so
+      it's converted to the same 0–100 scale as the other two first.
+    </p>
+    <p>
+      So a game with all three ratings has a more dependable number behind it than one resting on a single
+      source, and a game with none has no score at all rather than a zero. The Store's own rating always
+      counts toward it — nothing from RAWG or OpenCritic replaces what PlayStation already says about a
+      game, those only fill in what PlayStation doesn't provide.
+    </p>
+  </div>
+
+  <div class="card faq-item">
+    <h3>How do games get into the public catalog?</h3>
+    <p>
+      Two ways. Curator walks the PlayStation Store's own public category listings directly, so most of the
+      catalog exists before anyone's library ever touches it — no PSN account is needed to browse it. The
+      rest arrives naturally: when someone links their library, whatever games Curator finds there that
+      aren't already in the catalog get added too. Either way, a title is matched by name (and, when it's
+      available, PlayStation's own internal id for that game) so the same game arriving through both a Store
+      walk and someone's library doesn't end up listed twice.
+    </p>
+    <p>
+      What actually makes it in still has to clear Curator's usual filtering for what counts as a real game.
+      Games Curator finds by walking the Store directly are checked against PlayStation's own full-game
+      classification, which excludes add-ons and DLC. Games that arrive because they turned up in someone's
+      library go through the same free-to-play-title and media-app exclusions your own library does.
+    </p>
+  </div>
+
+  <div class="card faq-item">
+    <h3>Does every catalog game have its own page?</h3>
+    <p>
+      Yes. Each game has a permanent address of its own, so you can link to a specific title rather than to
+      a search you'd have to repeat. Those pages need no account — signed out you'll see the game's cover
+      art, franchise, genre, tier, all three review scores, and a link to its PlayStation Store page when
+      one is known.
+    </p>
+    <p>
+      Signed in, one extra line appears on a game you own: your own trophy progress for it. That's the only
+      part of the page that differs between visitors, and it's only ever shown to you — see the
+      <a routerLink="/privacy">privacy policy</a> for exactly how that works. If you've never turned trophy
+      harvesting on in PSN Settings, there's no progress to show and the line is simply absent.
+    </p>
+  </div>
+
+  <div class="card faq-item">
+    <h3>Where do a catalog game's franchise, genre, and tier come from?</h3>
+    <p>
+      Franchise comes from checking the title against an ordered list of name patterns Curator maintains —
+      the first pattern that matches wins, and a title that matches nothing just shows no franchise. It's
+      text matching against the title alone, and when that list changes, every catalog game is rechecked
+      against it rather than staying stuck with an older answer.
+    </p>
+    <p>
+      Genre works differently, because the PlayStation Store is the source of truth here: if the Store's own
+      catalog has genre tags for a title, Curator uses those. Only when the Store doesn't have genre data for
+      a title yet does Curator fall back to RAWG's community-tagged genres. Either source can list more than
+      one tag for a game; Curator shows the most specific one (preferring, say, "Racing" over a generic
+      "Simulation" tag when both apply).
+    </p>
+    <p>
+      The AAA/AA/Indie tier next to a game works the same way here as everywhere else in Librarian — see the
+      question above for exactly how that's decided.
+    </p>
+  </div>
+
+  <div class="card faq-item">
+    <h3>Why does a catalog listing show three separate scores?</h3>
+    <p>
+      RAWG, OpenCritic, and the PlayStation Store's own star rating, shown side by side exactly as each
+      source reports them — a dash means Curator hasn't resolved that source for this title yet, not that
+      the score is zero. That's different from the blended "Minimum score" number collections use to filter
+      (see the question above): here nothing is averaged together, and none of the three ever overwrites
+      another. The Store's rating in particular is never adjusted or replaced by anything from RAWG or
+      OpenCritic — it's shown exactly as PlayStation itself reports it.
+    </p>
+  </div>
+
+  <div class="card faq-item">
     <h3>Can I keep PS5 games on an external drive?</h3>
     <p>
       Yes, and from the <a routerLink="/consoles">consoles &amp; storage</a> page Librarian tracks them there

@@ -9,6 +9,8 @@ import { PsnSettingsComponent } from '../psn/psn-settings.component';
 import { psnStatusResolver } from '../psn/psn-status.resolver';
 import { CatalogComponent } from '../catalog/catalog.component';
 import { catalogResolver } from '../catalog/catalog.resolver';
+import { CatalogDetailComponent } from '../catalog/catalog-detail.component';
+import { catalogDetailResolver } from '../catalog/catalog-detail.resolver';
 import { CollectionsComponent } from '../collections/collections.component';
 import { ownerCollectionsResolver, viewerCollectionsResolver } from '../collections/collections.resolver';
 import { ConsolesComponent } from '../consoles/consoles.component';
@@ -39,9 +41,14 @@ export const routes: Routes = [
   {
     path: 'catalog',
     component: CatalogComponent,
-    canActivate: [authGuard],
     resolve: { catalog: catalogResolver },
     title: 'Catalog',
+  },
+  {
+    path: 'catalog/:gameId',
+    component: CatalogDetailComponent,
+    resolve: { game: catalogDetailResolver },
+    title: 'Game',
   },
   {
     path: 'collections',

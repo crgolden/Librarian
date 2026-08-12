@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { ChangeDetectionStrategy, Component, computed, effect, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { filter } from 'rxjs';
 import { AuthService } from '../../auth/auth.service';
 import { AdminService } from '../../admin/admin.service';
 
@@ -31,6 +33,20 @@ export class SiteNavComponent {
   protected readonly auth = inject(AuthService);
   protected readonly admin = inject(AdminService);
   protected readonly links = PRIMARY_NAV_LINKS;
+  private readonly router = inject(Router);
+
+  private readonly lastNavigation = toSignal(
+    this.router.events.pipe(filter((event) => event instanceof NavigationEnd)),
+    { initialValue: null },
+  );
+
+  protected readonly loginHref = computed(() => {
+    this.lastNavigation();
+    const current = this.router.url;
+    return current && current !== '/'
+      ? `${this.auth.loginUrl}?returnTo=${encodeURIComponent(current)}`
+      : this.auth.loginUrl;
+  });
 
   constructor() {
     effect(() => {

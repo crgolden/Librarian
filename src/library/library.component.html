@@ -28,6 +28,7 @@
               catalog for it; a refresh will never remove what you add here.
             </p>
             <form (submit)="$event.preventDefault(); searchCatalog()">
+              <label class="sr-only" for="library-manual-search">Search the shared catalog</label>
               <input
                 id="library-manual-search"
                 name="manualSearch"
@@ -224,12 +225,8 @@
                     <td data-label="% Completed" [title]="percentCompletedTitle()">
                       {{ percentCompletedDisplay(row.original.percent_completed) }}
                     </td>
-                    <td data-label="PS Store page">
-                      @if (psnStoreUrl(row.original.psn_product_id); as url) {
-                        <a [href]="url" target="_blank" rel="noopener noreferrer">View</a>
-                      } @else {
-                        <span class="text-muted">—</span>
-                      }
+                    <td data-label="Catalog">
+                      <a [routerLink]="['/catalog', row.original.game_id]">Details</a>
                     </td>
                   </tr>
                 }

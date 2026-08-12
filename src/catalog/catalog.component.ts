@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CuratorService } from '../curator/curator.service';
 import { CatalogGamesResponse, GameSummaryResponse } from '../curator/curator.models';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
@@ -12,7 +12,7 @@ const PAGE_SIZE = CATALOG_PAGE_SIZE;
 
 @Component({
   selector: 'app-catalog',
-  imports: [FormsModule, LoadingOverlayComponent],
+  imports: [FormsModule, LoadingOverlayComponent, RouterLink],
   templateUrl: './catalog.component.html',
   styleUrl: './catalog.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -32,6 +32,10 @@ export class CatalogComponent {
   protected readonly offset = signal(0);
   protected readonly total = signal(0);
   protected readonly pageSize = PAGE_SIZE;
+
+  protected metaLine(game: GameSummaryResponse): string {
+    return [game.franchise, game.aaa_tier].filter((part) => !!part).join(' · ');
+  }
 
   protected storeUrl(game: GameSummaryResponse): string | null {
     return game.store_product_id ? PS_STORE_PRODUCT_BASE + encodeURIComponent(game.store_product_id) : null;

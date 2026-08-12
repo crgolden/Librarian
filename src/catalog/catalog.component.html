@@ -57,17 +57,21 @@
           @if (game.cover_image_url) {
             <img class="cover-art" [src]="game.cover_image_url" [alt]="game.canonical_title" loading="lazy" />
           }
-          <span class="catalog-title" [attr.id]="'catalog-title-' + $index">{{ game.canonical_title }}</span>
+          <a
+            class="catalog-title"
+            [attr.id]="'catalog-title-' + $index"
+            [routerLink]="['/catalog', game.game_id]"
+            >{{ game.canonical_title }}</a
+          >
           @if (game.genre) {
             <span class="spine-label">{{ game.genre }}</span>
           }
-          <span class="catalog-meta">
-            @if (game.franchise) {
-              {{ game.franchise }}
-            }
-            @if (game.aaa_tier) {
-              &middot; {{ game.aaa_tier }}
-            }
+          @if (metaLine(game); as meta) {
+            <span class="catalog-meta">{{ meta }}</span>
+          }
+          <span class="catalog-meta" [attr.id]="'catalog-ratings-' + $index">
+            RAWG {{ game.critical_score ?? '—' }} &middot; OpenCritic {{ game.oc_score ?? '—' }} &middot; PS Store
+            {{ game.psn_rating ?? '—' }}
           </span>
           @if (storeUrl(game); as url) {
             <a

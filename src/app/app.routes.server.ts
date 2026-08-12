@@ -4,6 +4,7 @@ export const serverRoutes: ServerRoute[] = [
   { path: '', renderMode: RenderMode.Server },
   { path: 'psn', renderMode: RenderMode.Client },
   { path: 'catalog', renderMode: RenderMode.Client },
+  { path: 'catalog/:gameId', renderMode: RenderMode.Server },
   { path: 'collections', renderMode: RenderMode.Client },
   { path: 'collections/d/:definitionId', renderMode: RenderMode.Client },
   { path: 'collections/:sub', renderMode: RenderMode.Client },

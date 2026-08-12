@@ -14,6 +14,9 @@ function game(id: string, title: string, overrides: Partial<GameSummaryResponse>
     aaa_tier: 'AAA',
     cover_image_url: null,
     store_product_id: null,
+    critical_score: null,
+    oc_score: null,
+    psn_rating: null,
     ...overrides,
   };
 }
@@ -77,6 +80,18 @@ describe('CatalogComponent', () => {
     const fixture = render(null);
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load the catalog.');
+  });
+
+  it('renders each rating, and a dash where a score is missing', () => {
+    const fixture = render({
+      games: [game('g1', 'Bloodborne', { critical_score: 92, oc_score: 91, psn_rating: null })],
+      total: 1,
+    });
+
+    const ratings = (fixture.nativeElement as HTMLElement).querySelector('#catalog-ratings-0')?.textContent ?? '';
+    expect(ratings).toContain('RAWG 92');
+    expect(ratings).toContain('OpenCritic 91');
+    expect(ratings).toContain('PS Store —');
   });
 
   it('sends the title search term as q', () => {

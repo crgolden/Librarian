@@ -40,6 +40,22 @@ describe('SiteNavComponent', () => {
     expect(compiled.querySelector('.site-nav-tabbar')).toBeNull();
   });
 
+  it('sends the page the visitor is on as returnTo, so signing in does not dump them at home', async () => {
+    const fixture = configure({ isAuthenticated: signal(false), loginUrl: '/bff/login' });
+    await TestBed.inject(Router).navigateByUrl('/catalog');
+    fixture.detectChanges();
+
+    const href = (fixture.nativeElement as HTMLElement).querySelector('a.btn-primary')?.getAttribute('href');
+    expect(href).toBe('/bff/login?returnTo=%2Fcatalog');
+  });
+
+  it('omits returnTo when the visitor is already on the home page', () => {
+    const fixture = configure({ isAuthenticated: signal(false), loginUrl: '/bff/login' });
+
+    const href = (fixture.nativeElement as HTMLElement).querySelector('a.btn-primary')?.getAttribute('href');
+    expect(href).toBe('/bff/login');
+  });
+
   it('renders all 5 primary destinations plus PSN Settings and Sign out when authenticated, in both desktop and mobile markup', () => {
     const fixture = configure({
       isAuthenticated: signal(true),

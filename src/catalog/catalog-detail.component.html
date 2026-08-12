@@ -1,0 +1,39 @@
+<section class="page-section catalog-detail">
+  @if (notFound()) {
+    <h1>Game not found</h1>
+    <p class="text-muted">No game in the catalog has that id.</p>
+    <a class="link-button" routerLink="/catalog">Back to the catalog</a>
+  } @else if (error()) {
+    <p class="text-error">{{ error() }}</p>
+    <a class="link-button" routerLink="/catalog">Back to the catalog</a>
+  } @else if (game(); as current) {
+    <h1>{{ current.canonical_title }}</h1>
+
+    <div class="card catalog-detail-card">
+      @if (current.cover_image_url) {
+        <img class="cover-art" [src]="current.cover_image_url" [alt]="current.canonical_title" />
+      }
+
+      @if (metaLine(current); as meta) {
+        <p class="catalog-meta">{{ meta }}</p>
+      }
+
+      <p class="catalog-meta" id="catalog-detail-ratings">
+        RAWG {{ current.critical_score ?? '—' }} &middot; OpenCritic {{ current.oc_score ?? '—' }} &middot; PS Store
+        {{ current.psn_rating ?? '—' }}
+      </p>
+
+      @if (current.percent_completed !== null && current.percent_completed !== undefined) {
+        <p class="catalog-meta" id="catalog-detail-progress">Your trophy progress: {{ current.percent_completed }}%</p>
+      }
+
+      @if (storeUrl(current); as url) {
+        <a id="catalog-detail-store-link" class="link-button" [href]="url" target="_blank" rel="noopener noreferrer">
+          View on PlayStation Store
+        </a>
+      }
+    </div>
+
+    <a class="link-button" routerLink="/catalog">Back to the catalog</a>
+  }
+</section>

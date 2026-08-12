@@ -127,6 +127,9 @@ describe('LibraryComponent', () => {
           aaa_tier: null,
           cover_image_url: null,
           store_product_id: null,
+          critical_score: null,
+          oc_score: null,
+          psn_rating: null,
         },
       ],
       total: 1,
@@ -351,6 +354,7 @@ describe('LibraryComponent', () => {
         rawg_enriched: false,
         opencritic_enriched: false,
         percent_completed: null,
+        source: 'psn',
         cover_image_url: null,
       },
     ]);
@@ -382,7 +386,7 @@ describe('LibraryComponent', () => {
     expect(rows[1].querySelector('img.cover-art')).toBeNull();
   });
 
-  it('renders a PS Store link that opens in a new tab when a product id is present, a dash otherwise', async () => {
+  it('links every row to its catalog page, including one with no PS Store product id', async () => {
     const fixture = await createAndLoad([
       FULL_GAME,
       {
@@ -396,19 +400,15 @@ describe('LibraryComponent', () => {
         rawg_enriched: false,
         opencritic_enriched: false,
         percent_completed: null,
+        source: 'psn',
         cover_image_url: null,
       },
     ]);
     const compiled: HTMLElement = fixture.nativeElement;
     const rows = compiled.querySelectorAll('tbody tr');
 
-    const link = rows[0].querySelector('a');
-    expect(link?.getAttribute('href')).toBe(
-      'https://store.playstation.com/en-us/product/UP0700-CUSA23100_00-ELDENRING0000000',
-    );
-    expect(link?.getAttribute('target')).toBe('_blank');
-    expect(link?.getAttribute('rel')).toBe('noopener noreferrer');
-    expect(rows[1].querySelector('a')).toBeNull();
+    expect(rows[0].querySelector('a')?.getAttribute('href')).toBe('/catalog/g1');
+    expect(rows[1].querySelector('a')?.getAttribute('href')).toBe('/catalog/g2');
   });
 
   it('searches by title, debounced, resetting to the first page', async () => {

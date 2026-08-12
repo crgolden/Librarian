@@ -1,5 +1,5 @@
 /**
- * Catalog page E2E — auth guard redirect, filtering, and pagination against the mock Curator API.
+ * Catalog page E2E — anonymous access, filtering, and pagination against the mock Curator API.
  */
 
 import { test, expect } from './fixtures.js';
@@ -12,12 +12,121 @@ const MANY_GAMES = Array.from({ length: 60 }, (_, i) => ({
   aaa_tier: 'AAA',
 }));
 
-test.describe('Catalog — auth guard', () => {
-  test('unauthenticated visitor is redirected to login', async ({ anonymousPage: page, store }) => {
+test.describe('Catalog — anonymous', () => {
+  test('an unauthenticated visitor browses the catalog without signing in', async ({
+    anonymousPage: page,
+    store,
+  }) => {
     await store.reset();
+    await store.seedCatalogGames([
+      { game_id: 'g1', canonical_title: 'Bloodborne', franchise: null, genre: 'RPG', aaa_tier: 'AAA' },
+    ]);
 
     await page.goto('/catalog');
-    await page.waitForURL('**/bff/login**', { timeout: 10_000 });
+
+    await expect(page.locator('h1')).toContainText('Catalog');
+    await expect(page.locator('text=Bloodborne')).toBeVisible();
+    expect(page.url()).not.toContain('/bff/login');
+  });
+
+  test('the catalog is reachable from the footer without an account', async ({ anonymousPage: page, store }) => {
+    await store.reset();
+
+    await page.goto('/');
+    await page.locator('.footer-nav').getByRole('link', { name: 'Catalog', exact: true }).click();
+
+    await page.waitForURL('**/catalog', { timeout: 10_000 });
+    await expect(page.locator('h1')).toContainText('Catalog');
+  });
+
+  test('shows each rating, and a dash where a score is missing', async ({ anonymousPage: page, store }) => {
+    await store.reset();
+    await store.seedCatalogGames([
+      {
+        game_id: 'g1',
+        canonical_title: 'Bloodborne',
+        franchise: null,
+        genre: 'RPG',
+        aaa_tier: 'AAA',
+        critical_score: 92,
+        oc_score: 91,
+        psn_rating: null,
+      },
+    ]);
+
+    await page.goto('/catalog');
+
+    const ratings = page.locator('#catalog-ratings-0');
+    await expect(ratings).toContainText('RAWG 92');
+    await expect(ratings).toContainText('OpenCritic 91');
+    await expect(ratings).toContainText('PS Store —');
+  });
+
+  test('a catalog title opens that game’s own page', async ({ anonymousPage: page, store }) => {
+    await store.reset();
+    await store.seedCatalogGames([
+      { game_id: 'g1', canonical_title: 'Bloodborne', franchise: null, genre: 'RPG', aaa_tier: 'AAA' },
+    ]);
+
+    await page.goto('/catalog');
+    await page.getByRole('link', { name: 'Bloodborne' }).click();
+
+    await page.waitForURL('**/catalog/g1', { timeout: 10_000 });
+    await expect(page.locator('h1')).toContainText('Bloodborne');
+  });
+
+  test('an unknown game id renders a not-found page rather than an error', async ({
+    anonymousPage: page,
+    store,
+  }) => {
+    await store.reset();
+
+    await page.goto('/catalog/no-such-game');
+
+    await expect(page.locator('body')).toContainText('Game not found');
+  });
+
+  test('the detail page is server-rendered, so a crawler following the sitemap sees the game', async ({
+    request,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedCatalogGames([
+      { game_id: 'g1', canonical_title: 'Bloodborne', franchise: null, genre: 'RPG', aaa_tier: 'AAA' },
+    ]);
+
+    const response = await request.get('/catalog/g1');
+
+    expect(response.status()).toBe(200);
+    expect(await response.text()).toContain('Bloodborne');
+  });
+});
+
+test.describe('Sitemap and robots', () => {
+  test('the sitemap lists the public pages and every catalog game', async ({ request, store }) => {
+    await store.reset();
+    await store.seedCatalogGames([
+      { game_id: 'g1', canonical_title: 'Bloodborne', franchise: null, genre: 'RPG', aaa_tier: 'AAA' },
+    ]);
+
+    const response = await request.get('/sitemap.xml');
+    const xml = await response.text();
+
+    expect(response.status()).toBe(200);
+    expect(xml).toContain('<loc>');
+    expect(xml).toContain('/catalog/g1</loc>');
+    expect(xml).toContain('/faq</loc>');
+    expect(xml).not.toContain('/library</loc>');
+  });
+
+  test('robots.txt advertises the sitemap and blocks the signed-in areas', async ({ request }) => {
+    const response = await request.get('/robots.txt');
+    const body = await response.text();
+
+    expect(response.status()).toBe(200);
+    expect(body).toContain('/sitemap.xml');
+    expect(body).toContain('Disallow: /library');
+    expect(body).toContain('Disallow: /admin');
   });
 });
 

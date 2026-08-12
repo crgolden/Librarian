@@ -58,6 +58,8 @@ describe('PsnSettingsComponent', () => {
     harvest_identity: false,
     harvest_presence: false,
     harvest_devices: false,
+    allow_friend_writes: false,
+    allow_chat_writes: false,
   };
 
   const NO_ENRICHMENT_KEYS = {
@@ -519,6 +521,8 @@ describe('PsnSettingsComponent', () => {
       harvest_identity: true,
       harvest_presence: false,
       harvest_devices: false,
+      allow_friend_writes: false,
+      allow_chat_writes: false,
     });
     const compiled: HTMLElement = fixture.nativeElement;
 
@@ -538,6 +542,8 @@ describe('PsnSettingsComponent', () => {
       harvest_identity: false,
       harvest_presence: true,
       harvest_devices: false,
+      allow_friend_writes: false,
+      allow_chat_writes: false,
     });
     const compiled: HTMLElement = fixture.nativeElement;
 
@@ -548,12 +554,14 @@ describe('PsnSettingsComponent', () => {
     httpMock.expectNone('/curator/api/devices');
   });
 
-  it('onToggle sends a PUT with all 4 current flags, not just the one being changed', () => {
+  it('onToggle sends a PUT with all current preference flags, not just the one being changed', () => {
     const fixture = createLinkedWithPreferences({
       harvest_trophies: false,
       harvest_identity: true,
       harvest_presence: false,
       harvest_devices: true,
+      allow_friend_writes: false,
+      allow_chat_writes: false,
     });
 
     harness(fixture).onToggle('harvest_trophies', true);
@@ -565,9 +573,80 @@ describe('PsnSettingsComponent', () => {
       harvest_identity: true,
       harvest_presence: false,
       harvest_devices: true,
+      allow_friend_writes: false,
+      allow_chat_writes: false,
     });
     req.flush(null, { status: 204, statusText: 'No Content' });
     httpMock.expectOne('/curator/api/trophies/summary').flush(TROPHY_SUMMARY);
+  });
+
+  it('renders the friend-writes and chat-writes toggles unchecked by default, with disclosure copy', () => {
+    const fixture = createAndLoad(LINKED_STATUS);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    expect(compiled.querySelector<HTMLInputElement>('#pref-friend-writes')?.checked).toBe(false);
+    expect(compiled.querySelector<HTMLInputElement>('#pref-chat-writes')?.checked).toBe(false);
+    expect(compiled.textContent).toContain('one other player');
+    expect(compiled.textContent).toContain('PlayStation already requires');
+    expect(compiled.textContent).toContain("none of them agreed to hear from Curator");
+    expect(compiled.textContent).toContain('50 changes a day');
+  });
+
+  it('onToggle for allow_friend_writes sends a PUT with all current flags and triggers no per-category GET', () => {
+    const fixture = createLinkedWithPreferences({
+      harvest_trophies: false,
+      harvest_identity: false,
+      harvest_presence: false,
+      harvest_devices: false,
+      allow_friend_writes: false,
+      allow_chat_writes: false,
+    });
+
+    harness(fixture).onToggle('allow_friend_writes', true);
+
+    const req = httpMock.expectOne('/curator/api/me/psn-preferences');
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({
+      harvest_trophies: false,
+      harvest_identity: false,
+      harvest_presence: false,
+      harvest_devices: false,
+      allow_friend_writes: true,
+      allow_chat_writes: false,
+    });
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    httpMock.expectNone('/curator/api/trophies/summary');
+    httpMock.expectNone('/curator/api/identity');
+    httpMock.expectNone('/curator/api/presence');
+    httpMock.expectNone('/curator/api/devices');
+  });
+
+  it('onToggle for allow_chat_writes checks the box optimistically and reverts it if the PUT fails', async () => {
+    const fixture = createLinkedWithPreferences({
+      harvest_trophies: false,
+      harvest_identity: false,
+      harvest_presence: false,
+      harvest_devices: false,
+      allow_friend_writes: false,
+      allow_chat_writes: false,
+    });
+    const h = harness(fixture);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    h.onToggle('allow_chat_writes', true);
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+    expect(compiled.querySelector<HTMLInputElement>('#pref-chat-writes')?.checked).toBe(true);
+
+    const putReq = httpMock.expectOne('/curator/api/me/psn-preferences');
+    putReq.flush(null, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expect(compiled.querySelector<HTMLInputElement>('#pref-chat-writes')?.checked).toBe(false);
+    expect(compiled.textContent).toContain('Failed to update preference. Please try again.');
   });
 
   it('toggling a category on optimistically checks the box, fires its GET, and renders its card on success', async () => {
@@ -576,6 +655,8 @@ describe('PsnSettingsComponent', () => {
       harvest_identity: false,
       harvest_presence: false,
       harvest_devices: false,
+      allow_friend_writes: false,
+      allow_chat_writes: false,
     });
     const h = harness(fixture);
 
@@ -609,6 +690,8 @@ describe('PsnSettingsComponent', () => {
       harvest_identity: false,
       harvest_presence: false,
       harvest_devices: false,
+      allow_friend_writes: false,
+      allow_chat_writes: false,
     });
     const h = harness(fixture);
     const compiled: HTMLElement = fixture.nativeElement;
@@ -631,6 +714,8 @@ describe('PsnSettingsComponent', () => {
       harvest_identity: false,
       harvest_presence: false,
       harvest_devices: false,
+      allow_friend_writes: false,
+      allow_chat_writes: false,
     });
     const h = harness(fixture);
     const compiled: HTMLElement = fixture.nativeElement;
@@ -659,6 +744,8 @@ describe('PsnSettingsComponent', () => {
       harvest_identity: false,
       harvest_presence: false,
       harvest_devices: false,
+      allow_friend_writes: false,
+      allow_chat_writes: false,
     });
     const h = harness(fixture);
     const compiled: HTMLElement = fixture.nativeElement;

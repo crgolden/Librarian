@@ -41,6 +41,9 @@ export interface CatalogGameFixture {
   franchise: string | null;
   genre: string | null;
   aaa_tier: string | null;
+  critical_score?: number | null;
+  oc_score?: number | null;
+  psn_rating?: number | null;
 }
 
 export interface PsnPreferencesFixture {
@@ -48,6 +51,8 @@ export interface PsnPreferencesFixture {
   harvest_identity?: boolean;
   harvest_presence?: boolean;
   harvest_devices?: boolean;
+  allow_friend_writes?: boolean;
+  allow_chat_writes?: boolean;
 }
 
 export interface EnrichmentKeyStatusFixture {

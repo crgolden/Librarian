@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { isPlatformBrowser } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   ColumnDef,
   createAngularTable,
@@ -41,7 +41,7 @@ const LIBRARY_COLUMNS: ColumnDef<LibraryGame>[] = [
   { id: 'opencritic_rating', accessorKey: 'opencritic_rating', header: 'OpenCritic' },
   { id: 'psn_rating', accessorKey: 'psn_rating', header: 'PS Store' },
   { id: 'percent_completed', accessorKey: 'percent_completed', header: '% Completed' },
-  { id: 'psn_link', header: 'PS Store page', enableSorting: false },
+  { id: 'catalog_link', header: 'Catalog', enableSorting: false },
 ];
 
 /** `/library` (owner) and `/library/:sub` (viewer, canonicalized away from your own sub).
@@ -59,7 +59,7 @@ const LIBRARY_COLUMNS: ColumnDef<LibraryGame>[] = [
  * message instead of the table. */
 @Component({
   selector: 'app-library',
-  imports: [FormsModule, BreadcrumbComponent, LoadingOverlayComponent],
+  imports: [FormsModule, BreadcrumbComponent, LoadingOverlayComponent, RouterLink],
   templateUrl: './library.component.html',
   styleUrl: './library.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -320,10 +320,6 @@ export class LibraryComponent implements OnInit, OnDestroy {
 
   protected prevPage(): void {
     this.table().previousPage();
-  }
-
-  protected psnStoreUrl(productId: string | null): string | null {
-    return productId ? `https://store.playstation.com/en-us/product/${productId}` : null;
   }
 
   /** `null` covers both "no PSN link / trophy harvesting off / no confident title match" for the owner

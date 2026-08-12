@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { applySession } from './bff/session';
 import { buildBffRouter } from './bff/routes';
 import { csrfForMutating, curatorProxy } from './bff/proxy';
+import { robotsHandler, sitemapHandler } from './bff/sitemap';
 import { logger, requestLogger } from './telemetry/logging';
 import { environment } from './environments/environment';
 
@@ -34,6 +35,10 @@ applySession(app);
 app.use('/bff', buildBffRouter());
 
 app.use('/curator/api', csrfForMutating, curatorProxy);
+
+app.get('/sitemap.xml', sitemapHandler);
+
+app.get('/robots.txt', robotsHandler);
 
 app.use(
   express.static(browserDistFolder, {

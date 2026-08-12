@@ -1,0 +1,23 @@
+.catalog-detail-card {
+  padding: var(--card-pad);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.catalog-detail-card p {
+  margin: 0;
+}
+
+.catalog-detail .cover-art {
+  width: 100%;
+  max-width: 480px;
+  height: auto;
+  border-radius: var(--radius-sm);
+}
+
+.catalog-detail > .link-button {
+  display: inline-block;
+  margin-top: var(--space-4);
+}
