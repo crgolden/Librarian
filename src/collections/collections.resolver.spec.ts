@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRouteSnapshot } from '@angular/router';
+import { ActivatedRouteSnapshot, ResolveFn } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { ownerCollectionsResolver, viewerCollectionsResolver, ResolvedCollections } from './collections.resolver';
 import { CuratorService } from '../curator/curator.service';
@@ -17,7 +17,7 @@ const DETAIL = { definition_id: 'd1' } as unknown as DefinitionDetailResponse;
 const VIEWER_DEFINITIONS = [{ definition_id: 'd9' }] as unknown as ProfileDefinitionResponse[];
 
 function run(
-  resolver: typeof ownerCollectionsResolver | typeof viewerCollectionsResolver,
+  resolver: ResolveFn<ResolvedCollections>,
   curator: Partial<CuratorService>,
   params: Record<string, string | null>,
 ): Promise<ResolvedCollections> {
