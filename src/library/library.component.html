@@ -219,7 +219,7 @@
                       }
                     </td>
                     <td data-label="Platforms">
-                      @if (row.original.platforms.length) {
+                      @if (row.original.platforms?.length) {
                         <span class="library-platforms">
                           @for (platform of row.original.platforms; track platform) {
                             <span class="spine-label">{{ platform }}</span>

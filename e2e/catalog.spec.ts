@@ -151,7 +151,7 @@ test.describe('Catalog — authenticated', () => {
 
     await page.goto('/catalog');
     await expect(page.locator('text=Bloodborne')).toBeVisible();
-    await page.getByLabel('Genre').fill('Roguelike');
+    await page.getByLabel('Genre').selectOption('Roguelike');
     await page.getByRole('button', { name: 'Apply' }).click();
 
     await expect(page.locator('text=Hades')).toBeVisible();

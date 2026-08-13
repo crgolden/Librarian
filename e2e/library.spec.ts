@@ -79,6 +79,34 @@ test.describe('Library — authenticated', () => {
     await expect(unmatchedRow.getByRole('link', { name: 'Details' })).toHaveAttribute('href', '/catalog/g2');
   });
 
+  test('renders every platform an entry is owned on, and a dash for none', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedLibraryGames([
+      {
+        game_id: 'g1',
+        title: '99Vidas',
+        rawg_enriched: false,
+        opencritic_enriched: false,
+        platforms: ['PS4', 'PS3', 'PSVITA'],
+      },
+      { game_id: 'g2', title: 'Unplatformed Game', rawg_enriched: false, opencritic_enriched: false },
+    ]);
+
+    await page.goto('/library');
+    const rows = page.locator('.library-table tbody tr');
+    await expect(rows).toHaveCount(2);
+
+    const multi = rows.filter({ hasText: '99Vidas' }).locator('td[data-label="Platforms"]');
+    await expect(multi.locator('.spine-label')).toHaveText(['PS4', 'PS3', 'PSVITA']);
+
+    const none = rows.filter({ hasText: 'Unplatformed Game' }).locator('td[data-label="Platforms"]');
+    await expect(none.locator('.spine-label')).toHaveCount(0);
+    await expect(none).toHaveText('—');
+  });
+
   test('renders trophy completion percentage, with a dash when no match was found', async ({
     authedPage: page,
     store,

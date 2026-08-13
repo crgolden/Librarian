@@ -179,6 +179,7 @@ export interface LibraryGame {
   rawg_enriched: boolean;
   opencritic_enriched: boolean;
   percent_completed: number | null;
+  platforms: string[];
 }
 
 const LIBRARY_SORT_FIELDS = ['title', 'category', 'rawg_rating', 'opencritic_rating', 'psn_rating'] as const;
@@ -239,6 +240,7 @@ function normalizeLibraryGames(games: SeededLibraryGame[]): LibraryGame[] {
     rawg_enriched: g.rawg_enriched,
     opencritic_enriched: g.opencritic_enriched,
     percent_completed: g.percent_completed ?? null,
+    platforms: g.platforms ?? [],
   }));
 }
 
@@ -1015,6 +1017,12 @@ export function createCuratorApp(): Express {
       psn_rating: game.psn_rating ?? null,
     }));
     res.json({ games: page, total: filtered.length });
+  });
+
+  /** GET /catalog/genres — the genres carried by at least one game in the catalog fixture. */
+  app.get('/catalog/genres', (_req: Request, res: Response) => {
+    const genres = [...new Set(CATALOG_GAMES.map((game) => game.genre).filter((genre): genre is string => !!genre))];
+    res.json({ genres });
   });
 
   /** GET /catalog/games/:gameId — one catalogued game, 404 when the id is unknown. */

@@ -26,7 +26,6 @@ env:
 
 jobs:
   build:
-    if: github.actor != 'dependabot[bot]'
     name: Build and analyze
     runs-on: ubuntu-latest
     outputs:
@@ -117,7 +116,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Report E2E results
-        if: always()
+        if: always() && github.actor != 'dependabot[bot]'
         shell: pwsh
         env:
           AZURE_DEVOPS_EXT_PAT: ${{ secrets.AZURE_DEVOPS_EXT_PAT }}
@@ -214,6 +213,7 @@ jobs:
       # Uses sonarqube-scan-action (no JDK/scanner setup required); sonarcloud-github-action is deprecated
       # and its pinned scanner-cli bundles a JRE 17 that SonarQube Cloud no longer accepts.
       - name: SonarCloud analysis
+        if: github.actor != 'dependabot[bot]'
         uses: sonarsource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -232,11 +232,12 @@ jobs:
       - name: Build (production)
         run: npm run build
 
-      # Strip devDependencies so the deployment package only contains production modules.
       - name: Prune devDependencies
+        if: github.ref == 'refs/heads/main'
         run: npm prune --omit=dev
 
       - name: Assemble deployment package
+        if: github.ref == 'refs/heads/main'
         run: |
           mkdir -p publish
           cp -r dist publish/dist
@@ -246,6 +247,7 @@ jobs:
           cp package-lock.json publish/package-lock.json
 
       - name: Upload artifact for deployment job
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: node-app
@@ -255,6 +257,7 @@ jobs:
     name: Deploy
     runs-on: ubuntu-latest
     needs: build
+    if: github.ref == 'refs/heads/main'
     outputs:
       webapp-url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
     permissions:
