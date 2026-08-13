@@ -58,6 +58,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Lint stylesheets
+        run: npm run lint:css
+
+      - name: Check design primitives
+        run: npm run lint:primitives
+
       - name: Run unit tests with coverage
         run: npm run test:coverage
 

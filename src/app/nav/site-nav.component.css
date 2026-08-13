@@ -7,7 +7,7 @@
 
 .site-nav-desktop a.nav-active {
   color: var(--color-primary);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .user-chip {
@@ -29,15 +29,15 @@
   align-items: center;
   justify-content: center;
   font-family: var(--font-heading);
-  font-weight: 700;
-  font-size: 0.85rem;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-meta);
   color: var(--color-surface);
   background: var(--color-primary);
 }
 
 .user-email {
   font-family: var(--font-meta);
-  font-size: 0.85rem;
+  font-size: var(--font-size-meta);
   color: var(--color-text-muted);
 }
 
@@ -75,8 +75,8 @@
     align-items: center;
     justify-content: center;
     font-family: var(--font-body);
-    font-size: 0.75rem;
-    font-weight: 500;
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-medium);
     color: var(--color-text-muted);
     text-decoration: none;
     transition: color 200ms ease-out;
@@ -84,6 +84,6 @@
 
   .site-nav-tabbar .tab-link.nav-active {
     color: var(--color-primary);
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
   }
 }

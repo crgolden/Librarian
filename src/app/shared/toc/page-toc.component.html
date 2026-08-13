@@ -1,6 +1,6 @@
 @if (items().length) {
   <nav class="page-toc" aria-label="On this page">
-    <p class="page-toc-heading">On this page</p>
+    <p class="stamp-label page-toc-heading">On this page</p>
     <ul>
       @for (item of items(); track item.id) {
         <li><a [href]="'#' + item.id" (click)="scrollToId(item.id, $event)">{{ item.label }}</a></li>

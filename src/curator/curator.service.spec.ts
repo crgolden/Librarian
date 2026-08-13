@@ -41,6 +41,15 @@ describe('CuratorService', () => {
     req.flush({ games: [] });
   });
 
+  it('getCatalogGenres reads the genre vocabulary without any query params', () => {
+    service.getCatalogGenres().subscribe();
+
+    const req = httpMock.expectOne('/curator/api/catalog/genres');
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.keys().length).toBe(0);
+    req.flush({ genres: [] });
+  });
+
   it('previewCollection posts the spec', () => {
     const spec = { kind: 'filter_list', genre_filter: ['RPG'] };
     service.previewCollection(spec).subscribe();

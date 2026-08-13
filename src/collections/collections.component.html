@@ -59,7 +59,7 @@
             <span class="catalog-title">{{ definition.name }}</span>
             <span class="spine-label">{{ kindLabel(definition.kind) }}</span>
             <span class="catalog-meta">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
-            <span class="visibility-badge" [class.visibility-shared]="definition.visibility !== 'private'">
+            <span class="stamp-label" [class.visibility-shared]="definition.visibility !== 'private'">
               {{ definition.visibility }}
             </span>
             <button type="button" class="btn-ghost" (click)="openDefinition(definition.definition_id)">View / Edit</button>
@@ -529,13 +529,13 @@
             }
             <div class="form-actions">
               <button type="button" class="btn-ghost" (click)="cancelDelete()">Cancel</button>
-              <button type="button" class="btn-primary btn-danger" [disabled]="deleting()" (click)="deleteDefinition()">
+              <button type="button" class="btn-danger" [disabled]="deleting()" (click)="deleteDefinition()">
                 {{ deleting() ? 'Deleting...' : 'Confirm delete' }}
               </button>
             </div>
           </div>
         } @else {
-          <button type="button" class="btn-ghost btn-danger" (click)="confirmDelete()">Delete collection</button>
+          <button type="button" class="btn-ghost btn-ghost-danger" (click)="confirmDelete()">Delete collection</button>
         }
       </div>
     }

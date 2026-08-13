@@ -196,7 +196,7 @@
               <tbody>
                 @for (row of table().getRowModel().rows; track row.original.game_id) {
                   <tr>
-                    <td data-label="Cover">
+                    <td class="library-cover-cell">
                       @if (row.original.cover_image_url) {
                         <img class="cover-art" [src]="row.original.cover_image_url" [alt]="row.original.title" loading="lazy" />
                       }
@@ -216,6 +216,17 @@
                             Remove
                           </button>
                         }
+                      }
+                    </td>
+                    <td data-label="Platforms">
+                      @if (row.original.platforms.length) {
+                        <span class="library-platforms">
+                          @for (platform of row.original.platforms; track platform) {
+                            <span class="spine-label">{{ platform }}</span>
+                          }
+                        </span>
+                      } @else {
+                        —
                       }
                     </td>
                     <td data-label="Category">{{ row.original.category ?? '—' }}</td>

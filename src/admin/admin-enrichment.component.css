@@ -17,7 +17,7 @@
 
 .admin-pass {
   padding-top: var(--space-2);
-  border-top: 1px solid var(--border-color, #e0e0e0);
+  border-top: 1px solid var(--color-border);
 }
 
 .admin-pass h3 {

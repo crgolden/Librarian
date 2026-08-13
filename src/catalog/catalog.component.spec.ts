@@ -41,10 +41,11 @@ function harness(fixture: ComponentFixture<CatalogComponent>): CatalogHarness {
 
 describe('CatalogComponent', () => {
   let httpMock: HttpTestingController;
-  const routeData: { catalog: CatalogGamesResponse | null } = { catalog: null };
+  const routeData: { catalog: CatalogGamesResponse | null; genres: string[] } = { catalog: null, genres: [] };
 
-  function render(resolved: CatalogGamesResponse | null): ComponentFixture<CatalogComponent> {
+  function render(resolved: CatalogGamesResponse | null, genres: string[] = []): ComponentFixture<CatalogComponent> {
     routeData.catalog = resolved;
+    routeData.genres = genres;
     const fixture = TestBed.createComponent(CatalogComponent);
     fixture.detectChanges();
     return fixture;
@@ -52,6 +53,7 @@ describe('CatalogComponent', () => {
 
   beforeEach(() => {
     routeData.catalog = { games: [], total: 0 };
+    routeData.genres = [];
     TestBed.configureTestingModule({
       imports: [CatalogComponent],
       providers: [
@@ -177,6 +179,34 @@ describe('CatalogComponent', () => {
 
     expect(compiled.querySelector('.loading-overlay')).toBeNull();
     expect(compiled.textContent).toContain('Sekiro');
+  });
+
+  it('offers the resolved genres as options under an Any default, in the order resolved', () => {
+    const fixture = render({ games: [], total: 0 }, ['Shooter', 'RPG', 'Adventure']);
+
+    const select = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>('#genre')!;
+    expect(select.tagName).toBe('SELECT');
+    expect(Array.from(select.options).map((option) => option.value)).toEqual(['', 'Shooter', 'RPG', 'Adventure']);
+    expect(select.options[0].textContent).toContain('Any');
+  });
+
+  it('still renders a usable genre filter when no genres resolved', () => {
+    const fixture = render({ games: [], total: 0 }, []);
+
+    const select = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>('#genre')!;
+    expect(Array.from(select.options).map((option) => option.value)).toEqual(['']);
+  });
+
+  it('sends the selected genre as the genre filter', () => {
+    const fixture = render({ games: [], total: 0 }, ['Shooter']);
+
+    const h = harness(fixture);
+    h.genre.set('Shooter');
+    h.applyFilters();
+
+    const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
+    expect(req.request.params.get('genre')).toBe('Shooter');
+    req.flush({ games: [], total: 0 });
   });
 
   it('shows an error message when an in-page load fails', () => {

@@ -96,7 +96,7 @@
                 <button type="button" class="btn-ghost" (click)="cancelDeleteConsole()">Cancel</button>
                 <button
                   type="button"
-                  class="btn-primary btn-danger"
+                  class="btn-danger"
                   [disabled]="deletingConsoleId() === console.console_id"
                   (click)="deleteConsole(console.console_id)"
                 >
@@ -106,7 +106,7 @@
             } @else {
               <div class="form-actions">
                 <button type="button" class="btn-ghost" (click)="startEditingConsole(console)">Edit</button>
-                <button type="button" class="btn-ghost btn-danger" (click)="confirmDeleteConsole(console.console_id)">Delete</button>
+                <button type="button" class="btn-ghost btn-ghost-danger" (click)="confirmDeleteConsole(console.console_id)">Delete</button>
               </div>
             }
           }
@@ -237,7 +237,7 @@
                 <button type="button" class="btn-ghost" (click)="cancelDeleteDevice()">Cancel</button>
                 <button
                   type="button"
-                  class="btn-primary btn-danger"
+                  class="btn-danger"
                   [disabled]="deletingDeviceId() === device.device_id"
                   (click)="deleteDevice(device.device_id)"
                 >
@@ -252,7 +252,7 @@
                 } @else {
                   <button type="button" class="btn-ghost" (click)="startAttaching(device.device_id)">Attach</button>
                 }
-                <button type="button" class="btn-ghost btn-danger" (click)="confirmDeleteDevice(device.device_id)">Delete</button>
+                <button type="button" class="btn-ghost btn-ghost-danger" (click)="confirmDeleteDevice(device.device_id)">Delete</button>
               </div>
             }
           }

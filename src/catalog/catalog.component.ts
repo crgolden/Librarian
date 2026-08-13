@@ -29,6 +29,7 @@ export class CatalogComponent {
   protected readonly franchise = signal('');
   protected readonly genre = signal('');
   protected readonly aaaTier = signal('');
+  protected readonly genreOptions = signal<string[]>([]);
   protected readonly offset = signal(0);
   protected readonly total = signal(0);
   protected readonly pageSize = PAGE_SIZE;
@@ -45,6 +46,8 @@ export class CatalogComponent {
   protected readonly hasPrevPage = signal(false);
 
   constructor() {
+    this.genreOptions.set((this.route.snapshot.data['genres'] as string[] | undefined) ?? []);
+
     const resolved = this.route.snapshot.data['catalog'] as CatalogGamesResponse | null;
     if (resolved === null) {
       this.error.set('Unable to load the catalog.');

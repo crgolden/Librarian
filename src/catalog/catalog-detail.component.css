@@ -11,10 +11,7 @@
 }
 
 .catalog-detail .cover-art {
-  width: 100%;
-  max-width: 480px;
-  height: auto;
-  border-radius: var(--radius-sm);
+  max-width: 320px;
 }
 
 .catalog-detail > .link-button {

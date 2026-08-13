@@ -12,6 +12,25 @@
   --font-body: 'Inter', system-ui, sans-serif;
   --font-meta: 'IBM Plex Mono', ui-monospace, monospace;
 
+  /* Type scale — named by role, not by value. See DESIGN.md's Typography table. */
+  --font-size-display: 2.25rem;
+  --font-size-section: 1.5rem;
+  --font-size-subsection: 1.25rem;
+  --font-size-minor: 1.125rem;
+  --font-size-body: 1rem;
+  --font-size-meta: 0.85rem;
+  --font-size-small: 0.8rem;
+  --font-size-label: 0.7rem;
+  /* Relative on purpose: inline code tracks whatever text it sits inside. */
+  --font-size-inline-code: 0.9em;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --letter-spacing-label: 0.06em;
+
   /* Reading Room (light) */
   --color-bg: #F6F1E7;
   --color-surface: #FFFDF8;
@@ -33,6 +52,8 @@
 
   --color-error: #A3342A;
   --color-error-rgb: 163, 52, 42;
+  --color-error-hover: #82291F;
+  --color-error-contrast: #FFFDF8;
   --color-success: #3E6B4F;
   --color-warning: #B8752E;
 
@@ -79,8 +100,10 @@
     --color-psn: #4C6FA5;
     --color-psn-rgb: 76, 111, 165;
 
-    --color-error: #C1584A;
-    --color-error-rgb: 193, 88, 74;
+    --color-error: #CB7367;
+    --color-error-rgb: 203, 115, 103;
+    --color-error-hover: #D1847A;
+    --color-error-contrast: #19140F;
     --color-success: #5FA57E;
     --color-warning: #D99A4E;
 
@@ -115,7 +138,7 @@
 body {
   margin: 0;
   font-family: var(--font-body);
-  font-size: 1rem;
+  font-size: var(--font-size-body);
   line-height: 1.6;
   color: var(--color-text);
   background: var(--color-bg);
@@ -128,14 +151,14 @@ h3,
 h4 {
   font-family: var(--font-heading);
   line-height: 1.25;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   margin: 0 0 0.5rem;
 }
 
-h1 { font-size: 2.25rem; }
-h2 { font-size: 1.5rem; }
-h3 { font-size: 1.25rem; }
-h4 { font-size: 1.125rem; }
+h1 { font-size: var(--font-size-display); }
+h2 { font-size: var(--font-size-section); }
+h3 { font-size: var(--font-size-subsection); }
+h4 { font-size: var(--font-size-minor); }
 
 p {
   margin: 0 0 1rem;
@@ -198,7 +221,7 @@ textarea {
   width: 100%;
   padding: 0.6rem 0.75rem;
   font-family: var(--font-body);
-  font-size: 1rem;
+  font-size: var(--font-size-body);
   color: var(--color-text);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -228,8 +251,8 @@ textarea:focus {
   gap: 0.4rem;
   padding: 0.6rem 1.25rem;
   font-family: var(--font-body);
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
   color: #fff;
   background: var(--color-primary);
   border: none;
@@ -262,8 +285,8 @@ textarea:focus {
   gap: 0.4rem;
   padding: 0.5rem 1rem;
   font-family: var(--font-body);
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: var(--font-size-meta);
+  font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
   background: transparent;
   border: 1px solid var(--color-border);
@@ -289,9 +312,38 @@ textarea:focus {
   border-color: var(--color-error);
 }
 
+/* Solid destructive action — the confirm step, never the one that opens it. */
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  font-family: var(--font-body);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-error-contrast);
+  background: var(--color-error);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 200ms ease-out, border-color 200ms ease-out;
+  text-decoration: none;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--color-error-hover);
+  border-color: var(--color-error-hover);
+}
+
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn-sm {
   padding: 0.35rem 0.75rem;
-  font-size: 0.8rem;
+  font-size: var(--font-size-small);
 }
 
 /* Visually hide while keeping the element available to screen readers. */
@@ -316,12 +368,12 @@ textarea:focus {
 /* State utilities */
 .text-muted {
   color: var(--color-text-muted);
-  font-size: 0.9rem;
+  font-size: var(--font-size-meta);
 }
 
 .text-error {
   color: var(--color-error);
-  font-size: 0.9rem;
+  font-size: var(--font-size-meta);
   margin: 0;
 }
 
@@ -339,27 +391,47 @@ textarea:focus {
 .catalog-title {
   font-family: var(--font-heading);
   font-style: italic;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 /* Stamped index-card metadata: acquisition dates, PSN identifiers, completion percentages. */
 .catalog-meta {
   font-family: var(--font-meta);
-  font-size: 0.85rem;
+  font-size: var(--font-size-meta);
   color: var(--color-text-muted);
+}
+
+/* Box art on a catalogued entry — square; each surface sets only its own size and placement. */
+.cover-art {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
 }
 
 /* Genre/platform classification — a book-spine label, not a filled badge/pill. */
 .spine-label {
   display: inline-block;
   font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 0.7rem;
-  letter-spacing: 0.06em;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-label);
+  letter-spacing: var(--letter-spacing-label);
   text-transform: uppercase;
   color: var(--color-text-muted);
   padding-bottom: 0.15rem;
   border-bottom: 2px solid var(--color-border);
+}
+
+/* Typed caption in the metadata family — a heading over a block, or a state stamped on a record.
+   Distinct from .spine-label: monospace and unruled, because it labels rather than classifies. */
+.stamp-label {
+  font-family: var(--font-meta);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-normal);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
 }
 
 /* PSN-linked-account indicator ONLY (see DESIGN.md usage rules) — never a general UI accent. */
@@ -368,7 +440,7 @@ textarea:focus {
   align-items: center;
   gap: 0.35rem;
   font-family: var(--font-meta);
-  font-size: 0.8rem;
+  font-size: var(--font-size-small);
   color: var(--color-psn);
 }
 

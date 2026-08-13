@@ -12,7 +12,7 @@
 
 .faq code {
   font-family: var(--font-meta);
-  font-size: 0.9em;
+  font-size: var(--font-size-inline-code);
   background: var(--color-surface-alt);
   padding: 0.1em 0.35em;
   border-radius: var(--radius-sm);

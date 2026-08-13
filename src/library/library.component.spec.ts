@@ -45,6 +45,7 @@ const FULL_GAME: LibraryGameResponse = {
   percent_completed: 87,
   source: 'psn',
   cover_image_url: 'https://cdn.example/elden-ring.jpg',
+  platforms: ['PS5', 'PS4'],
 };
 
 const MANUAL_GAME: LibraryGameResponse = {
@@ -53,6 +54,7 @@ const MANUAL_GAME: LibraryGameResponse = {
   title: 'Disc Only Game',
   psn_product_id: null,
   source: 'manual',
+  platforms: [],
 };
 
 describe('LibraryComponent', () => {
@@ -356,6 +358,7 @@ describe('LibraryComponent', () => {
         percent_completed: null,
         source: 'psn',
         cover_image_url: null,
+        platforms: [],
       },
     ]);
     const compiled: HTMLElement = fixture.nativeElement;
@@ -370,6 +373,23 @@ describe('LibraryComponent', () => {
     expect(rows[0].textContent).toContain('87%');
     expect(rows[1].textContent).toContain('Unmatched Game');
     expect(rows[1].textContent).toContain('—');
+  });
+
+  it('renders one spine label per platform, in the order the API returned them', async () => {
+    const fixture = await createAndLoad([{ ...FULL_GAME, platforms: ['PS4', 'PS3', 'PSVITA'] }]);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    const labels = compiled.querySelectorAll('tbody tr .library-platforms .spine-label');
+    expect([...labels].map((label) => label.textContent?.trim())).toEqual(['PS4', 'PS3', 'PSVITA']);
+  });
+
+  it('renders a dash rather than an empty cell for an entry with no platform', async () => {
+    const fixture = await createAndLoad([MANUAL_GAME]);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    const cell = compiled.querySelector('tbody tr td[data-label="Platforms"]');
+    expect(cell?.querySelectorAll('.spine-label').length).toBe(0);
+    expect(cell?.textContent?.trim()).toBe('—');
   });
 
   it('renders cover art when present, nothing when absent', async () => {
@@ -402,6 +422,7 @@ describe('LibraryComponent', () => {
         percent_completed: null,
         source: 'psn',
         cover_image_url: null,
+        platforms: [],
       },
     ]);
     const compiled: HTMLElement = fixture.nativeElement;

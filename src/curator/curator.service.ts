@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import {
   AccountActionsResponse,
   CatalogGamesResponse,
+  CatalogGenresResponse,
   CollectionPreviewResponse,
   CollectionRunResponse,
   CollectionSpecRequest,
@@ -163,6 +164,10 @@ export class CuratorService {
 
   getCatalogGame(gameId: string): Observable<GameSummaryResponse> {
     return this.http.get<GameSummaryResponse>(`/curator/api/catalog/games/${gameId}`);
+  }
+
+  getCatalogGenres(): Observable<CatalogGenresResponse> {
+    return this.http.get<CatalogGenresResponse>('/curator/api/catalog/genres');
   }
 
   previewCollection(spec: CollectionSpecRequest): Observable<CollectionPreviewResponse> {

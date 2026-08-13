@@ -124,6 +124,8 @@ rejected everywhere in this palette.
 
   --color-error: #A3342A;            /* oxblood ink, not stop-sign red */
   --color-error-rgb: 163, 52, 42;
+  --color-error-hover: #82291F;      /* solid destructive hover — moves AWAY from the text colour */
+  --color-error-contrast: #FFFDF8;   /* text ON an error fill — never assume white works */
   --color-success: #3E6B4F;          /* same family as primary, darker/desaturated */
   --color-warning: #B8752E;          /* same warm-ink family, between accent and error */
 }
@@ -148,8 +150,10 @@ rejected everywhere in this palette.
     --color-psn: #4C6FA5;
     --color-psn-rgb: 76, 111, 165;
 
-    --color-error: #C1584A;
-    --color-error-rgb: 193, 88, 74;
+    --color-error: #CB7367;
+    --color-error-rgb: 203, 115, 103;
+    --color-error-hover: #D1847A;
+    --color-error-contrast: #19140F;
     --color-success: #5FA57E;
     --color-warning: #D99A4E;
   }
@@ -172,6 +176,18 @@ rejected everywhere in this palette.
 - `--color-error` / `--color-success` stay in the same warm-ink family as everything else (oxblood /
   moss) rather than stock red/green, so validation states don't look like they were dropped in from
   a different design system.
+- **`--color-error-contrast` is the text colour to put *on* an error fill, and it is not white in both
+  rooms.** After Hours brightens error the same way it brightens primary and accent — error had been
+  left behind at `#C1584A`, which reads at only 3.80:1 against the dark surface and fails AA for its
+  own label. Lifting it to `#CB7367` clears that at 4.94:1, but a lighter fill then leaves white text
+  at 3.39:1, so the dark room puts near-black ink on the fill instead (5.39:1). Reading Room keeps
+  paper-white on oxblood at 6.81:1. Never hardcode `#fff` on a destructive button — take the token.
+- **`--color-error-hover` moves away from the text colour, which means it darkens in one room and
+  lightens in the other.** Reading Room has paper text on an oxblood fill, so hover darkens to
+  `#82291F`; After Hours has ink text on a lifted fill, so hover *lightens* to `#D1847A`. Naming it
+  `--color-error-dark`, by analogy with `--color-primary-dark`, produced a 3.75:1 hover in the dark
+  room — the token has to name its role, not its direction. Every danger pair in both rooms now clears
+  AA, worst case 4.94:1.
 - **No JS light/dark toggle.** The two rooms are driven entirely by `prefers-color-scheme`. Do not
   reintroduce a manual toggle — this has been discussed and rejected; it complicates state
   management for no benefit this app needs.
@@ -187,13 +203,43 @@ rejected everywhere in this palette.
 | body | Inter | 1rem | 400 | 1.6 | Everything else |
 | `.catalog-title` | Lora | inherit | 600, italic | inherit | Game titles — italicized like a card catalog's title entry |
 | `.catalog-meta` | IBM Plex Mono | 0.85rem | 400 | inherit | Stamped metadata: dates, PSN ids, ratings, completion % |
+| `.stamp-label` | IBM Plex Mono | 0.8rem | 400, uppercase, `letter-spacing: 0.06em` | inherit | Typed captions: a heading over a block, a state stamped on a record |
 | `.spine-label` | Inter | 0.7rem | 600, uppercase, `letter-spacing: 0.06em` | inherit | Genre/platform classification tags |
 
 ```css
 --font-heading: 'Lora', Georgia, serif;
 --font-body: 'Inter', system-ui, sans-serif;
 --font-meta: 'IBM Plex Mono', ui-monospace, monospace;
+
+/* Type scale — named by role, not by value. */
+--font-size-display: 2.25rem;      /* h1 */
+--font-size-section: 1.5rem;       /* h2 */
+--font-size-subsection: 1.25rem;   /* h3, the brand wordmark */
+--font-size-minor: 1.125rem;       /* h4 */
+--font-size-body: 1rem;            /* body copy, form controls, .btn-primary/.btn-danger */
+--font-size-meta: 0.85rem;         /* .catalog-meta, .text-muted, .btn-ghost, breadcrumb, nav chip */
+--font-size-small: 0.8rem;         /* .btn-sm, .psn-badge, .stamp-label, tab-bar and stacked-table labels */
+--font-size-label: 0.7rem;         /* .spine-label */
+--font-size-inline-code: 0.9em;    /* em, not rem — see below */
+
+--font-weight-normal: 400;
+--font-weight-medium: 500;
+--font-weight-semibold: 600;
+--font-weight-bold: 700;
+
+--letter-spacing-label: 0.06em;
 ```
+
+**Every `font-size`, `font-weight`, `letter-spacing` and `font-family` takes a token — enforced by
+`npm run lint:css`.** The table above and the CSS could previously drift in silence, and did: eleven
+distinct sizes were in use where this table specifies seven. `0.875rem` and `0.9rem` were collapsed into
+`--font-size-meta` and `0.75rem` into `--font-size-small`; at a 16px root those pairs sat 0.8px apart,
+which is a difference nobody can see and everybody has to maintain.
+
+`--font-size-inline-code` is deliberately the one relative value. Inline `<code>` should track whatever
+text surrounds it, so a snippet inside an `h3` stays proportional to that heading; pinning it to a `rem`
+step would shrink it there. A token that resolves differently by context is correct here and nowhere
+else in the scale.
 
 - **Headings & game titles** — `Lora` (serif). Game titles get their own treatment, italicized the
   way a library catalog italicizes the title of a cataloged work. Series/edition subtitles use the
@@ -207,6 +253,11 @@ rejected everywhere in this palette.
 - **Classification labels** — a small-caps, letter-spaced treatment (`.spine-label`) for genre and
   platform tags, evoking a book spine label or a card-catalog subject heading — uppercase,
   `letter-spacing: 0.06em`, small size, set in `Inter` at 600 weight, not a filled pill/badge.
+- **Typed captions** — `.stamp-label` is the same small-caps idea in the *metadata* family: monospace,
+  and without the spine's bottom rule. It labels a thing rather than classifying it — the "On this page"
+  heading over a table of contents, or a `private`/`shared` state stamped on a collection. Reach for
+  `.spine-label` when the text says what a work *is*, and `.stamp-label` when it says what a block or a
+  record *is called* or *is currently*.
 
 ## Layout
 
@@ -293,18 +344,33 @@ rejected everywhere in this palette.
 - **`.btn-ghost`** — transparent fill, `--color-border` outline, `--color-text-muted` text. Secondary
   actions. **`.btn-ghost-danger`** — the same shape with `--color-error` text/border, for destructive
   actions (unfollow, remove a key, delete).
+- **`.btn-danger`** — solid `--color-error` fill with `--color-error-contrast` text, for the *confirm*
+  step of a destructive action only; the button that opens the confirmation is `.btn-ghost-danger`.
+  It is a peer of `.btn-primary`, not a modifier on it: composing them produced error-coloured text on
+  the primary green fill, which measured 1.41:1 in Reading Room and 1.15:1 in After Hours against a
+  4.5:1 requirement — the least readable control in the app sitting on its most destructive action.
 - **`.btn-sm`** — a smaller padding/font-size variant, composed with `.btn-primary`/`.btn-ghost`.
 - **Form inputs** (`input[type=text|email|password|number|search]`, `select`, `textarea`) — flat fill,
   `--color-border` outline, `--radius-sm`, `--color-primary` focus ring. A new input `type` must be added
   to that selector list or it renders unstyled next to its neighbours — `search` was missing until the
   catalog, collection-item and manual-add search boxes exposed it.
 - **`.spine-label`** — genre/platform classification tag (see Typography).
+- **`.stamp-label`** — typed caption in the metadata family (see Typography). Live on the `app-page-toc`
+  heading and the Collections visibility state. It exists because both had reimplemented the treatment
+  by hand, at two different sizes and two different letter-spacings, without ever naming a class the
+  primitive check could see.
 - **`.catalog-title` / `.catalog-meta`** — game title and stamped-metadata treatments (see
   Typography). Live in production on the Catalog grid, Collections list, and Library table.
-- **`.cover-art`** — box art on a catalogued entry, used by the Collections detail list, the Library
-  table, and the public shared-collection view. Fixed max-width, `--radius-sm`, and it sits *beside*
-  the `.catalog-title` rather than replacing it: the title is the catalog entry, the cover is
-  provenance, so a row with no artwork must still read as a complete entry rather than a gap.
+- **`.cover-art`** — box art on a catalogued entry, used by the Catalog grid, the game detail page,
+  the Collections detail list, the Library table, and the public shared-collection view. Defined once
+  in `styles.css` as square (`aspect-ratio: 1 / 1`, `object-fit: cover`, `--radius-sm`); each surface
+  sets only its own width. It sits *beside* the `.catalog-title` rather than replacing it: the title is
+  the catalog entry, the cover is provenance, so a row with no artwork must still read as a complete
+  entry rather than a gap. Nothing stands in for a missing cover — no placeholder box, no silhouette,
+  no "no image" label. The absence is not an error state and must not be dressed as one. The Library
+  table's stacked layout below `md` keeps that relationship: its row is a two-column grid with the
+  cover in the first column and the title beside it, and the cover cell carries no `data-label`
+  because it is provenance rather than a captioned field.
 - **`.psn-badge`** — PSN-linked-account indicator only (see Colors' `--color-psn` rule). A small dot
   + label in `--color-psn`.
 - **`app-site-nav`** (`src/app/nav/site-nav.component.ts`) — the single sitewide nav-link data
@@ -354,6 +420,62 @@ is **no** "Loading…" text anywhere in a data-backed page, and no per-feature l
 driving the overlay. If a page needs a second loading concept, that is a signal its first payload
 belongs in a resolver.
 
+## Where styling lives
+
+**CSS decides how something looks. The component decides whether it exists.** Presence, absence and
+conditional rendering belong in the template (`@if`), never in a selector that reaches into markup
+shape to hide things. A rule like `td[data-label='Cover']:not(:has(img)) { display: none }` looks
+economical and is the opposite: it couples two unrelated features through an attribute one of them
+owns, and it buries a decision about what an entry *is* somewhere nobody looking for that decision
+would think to search.
+
+Three questions before writing any rule, in order:
+
+1. **Does a token already express this?** Use `var(--space-*)`, `var(--color-*)`, `var(--radius-*)`,
+   `var(--shadow-*)`. A literal color, a one-off pixel spacing, or a bespoke shadow is a defect, not a
+   shortcut.
+2. **Does a named primitive already express this?** `.card`, `.btn-*`, `.spine-label`,
+   `.catalog-title`, `.catalog-meta`, `.cover-art`, `.psn-badge`. Reach for the vocabulary before
+   inventing beside it.
+3. **Is this actually structure rather than style?** If the rule's job is to make something disappear
+   or appear, it is the component's job instead.
+
+Appearance that repeats becomes a **new named primitive in `styles.css` with an entry in Components
+above, added in the same change** — not a rule in one component's stylesheet. Component `.css` files
+are for that page's own arrangement: grid and flex layout, its breakpoint behaviour, its spacing
+rhythm. They are not where the design language grows.
+
+### One primitive, one definition
+
+**Every class named in Components is defined exactly once, in `styles.css`.** A component stylesheet
+may position a primitive and size it; it may not restate what the primitive *is*. The moment a second
+file declares the same class, the vocabulary has forked and the two copies will drift apart silently —
+nothing fails, nothing warns, and the divergence only surfaces when someone compares two pages.
+
+This is not hypothetical, and `.cover-art` is the worked example. It was listed in Components, and it
+existed in **no** shared stylesheet: four component files each declared it independently. Only one of
+them constrained `aspect-ratio`, so a non-square source distorted the layout everywhere else; three
+carried a `var(--radius-sm, 4px)` fallback for a token that is always defined; and the Catalog grid
+used the class while declaring no rule for it at all, rendering box art stretched (`object-fit: fill`)
+with square corners. Nobody broke a rule, because no rule existed.
+
+Two consequences worth stating plainly:
+
+- **Using a class the current component doesn't define is not a bug — it is the point.** Global
+  primitives are global. If a class appears unstyled, the fix is to define it once in `styles.css`,
+  never to paste a local copy.
+- **A per-page variation is a modifier, not a redefinition.** Size and placement differ legitimately
+  between a 48px table thumbnail and a 320px detail image; shape, radius, fit and color do not.
+  Express the difference as a modifier class or a local width, and leave the primitive alone.
+
+### Enforcing it
+
+This erodes one reasonable-looking exception at a time, so it is worth enforcing mechanically rather
+than remembering. A stylelint rule capping component stylesheets to layout properties — and requiring
+color, typography, radius and shadow to come from `var(--*)` — turns the review habit into a CI gate.
+A second, cheaper check catches the failure above directly: every class named in this document's
+Components list must appear exactly once across `src/**/*.css`, and that once must be `styles.css`.
+
 ## Do's and Don'ts
 
 - **Do** keep `--color-primary` as the only color driving buttons, links, focus rings, and active-nav
@@ -372,6 +494,12 @@ belongs in a resolver.
 - **Don't** use scale-up hover bounce or elastic easing — motion is deliberate, not springy (see
   Appendix: Motion).
 - **Don't** add a manual light/dark toggle — the two rooms are `prefers-color-scheme`-only.
+- **Don't** use CSS to decide whether something renders, and don't key a selector off an attribute
+  another feature owns (see Where styling lives).
+- **Don't** grow the design language inside a component stylesheet — a reused appearance becomes a
+  named primitive in `styles.css` plus a Components entry here, in the same change.
+- **Don't** redefine a class named in Components inside a component stylesheet. One primitive, one
+  definition; vary size and placement locally, never shape, radius, fit or color.
 - **Don't** use gamepad/controller iconography or storefront/gamified copy (see Appendix:
   Iconography & Imagery, Voice & Tone).
 
@@ -403,9 +531,20 @@ reaching for PlayStation blue, and it's equally generic. Prefer library-native m
 - A future wordmark/favicon should lean on the serif logotype plus a simple bookplate or open-book
   mark — not a controller silhouette.
 
-No cover-art/imagery exists on the Catalog page today — `GameSummaryResponse` (the catalog API
-response) has no image field, so the card grid is typography-and-metadata-only by design, not a
-missing feature.
+Cover art is the one imagery exception, and it earns its place as provenance rather than decoration:
+`GameSummaryResponse` carries `cover_image_url`, and the Catalog grid, the game detail page, the
+Library table, the Collections list and the public shared-collection view all render it.
+
+**Square art only — never the 16:9 store hero.** The two sources are different kinds of asset, not
+different qualities of one: entitlement artwork is a 1:1 icon and covers effectively the whole
+library, while the store cache holds widescreen key art for a minority of titles. Preferring the hero
+gave a page whose artwork changed shape from one game to the next. The detail page locks its image to
+a 1:1 aspect ratio so a stray non-square source cannot alter the layout. Hero art has no use today; if
+one is found later it needs its own treatment, not a substitution into a square slot.
+
+PSN carries no artwork at all for part of the back catalogue, mostly PS3 and Vita titles, and there is
+no second source to fall back to. That is the case the `.cover-art` rule in Components exists for: the
+entry is complete without it.
 
 ### Voice & Tone
 

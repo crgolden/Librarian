@@ -36,6 +36,7 @@ type LibraryGame = LibraryGameResponse | ProfileLibraryGameResponse;
 const LIBRARY_COLUMNS: ColumnDef<LibraryGame>[] = [
   { id: 'cover', header: 'Cover', enableSorting: false },
   { id: 'title', accessorKey: 'title', header: 'Title' },
+  { id: 'platforms', accessorKey: 'platforms', header: 'Platforms', enableSorting: false },
   { id: 'category', accessorKey: 'category', header: 'Category' },
   { id: 'rawg_rating', accessorKey: 'rawg_rating', header: 'RAWG' },
   { id: 'opencritic_rating', accessorKey: 'opencritic_rating', header: 'OpenCritic' },

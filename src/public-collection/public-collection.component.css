@@ -22,10 +22,7 @@
 }
 
 .cover-art {
-  width: 100%;
   max-width: 180px;
-  border-radius: var(--radius-sm, 4px);
-  object-fit: cover;
 }
 
 .item-unavailable {

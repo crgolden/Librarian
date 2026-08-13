@@ -20,6 +20,10 @@ export interface CatalogGamesResponse {
   total: number;
 }
 
+export interface CatalogGenresResponse {
+  genres: string[];
+}
+
 export interface CollectionSpecRequest {
   kind: string;
   console_id?: string | null;
@@ -171,6 +175,8 @@ export interface LibraryGameResponse {
   /** `'psn'` for an entitlement-backed entry, `'manual'` for one the owner added by hand. */
   source: string;
   cover_image_url: string | null;
+  /** Platforms the owner holds this game on, newest first. Empty for a manually-added entry. */
+  platforms: string[];
 }
 
 export interface LibraryPageResponse {
@@ -375,6 +381,8 @@ export interface ProfileLibraryGameResponse {
   /** Always null for now -- viewer-mode trophy completion isn't built yet. */
   percent_completed: number | null;
   cover_image_url: string | null;
+  /** Platforms this owner holds the game on, newest first. Empty for a manually-added entry. */
+  platforms: string[];
 }
 
 export interface ProfileLibraryPageResponse {
