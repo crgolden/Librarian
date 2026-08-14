@@ -1,20 +1,15 @@
 import type { Request, Response, NextFunction } from 'express';
 
-vi.mock('./oidc', () => ({
-  getOidcConfig: vi.fn().mockResolvedValue({ issuer: 'https://identity.example.com' }),
-}));
-
 vi.mock('openid-client', () => ({
   refreshTokenGrant: vi.fn(),
 }));
 
-vi.mock('../telemetry/logging', () => ({
-  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
-}));
-
 import { refreshTokenGrant } from 'openid-client';
-import { logger } from '../telemetry/logging';
-import { csrfForMutating, curatorProxy } from './proxy';
+import { createCuratorProxy, csrfForMutating } from './proxy';
+
+const getOidcConfig = vi.fn().mockResolvedValue({ issuer: 'https://identity.example.com' });
+const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+const curatorProxy = createCuratorProxy({ getOidcConfig, logger });
 
 interface SessionLike {
   accessToken?: string;

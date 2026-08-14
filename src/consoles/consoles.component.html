@@ -49,13 +49,17 @@
                 />
               </label>
               <label>
-                Routing genres (comma-separated)
-                <input
-                  type="text"
+                Routing genres
+                <select
+                  multiple
                   [ngModel]="editConsoleRoutingGenres()"
                   (ngModelChange)="editConsoleRoutingGenres.set($event)"
                   name="editConsoleRoutingGenres"
-                />
+                >
+                  @for (option of genreOptions(); track option) {
+                    <option [value]="option">{{ option }}</option>
+                  }
+                </select>
               </label>
               <label>
                 Fill order
@@ -137,6 +141,38 @@
         [ngModel]="consoleCapacityGb()"
         (ngModelChange)="consoleCapacityGb.set($event)"
       />
+
+      <label for="consoleUpdateBufferGb">Update buffer in GB</label>
+      <input
+        id="consoleUpdateBufferGb"
+        name="consoleUpdateBufferGb"
+        type="number"
+        min="0"
+        [ngModel]="consoleUpdateBufferGb()"
+        (ngModelChange)="consoleUpdateBufferGb.set($event)"
+      />
+
+      <label for="consoleFillOrder">Fill order</label>
+      <input
+        id="consoleFillOrder"
+        name="consoleFillOrder"
+        type="number"
+        [ngModel]="consoleFillOrder()"
+        (ngModelChange)="consoleFillOrder.set($event)"
+      />
+
+      <label for="consoleRoutingGenres">Routing genres (optional)</label>
+      <select
+        id="consoleRoutingGenres"
+        name="consoleRoutingGenres"
+        multiple
+        [ngModel]="consoleRoutingGenres()"
+        (ngModelChange)="consoleRoutingGenres.set($event)"
+      >
+        @for (option of genreOptions(); track option) {
+          <option [value]="option">{{ option }}</option>
+        }
+      </select>
 
       @if (consoleFormError()) {
         <p class="text-error">{{ consoleFormError() }}</p>

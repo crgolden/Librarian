@@ -7,9 +7,14 @@ import {
   randomPKCECodeVerifier,
   calculatePKCECodeChallenge,
   randomState,
+  type Configuration,
 } from 'openid-client';
-import { getOidcConfig } from './oidc';
-import { logger } from '../telemetry/logging';
+import type { AppLogger } from '../telemetry/logging';
+
+export interface BffRouterDependencies {
+  getOidcConfig: () => Promise<Configuration>;
+  logger: AppLogger;
+}
 
 const SCOPES = 'offline_access openid profile email curator';
 
@@ -77,7 +82,7 @@ export function requireCsrf(
   next();
 }
 
-export function buildBffRouter(): Router {
+export function buildBffRouter({ getOidcConfig, logger }: BffRouterDependencies): Router {
   const router = Router();
 
   router.get('/login', async (req: Request, res: Response) => {

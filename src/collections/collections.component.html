@@ -124,8 +124,18 @@
         <a class="catalog-meta" routerLink="/consoles">Manage consoles &amp; storage &rarr;</a>
       }
 
-      <label for="genreFilter">Genres (comma-separated)</label>
-      <input id="genreFilter" name="genreFilter" type="text" [ngModel]="genreFilter()" (ngModelChange)="genreFilter.set($event)" />
+      <label for="genreFilter">Genres</label>
+      <select
+        id="genreFilter"
+        name="genreFilter"
+        multiple
+        [ngModel]="genreFilter()"
+        (ngModelChange)="genreFilter.set($event)"
+      >
+        @for (option of genreOptions(); track option) {
+          <option [value]="option">{{ option }}</option>
+        }
+      </select>
 
       <label for="minScore">Minimum score</label>
       <input

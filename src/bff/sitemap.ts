@@ -1,5 +1,9 @@
 import type { Request, Response } from 'express';
-import { logger } from '../telemetry/logging';
+import type { AppLogger } from '../telemetry/logging';
+
+export interface SitemapDependencies {
+  logger: AppLogger;
+}
 
 const PAGE_SIZE = 200;
 const CACHE_TTL_MS = 60 * 60 * 1000;
@@ -77,7 +81,17 @@ function buildXml(origin: string, gameIds: string[]): string {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`;
 }
 
-export async function sitemapHandler(req: Request, res: Response): Promise<void> {
+export function createSitemapHandler(
+  deps: SitemapDependencies,
+): (req: Request, res: Response) => Promise<void> {
+  return (req, res) => sitemapHandler(req, res, deps);
+}
+
+async function sitemapHandler(
+  req: Request,
+  res: Response,
+  { logger }: SitemapDependencies,
+): Promise<void> {
   const base = (process.env['CuratorApiAddress'] ?? '').replace(/\/$/, '');
   if (!base) {
     res.status(502).type('text/plain').send('CuratorApiAddress is not configured');

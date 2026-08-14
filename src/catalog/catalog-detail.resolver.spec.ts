@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRouteSnapshot } from '@angular/router';
-import { throwError, of } from 'rxjs';
+import { Observable, throwError, of } from 'rxjs';
 import { catalogDetailResolver, ResolvedCatalogGame } from './catalog-detail.resolver';
 import { CuratorService } from '../curator/curator.service';
 import { GameSummaryResponse } from '../curator/curator.models';
@@ -28,7 +28,7 @@ function resolve(curator: Partial<CuratorService>, gameId: string | null): Promi
   return new Promise((resolvePromise) => {
     TestBed.runInInjectionContext(() => {
       const result = catalogDetailResolver(route, {} as never);
-      (result as ReturnType<typeof of<ResolvedCatalogGame>>).subscribe(resolvePromise);
+      (result as Observable<ResolvedCatalogGame>).subscribe(resolvePromise);
     });
   });
 }

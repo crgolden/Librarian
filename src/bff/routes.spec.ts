@@ -10,10 +10,6 @@ vi.mock('express', () => ({
   })),
 }));
 
-vi.mock('./oidc', () => ({
-  getOidcConfig: vi.fn().mockResolvedValue({ issuer: 'https://identity.example.com' }),
-}));
-
 vi.mock('openid-client', () => ({
   buildAuthorizationUrl: vi.fn().mockReturnValue(
     new URL('https://identity.example.com/connect/authorize?x=1'),
@@ -28,17 +24,15 @@ vi.mock('openid-client', () => ({
   randomState: vi.fn().mockReturnValue('oauth-state'),
 }));
 
-vi.mock('../telemetry/logging', () => ({
-  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
-}));
-
-import { getOidcConfig } from './oidc';
 import {
   authorizationCodeGrant,
   buildEndSessionUrl,
   fetchUserInfo,
 } from 'openid-client';
 import { buildBffRouter, requireCsrf } from './routes';
+
+const getOidcConfig = vi.fn().mockResolvedValue({ issuer: 'https://identity.example.com' });
+const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
 interface Session {
   pkceCodeVerifier?: string;
@@ -90,7 +84,7 @@ function makeRes() {
 const mockNext = vi.fn() as unknown as NextFunction;
 
 beforeAll(() => {
-  buildBffRouter();
+  buildBffRouter({ getOidcConfig, logger });
 });
 
 beforeEach(() => {
@@ -142,7 +136,7 @@ describe('/bff/login', () => {
   });
 
   it('responds 500 when OIDC configuration fails', async () => {
-    vi.mocked(getOidcConfig).mockRejectedValueOnce(new Error('discovery failed'));
+    getOidcConfig.mockRejectedValueOnce(new Error('discovery failed'));
     const req = makeReq();
     const res = makeRes();
 
@@ -390,7 +384,7 @@ describe('/bff/logout', () => {
   });
 
   it('falls back to redirect("/") when OIDC configuration throws during logout', async () => {
-    vi.mocked(getOidcConfig).mockRejectedValueOnce(new Error('oidc down'));
+    getOidcConfig.mockRejectedValueOnce(new Error('oidc down'));
 
     const req = makeReq({
       sessionID: 'valid-session-id',

@@ -1,7 +1,11 @@
 import type { Request, Response as ExpressResponse, NextFunction } from 'express';
-import { refreshTokenGrant } from 'openid-client';
-import { getOidcConfig } from './oidc';
-import { logger } from '../telemetry/logging';
+import { refreshTokenGrant, type Configuration } from 'openid-client';
+import type { AppLogger } from '../telemetry/logging';
+
+export interface CuratorProxyDependencies {
+  getOidcConfig: () => Promise<Configuration>;
+  logger: AppLogger;
+}
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -36,7 +40,10 @@ export function csrfForMutating(
   next();
 }
 
-async function refreshAndSave(req: Request): Promise<void> {
+async function refreshAndSave(
+  req: Request,
+  getOidcConfig: () => Promise<Configuration>,
+): Promise<void> {
   const { refreshToken } = req.session;
   if (!refreshToken) return;
 
@@ -73,10 +80,17 @@ async function refreshAndSave(req: Request): Promise<void> {
  * be replayed on a 401 retry.  The body is collected as Uint8Array throughout
  * to remain compatible with the DOM-typed `fetch` BodyInit.
  */
-export async function curatorProxy(
+export function createCuratorProxy(
+  deps: CuratorProxyDependencies,
+): (req: Request, res: ExpressResponse, next: NextFunction) => Promise<void> {
+  return (req, res, next) => curatorProxy(req, res, next, deps);
+}
+
+async function curatorProxy(
   req: Request,
   res: ExpressResponse,
   _next: NextFunction,
+  { getOidcConfig, logger }: CuratorProxyDependencies,
 ): Promise<void> {
   const base = (process.env['CuratorApiAddress'] ?? '').replace(/\/$/, '');
 
@@ -96,7 +110,7 @@ export async function curatorProxy(
     Date.now() >= tokenExpiresAt - 60_000
   ) {
     try {
-      await refreshAndSave(req);
+      await refreshAndSave(req, getOidcConfig);
     } catch (err) {
       logger.warn({ err }, '[BFF proxy] Proactive token refresh failed');
     }
@@ -163,7 +177,7 @@ export async function curatorProxy(
     req.session.refreshToken
   ) {
     try {
-      await refreshAndSave(req);
+      await refreshAndSave(req, getOidcConfig);
       apiResponse = await doFetch();
     } catch (err) {
       logger.warn({ err }, '[BFF proxy] Token refresh on 401 failed');

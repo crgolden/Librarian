@@ -35,7 +35,8 @@ export class ConsolesComponent {
   protected readonly consoleModel = signal('');
   protected readonly consoleCapacityGb = signal<number | null>(null);
   protected readonly consoleUpdateBufferGb = signal(0);
-  protected readonly consoleRoutingGenres = signal('');
+  protected readonly consoleRoutingGenres = signal<string[]>([]);
+  protected readonly genreOptions = signal<string[]>([]);
   protected readonly consoleFillOrder = signal(0);
   protected readonly creatingConsole = signal(false);
   protected readonly consoleFormError = signal<string | null>(null);
@@ -45,7 +46,7 @@ export class ConsolesComponent {
   protected readonly editConsoleName = signal('');
   protected readonly editConsoleCapacityGb = signal(0);
   protected readonly editConsoleUpdateBufferGb = signal(0);
-  protected readonly editConsoleRoutingGenres = signal('');
+  protected readonly editConsoleRoutingGenres = signal<string[]>([]);
   protected readonly editConsoleFillOrder = signal(0);
   protected readonly savingConsoleId = signal<string | null>(null);
   protected readonly consoleEditError = signal<string | null>(null);
@@ -80,6 +81,7 @@ export class ConsolesComponent {
   protected readonly deletingDeviceId = signal<string | null>(null);
 
   constructor() {
+    this.genreOptions.set((this.route.snapshot.data['genres'] as string[] | undefined) ?? []);
     const resolved = this.route.snapshot.data['consoles'] as ConsolesPageData | null;
     if (resolved === null) {
       this.consolesError.set('Unable to load your consoles.');
@@ -114,7 +116,7 @@ export class ConsolesComponent {
     this.consoleModel.set('');
     this.consoleCapacityGb.set(null);
     this.consoleUpdateBufferGb.set(0);
-    this.consoleRoutingGenres.set('');
+    this.consoleRoutingGenres.set([]);
     this.consoleFillOrder.set(0);
     this.consoleFormError.set(null);
     this.defaultCapacityNote.set(null);
@@ -141,10 +143,7 @@ export class ConsolesComponent {
         raw_capacity_gb: this.consoleCapacityGb(),
         model: this.consoleModel().trim() || null,
         update_buffer_gb: this.consoleUpdateBufferGb(),
-        routing_genres: this.consoleRoutingGenres()
-          .split(',')
-          .map((value) => value.trim())
-          .filter((value) => value.length > 0),
+        routing_genres: this.consoleRoutingGenres(),
         fill_order: this.consoleFillOrder(),
       })
       .subscribe({
@@ -170,7 +169,7 @@ export class ConsolesComponent {
     this.editConsoleName.set(console.name);
     this.editConsoleCapacityGb.set(console.raw_capacity_gb);
     this.editConsoleUpdateBufferGb.set(console.update_buffer_gb);
-    this.editConsoleRoutingGenres.set(console.routing_genres.join(', '));
+    this.editConsoleRoutingGenres.set([...console.routing_genres]);
     this.editConsoleFillOrder.set(console.fill_order);
     this.consoleEditError.set(null);
   }
@@ -193,10 +192,7 @@ export class ConsolesComponent {
         name: trimmedName,
         raw_capacity_gb: this.editConsoleCapacityGb(),
         update_buffer_gb: this.editConsoleUpdateBufferGb(),
-        routing_genres: this.editConsoleRoutingGenres()
-          .split(',')
-          .map((value) => value.trim())
-          .filter((value) => value.length > 0),
+        routing_genres: this.editConsoleRoutingGenres(),
         fill_order: this.editConsoleFillOrder(),
       })
       .subscribe({

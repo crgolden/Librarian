@@ -3,7 +3,12 @@ import type { Express } from 'express';
 import session from 'express-session';
 import { createClient } from 'redis';
 import { RedisStore } from 'connect-redis';
-import { logger } from '../telemetry/logging';
+import type { AppLogger } from '../telemetry/logging';
+
+export interface SessionDependencies {
+  isProduction: boolean;
+  logger: AppLogger;
+}
 
 declare module 'express-session' {
   interface SessionData {
@@ -34,20 +39,9 @@ function reconnectStrategy(retries: number): number {
 }
 
 /**
- * Attaches express-session to the Express app.
- *
- * Store selection:
- *  - Production (NODE_ENV=production AND RedisHost is set AND SessionStore≠memory):
- *    connect-redis backed by a Redis client.
- *  - Otherwise (local dev, test, or explicit SessionStore=memory):
- *    express-session's built-in MemoryStore.  Sessions do not persist across
- *    restarts — acceptable for development and E2E tests, not for production.
- *
  * Call this before any BFF routes are registered.
  */
-export function applySession(app: Express): void {
-  const isProd = process.env['NODE_ENV'] === 'production';
-
+export function applySession(app: Express, { isProduction, logger }: SessionDependencies): void {
   const useMemory =
     !process.env['RedisHost'] || process.env['SessionStore'] === 'memory';
 
@@ -55,7 +49,7 @@ export function applySession(app: Express): void {
 
   if (useMemory) {
     store = new session.MemoryStore();
-    if (isProd) {
+    if (isProduction) {
       logger.warn(
         '[Session] WARNING: using MemoryStore in production. ' +
           'Set RedisHost (and optionally SessionStore) to switch to Redis.',
@@ -65,7 +59,7 @@ export function applySession(app: Express): void {
     const host = process.env['RedisHost'] ?? 'localhost';
     const port = parseInt(process.env['RedisPort'] ?? '6380', 10);
 
-    const redisClient = isProd
+    const redisClient = isProduction
       ? createClient({
           socket: {
             host,
@@ -111,7 +105,7 @@ export function applySession(app: Express): void {
       cookie: {
         httpOnly: true,
         sameSite: 'lax',
-        secure: isProd,
+        secure: isProduction,
       },
     }),
   );

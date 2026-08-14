@@ -71,7 +71,8 @@ export class CollectionsComponent implements OnInit {
   protected readonly kind = signal<CollectionKind>('filter_list');
   protected readonly consoleId = signal('');
   protected readonly consoles = signal<ConsoleResponse[]>([]);
-  protected readonly genreFilter = signal('');
+  protected readonly genreFilter = signal<string[]>([]);
+  protected readonly genreOptions = signal<string[]>([]);
   protected readonly minScore = signal<number | null>(null);
   protected readonly aaaTierFilter = signal('');
   protected readonly includeInactive = signal(false);
@@ -151,6 +152,7 @@ export class CollectionsComponent implements OnInit {
   );
 
   ngOnInit(): void {
+    this.genreOptions.set((this.route.snapshot.data['genres'] as string[] | undefined) ?? []);
     const resolved = this.route.snapshot.data['collections'] as ResolvedCollections;
 
     if (resolved.mode.startsWith('viewer')) {
@@ -277,7 +279,7 @@ export class CollectionsComponent implements OnInit {
   protected showCreate(): void {
     this.kind.set('filter_list');
     this.consoleId.set('');
-    this.genreFilter.set('');
+    this.genreFilter.set([]);
     this.minScore.set(null);
     this.aaaTierFilter.set('');
     this.includeInactive.set(false);
@@ -345,10 +347,7 @@ export class CollectionsComponent implements OnInit {
     return {
       kind: this.kind(),
       console_id: this.kind() === 'capacity_fill' ? this.consoleId().trim() : null,
-      genre_filter: this.genreFilter()
-        .split(',')
-        .map((value) => value.trim())
-        .filter((value) => value.length > 0),
+      genre_filter: this.genreFilter(),
       min_score: this.minScore(),
       aaa_tier_filter: this.aaaTierFilter() || null,
       include_inactive: this.includeInactive(),

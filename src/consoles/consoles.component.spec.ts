@@ -45,7 +45,7 @@ interface ConsolesHarness {
   editConsoleName: { set(value: string): void };
   editConsoleCapacityGb: { set(value: number): void };
   editConsoleUpdateBufferGb: { set(value: number): void };
-  editConsoleRoutingGenres: { set(value: string): void };
+  editConsoleRoutingGenres: { set(value: string[]): void };
   editConsoleFillOrder: { set(value: number): void };
   saveConsole(consoleId: string): void;
   confirmDeleteConsole(consoleId: string): void;
@@ -156,7 +156,7 @@ describe('ConsolesComponent', () => {
     h.editConsoleName.set('Bedroom PS5');
     h.editConsoleCapacityGb.set(700);
     h.editConsoleUpdateBufferGb.set(10);
-    h.editConsoleRoutingGenres.set('RPG, Action');
+    h.editConsoleRoutingGenres.set(['RPG', 'Action']);
     h.editConsoleFillOrder.set(1);
 
     h.saveConsole('c1');

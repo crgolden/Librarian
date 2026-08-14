@@ -62,6 +62,8 @@ try {
 
 export { logger };
 
+export type AppLogger = Pick<Logger, 'info' | 'warn' | 'error'>;
+
 export function requestLogger(req: Request, res: Response, next: NextFunction): void {
   if (req.url.startsWith('/health')) {
     next();

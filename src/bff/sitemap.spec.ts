@@ -1,6 +1,9 @@
 import type { Request, Response } from 'express';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetSitemapCache, robotsHandler, sitemapHandler } from './sitemap';
+import { createSitemapHandler, resetSitemapCache, robotsHandler } from './sitemap';
+
+const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+const sitemapHandler = createSitemapHandler({ logger });
 
 interface Captured {
   status: number;
@@ -45,6 +48,7 @@ function catalogPage(gameIds: string[], total: number): { ok: boolean; status: n
 describe('sitemapHandler', () => {
   beforeEach(() => {
     resetSitemapCache();
+    logger.error.mockClear();
     process.env['CuratorApiAddress'] = 'https://curator.test/api';
     delete process.env['PublicBaseUrl'];
   });
@@ -111,6 +115,10 @@ describe('sitemapHandler', () => {
 
       expect(captured.status).toBe(200);
       expect(captured.body).toContain('<loc>https://librarian.test/catalog/g1</loc>');
+      expect(logger.error).toHaveBeenCalledWith(
+        { err: expect.any(Error) },
+        'Failed to build the catalog sitemap',
+      );
     } finally {
       vi.useRealTimers();
     }
@@ -123,6 +131,10 @@ describe('sitemapHandler', () => {
     await sitemapHandler(fakeRequest(), res);
 
     expect(captured.status).toBe(502);
+    expect(logger.error).toHaveBeenCalledWith(
+      { err: expect.any(Error) },
+      'Failed to build the catalog sitemap',
+    );
   });
 
   it('reports a bad gateway when CuratorApiAddress is unset', async () => {

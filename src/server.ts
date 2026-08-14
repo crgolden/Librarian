@@ -8,8 +8,9 @@ import express from 'express';
 import { join } from 'node:path';
 import { applySession } from './bff/session';
 import { buildBffRouter } from './bff/routes';
-import { csrfForMutating, curatorProxy } from './bff/proxy';
-import { robotsHandler, sitemapHandler } from './bff/sitemap';
+import { csrfForMutating, createCuratorProxy } from './bff/proxy';
+import { getOidcConfig } from './bff/oidc';
+import { robotsHandler, createSitemapHandler } from './bff/sitemap';
 import { logger, requestLogger } from './telemetry/logging';
 import { environment } from './environments/environment';
 
@@ -30,13 +31,16 @@ app.get('/health', (_req, res) => {
 
 app.use(requestLogger);
 
-applySession(app);
+applySession(app, {
+  isProduction: process.env['NODE_ENV'] === 'production',
+  logger,
+});
 
-app.use('/bff', buildBffRouter());
+app.use('/bff', buildBffRouter({ getOidcConfig, logger }));
 
-app.use('/curator/api', csrfForMutating, curatorProxy);
+app.use('/curator/api', csrfForMutating, createCuratorProxy({ getOidcConfig, logger }));
 
-app.get('/sitemap.xml', sitemapHandler);
+app.get('/sitemap.xml', createSitemapHandler({ logger }));
 
 app.get('/robots.txt', robotsHandler);
 

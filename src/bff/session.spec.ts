@@ -20,24 +20,26 @@ vi.mock('connect-redis', () => ({
   RedisStore: vi.fn(),
 }));
 
-vi.mock('../telemetry/logging', () => ({
-  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
-}));
-
 import session from 'express-session';
 import { createClient } from 'redis';
 import { RedisStore } from 'connect-redis';
-import { logger } from '../telemetry/logging';
 import { applySession } from './session';
+
+const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
 function makeApp(): { use: ReturnType<typeof vi.fn> } {
   return { use: vi.fn() };
 }
 
+function apply(isProduction = false): { use: ReturnType<typeof vi.fn> } {
+  const app = makeApp();
+  applySession(app as unknown as Express, { isProduction, logger });
+  return app;
+}
+
 describe('applySession', () => {
   const savedEnv: Record<string, string | undefined> = {};
   const ENV_KEYS = [
-    'NODE_ENV',
     'RedisHost',
     'RedisPort',
     'RedisPassword',
@@ -69,7 +71,7 @@ describe('applySession', () => {
   });
 
   it('uses MemoryStore when RedisHost is absent', () => {
-    applySession(makeApp() as unknown as Express);
+    apply();
 
     expect(vi.mocked(session).MemoryStore).toHaveBeenCalledOnce();
     expect(createClient).not.toHaveBeenCalled();
@@ -79,16 +81,14 @@ describe('applySession', () => {
     process.env['RedisHost'] = 'redis.dev.local';
     process.env['SessionStore'] = 'memory';
 
-    applySession(makeApp() as unknown as Express);
+    apply();
 
     expect(vi.mocked(session).MemoryStore).toHaveBeenCalledOnce();
     expect(createClient).not.toHaveBeenCalled();
   });
 
   it('logs a warning when MemoryStore is used in production', () => {
-    process.env['NODE_ENV'] = 'production';
-
-    applySession(makeApp() as unknown as Express);
+    apply(true);
 
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('MemoryStore in production'),
@@ -99,7 +99,7 @@ describe('applySession', () => {
     process.env['RedisHost'] = 'redis.dev.local';
     process.env['RedisPort'] = '6379';
 
-    applySession(makeApp() as unknown as Express);
+    apply();
 
     expect(createClient).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -117,12 +117,11 @@ describe('applySession', () => {
   });
 
   it('creates Redis client with TLS in production', () => {
-    process.env['NODE_ENV'] = 'production';
     process.env['RedisHost'] = 'redis.azure.com';
     process.env['RedisPort'] = '6380';
     process.env['RedisPassword'] = 'secret-password';
 
-    applySession(makeApp() as unknown as Express);
+    apply(true);
 
     expect(createClient).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -143,7 +142,7 @@ describe('applySession', () => {
     process.env['RedisHost'] = 'redis.dev.local';
     process.env['RedisPort'] = '6379';
 
-    applySession(makeApp() as unknown as Express);
+    apply();
 
     const callArg = vi.mocked(createClient).mock.calls[0][0] as { socket: { reconnectStrategy: (retries: number) => number } };
     const delay = callArg.socket.reconnectStrategy(1000);
@@ -154,16 +153,14 @@ describe('applySession', () => {
   it('defaults RedisPort to 6380 when RedisPort is not set', () => {
     process.env['RedisHost'] = 'redis.dev.local';
 
-    applySession(makeApp() as unknown as Express);
+    apply();
 
     const [callArg] = vi.mocked(createClient).mock.calls[0];
     expect((callArg as Record<string, unknown>)['socket']).toMatchObject({ port: 6380 });
   });
 
   it('sets secure=false cookie flag in development', () => {
-    const app = makeApp();
-
-    applySession(app as unknown as Express);
+    const app = apply();
 
     expect(session).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -174,9 +171,7 @@ describe('applySession', () => {
   });
 
   it('sets secure=true cookie flag in production', () => {
-    process.env['NODE_ENV'] = 'production';
-
-    applySession(makeApp() as unknown as Express);
+    apply(true);
 
     expect(session).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -188,7 +183,7 @@ describe('applySession', () => {
   it('uses the provided SessionSecret', () => {
     process.env['SessionSecret'] = 'my-long-random-secret';
 
-    applySession(makeApp() as unknown as Express);
+    apply();
 
     expect(session).toHaveBeenCalledWith(
       expect.objectContaining({ secret: 'my-long-random-secret' }),
@@ -196,7 +191,7 @@ describe('applySession', () => {
   });
 
   it('uses the cookie name "librarian.sid"', () => {
-    applySession(makeApp() as unknown as Express);
+    apply();
 
     expect(session).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'librarian.sid' }),
@@ -215,7 +210,7 @@ describe('applySession', () => {
       connect: vi.fn().mockResolvedValue(undefined),
     } as never);
 
-    applySession(makeApp() as unknown as Express);
+    apply();
 
     const connectionError = new Error('ECONNREFUSED');
     errorListener?.(connectionError);
@@ -232,7 +227,7 @@ describe('applySession', () => {
       connect: vi.fn().mockRejectedValue(connectError),
     } as never);
 
-    applySession(makeApp() as unknown as Express);
+    apply();
 
     await new Promise<void>(resolve => setTimeout(resolve, 0));
 
