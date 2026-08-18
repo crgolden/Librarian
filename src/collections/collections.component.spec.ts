@@ -76,6 +76,7 @@ function game(id: string, percentCompleted: number | null = null): CollectionGam
 interface CollectionsHarness {
   kind: { set(value: string): void };
   consoleId: { set(value: string): void };
+  genreFilter: { set(value: string[]): void };
   name: { set(value: string): void };
   minPercentCompleted: { set(value: number | null): void };
   editName: { set(value: string): void };
@@ -111,16 +112,21 @@ function harness(fixture: ComponentFixture<CollectionsComponent>): CollectionsHa
 function activatedRouteStub(
   params: Record<string, string>,
   resolved: ResolvedCollections,
+  genres: string[] = [],
 ): ActivatedRoute {
   return {
-    snapshot: { paramMap: convertToParamMap(params), data: { collections: resolved } },
+    snapshot: { paramMap: convertToParamMap(params), data: { collections: resolved, genres } },
   } as unknown as ActivatedRoute;
 }
 
 describe('CollectionsComponent', () => {
   let httpMock: HttpTestingController;
 
-  function configure(params: Record<string, string>, resolved: ResolvedCollections): void {
+  function configure(
+    params: Record<string, string>,
+    resolved: ResolvedCollections,
+    genres: string[] = [],
+  ): void {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [CollectionsComponent],
@@ -128,7 +134,7 @@ describe('CollectionsComponent', () => {
         provideHttpClient(withXhr()),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: ActivatedRoute, useValue: activatedRouteStub(params, resolved) },
+        { provide: ActivatedRoute, useValue: activatedRouteStub(params, resolved, genres) },
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);
@@ -145,12 +151,54 @@ describe('CollectionsComponent', () => {
   function createAndLoad(
     definitions: DefinitionResponse[],
     consoles: ConsoleResponse[] = [],
+    genres: string[] = [],
   ): ComponentFixture<CollectionsComponent> {
-    configure({}, { mode: 'list', definitions, consoles });
+    configure({}, { mode: 'list', definitions, consoles }, genres);
     const fixture = TestBed.createComponent(CollectionsComponent);
     fixture.detectChanges();
     return fixture;
   }
+
+  describe('genre filter', () => {
+    it('offers one option per genre resolved for the route, in a multi-select', () => {
+      const fixture = createAndLoad([], [], ['RPG', 'Shooter', 'Puzzle']);
+      harness(fixture).showCreate();
+      fixture.detectChanges();
+
+      const select = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>('#genreFilter');
+      expect(select).not.toBeNull();
+      expect(select?.multiple).toBe(true);
+      expect(Array.from(select?.options ?? []).map((option) => option.textContent)).toEqual([
+        'RPG',
+        'Shooter',
+        'Puzzle',
+      ]);
+    });
+
+    it('renders no options when the route resolved no genres, rather than a free-text fallback', () => {
+      const fixture = createAndLoad([], [], []);
+      harness(fixture).showCreate();
+      fixture.detectChanges();
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelectorAll('#genreFilter option')).toHaveLength(0);
+      expect(root.querySelector('input#genreFilter')).toBeNull();
+    });
+
+    it('sends the selected genres as genre_filter on the preview request', () => {
+      const fixture = createAndLoad([], [], ['RPG', 'Shooter']);
+      const component = harness(fixture);
+      component.showCreate();
+      component.genreFilter.set(['RPG', 'Shooter']);
+      fixture.detectChanges();
+
+      component.preview();
+
+      const request = httpMock.expectOne('/curator/api/collections/preview');
+      expect(request.request.body.genre_filter).toEqual(['RPG', 'Shooter']);
+      request.flush({ included: [], excluded: [], total_size_gb: 0 });
+    });
+  });
 
   it('shows an empty state when there are no saved collections', () => {
     const fixture = createAndLoad([]);

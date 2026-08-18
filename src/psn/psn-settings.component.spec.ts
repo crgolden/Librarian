@@ -5,6 +5,7 @@ import { ActivatedRoute } from '@angular/router';
 import { PsnSettingsComponent } from './psn-settings.component';
 import { PsnStatus } from './psn-status.resolver';
 import { PsnPreferencesResponse } from '../curator/curator.models';
+import { MeService } from '../curator/me.service';
 
 type MeResponse = PsnStatus;
 
@@ -35,15 +36,18 @@ const VALID_NPSSO = 'a'.repeat(64);
 describe('PsnSettingsComponent', () => {
   let httpMock: HttpTestingController;
   let routeSnapshotData: { status: MeResponse | null };
+  let invalidateMe: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     routeSnapshotData = { status: null };
+    invalidateMe = vi.fn();
     TestBed.configureTestingModule({
       imports: [PsnSettingsComponent],
       providers: [
         provideHttpClient(withXhr()),
         provideHttpClientTesting(),
         { provide: ActivatedRoute, useValue: { snapshot: { data: routeSnapshotData } } },
+        { provide: MeService, useValue: { invalidate: invalidateMe } },
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);
@@ -154,7 +158,7 @@ describe('PsnSettingsComponent', () => {
     httpMock.expectNone('/curator/api/psn/link');
   });
 
-  it('link() posts the trimmed NPSSO token, clears it, and reloads status on success', () => {
+  it('link() posts the trimmed NPSSO token, clears it, reloads status, and drops the shared /me cache on success', () => {
     const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
     const h = harness(fixture);
     h.npsso.set(`  ${VALID_NPSSO}  `);
@@ -178,6 +182,7 @@ describe('PsnSettingsComponent', () => {
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.textContent).toContain('PlayStation Network account linked.');
     expect(compiled.querySelector('.psn-badge')).not.toBeNull();
+    expect(invalidateMe).toHaveBeenCalled();
   });
 
   it('link() surfaces a generic error message when the request fails with no known error code', () => {
@@ -194,6 +199,7 @@ describe('PsnSettingsComponent', () => {
 
     expect((fixture.nativeElement as HTMLElement).textContent)
       .toContain('Failed to link PlayStation Network account.');
+    expect(invalidateMe).not.toHaveBeenCalled();
   });
 
   it('link() rejects a token that is not exactly 64 characters without making a request', () => {
@@ -299,7 +305,7 @@ describe('PsnSettingsComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain("isn't verified");
   });
 
-  it('unlink() deletes the PSN link and reloads status on success', () => {
+  it('unlink() deletes the PSN link, reloads status, and drops the shared /me cache on success', () => {
     const fixture = createAndLoad({
       sub: 'u1',
       email: null,
@@ -321,6 +327,7 @@ describe('PsnSettingsComponent', () => {
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.textContent).toContain('PlayStation Network account unlinked.');
     expect(compiled.querySelector('#npsso')).not.toBeNull();
+    expect(invalidateMe).toHaveBeenCalled();
   });
 
   it('unlink() surfaces an error message when the request fails', () => {
@@ -414,7 +421,7 @@ describe('PsnSettingsComponent', () => {
     httpMock.expectNone('/curator/api/me');
   });
 
-  it('confirmDeleteMyData() deletes the account and shows a confirmation message on success', () => {
+  it('confirmDeleteMyData() deletes the account, shows a confirmation message, and drops the shared /me cache', () => {
     const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
     const h = harness(fixture);
 
@@ -429,6 +436,7 @@ describe('PsnSettingsComponent', () => {
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.textContent).toContain('Your account and all associated data have been deleted.');
+    expect(invalidateMe).toHaveBeenCalled();
   });
 
   it('confirmDeleteMyData() surfaces an error message when the request fails', () => {

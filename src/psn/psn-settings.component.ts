@@ -4,6 +4,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } 
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CuratorService } from '../curator/curator.service';
+import { MeService } from '../curator/me.service';
 import {
   AccountActionResponse,
   ConsoleResponse,
@@ -60,6 +61,7 @@ export class PsnSettingsComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly curator = inject(CuratorService);
+  private readonly me = inject(MeService);
 
   protected readonly npsso = signal('');
   protected readonly linked = signal(false);
@@ -400,6 +402,7 @@ export class PsnSettingsComponent implements OnInit {
         this.linking.set(false);
         this.success.set('PlayStation Network account linked.');
         this.npsso.set('');
+        this.me.invalidate();
         this.loadStatus();
       },
       error: (err: HttpErrorResponse) => {
@@ -418,6 +421,7 @@ export class PsnSettingsComponent implements OnInit {
       next: () => {
         this.unlinking.set(false);
         this.success.set('PlayStation Network account unlinked.');
+        this.me.invalidate();
         this.loadStatus();
       },
       error: () => {
@@ -553,6 +557,7 @@ export class PsnSettingsComponent implements OnInit {
         this.deletingAccount.set(false);
         this.confirmingDelete.set(false);
         this.deleted.set(true);
+        this.me.invalidate();
       },
       error: () => {
         this.deletingAccount.set(false);

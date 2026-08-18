@@ -701,7 +701,11 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-
+  app.post('/_test/admin', (req: Request, res: Response) => {
+    const body = req.body as { isAdmin?: boolean };
+    getUser(DEFAULT_SUB).isAdmin = body.isAdmin ?? true;
+    res.status(204).end();
+  });
 
   /** Register a sub as "known" (an `app_users` row exists) without seeding any other state --
    * covers the "viewing another user's default, unlinked, private profile" case. */

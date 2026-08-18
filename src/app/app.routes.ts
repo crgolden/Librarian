@@ -5,6 +5,7 @@ import { ownSubRedirectGuard } from '../profile/own-sub-redirect.guard';
 import { followListResolver } from '../profile/follow-list.resolver';
 import { profileResolver } from '../profile/profile.resolver';
 import { HomeComponent } from '../home/home.component';
+import { homeSummaryResolver } from '../home/home.resolver';
 import { psnStatusResolver } from '../psn/psn-status.resolver';
 import { catalogGenresResolver, catalogResolver } from '../catalog/catalog.resolver';
 import { catalogDetailResolver } from '../catalog/catalog-detail.resolver';
@@ -15,7 +16,7 @@ import { libraryResolver } from '../library/library.resolver';
 import { latestEnrichmentRunResolver } from '../admin/admin-enrichment.resolver';
 
 export const routes: Routes = [
-  { path: '', component: HomeComponent, title: 'Librarian' },
+  { path: '', component: HomeComponent, resolve: { summary: homeSummaryResolver }, title: 'Librarian' },
   {
     path: 'psn',
     loadComponent: () => import('../psn/psn-settings.component').then((m) => m.PsnSettingsComponent),

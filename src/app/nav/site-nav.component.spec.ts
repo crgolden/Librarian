@@ -146,7 +146,68 @@ describe('SiteNavComponent', () => {
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    const catalogLink = Array.from(compiled.querySelectorAll('.site-nav-desktop a')).find((a) => a.textContent === 'Catalog');
+    const catalogLink = compiled.querySelector('.site-nav-desktop a[aria-label="Catalog"]');
     expect(catalogLink?.classList.contains('nav-active')).toBe(true);
+  });
+
+  it('keeps an accessible name on every desktop link, since the labels are hidden below lg', () => {
+    const fixture = configure(
+      {
+        isAuthenticated: signal(true),
+        email: signal('chris@example.com'),
+        username: signal(null),
+        picture: signal(null),
+        logoutUrl: signal(null),
+      },
+      { isAdmin: signal(true), ensureLoaded: () => of(true) },
+    );
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    for (const label of ['Home', 'Catalog', 'Collections', 'Library', 'Profile', 'PSN Settings', 'Enrichment Runs', 'Sign out']) {
+      expect(compiled.querySelector(`.site-nav-desktop a[aria-label="${label}"]`)).not.toBeNull();
+    }
+  });
+
+  it('marks the header crowded for an admin, whose eighth link leaves no room for the user chip', () => {
+    const fixture = configure(
+      {
+        isAuthenticated: signal(true),
+        email: signal('chris@example.com'),
+        username: signal(null),
+        picture: signal(null),
+        logoutUrl: signal(null),
+      },
+      { isAdmin: signal(true), ensureLoaded: () => of(true) },
+    );
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.site-nav-desktop.nav-crowded')).not.toBeNull();
+  });
+
+  it('leaves the header uncrowded for a non-admin, who keeps the user chip', () => {
+    const fixture = configure({
+      isAuthenticated: signal(true),
+      email: signal('chris@example.com'),
+      username: signal(null),
+      picture: signal(null),
+      logoutUrl: signal(null),
+    });
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.site-nav-desktop.nav-crowded')).toBeNull();
+  });
+
+  it('hides every icon from assistive technology, leaving the name to the link', () => {
+    const fixture = configure({
+      isAuthenticated: signal(true),
+      email: signal('chris@example.com'),
+      username: signal(null),
+      picture: signal(null),
+      logoutUrl: signal(null),
+    });
+    const icons = (fixture.nativeElement as HTMLElement).querySelectorAll('ng-icon');
+
+    expect(icons.length).toBeGreaterThan(0);
+    for (const icon of icons) {
+      expect(icon.getAttribute('aria-hidden')).toBe('true');
+    }
   });
 });

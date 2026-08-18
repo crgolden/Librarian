@@ -34,7 +34,7 @@ test.describe('Collections — authenticated', () => {
 
     await page.goto('/collections');
     await page.getByRole('button', { name: 'New collection' }).click();
-    await page.getByLabel('Genres (comma-separated)').fill('RPG');
+    await page.getByLabel('Genres').selectOption({ label: 'RPG' });
     await page.getByRole('button', { name: 'Preview' }).click();
 
     await expect(page.getByText('Bloodborne', { exact: true })).toBeVisible({ timeout: 10_000 });
@@ -130,7 +130,7 @@ test.describe('Collections — authenticated', () => {
 
     await page.goto('/collections');
     await page.getByRole('button', { name: 'New collection' }).click();
-    await page.getByLabel('Genres (comma-separated)').fill('RPG');
+    await page.getByLabel('Genres').selectOption({ label: 'RPG' });
     await page.getByRole('button', { name: 'Preview' }).click();
     await expect(page.getByText('Bloodborne', { exact: true })).toBeVisible({ timeout: 10_000 });
     await page.getByLabel('Name this collection').fill('RPG picks');

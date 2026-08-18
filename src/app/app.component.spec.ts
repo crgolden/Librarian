@@ -40,6 +40,7 @@ describe('AppComponent', () => {
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.querySelector('.user-email')?.textContent?.trim()).toBe('chris@example.com');
+    expect(compiled.querySelector('.user-email')?.getAttribute('title')).toBe('chris@example.com');
     const img = compiled.querySelector<HTMLImageElement>('img.avatar');
     expect(img?.getAttribute('src')).toBe('https://example.com/avatar.png');
     expect(compiled.querySelector('.avatar-fallback')).toBeNull();

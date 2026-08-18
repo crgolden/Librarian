@@ -346,6 +346,21 @@ textarea:focus {
   font-size: var(--font-size-small);
 }
 
+ng-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.catalog-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+
 /* Visually hide while keeping the element available to screen readers. */
 .sr-only {
   position: absolute;

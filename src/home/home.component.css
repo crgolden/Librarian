@@ -14,6 +14,40 @@
   align-items: flex-start;
 }
 
+.totals {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-1) var(--space-4);
+  width: 100%;
+  margin: 0;
+}
+
+.totals dt {
+  grid-row: 1;
+}
+
+.totals dd {
+  grid-row: 2;
+  margin: 0;
+}
+
+@media (max-width: 480px) {
+  .totals {
+    grid-template-columns: 1fr;
+  }
+
+  .totals dt,
+  .totals dd {
+    grid-row: auto;
+  }
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
 .who-for {
   padding: var(--card-pad);
   display: flex;
@@ -33,18 +67,14 @@
   gap: var(--space-3);
 }
 
-.who-for-icon {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+.who-for-item ng-icon {
   color: var(--color-primary);
 }
 
-.who-for-title {
-  font-size: var(--font-size-body);
+.who-for-item h3 {
   margin: 0 0 var(--space-1);
 }
 
-.who-for-item p.text-muted {
+.who-for-item p {
   margin: 0;
 }

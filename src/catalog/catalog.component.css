@@ -30,15 +30,6 @@
   width: 100%;
 }
 
-.catalog-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--space-3);
-}
-
 .catalog-card {
   padding: var(--card-pad);
   display: flex;

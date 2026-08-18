@@ -109,6 +109,7 @@ export interface TestStore {
   seedPsnPreferences(prefs: PsnPreferencesFixture): Promise<void>;
   seedEnrichmentKeys(status: EnrichmentKeyStatusFixture): Promise<void>;
   seedCatalogGames(games: CatalogGameFixture[]): Promise<void>;
+  seedAdmin(isAdmin?: boolean): Promise<void>;
   seedConsoles(consoleIds: string[]): Promise<void>;
   seedLibraryGames(games: LibraryGameFixture[]): Promise<void>;
   setLibraryRefreshOutcome(
@@ -205,6 +206,9 @@ export const test = base.extend<LibrarianFixtures>({
       },
       async seedCatalogGames(games) {
         await fetchControl('/_test/catalog-games', { games });
+      },
+      async seedAdmin(isAdmin = true) {
+        await fetchControl('/_test/admin', { isAdmin });
       },
       async seedConsoles(consoleIds) {
         await fetchControl('/_test/consoles', { consoleIds });

@@ -15,7 +15,7 @@ const stylesheetRoot = join(repoRoot, 'src');
  */
 const BOLD_SEGMENT = /\*\*(.+?)\*\*/gs;
 const CLASS_TOKEN = /`(\.[a-z][a-z0-9-]*)`/gi;
-const ONLY_CLASS_TOKENS = /^(?:\s*`\.[a-z][a-z0-9-]*`\s*[/,]?\s*)+$/i;
+const ONLY_CLASS_TOKENS = /^\s*`\.[a-z][a-z0-9-]*`(?:[\s/,]+`\.[a-z][a-z0-9-]*`)*\s*$/i;
 
 /**
  * Size and placement may differ per surface — a 48px table thumbnail and a 320px detail image are the
@@ -61,7 +61,7 @@ const primitivesFromDesignDoc = () => {
     if (!ONLY_CLASS_TOKENS.test(segment)) continue;
     for (const [, className] of segment.matchAll(CLASS_TOKEN)) names.add(className);
   }
-  return [...names].sort();
+  return [...names].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 };
 
 const stylesheets = (dir) =>

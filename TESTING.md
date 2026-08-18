@@ -27,6 +27,15 @@ npx vitest run --coverage  # LCOV → coverage/lcov.info
 Vitest runs with `pool: threads`, `fileParallelism: false`, `testTimeout: 15000`. Angular 22 is zoneless —
 always call `fixture.detectChanges()` manually.
 
+**A collaborator call that issues no HTTP is invisible to these specs unless you provide a stub for it.**
+Most component specs here assert through `HttpTestingController` and close on `httpMock.verify()`, so
+they only see behaviour that reaches the network. `MeService.invalidate()` is a bare field assignment;
+when `psn-settings.component.spec.ts` let the real root-provided `MeService` be injected, the whole
+suite passed whether or not the component called it — deleting the call broke the app and broke no
+test. Override the collaborator (`{ provide: MeService, useValue: { invalidate: vi.fn() } }`) and
+assert the call. Stub only the members the component actually touches: a stub missing a method the
+component *does* call throws across every test in the file.
+
 ---
 
 ## E2E tests (regression)
@@ -45,6 +54,48 @@ against the mock authority on first use:
    `/users/{sub}/follow`, `/users/{sub}/followers`, `/users/{sub}/following`, `/users/{sub}/library`,
    `/users/{sub}/collections`), and the `/_test/*` control API used by test helpers (`e2e/fixtures.ts`,
    including `seedPsnPreferences` and the multi-user profile/follow seed methods).
+
+   **Never assert "this row did not wrap" from `offsetTop`, and read the failure screenshot in
+   `playwright-artifacts/` before believing any layout number.** Items of differing height in an
+   `align-items: center` row have different `offsetTop`s on the same visual line, so distinct-value
+   counts overstate the row count — the header's `.btn-ghost.btn-sm` Sign out does exactly this.
+   Compare rounded vertical centres (`rect.top + rect.height / 2`).
+
+   **"Asserts visible" is not "asserts fits", and the difference cost a shipped bug.** A responsive
+   test that checks an element is visible at some width proves the media query fired; it says nothing
+   about whether the row overflowed. The nav had exactly that at 1281px and 1100px and stayed green
+   while the non-admin header was wrapping `Sign out` onto a second line. Every width band whose layout
+   you care about needs a row count, not a visibility assertion.
+
+   **Seed the configuration the code does *not* special-case.** Both original wrap tests called
+   `store.seedAdmin()` on the reasoning that eight links is the tightest case — but `.nav-crowded` is
+   bound to `admin.isAdmin()` and strips every label, so those tests measured eight *icons* in a row
+   that cannot wrap. They could not fail. Before trusting a layout test, ask which branch the
+   mitigation turns on and point the test at the branch where it is **off**.
+
+   **A layout measurement taken in fallback metrics is not a measurement of the shipped layout, and
+   `document.fonts.ready` is not enough to prevent one.** `src/styles.css` pulls Lora, Inter and IBM
+   Plex Mono from `fonts.googleapis.com` with `display=swap`, so the row is laid out in fallback
+   metrics until the files land. Measured, not reasoned: blocking the font hosts at 1281px draws the
+   non-admin header at 767px of content instead of 806px, and `.user-email` at 75px instead of its
+   82px cap — a 39px understatement against 31px of real headroom, so a row that wraps in production
+   fits in the measurement. `fonts.ready` does not close this: when the requests fail, the faces
+   settle to `error` and it resolves *immediately* on fallback metrics, giving byte-identical numbers.
+   That is the same "cannot fail on the configuration it polices" defect one level up, and it fires on
+   any runner that cannot reach Google Fonts. `e2e/nav.spec.ts`'s `settleWebfonts()` therefore awaits
+   `document.fonts.ready` **and** asserts `document.fonts.check()` for all three families, so a
+   font-starved runner fails loudly instead of publishing a different layout's numbers.
+
+   **Make layout failures self-diagnosing.** Asserting a bare row count tells you it broke, not why.
+   Return the per-child widths, the container width and the content total, and pass them as the
+   `expect` message — that is what identified `.user-email` at 232px against a 131px runner-up, and
+   showed the header's width was a function of the user's email length rather than a fixed overflow.
+
+   **`store.seedAdmin()` (`POST /_test/admin`) is what grants admin.** `is_admin` reaches the app only
+   through `GET /me` — `AdminService` ignores the BFF's claims array — so nothing else surfaces
+   `/admin/enrichment` or its nav link. Like every other `/_test/*` seeder, it writes to `DEFAULT_SUB`
+   regardless of the caller's `X-E2E-Sub`, so it cannot make `secondAuthedPage` an admin; granting a
+   second identity would need a sub-aware handler that does not exist yet.
 
    The mock has no real bearer-token validation, so it identifies "who is calling" via an `X-E2E-Sub`
    header that each authenticated Playwright fixture injects on every `/curator/api/**` request (see
@@ -166,6 +217,18 @@ There is no SQL dacpac in this pipeline.
 A single SonarCloud project, `crgolden_Librarian`, covers the Angular client (Vitest LCOV). There is
 no C# surface. Use the global sonar-scanner CLI:
 
+**To run a subset, pass `--grep` through `npm run e2e`; never call `playwright test` directly.**
+`npm run e2e` chains `npx tsx e2e/mocks/generate-oidc-cert.ts` between `build:ci` and the test run,
+and the mock OIDC provider needs that cert to serve HTTPS discovery. Skipping it fails as
+`Error: Timed out waiting 30000ms from config.webServer` — which names the SSR server, not the cert,
+and looks exactly like a slow cold start. `npm run e2e -- --grep "some describe"` appends correctly,
+since the playwright invocation is last in the chain.
+
+**Generate coverage with the *whole* suite.** A filtered run (`vitest run --coverage src/home`)
+overwrites `coverage/lcov.info` with only the files that run touched, so a scan straight afterwards
+publishes a collapsed coverage number — an 80% gate reads ~1.5% — with nothing in the scanner output
+to suggest anything is wrong.
+
 ```powershell
 # Generate coverage first
 npx vitest run --coverage
@@ -177,9 +240,30 @@ sonar-scanner `
   -Dsonar.organization=crgolden `
   -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info `
   -Dsonar.exclusions="**/node_modules/**,**/*.d.ts,e2e/**,instrumentation.mjs" `
-  -Dsonar.coverage.exclusions="e2e/**,src/test-setup.ts" `
+  -Dsonar.coverage.exclusions="e2e/**,scripts/**,**/*.config.*,src/test-setup.ts,src/proxy.conf.js,src/environments/**,src/main.ts,src/main.server.ts,src/server.ts,src/app/app.routes.server.ts" `
   -Dsonar.test.inclusions="**/*.spec.ts"
 ```
+
+**These flags and the `SonarCloud analysis` step in
+`.github/workflows/main_crgolden-librarian.yml` are the only definition of the project's analysis
+scope** — this fleet keeps no `sonar-project.properties`, and a CLI flag overrides whatever the
+SonarCloud UI has. Keep them in step: when they drift, a local run measures a different denominator
+than CI and then *publishes* it, because a local scan with no `-Dsonar.branch.name` replaces the
+main-branch analysis until the next push. A narrower local list once understated coverage by several
+points and made a passing gate look failed.
+
+**Sync them by fixing whichever is wrong, not by copying one into the other.** Every
+`sonar.coverage.exclusions` entry must answer *"could a unit test catch a bug in this file?"* — if
+yes, it stays measured however inconvenient the number. Prefer category globs (`scripts/**`,
+`**/*.config.*`) over file extensions or filename lists: a glob states the reason and keeps covering
+files nobody has written yet, while `**/*.mjs` silently drops any future application module that
+happens to use that extension.
+
+The three composition roots — `src/main.ts`, `src/main.server.ts` and `src/server.ts` — answer *no*
+together and are excluded together. Each is top-level wiring whose every branch is an import or an
+`app.use`; the logic they assemble lives in `src/bff/*` and `src/app/*`, which are measured. A
+passing gate is not itself an argument for measuring one of them, and treating `server.ts`
+differently from its two siblings is drift, not a decision.
 
 ### When to build a truth table
 

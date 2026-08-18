@@ -3,6 +3,7 @@ version: alpha
 name: Librarian — Reading Room / After Hours
 colors:
   primary: "#1F4D3D"
+  primaryDark: "#163B2E"
   neutral:
     bg: "#F6F1E7"
     surface: "#FFFDF8"
@@ -12,10 +13,30 @@ colors:
     border: "#E4D9C5"
   semantic:
     error: "#A3342A"
+    errorHover: "#82291F"
+    errorContrast: "#FFFDF8"
     success: "#3E6B4F"
     warning: "#B8752E"
   accent: "#B4790A"
   psn: "#2C4A7C"
+  afterHours:
+    primary: "#3E7A5C"
+    primaryDark: "#316148"
+    accent: "#D4A017"
+    psn: "#4C6FA5"
+    neutral:
+      bg: "#19140F"
+      surface: "#241C15"
+      surfaceAlt: "#2E251C"
+      text: "#EDE3D3"
+      textMuted: "#A6957D"
+      border: "#3A2E22"
+    semantic:
+      error: "#CB7367"
+      errorHover: "#D1847A"
+      errorContrast: "#19140F"
+      success: "#5FA57E"
+      warning: "#D99A4E"
 typography:
   h1:
     fontFamily: Lora
@@ -49,11 +70,18 @@ typography:
   catalogMeta:
     fontFamily: IBM Plex Mono
     fontSize: 0.85rem
+  stampLabel:
+    fontFamily: IBM Plex Mono
+    fontSize: 0.8rem
+    fontWeight: 400
+    letterSpacing: 0.06em
+    textTransform: uppercase
   spineLabel:
     fontFamily: Inter
     fontSize: 0.7rem
     fontWeight: 600
     letterSpacing: 0.06em
+    textTransform: uppercase
 ---
 
 # Design Language
@@ -361,6 +389,11 @@ else in the scale.
   primitive check could see.
 - **`.catalog-title` / `.catalog-meta`** — game title and stamped-metadata treatments (see
   Typography). Live in production on the Catalog grid, Collections list, and Library table.
+- **`.catalog-list`** — a list of catalogued entries as a responsive card grid
+  (`repeat(auto-fit, minmax(220px, 1fr))`), used by the Catalog grid, the Collections detail list and
+  the public shared-collection view. It was byte-identical in all three component stylesheets before
+  it was named here, which is the `.cover-art` failure repeating: a shared appearance that no
+  primitive check could see, because the checker only knows the classes this section lists.
 - **`.cover-art`** — box art on a catalogued entry, used by the Catalog grid, the game detail page,
   the Collections detail list, the Library table, and the public shared-collection view. Defined once
   in `styles.css` as square (`aspect-ratio: 1 / 1`, `object-fit: cover`, `--radius-sm`); each surface
@@ -373,17 +406,76 @@ else in the scale.
   because it is provenance rather than a captioned field.
 - **`.psn-badge`** — PSN-linked-account indicator only (see Colors' `--color-psn` rule). A small dot
   + label in `--color-psn`.
+- **`ng-icon`** — the icon element, from `@ng-icons/core` with glyphs out of
+  `@ng-icons/phosphor-icons/regular` (see Appendix: Iconography & Imagery for the pack decision and
+  the concept-to-glyph map). Colour inherits from context and the glyph holds its size in a flex row,
+  both defined once in `styles.css`; the default `1.5rem` size comes from `provideNgIconsConfig` in
+  `app.config.ts`. Register glyphs per component through `provideIcons({ … })` in `viewProviders`, so
+  unused ones tree-shake away — never register a whole pack. Every `ng-icon` carries
+  `aria-hidden="true"`: the accessible name belongs to the control around it, which is why an
+  icon-only nav link needs its own `aria-label`.
 - **`app-site-nav`** (`src/app/nav/site-nav.component.ts`) — the single sitewide nav-link data
   source, rendered two ways from one array: a desktop header (`.site-nav-desktop`, horizontal links
   + user chip + PSN Settings + Sign out) above the `md` breakpoint, and a fixed bottom tab bar
   (`.site-nav-tabbar`, 5 primary destinations: Home/Catalog/Collections/Library/Profile) below it.
   Active route gets `routerLinkActive="nav-active"` → `--color-primary` text.
-  **The desktop bar sheds the whole `.user-chip` (avatar *and* email) below `xl`.** The chip is the widest
-  item in the row, and without dropping it an admin — who gets an extra "Enrichment Runs" link — overflows
-  and wraps "Sign out" onto a second line. Drop the pair, never just the email: the avatar exists to anchor
-  the address, so alone it reads as a stray image between two nav links rather than an account indicator.
-  Who is signed in stays evident from Profile and Sign out. If more top-level links are ever added, the
-  next thing to give is the link labels, not the breakpoint.
+  **The desktop bar sheds the whole `.user-chip` (avatar *and* email) at `xl` and narrower.** The chip is
+  the widest item in the row, and the row it has to fit into is the non-admin one — seven links carrying
+  icon *and* label. The breakpoint was originally justified by an admin's extra "Enrichment Runs" link
+  wrapping "Sign out" onto a second line, but that argument describes the state before `.nav-crowded`
+  existed; an admin now sheds every label at every desktop width, so for an admin this media query is
+  redundant and its live justification is the non-admin row. Drop the pair, never just the email: the avatar exists
+  to anchor the address, so alone it reads as a stray image between two nav links rather than an account
+  indicator. Who is signed in stays evident from Profile and Sign out. If more top-level links are ever
+  added, the next thing to give is the link labels, not the breakpoint — which is what happens at `lg` and
+  narrower, where the labels are hidden and each link's `aria-label` becomes its only accessible name.
+  **A wider window buys the nav no room.** The header sits inside `.page-container`, so its usable
+  width is pinned at `1100px` minus padding for every viewport at or above that. There are therefore
+  only three desktop configurations — chip+labels above `xl` (>1280px), labels alone from just above
+  `lg` through `xl` (1025–1280px), icons alone from just above `md` through `lg` (769–1024px).
+  **The tightest case is the non-admin one above `xl`, not the admin's extra eighth link.** An admin
+  has more links but `.nav-crowded` strips every label, so an admin row is eight icons and has room to
+  spare; the unmitigated configuration is seven links carrying icon *and* label plus the chip, and that
+  is the one that overflowed. Treating the admin case as the worst case is what let a wrapped header
+  ship — see the `.user-email` note below. Every rule is a `max-width` media query, so
+  each named breakpoint sits in the *narrower* band: at exactly 1280px the chip is already gone. That
+  is pinned by `e2e/nav.spec.ts`'s boundary test at 1281/1280/1025/1024 rather than left as prose —
+  an off-by-one here is invisible on screen and this passage previously had one.
+  Widening the browser makes the widest case *worse*, not better, because that is where the chip returns.
+  That is why **an admin sheds both the chip and the labels at every desktop width** — `.nav-crowded`,
+  set from `admin.isAdmin()` in the component because CSS cannot count links. Eight labelled links do
+  not fit in that pinned width at any viewport, with or without the chip: the row overflows above the
+  header and pushes `Sign out` onto a second line. Dropping only the chip was tried and is not enough.
+  Adding icons made this case *worse* before `.nav-crowded` existed, since each glyph costs width the
+  labels were already using.
+  **`.user-email` is capped at `10ch` with an ellipsis, and the cap is load-bearing.** Without it the
+  header's width depends on how long the signed-in user's email address is — the one unbounded,
+  data-dependent element in the row — so the layout held for short addresses and wrapped for ordinary
+  ones. Measured at 1281px with all three webfonts applied: usable width 947px against 1032px of
+  content, with the chip alone at 232px for a 24-character address. Capped, the same row measures
+  916px — 806px of items plus seven 16px gaps — leaving 31px of headroom. Every figure in this
+  paragraph is a webfont measurement and means nothing in fallback metrics, which draw the same row
+  39px narrower. `--font-meta` is IBM Plex Mono, so `ch` is an exact unit here and the cap
+  is a hard 82px rather than an approximation. The full address stays in the DOM, so screen readers and
+  the avatar's `alt` still carry it; only the painted text is clipped.
+  **The chip renders the whole address and lets the cap clip it, rather than rendering a shortened form
+  of it.** A local-part-only chip was considered and rejected: it reads better, but it also costs the
+  regression test its teeth. The e2e identity's address is 24 characters and needs 196px uncapped, which
+  is what makes the row wrap when the cap is deleted; its local part is 11 characters and needs 90px,
+  which fits — the cap would still be correct for long addresses and nothing would fail if it were
+  removed. `e2e/nav.spec.ts` therefore asserts the fixture address still overflows the cap, so
+  shortening either the address or the rendered form of it fails loudly instead of quietly retiring the
+  detector. `.user-email` carries a `title`, which is the only place a sighted user can read their own
+  full address — the truncation affects exactly the group the DOM-based accessibility argument does not
+  cover. Do not raise this cap to "show
+  more of the address" without re-measuring — a generous cap reintroduces the same bug for long
+  addresses, which is precisely how it shipped unnoticed. The non-admin case is the one to measure,
+  not the admin one: `.nav-crowded` hides every label for admins, so admin tests count icons in a row
+  that cannot wrap and will pass while this is broken. `e2e/nav.spec.ts` counts non-admin rows at both
+  label-bearing bands (1281px and 1100px); a test that only asserts an element is *visible* at a width
+  does not measure whether the row fits at that width, which is how this survived a passing suite.
+  Those measurements wait for the webfonts and assert they applied, because `styles.css` loads all
+  three with `display=swap` and the fallback row is narrower than the headroom — see TESTING.md.
 - **`app-page-toc`** (`src/app/shared/toc/page-toc.component.ts`) — client-side-only in-page table
   of contents + back-to-top link, generated from a page's own headings via a CSS selector input.
   Used on `/faq` and `/privacy`.
@@ -531,6 +623,36 @@ reaching for PlayStation blue, and it's equally generic. Prefer library-native m
 - A future wordmark/favicon should lean on the serif logotype plus a simple bookplate or open-book
   mark — not a controller silhouette.
 
+**The pack is Phosphor** (`@ng-icons/phosphor-icons`, MIT), regular weight. It won over Lucide,
+Tabler, Heroicons and Iconoir because it is the only candidate that carries the motifs above as
+drawn glyphs rather than approximations: `phosphorCards` *is* the card-catalog drawer, and
+`phosphorStamp` is the ex-libris stamp. It also keeps Catalog, Collections and Library legible as
+three different things at 24px, which is the hard constraint — they sit adjacent in the same nav row.
+
+`@ng-icons/core` is the delivery mechanism because it is the only one peering `@angular/core >=22`.
+`lucide-angular` caps at `13.x - 21.x` and will not install against this app; `@ng-icons/lucide`
+routes around that if the pack is ever revisited. Import from the **`/regular` subpath** — the
+package root exports nothing.
+
+| Concept | Glyph |
+|---|---|
+| Home | `phosphorHouse` |
+| Catalog | `phosphorCards` |
+| Collections | `phosphorArchive` |
+| Library | `phosphorBooks` |
+| Profile | `phosphorUserCircle` |
+| PSN Settings | `phosphorPlugsConnected` |
+| Enrichment Runs | `phosphorSparkle` |
+| Sign out | `phosphorSignOut` |
+| Purchased / owned | `phosphorBookmarkSimple` |
+| Free-to-play | `phosphorDownloadSimple` |
+| Monthly games | `phosphorCalendarDots` |
+| Catalog entitlements | `phosphorStack` |
+
+Phosphor also ships `phosphorStorefront`, `phosphorShoppingBag`, `phosphorCoins`, `phosphorTicket`
+and `phosphorCrown`. Those are off-limits for the same reason storefront copy is — see Voice & Tone.
+A glyph existing in the pack is not a licence to use it.
+
 Cover art is the one imagery exception, and it earns its place as provenance rather than decoration:
 `GameSummaryResponse` carries `cover_image_url`, and the Catalog grid, the game detail page, the
 Library table, the Collections list and the public shared-collection view all render it.
@@ -561,6 +683,12 @@ not commerce.
 ### Accessibility
 
 - All text/background pairs in both rooms must hold WCAG AA contrast (4.5:1 body, 3:1 large text).
+- **Icons are non-text content and answer to WCAG 1.4.11: 3:1 against their own background**, not the
+  4.5:1 body-text bar. That distinction matters because `--color-primary` on `--color-surface` is
+  comfortable in Reading Room and tight in After Hours — the dark room's lifted green is the closest
+  pair in the palette to its floor. Measure with `getComputedStyle`, not by eye, and re-measure that
+  pair before changing either token. An icon that is the *only* carrier of meaning (an icon-only nav
+  link, a status glyph) also needs a text alternative — see the `ng-icon` entry in Components.
 - Focus rings use `--color-primary` at 3px — never rely on color alone for any state (error/success
   text also carries an icon or label, not just a color change).
 - `prefers-reduced-motion` collapses all transitions/animations to near-instant, wired globally in

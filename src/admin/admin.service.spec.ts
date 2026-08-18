@@ -52,6 +52,33 @@ describe('AdminService', () => {
     expect(resolved).toBe(false);
   });
 
+  it('retries GET /me on the next ensureLoaded() after a failure, instead of staying false for the session', () => {
+    service.ensureLoaded().subscribe();
+    httpMock.expectOne('/curator/api/me').flush(null, { status: 503, statusText: 'Service Unavailable' });
+    expect(service.isAdmin()).toBe(false);
+
+    service.ensureLoaded().subscribe();
+    httpMock
+      .expectOne('/curator/api/me')
+      .flush({ sub: 'user-1', email: null, linked: false, psn: null, is_admin: true });
+
+    expect(service.isAdmin()).toBe(true);
+  });
+
+  it('serves the stale false to the retrying activation itself, so recovery lands on the activation after', () => {
+    service.ensureLoaded().subscribe();
+    httpMock.expectOne('/curator/api/me').flush(null, { status: 503, statusText: 'Service Unavailable' });
+
+    let retryResolved: boolean | undefined;
+    service.ensureLoaded().subscribe((value) => (retryResolved = value));
+    httpMock
+      .expectOne('/curator/api/me')
+      .flush({ sub: 'user-1', email: null, linked: false, psn: null, is_admin: true });
+
+    expect(retryResolved).toBe(false);
+    expect(service.isAdmin()).toBe(true);
+  });
+
   it('ensureLoaded() only issues one GET /me request across multiple calls', () => {
     service.ensureLoaded().subscribe();
     httpMock.expectOne('/curator/api/me').flush({ sub: 'user-1', email: null, linked: false, psn: null, is_admin: true });
