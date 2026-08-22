@@ -16,15 +16,11 @@ import {
 import { CuratorService } from '../curator/curator.service';
 import { PublicProfileResponse } from '../curator/curator.models';
 import { ResolvedProfile } from './profile.resolver';
+import { AvatarComponent } from '../shared/avatar/avatar.component';
 
-/** `/profile` (owner) and `/u/:sub` (viewer, canonicalized away from your own sub) — an identity
- * header (name, PSN-linked badge, Follow/Unfollow for a viewer, library/collections links gated on
- * visibility) over a grid of stat tiles. A tile renders only when its value is permitted and known;
- * `0` is a real value and must still render, which is why every guard tests `!== null` rather than
- * truthiness. */
 @Component({
   selector: 'app-profile-view',
-  imports: [DatePipe, NgIcon, RouterLink],
+  imports: [DatePipe, NgIcon, RouterLink, AvatarComponent],
   templateUrl: './profile-view.component.html',
   styleUrl: './profile-view.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -80,8 +76,6 @@ export class ProfileViewComponent implements OnInit {
     this.profile.set(resolved.profile);
   }
 
-  /** The raw `psn_account_id` must never reach the DOM — when PSN's online id is unavailable the
-   * heading falls back to a generic label rather than exposing the identifier. */
   protected displayName(profile: PublicProfileResponse): string {
     return profile.identity?.online_id ?? (profile.psn_account_id ? 'PlayStation account' : 'Unlinked user');
   }

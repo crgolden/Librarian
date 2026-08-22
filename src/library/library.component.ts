@@ -16,6 +16,7 @@ import { CuratorService, LibraryQuery, LibrarySortField } from '../curator/curat
 import {
   GameSummaryResponse,
   LibraryGameResponse,
+  LibraryRefreshResultSummary,
   LibraryRefreshStatusResponse,
   ProfileLibraryGameResponse,
 } from '../curator/curator.models';
@@ -27,7 +28,8 @@ const POLL_INTERVAL_MS = 2500;
 const POLL_ERROR_RETRY_COUNT = 3;
 const POLL_ERROR_RETRY_DELAY_MS = 2000;
 const TERMINAL_STATUSES = new Set(['succeeded', 'failed']);
-const KNOWN_STATUSES = new Set(['queued', 'running', 'succeeded', 'failed']);
+const PAUSED_STATUSES = new Set(['rate_limited']);
+const KNOWN_STATUSES = new Set(['queued', 'running', 'succeeded', 'failed', 'rate_limited']);
 const SUMMARY_TITLE_DISPLAY_CAP = 10;
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -392,7 +394,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
       .pipe(
         switchMap(() => this.curator.getLibraryRefreshStatus(runId)),
         retry({ count: POLL_ERROR_RETRY_COUNT, delay: POLL_ERROR_RETRY_DELAY_MS, resetOnSuccess: true }),
-        takeWhile((response) => !TERMINAL_STATUSES.has(response.status) && KNOWN_STATUSES.has(response.status), true),
+        takeWhile((response) => !this.pollingComplete(response.status), true),
       )
       .subscribe({
         next: (response) => {
@@ -400,7 +402,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
           if (!KNOWN_STATUSES.has(response.status)) {
             this.unexpectedStatus.set(true);
           }
-          if (TERMINAL_STATUSES.has(response.status) || !KNOWN_STATUSES.has(response.status)) {
+          if (this.pollingComplete(response.status)) {
             this.refreshing.set(false);
           }
           if (response.status === 'succeeded') {
@@ -414,5 +416,19 @@ export class LibraryComponent implements OnInit, OnDestroy {
           this.error.set('Lost track of the refresh job.');
         },
       });
+  }
+
+  protected retryAfterLabel(summary: LibraryRefreshResultSummary | null | undefined): string {
+    const seconds = summary?.retry_after_seconds;
+    if (seconds === undefined || seconds <= 0) {
+      return '';
+    }
+
+    const minutes = Math.round(seconds / 60);
+    return minutes >= 60 ? ` in about ${Math.round(minutes / 60)} hour(s)` : ` in about ${minutes} minute(s)`;
+  }
+
+  private pollingComplete(status: string): boolean {
+    return TERMINAL_STATUSES.has(status) || PAUSED_STATUSES.has(status) || !KNOWN_STATUSES.has(status);
   }
 }

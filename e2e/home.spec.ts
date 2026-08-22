@@ -79,13 +79,13 @@ test.describe('HomePage — resolved collection summary', () => {
     await page.goto('/');
     await expect(page.getByText(UNLINKED_NOTICE)).toBeVisible();
 
-    await page.locator('.site-nav-desktop').getByRole('link', { name: 'PSN Settings', exact: true }).click();
+    await page.locator('#site-nav-desktop').getByRole('link', { name: 'PSN Settings', exact: true }).click();
     await page.waitForURL('**/psn', { timeout: 10_000 });
     await page.getByLabel('NPSSO token').fill(VALID_NPSSO);
     await page.getByRole('button', { name: 'Link account' }).click();
     await expect(page.getByRole('button', { name: 'Unlink' })).toBeVisible({ timeout: 10_000 });
 
-    await page.locator('.site-nav-desktop').getByRole('link', { name: 'Home', exact: true }).click();
+    await page.locator('#site-nav-desktop').getByRole('link', { name: 'Home', exact: true }).click();
     await page.waitForURL((url) => url.pathname === '/', { timeout: 10_000 });
 
     await expect(page.locator('.totals dd').first()).toBeVisible();

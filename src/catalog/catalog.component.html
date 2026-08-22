@@ -99,7 +99,7 @@
       <button id="catalog-prev" type="button" class="btn-ghost" [disabled]="!hasPrevPage()" (click)="prevPage()">
         Previous
       </button>
-      <span class="text-muted">
+      <span id="catalog-page-range" class="text-muted">
         @if (total() === 0) {
           0 of 0
         } @else {

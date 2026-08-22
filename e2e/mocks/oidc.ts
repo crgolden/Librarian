@@ -73,7 +73,7 @@ export async function createOidcApp(issuer: string): Promise<Express> {
       response_types_supported: ['code'],
       subject_types_supported: ['public'],
       id_token_signing_alg_values_supported: ['RS256'],
-      scopes_supported: ['openid', 'profile', 'email', 'offline_access', 'curator', 'curator.roles'],
+      scopes_supported: ['openid', 'profile', 'email', 'offline_access', 'curator'],
       token_endpoint_auth_methods_supported: ['client_secret_post'],
       code_challenge_methods_supported: ['S256'],
       claims_supported: ['sub', 'email', 'name', 'curator.admin'],

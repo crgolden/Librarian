@@ -1,51 +1,52 @@
 @if (auth.isAuthenticated()) {
-  <nav class="site-nav-desktop" aria-label="Primary">
-    @for (link of links; track link.path) {
-      <a [routerLink]="link.path" routerLinkActive="nav-active" [routerLinkActiveOptions]="{ exact: !!link.exact }" [attr.aria-label]="link.label" class="nav-link">
-        <ng-icon [name]="link.icon" aria-hidden="true" />
-        <span class="nav-label">{{ link.label }}</span>
+  <nav id="site-nav-desktop" class="site-nav-desktop" aria-label="Primary">
+    @for (link of links; track link.path; let linkIndex = $index) {
+      <a [routerLink]="link.path" routerLinkActive="nav-active" [routerLinkActiveOptions]="{ exact: !!link.exact }" [attr.aria-label]="link.label" [attr.id]="'nav-link-' + linkIndex" class="nav-link">
+        <ng-icon [attr.id]="'nav-icon-' + linkIndex" [name]="link.icon" aria-hidden="true" />
+        <span [attr.id]="'nav-label-' + linkIndex" class="nav-label">{{ link.label }}</span>
       </a>
     }
-    <div class="user-chip">
+    <div id="user-chip" class="user-chip">
       @if (auth.sub(); as sub) {
         <app-avatar
+          id="nav-avatar"
           [sub]="sub"
           [pictureUrl]="auth.picture()"
           [alt]="auth.email() ?? auth.username() ?? 'Signed-in account'"
         />
       }
-      <span class="user-email" [title]="auth.email() ?? auth.username() ?? 'you'">{{ auth.email() ?? auth.username() ?? 'you' }}</span>
+      <span id="user-email" class="user-email" [title]="auth.email() ?? auth.username() ?? 'you'">{{ auth.email() ?? auth.username() ?? 'you' }}</span>
     </div>
-    <a routerLink="/psn" routerLinkActive="nav-active" aria-label="PSN Settings" class="nav-link">
-      <ng-icon name="phosphorPlugsConnected" aria-hidden="true" />
-      <span class="nav-label">PSN Settings</span>
+    <a id="nav-link-psn" routerLink="/psn" routerLinkActive="nav-active" aria-label="PSN Settings" class="nav-link">
+      <ng-icon id="nav-icon-psn" name="phosphorPlugsConnected" aria-hidden="true" />
+      <span id="nav-label-psn" class="nav-label">PSN Settings</span>
     </a>
     @if (admin.isAdmin()) {
-      <a routerLink="/admin/enrichment" routerLinkActive="nav-active" aria-label="Enrichment Runs" class="nav-link">
-        <ng-icon name="phosphorSparkle" aria-hidden="true" />
-        <span class="nav-label">Enrichment Runs</span>
+      <a id="nav-link-enrichment" routerLink="/admin/enrichment" routerLinkActive="nav-active" aria-label="Enrichment Runs" class="nav-link">
+        <ng-icon id="nav-icon-enrichment" name="phosphorSparkle" aria-hidden="true" />
+        <span id="nav-label-enrichment" class="nav-label">Enrichment Runs</span>
       </a>
     }
-    <a [href]="auth.logoutUrl() ?? '#'" aria-label="Sign out" class="btn-ghost btn-sm">
-      <ng-icon name="phosphorSignOut" aria-hidden="true" />
-      <span class="nav-label">Sign out</span>
+    <a id="nav-link-signout" [href]="auth.logoutUrl() ?? '#'" aria-label="Sign out" class="btn-ghost btn-sm">
+      <ng-icon id="nav-icon-signout" name="phosphorSignOut" aria-hidden="true" />
+      <span id="nav-label-signout" class="nav-label">Sign out</span>
     </a>
   </nav>
 
-  <nav class="site-nav-tabbar" aria-label="Primary">
-    @for (link of links; track link.path) {
-      <a [routerLink]="link.path" routerLinkActive="nav-active" [routerLinkActiveOptions]="{ exact: !!link.exact }" class="tab-link">
+  <nav id="site-nav-tabbar" class="site-nav-tabbar" aria-label="Primary">
+    @for (link of links; track link.path; let linkIndex = $index) {
+      <a [routerLink]="link.path" routerLinkActive="nav-active" [routerLinkActiveOptions]="{ exact: !!link.exact }" [attr.id]="'tab-link-' + linkIndex" class="tab-link">
         <ng-icon [name]="link.icon" aria-hidden="true" />
-        <span class="tab-label">{{ link.label }}</span>
+        <span [attr.id]="'tab-label-' + linkIndex" class="tab-label">{{ link.label }}</span>
       </a>
     }
-    <a routerLink="/psn" routerLinkActive="nav-active" class="tab-link">
+    <a id="tab-link-psn" routerLink="/psn" routerLinkActive="nav-active" class="tab-link">
       <ng-icon name="phosphorPlugsConnected" aria-hidden="true" />
-      <span class="tab-label">PSN</span>
+      <span id="tab-label-psn" class="tab-label">PSN</span>
     </a>
   </nav>
 } @else {
-  <nav class="site-nav-desktop" aria-label="Primary">
-    <a [href]="loginHref()" class="btn-primary btn-sm">Sign in</a>
+  <nav id="site-nav-desktop" class="site-nav-desktop" aria-label="Primary">
+    <a id="nav-link-signin" [href]="loginHref()" class="btn-primary btn-sm">Sign in</a>
   </nav>
 }

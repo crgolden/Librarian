@@ -18,7 +18,11 @@
 .follow-list-entry {
   padding: var(--card-pad);
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   gap: var(--space-3);
+}
+
+.follow-list-entry span {
+  margin-left: auto;
 }

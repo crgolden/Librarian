@@ -219,9 +219,9 @@
         @if (preview.excluded_total > 0) {
           <h3>Excluded ({{ preview.excluded_total }})</h3>
           <p class="text-muted">These did not meet the filters and are not part of the collection.</p>
-          <ul class="catalog-list excluded-list">
+          <ul class="catalog-list">
             @for (game of preview.excluded; track game.game_id) {
-              <li class="card catalog-card">
+              <li class="card catalog-card item-unavailable">
                 <span class="catalog-title">{{ game.title }}</span>
                 <span class="spine-label">{{ game.genre }}</span>
                 <span class="catalog-meta">
@@ -250,7 +250,7 @@
               Previous
             </button>
             <span class="text-muted">
-              {{ previewOffset() + 1 }}&ndash;{{ previewOffset() + resultPageSize }} of {{ previewPageableTotal() }}
+              {{ previewOffset() + 1 }}&ndash;{{ previewPageEnd() }} of {{ previewPageableTotal() }}
             </span>
             <button
               id="preview-next"
@@ -560,9 +560,9 @@
             @if (result.excluded_total > 0) {
               <h3>Excluded ({{ result.excluded_total }})</h3>
               <p class="text-muted">These did not meet the filters and are not part of the proposal.</p>
-              <ul class="catalog-list excluded-list">
+              <ul class="catalog-list">
                 @for (game of result.excluded; track game.game_id) {
-                  <li class="card catalog-card">
+                  <li class="card catalog-card item-unavailable">
                     <span class="catalog-title">{{ game.title }}</span>
                     <span class="spine-label">{{ game.genre }}</span>
                     <span class="catalog-meta">
@@ -580,29 +580,10 @@
             }
 
             @if (runPageableTotal() > resultPageSize) {
-              <div class="pager">
-                <button
-                  id="run-prev"
-                  type="button"
-                  class="btn-ghost"
-                  [disabled]="runOffset() === 0"
-                  (click)="pageRun(-1)"
-                >
-                  Previous
-                </button>
-                <span class="text-muted">
-                  {{ runOffset() + 1 }}&ndash;{{ runOffset() + resultPageSize }} of {{ runPageableTotal() }}
-                </span>
-                <button
-                  id="run-next"
-                  type="button"
-                  class="btn-ghost"
-                  [disabled]="runOffset() + resultPageSize >= runPageableTotal()"
-                  (click)="pageRun(1)"
-                >
-                  Next
-                </button>
-              </div>
+              <p id="run-truncation-note" class="text-muted">
+                Each list shows its first {{ resultPageSize }}. Adopting keeps every proposed title, not
+                just the ones listed here.
+              </p>
             }
 
             @if (adoptError()) {

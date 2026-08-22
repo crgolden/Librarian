@@ -1,38 +1,13 @@
-/**
- * Sitewide navigation E2E — the persistent nav (SiteNavComponent) must surface every primary
- * destination on every authenticated page, not just as CTAs on the Home page, and Profile must be
- * reachable without a deep link. Covers the regression this replaces: previously the header nav
- * only ever showed PSN Settings + Sign out, and Profile had no entry point anywhere.
- */
-
-import type { Page } from '@playwright/test';
 import { test, expect, signInAsAdmin } from './fixtures.js';
+import { settleWebfonts } from './layout.js';
 
 const PRIMARY_LINKS = ['Home', 'Catalog', 'Collections', 'Library', 'Profile'];
-
-async function settleWebfonts(page: Page, measured: string[]): Promise<void> {
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-  });
-
-  const applied = await page.evaluate((selectors) => {
-    const entries = selectors.map((selector) => {
-      const element = document.querySelector(selector);
-      if (!element) {
-        return [selector, 'no such element'];
-      }
-      const style = getComputedStyle(element);
-      const family = style.fontFamily.split(',')[0].trim();
-      return [selector, document.fonts.check(`${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${family}`)];
-    });
-    return Object.fromEntries(entries) as Record<string, boolean | string>;
-  }, measured);
-
-  expect(
-    applied,
-    'measured in fallback metrics: the fallback row is ~39px narrower than the webfont row, against 31px of real headroom, so a wrap that ships would pass here',
-  ).toEqual(Object.fromEntries(measured.map((selector) => [selector, true])));
-}
+const DESKTOP_NAV = '#site-nav-desktop';
+const TABBAR = '#site-nav-tabbar';
+const NAV_LABELS = '[id^="nav-label-"]';
+const TAB_LABELS = '[id^="tab-label-"]';
+const TAB_LINKS = '[id^="tab-link-"]';
+const NAV_ICONS = '[id^="nav-icon-"]';
 
 test.describe('SiteNavComponent — desktop', () => {
   for (const startPath of ['/', '/catalog', '/collections', '/library', '/profile']) {
@@ -41,7 +16,7 @@ test.describe('SiteNavComponent — desktop', () => {
 
       await page.goto(startPath);
       for (const label of PRIMARY_LINKS) {
-        await expect(page.locator('.site-nav-desktop').getByRole('link', { name: label, exact: true })).toBeVisible();
+        await expect(page.locator(DESKTOP_NAV).getByRole('link', { name: label, exact: true })).toBeVisible();
       }
     });
   }
@@ -50,7 +25,7 @@ test.describe('SiteNavComponent — desktop', () => {
     await store.reset();
 
     await page.goto('/catalog');
-    await page.locator('.site-nav-desktop').getByRole('link', { name: 'Profile', exact: true }).click();
+    await page.locator(DESKTOP_NAV).getByRole('link', { name: 'Profile', exact: true }).click();
     await page.waitForURL('**/profile', { timeout: 10_000 });
   });
 
@@ -58,10 +33,10 @@ test.describe('SiteNavComponent — desktop', () => {
     await store.reset();
 
     await page.goto('/catalog');
-    const catalogLink = page.locator('.site-nav-desktop').getByRole('link', { name: 'Catalog', exact: true });
+    const catalogLink = page.locator(DESKTOP_NAV).getByRole('link', { name: 'Catalog', exact: true });
     await expect(catalogLink).toHaveClass(/nav-active/);
 
-    const homeLink = page.locator('.site-nav-desktop').getByRole('link', { name: 'Home', exact: true });
+    const homeLink = page.locator(DESKTOP_NAV).getByRole('link', { name: 'Home', exact: true });
     await expect(homeLink).not.toHaveClass(/nav-active/);
   });
 });
@@ -75,9 +50,9 @@ test.describe('SiteNavComponent — responsive escalation', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
 
     await page.goto('/');
-    await expect(page.locator('.site-nav-desktop .user-chip')).toBeVisible();
-    await expect(page.locator('.site-nav-desktop .nav-label').first()).toBeHidden();
-    expect(await page.locator('.site-nav-desktop ng-icon').count()).toBeGreaterThan(0);
+    await expect(page.locator('#user-chip')).toBeVisible();
+    await expect(page.locator(NAV_LABELS).first()).toBeHidden();
+    expect(await page.locator(NAV_ICONS).count()).toBeGreaterThan(0);
   });
 
   test('a label appears on hover and on keyboard focus, and only for the link addressed', async ({
@@ -88,12 +63,12 @@ test.describe('SiteNavComponent — responsive escalation', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/');
 
-    const catalog = page.locator('.site-nav-desktop').getByRole('link', { name: 'Catalog', exact: true });
-    const catalogLabel = catalog.locator('.nav-label');
+    const catalog = page.locator(DESKTOP_NAV).getByRole('link', { name: 'Catalog', exact: true });
+    const catalogLabel = catalog.locator(NAV_LABELS);
     const homeLabel = page
-      .locator('.site-nav-desktop')
+      .locator(DESKTOP_NAV)
       .getByRole('link', { name: 'Home', exact: true })
-      .locator('.nav-label');
+      .locator(NAV_LABELS);
 
     await expect(catalogLabel).toBeHidden();
     await catalog.hover();
@@ -115,10 +90,10 @@ test.describe('SiteNavComponent — responsive escalation', () => {
     await page.goto('/');
 
     await page.setViewportSize({ width: 1281, height: 900 });
-    await expect(page.locator('.site-nav-desktop .user-chip')).toBeVisible();
+    await expect(page.locator('#user-chip')).toBeVisible();
 
     await page.setViewportSize({ width: 1280, height: 900 });
-    await expect(page.locator('.site-nav-desktop .user-chip')).toBeHidden();
+    await expect(page.locator('#user-chip')).toBeHidden();
   });
 
   test('the tab bar below md keeps its labels visible, unlike the desktop header', async ({
@@ -129,8 +104,8 @@ test.describe('SiteNavComponent — responsive escalation', () => {
     await page.setViewportSize({ width: 700, height: 900 });
 
     await page.goto('/');
-    await expect(page.locator('.site-nav-desktop')).toBeHidden();
-    await expect(page.locator('.site-nav-tabbar .tab-label').first()).toBeVisible();
+    await expect(page.locator(DESKTOP_NAV)).toBeHidden();
+    await expect(page.locator(TAB_LABELS).first()).toBeVisible();
   });
 
   for (const width of [1440, 1100]) {
@@ -147,12 +122,12 @@ test.describe('SiteNavComponent — responsive escalation', () => {
         await page.goto('/');
         if (asAdmin) {
           await expect(
-            page.locator('.site-nav-desktop').getByRole('link', { name: 'Enrichment Runs', exact: true }),
+            page.locator(DESKTOP_NAV).getByRole('link', { name: 'Enrichment Runs', exact: true }),
           ).toBeVisible();
         }
-        await settleWebfonts(page, ['.brand']);
+        await settleWebfonts(page, ['#brand']);
 
-        const layout = await page.locator('.site-nav-desktop').evaluate((nav) => {
+        const layout = await page.locator(DESKTOP_NAV).evaluate((nav) => {
           const links = Array.from(nav.querySelectorAll('a'));
           const centres = links.map((link) => {
             const box = link.getBoundingClientRect();
@@ -175,7 +150,7 @@ test.describe('SiteNavComponent — responsive escalation', () => {
     }
   }
 
-  test('the .user-email cap truncates a long address, measured against the cap itself', async ({
+  test('the user-email cap truncates a long address, measured against the cap itself', async ({
     authedPage: page,
     store,
   }) => {
@@ -183,10 +158,10 @@ test.describe('SiteNavComponent — responsive escalation', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
 
     await page.goto('/');
-    await expect(page.locator('.site-nav-desktop .user-chip')).toBeVisible();
-    await settleWebfonts(page, ['.user-email']);
+    await expect(page.locator('#user-chip')).toBeVisible();
+    await settleWebfonts(page, ['#user-email']);
 
-    const email = await page.locator('.site-nav-desktop .user-email').evaluate((el) => ({
+    const email = await page.locator('#user-email').evaluate((el) => ({
       clipped: el.scrollWidth > el.clientWidth,
       maxWidth: getComputedStyle(el).maxWidth,
       overflow: getComputedStyle(el).overflow,
@@ -208,11 +183,11 @@ test.describe('SiteNavComponent — responsive escalation', () => {
     await page.setViewportSize({ width: 900, height: 900 });
 
     await page.goto('/');
-    await expect(page.locator('.site-nav-desktop')).toBeVisible();
-    await expect(page.locator('.site-nav-desktop .nav-label').first()).toBeHidden();
+    await expect(page.locator(DESKTOP_NAV)).toBeVisible();
+    await expect(page.locator(NAV_LABELS).first()).toBeHidden();
 
     for (const label of [...PRIMARY_LINKS, 'PSN Settings', 'Sign out']) {
-      await expect(page.locator('.site-nav-desktop').getByRole('link', { name: label, exact: true })).toBeVisible();
+      await expect(page.locator(DESKTOP_NAV).getByRole('link', { name: label, exact: true })).toBeVisible();
     }
   });
 });
@@ -227,9 +202,9 @@ test.describe('SiteNavComponent — mobile bottom tab bar', () => {
     await store.reset();
 
     await page.goto('/');
-    await expect(page.locator('.site-nav-tabbar')).toBeVisible();
-    await expect(page.locator('.site-nav-desktop')).toBeHidden();
-    await expect(page.locator('.site-nav-tabbar a.tab-link')).toHaveCount(6);
+    await expect(page.locator(TABBAR)).toBeVisible();
+    await expect(page.locator(DESKTOP_NAV)).toBeHidden();
+    await expect(page.locator(TAB_LINKS)).toHaveCount(6);
   });
 
   test('every tab label stays on one line and the stacked icon fits inside the bar', async ({
@@ -239,17 +214,17 @@ test.describe('SiteNavComponent — mobile bottom tab bar', () => {
     await store.reset();
 
     await page.goto('/');
-    await expect(page.locator('.site-nav-tabbar')).toBeVisible();
-    await settleWebfonts(page, ['.tab-label']);
+    await expect(page.locator(TABBAR)).toBeVisible();
+    await settleWebfonts(page, [TAB_LABELS]);
 
-    const layout = await page.locator('.site-nav-tabbar').evaluate((bar) => {
-      const lineCounts = Array.from(bar.querySelectorAll('.tab-label')).map((label) => {
+    const layout = await page.locator(TABBAR).evaluate((bar, labelSelector) => {
+      const lineCounts = Array.from(bar.querySelectorAll(labelSelector)).map((label) => {
         const range = document.createRange();
         range.selectNodeContents(label);
         return { text: label.textContent?.trim(), lines: range.getClientRects().length };
       });
       return { lineCounts, scrollHeight: bar.scrollHeight, clientHeight: bar.clientHeight };
-    });
+    }, TAB_LABELS);
 
     expect(layout.lineCounts.filter((label) => label.lines !== 1)).toEqual([]);
     expect(layout.scrollHeight).toBeLessThanOrEqual(layout.clientHeight);
@@ -259,7 +234,7 @@ test.describe('SiteNavComponent — mobile bottom tab bar', () => {
     await store.reset();
 
     await page.goto('/');
-    await page.locator('.site-nav-tabbar').getByRole('link', { name: 'PSN', exact: true }).click();
+    await page.locator(TABBAR).getByRole('link', { name: 'PSN', exact: true }).click();
     await page.waitForURL('**/psn', { timeout: 10_000 });
   });
 
@@ -267,7 +242,7 @@ test.describe('SiteNavComponent — mobile bottom tab bar', () => {
     await store.reset();
 
     await page.goto('/');
-    await page.locator('.site-nav-tabbar').getByRole('link', { name: 'Library', exact: true }).click();
+    await page.locator(TABBAR).getByRole('link', { name: 'Library', exact: true }).click();
     await page.waitForURL('**/library', { timeout: 10_000 });
   });
 });
@@ -279,7 +254,7 @@ test.describe('SiteNavComponent — anonymous', () => {
     await page.goto('/');
     await expect(page.getByRole('link', { name: 'Sign in' }).first()).toBeVisible();
     for (const label of ['Catalog', 'Collections', 'Library']) {
-      await expect(page.locator('.site-nav-desktop').getByRole('link', { name: label, exact: true })).toHaveCount(0);
+      await expect(page.locator(DESKTOP_NAV).getByRole('link', { name: label, exact: true })).toHaveCount(0);
     }
   });
 });

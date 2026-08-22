@@ -82,6 +82,13 @@ describe('ProfileViewComponent', () => {
     httpMock.expectNone((r) => r.url.endsWith('/profile'));
   });
 
+  it('resolves the header avatar through the BFF by sub, so no picture claim is needed for another user', () => {
+    const fixture = createAndLoad('other-sub', profile({ sub: 'other-sub' }));
+
+    const image = (fixture.nativeElement as HTMLElement).querySelector('#profile-avatar img');
+    expect(image?.getAttribute('src')).toBe('/bff/avatar/other-sub');
+  });
+
   it('shows "Unlinked user" when psn_account_id is null', () => {
     const fixture = createAndLoad('other-sub', profile({ psn_account_id: null }));
 

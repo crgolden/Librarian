@@ -409,6 +409,12 @@ else in the scale.
   table's stacked layout below `md` keeps that relationship: its row is a two-column grid with the
   cover in the first column and the title beside it, and the cover cell carries no `data-label`
   because it is provenance rather than a captioned field.
+- **`.item-unavailable`** — the one de-emphasis treatment (`opacity: 0.6`) for a catalogued entry that
+  is present but not part of the result: an entry the owner no longer has access to, and a collection
+  preview's *excluded* list. Composed onto `.catalog-card`, never a replacement for it — the entry still
+  reads as an entry. It was declared twice byte-identically, plus a third time under a different name
+  (`.excluded-list .catalog-card`) that said the same thing about the same cards, which is why the
+  excluded list now composes this class directly and the wrapper name is gone.
 - **`.psn-badge`** — PSN-linked-account indicator only (see Colors' `--color-psn` rule). A small dot
   + label in `--color-psn`.
 - **`.stat-grid` / `.stat` / `.stat-head` / `.stat-value`** — a divided grid of label + figure stats,
@@ -658,8 +664,8 @@ Components list must appear exactly once across `src/**/*.css`, and that once mu
   Iconography & Imagery, Voice & Tone).
 - **Don't** render a rejected set identically to an accepted one. A collection preview's *excluded*
   list is what the filters turned down, not more of the collection; styled the same as the included
-  cards it reads as part of the result and makes the stated count look wrong. It takes the same
-  `opacity: 0.6` de-emphasis as an entry the owner no longer has access to.
+  cards it reads as part of the result and makes the stated count look wrong. It composes
+  `.item-unavailable`, the same de-emphasis an entry the owner no longer has access to takes.
 
 ---
 

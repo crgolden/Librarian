@@ -179,8 +179,8 @@ test.describe('Profile — followers / following pages', () => {
     await store.seedFollow(SECOND_E2E_SUB, DEFAULT_E2E_SUB);
 
     await page.goto('/profile/followers');
-    await expect(page.locator('.follow-list-entry')).toHaveCount(1);
-    const link = page.locator('.follow-list-entry a');
+    await expect(page.locator('[id^="follow-entry-"]')).toHaveCount(1);
+    const link = page.locator('#follow-link-0');
     await expect(link).toBeVisible();
     await link.click();
     await page.waitForURL(new RegExp(`/u/${SECOND_E2E_SUB}$`), { timeout: 10_000 });
@@ -192,7 +192,7 @@ test.describe('Profile — followers / following pages', () => {
     await store.seedFollow(DEFAULT_E2E_SUB, SECOND_E2E_SUB);
 
     await page.goto('/profile/following');
-    await expect(page.locator('.follow-list-entry')).toHaveCount(1);
+    await expect(page.locator('[id^="follow-entry-"]')).toHaveCount(1);
   });
 
   test('shows a message when there are no followers yet', async ({ authedPage: page, store }) => {

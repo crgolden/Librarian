@@ -78,6 +78,16 @@ describe('CatalogComponent', () => {
     httpMock.expectNone((r) => r.url === '/curator/api/catalog/games');
   });
 
+  it('keeps the pager and its count when a filter matches nothing', () => {
+    const fixture = render({ games: [], total: 0 });
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.textContent).toContain('No titles match these filters.');
+    expect(compiled.querySelector('#catalog-prev')).not.toBeNull();
+    expect(compiled.querySelector('#catalog-next')).not.toBeNull();
+    expect(compiled.querySelector('#catalog-page-range')?.textContent?.trim()).toBe('0 of 0');
+  });
+
   it('shows the error state when the resolver could not load the catalog', () => {
     const fixture = render(null);
 

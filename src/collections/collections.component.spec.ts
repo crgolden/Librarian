@@ -3,7 +3,7 @@ import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { CollectionsComponent } from './collections.component';
+import { CollectionsComponent, RESULT_PAGE_SIZE } from './collections.component';
 import { ResolvedCollections } from './collections.resolver';
 import {
   CollectionGameResponse,
@@ -74,7 +74,6 @@ function game(id: string, percentCompleted: number | null = null): CollectionGam
   };
 }
 
-/** Preview and run now carry `limit`/`offset`, and `expectOne(string)` matches the URL *with* params. */
 const previewUrl = (r: { url: string }): boolean => r.url === '/curator/api/collections/preview';
 
 function emptyPreview(): CollectionPreviewResponse {
@@ -92,6 +91,7 @@ interface CollectionsHarness {
   showCreate(): void;
   showFollowed(): void;
   preview(): void;
+  pagePreview(delta: number): void;
   saveDefinition(): void;
   openDefinition(definitionId: string): void;
   backToList(): void;
@@ -115,6 +115,14 @@ interface CollectionsHarness {
 
 function harness(fixture: ComponentFixture<CollectionsComponent>): CollectionsHarness {
   return fixture.componentInstance as unknown as CollectionsHarness;
+}
+
+function clickById(root: HTMLElement, id: string): void {
+  const element = root.querySelector(`#${id}`);
+  if (!(element instanceof HTMLElement)) {
+    throw new Error(`No element with id "${id}" is rendered.`);
+  }
+  element.click();
 }
 
 function activatedRouteStub(
@@ -342,6 +350,45 @@ describe('CollectionsComponent', () => {
     previewReq.flush(emptyPreview());
   });
 
+  it('the preview pager labels the last page by what it holds, not by the page size', () => {
+    const titlesOnTheLastPage = 1 + Math.floor(Math.random() * (RESULT_PAGE_SIZE - 1));
+    const includedTotal = RESULT_PAGE_SIZE + titlesOnTheLastPage;
+    const allIncludedIds = Array.from({ length: includedTotal }, (_, index) => `g${index}`);
+    const fixture = createAndLoad([]);
+    const h = harness(fixture);
+    h.showCreate();
+    fixture.detectChanges();
+
+    h.preview();
+    httpMock.expectOne(previewUrl).flush({
+      included: allIncludedIds.slice(0, RESULT_PAGE_SIZE).map((id) => game(id)),
+      excluded: [],
+      included_total: includedTotal,
+      excluded_total: 0,
+      included_game_ids: allIncludedIds,
+      used_gb: 40,
+    });
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(`1–${RESULT_PAGE_SIZE} of ${includedTotal}`);
+
+    h.pagePreview(1);
+    const lastPage = httpMock.expectOne(previewUrl);
+    expect(lastPage.request.params.get('offset')).toBe(String(RESULT_PAGE_SIZE));
+    lastPage.flush({
+      included: allIncludedIds.slice(RESULT_PAGE_SIZE).map((id) => game(id)),
+      excluded: [],
+      included_total: includedTotal,
+      excluded_total: 0,
+      included_game_ids: allIncludedIds,
+      used_gb: 40,
+    });
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain(`${RESULT_PAGE_SIZE + 1}–${includedTotal} of ${includedTotal}`);
+    expect(text).not.toContain(`${RESULT_PAGE_SIZE + 1}–${RESULT_PAGE_SIZE * 2} of ${includedTotal}`);
+  });
+
   it('saveDefinition() sends every included id, not just the page the preview rendered', () => {
     const fixture = createAndLoad([]);
     const h = harness(fixture);
@@ -349,7 +396,6 @@ describe('CollectionsComponent', () => {
     fixture.detectChanges();
 
     h.preview();
-    // One page of objects, but the full membership alongside it — saving must use the latter.
     httpMock.expectOne(previewUrl).flush({
       included: [game('g1', 87)],
       excluded: [],
@@ -495,6 +541,33 @@ describe('CollectionsComponent', () => {
     httpMock.expectOne((r) => r.url === '/curator/api/collections/d1/items').flush({ items: [], total: 0 });
   });
 
+  it('exposes which field the item list is sorted by, and its direction, to assistive tech', () => {
+    const fixture = createAndLoad([definition()]);
+    const h = harness(fixture);
+    h.openDefinition('d1');
+    httpMock.expectOne('/curator/api/collections/d1').flush(definitionDetail({}, [item('g1')]));
+    fixture.detectChanges();
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    const rank = compiled.querySelector('#collection-sort-rank');
+    const openCritic = compiled.querySelector('#collection-sort-oc');
+    expect(rank?.getAttribute('aria-pressed')).toBe('true');
+    expect(rank?.classList.contains('sort-active')).toBe(true);
+    expect(rank?.textContent).toContain('▲');
+    expect(openCritic?.getAttribute('aria-pressed')).toBe('false');
+
+    clickById(compiled, 'collection-sort-oc');
+    fixture.detectChanges();
+    httpMock
+      .expectOne((r) => r.url === '/curator/api/collections/d1/items' && r.params.get('sort') === 'oc_score')
+      .flush({ items: [item('g1')], total: 1 });
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('#collection-sort-rank')?.getAttribute('aria-pressed')).toBe('false');
+    expect(compiled.querySelector('#collection-sort-oc')?.getAttribute('aria-pressed')).toBe('true');
+    expect(compiled.querySelector('#collection-sort-oc')?.classList.contains('sort-active')).toBe(true);
+  });
+
   it('setVisibility() shows a copyable share link once a collection stops being private', () => {
     const fixture = createAndLoad([definition()]);
     const h = harness(fixture);
@@ -559,6 +632,43 @@ describe('CollectionsComponent', () => {
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.textContent).toContain('Game g1');
+  });
+
+  it('a truncated run says so rather than offering a pager that would re-run and re-persist it', () => {
+    const fixture = createAndLoad([definition({ kind: 'capacity_fill', console_id: 'c1' })]);
+    const h = harness(fixture);
+    h.openDefinition('d1');
+    httpMock
+      .expectOne('/curator/api/collections/d1')
+      .flush(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g0')]));
+    httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: [] });
+    httpMock.expectOne('/curator/api/storage-devices').flush([]);
+    fixture.detectChanges();
+
+    const proposedBeyondOnePage = 1 + Math.floor(Math.random() * (RESULT_PAGE_SIZE - 1));
+    const includedTotal = RESULT_PAGE_SIZE + proposedBeyondOnePage;
+    const allIncludedIds = Array.from({ length: includedTotal }, (_, index) => `g${index}`);
+
+    h.runSelected();
+    const runReq = httpMock.expectOne((r) => r.url === '/curator/api/collections/d1/runs');
+    expect(runReq.request.params.get('offset')).toBe('0');
+    runReq.flush({
+      run_id: 'r1',
+      included: allIncludedIds.slice(0, RESULT_PAGE_SIZE).map((id) => game(id)),
+      excluded: [],
+      included_total: includedTotal,
+      excluded_total: 0,
+      included_game_ids: allIncludedIds,
+      used_gb: 40,
+    });
+    fixture.detectChanges();
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.querySelector('#run-truncation-note')?.textContent).toContain(
+      `Each list shows its first ${RESULT_PAGE_SIZE}`,
+    );
+    expect(compiled.querySelector('#run-next')).toBeNull();
+    httpMock.verify();
   });
 
   it('install toggle hydrates from GET installs and persists via PUT for capacity_fill', () => {

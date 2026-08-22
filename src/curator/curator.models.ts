@@ -167,6 +167,10 @@ export interface LibraryRefreshResultSummary {
   rawg_enriched_titles: string[];
   opencritic_enriched_titles: string[];
   opencritic_topup_incomplete: boolean;
+  stopped_reason?: string;
+  rate_limited_provider?: string;
+  retry_after_seconds?: number;
+  remaining_count?: number;
 }
 
 export interface LibraryRefreshStatusResponse {

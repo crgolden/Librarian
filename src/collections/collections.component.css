@@ -108,14 +108,6 @@
   width: 100%;
 }
 
-.excluded-list .catalog-card {
-  opacity: 0.6;
-}
-
-.item-unavailable {
-  opacity: 0.6;
-}
-
 .danger-zone {
   display: flex;
   flex-direction: column;

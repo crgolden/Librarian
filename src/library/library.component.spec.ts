@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { LibraryComponent } from './library.component';
-import { ResolvedLibrary } from './library.resolver';
+import { LIBRARY_PAGE_SIZE, ResolvedLibrary } from './library.resolver';
 import { LibraryGameResponse, LibraryPageResponse, ProfileLibraryGameResponse } from '../curator/curator.models';
 import { AuthService } from '../auth/auth.service';
 
@@ -26,6 +26,14 @@ function activatedRouteWithSub(sub: string | null, resolved: ResolvedLibrary = o
 
 function authServiceWithSub(sub: string | null): AuthService {
   return { sub: () => sub } as unknown as AuthService;
+}
+
+function clickById(root: HTMLElement, id: string): void {
+  const element = root.querySelector(`#${id}`);
+  if (!(element instanceof HTMLElement)) {
+    throw new Error(`No element with id "${id}" is rendered.`);
+  }
+  element.click();
 }
 
 function page(games: LibraryGameResponse[], total = games.length): LibraryPageResponse {
@@ -505,6 +513,25 @@ describe('LibraryComponent', () => {
       (b) => b.textContent?.trim() === 'Previous',
     )!;
     expect(prevButtonAfter.disabled).toBe(false);
+  });
+
+  it('labels the pager as a range within the total, in the form the catalog and collections use', async () => {
+    const titlesOnTheLastPage = 1 + Math.floor(Math.random() * (LIBRARY_PAGE_SIZE - 1));
+    const seededTotal = LIBRARY_PAGE_SIZE + titlesOnTheLastPage;
+    const fixture = await createAndLoad([FULL_GAME], seededTotal);
+    const compiled: HTMLElement = fixture.nativeElement;
+    const range = (): string | undefined => compiled.querySelector('#library-page-range')?.textContent?.trim();
+
+    expect(range()).toBe(`1–${LIBRARY_PAGE_SIZE} of ${seededTotal}`);
+
+    clickById(compiled, 'library-next');
+    fixture.detectChanges();
+    httpMock
+      .expectOne((r) => r.url === '/curator/api/library' && r.params.get('offset') === String(LIBRARY_PAGE_SIZE))
+      .flush(page([FULL_GAME], seededTotal));
+    fixture.detectChanges();
+
+    expect(range()).toBe(`${LIBRARY_PAGE_SIZE + 1}–${seededTotal} of ${seededTotal}`);
   });
 
   it('shows an error when the resolver could not load the library', async () => {

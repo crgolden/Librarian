@@ -1,8 +1,9 @@
-<section class="page-section profile-view">
+<section id="profile-view" class="page-section profile-view">
   @if (loadError()) {
     <p class="text-error">{{ loadError() }}</p>
   } @else if (profile(); as current) {
     <header class="profile-header">
+      <app-avatar id="profile-avatar" [sub]="current.sub" [size]="96" />
       <h1>{{ displayName(current) }}</h1>
 
       @if (current.psn_account_id) {
@@ -34,7 +35,7 @@
       </div>
     </header>
 
-    <div class="stat-grid">
+    <div id="profile-stat-grid" class="stat-grid">
       @if (current.library_count !== null) {
         <div id="profile-stat-library" data-stat="library" class="stat">
           <span class="stat-head">

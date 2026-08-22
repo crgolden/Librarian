@@ -361,6 +361,10 @@ ng-icon {
   gap: var(--space-3);
 }
 
+.item-unavailable {
+  opacity: 0.6;
+}
+
 /* Visually hide while keeping the element available to screen readers. */
 .sr-only {
   position: absolute;

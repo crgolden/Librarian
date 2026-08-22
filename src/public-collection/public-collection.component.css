@@ -16,10 +16,6 @@
   max-width: 180px;
 }
 
-.item-unavailable {
-  opacity: 0.6;
-}
-
 .form-actions {
   display: flex;
   gap: var(--space-3);

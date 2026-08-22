@@ -106,6 +106,17 @@
           @if (current.status === 'failed') {
             <p class="text-error">{{ current.error ?? 'Refresh failed.' }}</p>
           }
+          @if (current.status === 'rate_limited') {
+            <p id="library-refresh-paused" class="catalog-meta">
+              Paused: {{ current.result_summary?.rate_limited_provider ?? 'a data provider' }} hit its rate
+              limit. This refresh resumes on its own{{ retryAfterLabel(current.result_summary) }} and picks
+              up where it stopped, so nothing is lost.
+            </p>
+            @if (current.result_summary?.remaining_count; as remaining) {
+              <p class="catalog-meta">{{ remaining }} title(s) still to enrich.</p>
+            }
+            <p class="catalog-meta">Starting another refresh is unavailable until this one finishes.</p>
+          }
           @if (unexpectedStatus()) {
             <p class="text-error">Unexpected status returned — stopped watching this job.</p>
           }
@@ -125,6 +136,7 @@
       } @else {
         <div class="library-controls">
           <input
+            id="library-search"
             type="search"
             class="library-search"
             placeholder="Search titles..."
@@ -133,6 +145,7 @@
             aria-label="Search this library"
           />
           <select
+            id="library-category-filter"
             class="library-category-filter"
             [ngModel]="categoryFilter()"
             (ngModelChange)="onCategoryFilterChange($event)"
@@ -167,8 +180,9 @@
               <thead>
                 @for (headerGroup of table().getHeaderGroups(); track headerGroup.id) {
                   <tr>
-                    @for (header of headerGroup.headers; track header.id) {
+                    @for (header of headerGroup.headers; track header.id; let headerIndex = $index) {
                       <th
+                        [attr.id]="'library-header-' + headerIndex"
                         [class.library-sortable]="header.column.getCanSort()"
                         [attr.aria-sort]="
                           header.column.getIsSorted() === 'asc'
@@ -194,8 +208,8 @@
                 }
               </thead>
               <tbody>
-                @for (row of table().getRowModel().rows; track row.original.game_id) {
-                  <tr>
+                @for (row of table().getRowModel().rows; track row.original.game_id; let rowIndex = $index) {
+                  <tr [attr.id]="'library-row-' + rowIndex">
                     <td class="library-cover-cell">
                       @if (row.original.cover_image_url) {
                         <img class="cover-art" [src]="row.original.cover_image_url" [alt]="row.original.title" loading="lazy" />
@@ -220,9 +234,11 @@
                     </td>
                     <td data-label="Platforms">
                       @if (row.original.platforms?.length) {
-                        <span class="library-platforms">
-                          @for (platform of row.original.platforms; track platform) {
-                            <span class="spine-label">{{ platform }}</span>
+                        <span class="library-platforms" [attr.id]="'library-platforms-' + $index">
+                          @for (platform of row.original.platforms; track platform; let platformIndex = $index) {
+                            <span class="spine-label" [attr.id]="'library-platform-' + rowIndex + '-' + platformIndex">{{
+                              platform
+                            }}</span>
                           }
                         </span>
                       } @else {
@@ -245,10 +261,16 @@
             </table>
           </div>
 
-          <div class="pager">
-            <button type="button" class="btn-ghost" [disabled]="!hasPrevPage()" (click)="prevPage()">Previous</button>
-            <span class="text-muted">{{ pageStart() }}&ndash;{{ pageEnd() }} of {{ total() }}</span>
-            <button type="button" class="btn-ghost" [disabled]="!hasNextPage()" (click)="nextPage()">Next</button>
+          <div id="library-pager" class="pager">
+            <button id="library-prev" type="button" class="btn-ghost" [disabled]="!hasPrevPage()" (click)="prevPage()">
+              Previous
+            </button>
+            <span id="library-page-range" class="text-muted">
+              {{ pageStart() }}&ndash;{{ pageEnd() }} of {{ total() }}
+            </span>
+            <button id="library-next" type="button" class="btn-ghost" [disabled]="!hasNextPage()" (click)="nextPage()">
+              Next
+            </button>
           </div>
         }
       }

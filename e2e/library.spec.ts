@@ -1,10 +1,7 @@
-/**
- * Library page E2E — auth guard redirect, and refresh-trigger + poll-to-terminal-status against
- * the mock Curator API (which transitions queued -> running -> a configurable terminal outcome
- * on short timers).
- */
-
 import { test, expect } from './fixtures.js';
+
+const LIBRARY_ROWS = '[id^="library-row-"]';
+const LIBRARY_PLATFORM_TAGS = '[id^="library-platform-"]';
 
 test.describe('Library — auth guard', () => {
   test('unauthenticated visitor is redirected to login', async ({ anonymousPage: page, store }) => {
@@ -64,7 +61,7 @@ test.describe('Library — authenticated', () => {
     ]);
 
     await page.goto('/library');
-    const rows = page.locator('.library-table tbody tr');
+    const rows = page.locator(LIBRARY_ROWS);
     await expect(rows).toHaveCount(2);
 
     const eldenRow = rows.filter({ hasText: 'Elden Ring' });
@@ -96,14 +93,14 @@ test.describe('Library — authenticated', () => {
     ]);
 
     await page.goto('/library');
-    const rows = page.locator('.library-table tbody tr');
+    const rows = page.locator(LIBRARY_ROWS);
     await expect(rows).toHaveCount(2);
 
     const multi = rows.filter({ hasText: '99Vidas' }).locator('td[data-label="Platforms"]');
-    await expect(multi.locator('.spine-label')).toHaveText(['PS4', 'PS3', 'PSVITA']);
+    await expect(multi.locator(LIBRARY_PLATFORM_TAGS)).toHaveText(['PS4', 'PS3', 'PSVITA']);
 
     const none = rows.filter({ hasText: 'Unplatformed Game' }).locator('td[data-label="Platforms"]');
-    await expect(none.locator('.spine-label')).toHaveCount(0);
+    await expect(none.locator(LIBRARY_PLATFORM_TAGS)).toHaveCount(0);
     await expect(none).toHaveText('—');
   });
 
@@ -119,7 +116,7 @@ test.describe('Library — authenticated', () => {
     ]);
 
     await page.goto('/library');
-    const rows = page.locator('.library-table tbody tr');
+    const rows = page.locator(LIBRARY_ROWS);
     await expect(rows).toHaveCount(3);
 
     await expect(rows.filter({ hasText: 'Elden Ring' }).locator('td[data-label="% Completed"]')).toHaveText('42%');
@@ -136,11 +133,11 @@ test.describe('Library — authenticated', () => {
     ]);
 
     await page.goto('/library');
-    await expect(page.locator('.library-table tbody tr')).toHaveCount(2);
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(2);
 
     await page.getByPlaceholder('Search titles...').fill('elden');
-    await expect(page.locator('.library-table tbody tr')).toHaveCount(1, { timeout: 5_000 });
-    await expect(page.locator('.library-table tbody tr')).toContainText('Elden Ring');
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(1, { timeout: 5_000 });
+    await expect(page.locator(LIBRARY_ROWS)).toContainText('Elden Ring');
   });
 
   test('filters by category', async ({ authedPage: page, store }) => {
@@ -151,11 +148,11 @@ test.describe('Library — authenticated', () => {
     ]);
 
     await page.goto('/library');
-    await expect(page.locator('.library-table tbody tr')).toHaveCount(2);
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(2);
 
     await page.getByLabel('Filter by category').selectOption('Puzzle');
-    await expect(page.locator('.library-table tbody tr')).toHaveCount(1);
-    await expect(page.locator('.library-table tbody tr')).toContainText('Tetris Effect');
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(1);
+    await expect(page.locator(LIBRARY_ROWS)).toContainText('Tetris Effect');
   });
 
   test('sorts by clicking a column header, toggling direction on a second click', async ({
@@ -192,17 +189,17 @@ test.describe('Library — authenticated', () => {
     );
 
     await page.goto('/library');
-    await expect(page.locator('.library-table tbody tr')).toHaveCount(20);
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(20);
     await expect(page.getByRole('button', { name: 'Previous' })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Next' })).toBeEnabled();
 
     await page.getByRole('button', { name: 'Next' }).click();
-    await expect(page.locator('.library-table tbody tr')).toHaveCount(5);
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(5);
     await expect(page.getByRole('button', { name: 'Previous' })).toBeEnabled();
     await expect(page.getByRole('button', { name: 'Next' })).toBeDisabled();
 
     await page.getByRole('button', { name: 'Previous' }).click();
-    await expect(page.locator('.library-table tbody tr')).toHaveCount(20);
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(20);
   });
 
   test('combined search, sort, and page interaction stays internally consistent', async ({
@@ -224,31 +221,23 @@ test.describe('Library — authenticated', () => {
 
     await page.goto('/library');
 
-    await expect(page.locator('.library-table tbody tr')).toHaveCount(20);
-
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(20);
 
     await page.getByPlaceholder('Search titles...').fill('ring');
-    await expect(page.locator('.library-table tbody tr')).toHaveCount(20, { timeout: 5_000 });
-
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(20, { timeout: 5_000 });
 
     const titleHeader = page.getByRole('columnheader', { name: 'Title' });
     await titleHeader.click();
-    const titles = () => page.locator('[id^="library-title-"]').allTextContents();
-    await expect
-      .poll(titles, { timeout: 10_000 })
-      .toEqual(Array.from({ length: 20 }, (_, i) => `Ring Game ${String(24 - i).padStart(2, '0')}`));
-
+    const titles = page.locator('[id^="library-title-"]');
+    await expect(titles).toHaveText(Array.from({ length: 20 }, (_, i) => `Ring Game ${String(24 - i).padStart(2, '0')}`));
 
     await page.getByRole('button', { name: 'Next' }).click();
-    await expect
-      .poll(titles, { timeout: 10_000 })
-      .toEqual(Array.from({ length: 5 }, (_, i) => `Ring Game ${String(4 - i).padStart(2, '0')}`));
+    await expect(titles).toHaveText(Array.from({ length: 5 }, (_, i) => `Ring Game ${String(4 - i).padStart(2, '0')}`));
     await expect(page.getByRole('button', { name: 'Next' })).toBeDisabled();
 
-
     await page.getByPlaceholder('Search titles...').fill('ring game 01');
-    await expect(page.locator('.library-table tbody tr')).toHaveCount(1, { timeout: 5_000 });
-    await expect(page.locator('.library-table tbody tr')).toContainText('Ring Game 01');
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(1, { timeout: 5_000 });
+    await expect(page.locator(LIBRARY_ROWS)).toContainText('Ring Game 01');
     await expect(page.getByRole('button', { name: 'Previous' })).toBeDisabled();
   });
 

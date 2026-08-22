@@ -1,3 +1,5 @@
+import { provideHttpClient, withXhr } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
@@ -13,6 +15,8 @@ function configure(
   TestBed.configureTestingModule({
     imports: [SiteNavComponent],
     providers: [
+      provideHttpClient(withXhr()),
+      provideHttpClientTesting(),
       provideRouter([
         { path: '', children: [] },
         { path: 'catalog', children: [] },
@@ -230,6 +234,10 @@ describe('SiteNavComponent', () => {
     );
 
     expect((fixture.nativeElement as HTMLElement).querySelector('a[aria-label="Enrichment Runs"]')).not.toBeNull();
+
+    const httpMock = TestBed.inject(HttpTestingController);
+    httpMock.expectNone(() => true);
+    httpMock.verify();
   });
 
   it('hides every icon from assistive technology, leaving the name to the link', () => {

@@ -27,8 +27,7 @@ type View = 'list' | 'create' | 'detail' | 'followed';
 
 const ITEMS_PAGE_SIZE = 50;
 
-/** Page size for a preview's / run's generated result. Curator caps `limit` at 100 for both. */
-const RESULT_PAGE_SIZE = 50;
+export const RESULT_PAGE_SIZE = 50;
 
 /** `/collections` (owner) and `/collections/:sub` (viewer, canonicalized away from your own sub).
  *
@@ -86,11 +85,13 @@ export class CollectionsComponent implements OnInit {
   protected readonly previewOffset = signal(0);
   protected readonly resultPageSize = RESULT_PAGE_SIZE;
 
-  /** One offset pages both lists, so the pager has to run to whichever is longer. */
   protected readonly previewPageableTotal = computed(() => {
     const result = this.previewResult();
     return result ? Math.max(result.included_total, result.excluded_total) : 0;
   });
+  protected readonly previewPageEnd = computed(() =>
+    Math.min(this.previewOffset() + RESULT_PAGE_SIZE, this.previewPageableTotal()),
+  );
   protected readonly name = signal('');
   protected readonly description = signal('');
   protected readonly saving = signal(false);
@@ -140,7 +141,6 @@ export class CollectionsComponent implements OnInit {
   protected readonly running = signal(false);
   protected readonly runError = signal<string | null>(null);
   protected readonly runResult = signal<CollectionRunResponse | null>(null);
-  protected readonly runOffset = signal(0);
 
   protected readonly runPageableTotal = computed(() => {
     const result = this.runResult();
@@ -749,16 +749,6 @@ export class CollectionsComponent implements OnInit {
   }
 
   protected runSelected(): void {
-    this.runOffset.set(0);
-    this.executeRun();
-  }
-
-  protected pageRun(delta: number): void {
-    const next = this.runOffset() + delta * RESULT_PAGE_SIZE;
-    if (next < 0 || next >= this.runPageableTotal()) {
-      return;
-    }
-    this.runOffset.set(next);
     this.executeRun();
   }
 
@@ -772,7 +762,7 @@ export class CollectionsComponent implements OnInit {
     this.runError.set(null);
     this.adoptError.set(null);
     this.curator
-      .runDefinition(definition.definition_id, { limit: RESULT_PAGE_SIZE, offset: this.runOffset() })
+      .runDefinition(definition.definition_id, { limit: RESULT_PAGE_SIZE, offset: 0 })
       .subscribe({
         next: (result) => {
           this.running.set(false);

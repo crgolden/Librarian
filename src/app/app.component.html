@@ -1,6 +1,6 @@
 <header class="site-header">
   <div class="page-container header-inner">
-    <a routerLink="/" class="brand">Librarian</a>
+    <a id="brand" routerLink="/" class="brand">Librarian</a>
     <app-site-nav />
   </div>
 </header>
@@ -8,8 +8,8 @@
   <router-outlet />
 </main>
 <footer class="site-footer">
-  <div class="page-container footer-inner">
-    <p class="text-muted">Librarian — game curation frontend for the Curator API.</p>
+  <div id="footer-inner" class="page-container footer-inner">
+    <p id="footer-note" class="text-muted">Librarian — game curation frontend for the Curator API.</p>
     <nav class="footer-nav">
       <a routerLink="/">Home</a>
       <a routerLink="/catalog">Catalog</a>

@@ -5,13 +5,14 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FollowListEntryResponse } from '../curator/curator.models';
 import { ResolvedFollowList } from './follow-list.resolver';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
+import { AvatarComponent } from '../shared/avatar/avatar.component';
 
 /** `/profile/following` (owner) and `/u/:sub/following` (viewer) — paginated list of the users the
  * profile owner follows, each entry linking to `/u/{sub}` (self-canonicalizes to `/profile` when the
  * entry is your own). Following lists are always visible, regardless of `is_public`. */
 @Component({
   selector: 'app-profile-following',
-  imports: [RouterLink, DatePipe, BreadcrumbComponent],
+  imports: [RouterLink, DatePipe, BreadcrumbComponent, AvatarComponent],
   templateUrl: './profile-following.component.html',
   styleUrl: './profile-following.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -83,7 +83,7 @@
 }
 
 .library-search {
-  flex: 1 1 auto;
+  flex: 1 1 12rem;
   min-width: 12rem;
 }
 
@@ -109,7 +109,6 @@ th.library-sortable {
 th.library-sortable:hover {
   background: var(--color-surface-alt);
 }
-
 
 /* Below md, the table's own header row (the click-to-sort affordance) is hidden — there's
    nothing to click on a card layout — and the mobile sort <select> above takes over instead. */

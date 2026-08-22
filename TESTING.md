@@ -34,6 +34,14 @@ inherited `fileParallelism: false` was scaffold boilerplate with no recorded rea
 all 469 tests green across three full runs. See `AGENTS/PARKING_LOT.md` §8e for the measurements and for
 what to check first if CI time regresses.
 
+**Signal inputs (`input()` / `input.required()`) do not bind under this runner — use the `@Input()`
+decorator in any component a spec renders.** Vitest transpiles TypeScript without Angular's `ngtsc`
+pass, and it is `ngtsc` that turns an `input()` field into component input metadata; the decorator is a
+runtime construct and survives, `input()` does not. Converting `AvatarComponent` to signal inputs made
+every binding on it silently inert, and the only signal was `NG0303: Can't bind to 'sub' since it isn't
+a known property of 'app-avatar'` on **stderr** — not a failure, and easy to scroll past in a 48-file
+run. The template compiles, the component renders, and every input reads its declared default.
+
 **A collaborator call that issues no HTTP is invisible to these specs unless you provide a stub for it.**
 Most component specs here assert through `HttpTestingController` and close on `httpMock.verify()`, so
 they only see behaviour that reaches the network. `MeService.invalidate()` is a bare field assignment;
