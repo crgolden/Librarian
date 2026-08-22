@@ -16,7 +16,7 @@
             you'll need to link again with a new NPSSO token.</span
           >
         } @else if (noRefreshToken()) {
-          <span class="text-warning"
+          <span id="psn-no-refresh-token-warning" class="text-warning"
             >PSN didn't issue a renewable session for this sign-in. We can use it until
             {{ accessTokenExpiresAt() | date: 'medium' }}, after which you'll need to link again with a new
             NPSSO token.</span
@@ -102,6 +102,81 @@
           </label>
           <span class="text-muted">Consoles and devices activated on your account.</span>
         </div>
+      </div>
+
+      <div class="card status-card psn-preferences">
+        <h2>Scheduled refreshes</h2>
+        <p class="text-muted">
+          Rebuild your library automatically on a schedule, instead of pressing Refresh yourself.
+        </p>
+
+        @if (scheduleError()) {
+          <p class="text-error" id="schedule-error">{{ scheduleError() }}</p>
+        }
+
+        @if (schedule(); as current) {
+          @if (current.paused_reason; as reason) {
+            <p class="text-error" id="schedule-paused">{{ pausedReasonLabel(reason) }}</p>
+          } @else {
+            <p class="catalog-meta" id="schedule-next-run">
+              Next refresh: {{ current.next_run_at | date: 'medium' }}
+            </p>
+          }
+          @if (current.last_run_at; as lastRun) {
+            <p class="catalog-meta" id="schedule-last-run">Last refresh: {{ lastRun | date: 'medium' }}</p>
+          }
+        } @else if (!scheduleLoading()) {
+          <p class="text-muted" id="schedule-none">No schedule yet — your library only refreshes when you ask.</p>
+        }
+
+        <div class="psn-preference-toggle">
+          <label for="schedule-cadence">How often</label>
+          <select
+            id="schedule-cadence"
+            [ngModel]="scheduleCadence()"
+            (ngModelChange)="scheduleCadence.set($event)"
+            [disabled]="scheduleSaving()"
+          >
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+
+        <div class="psn-preference-toggle">
+          <label for="schedule-ps-plus-watch">
+            <input
+              id="schedule-ps-plus-watch"
+              type="checkbox"
+              [ngModel]="schedulePsPlusWatch()"
+              (ngModelChange)="schedulePsPlusWatch.set($event)"
+              [disabled]="scheduleSaving()"
+            />
+            PS Plus watch
+          </label>
+          <span class="text-muted">Also report which titles entered or left the PS Plus catalog.</span>
+        </div>
+
+        <button
+          id="schedule-save"
+          type="button"
+          class="btn-primary"
+          [disabled]="scheduleSaving()"
+          (click)="saveSchedule()"
+        >
+          {{ schedule() ? 'Update schedule' : 'Start scheduled refreshes' }}
+        </button>
+
+        @if (schedule()) {
+          <button
+            id="schedule-cancel"
+            type="button"
+            class="btn-ghost"
+            [disabled]="scheduleSaving()"
+            (click)="cancelSchedule()"
+          >
+            Cancel schedule
+          </button>
+        }
       </div>
 
       <div class="card status-card psn-preferences">
@@ -312,7 +387,7 @@
       }
 
       @if (prefs.harvest_trophies && trophySummary(); as summary) {
-        <div class="card status-card psn-category-card">
+        <div id="psn-card-trophies" class="card status-card psn-category-card">
           <h3>Trophies</h3>
           <p>Level {{ summary.level }} &middot; Tier {{ summary.tier }} &middot; {{ summary.progress }}% to next level</p>
           <p class="catalog-meta">{{ trophiesEarnedTotal(summary) }} trophies earned</p>
@@ -326,7 +401,7 @@
       }
 
       @if (prefs.harvest_identity && identity(); as id) {
-        <div class="card status-card psn-category-card">
+        <div id="psn-card-identity" class="card status-card psn-category-card">
           <h3>PSN Identity</h3>
           <p>{{ id.online_id }}</p>
         </div>
@@ -335,7 +410,7 @@
       }
 
       @if (prefs.harvest_presence && presence(); as live) {
-        <div class="card status-card psn-category-card">
+        <div id="psn-card-presence" class="card status-card psn-category-card">
           <h3>Online Presence <span class="text-muted">(live)</span></h3>
           <p>{{ live.online_status }}</p>
           @if (live.game_title) {
@@ -350,7 +425,7 @@
       }
 
       @if (prefs.harvest_devices && devices(); as deviceList) {
-        <div class="card status-card psn-category-card">
+        <div id="psn-card-devices" class="card status-card psn-category-card">
           <h3>Registered Devices</h3>
           <ul class="psn-device-list">
             @for (device of deviceList.devices; track $index) {
@@ -433,7 +508,7 @@
       @if (actions()!.length === 0) {
         <p class="text-muted">No actions recorded yet.</p>
       } @else {
-        <ul class="action-history-list">
+        <ul id="psn-action-history-list" class="action-history-list">
           @for (entry of actions(); track entry.occurred_at + entry.action) {
             <li>
               <span class="catalog-meta">{{ entry.occurred_at | date: 'medium' }}</span>

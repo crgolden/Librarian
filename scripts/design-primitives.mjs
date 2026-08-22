@@ -101,10 +101,12 @@ export function analyze({
   const allowedScopedSeen = [];
   const knownForksSeen = [];
 
+  const strippedStylesheets = stylesheets.map(({ path, css }) => ({ path, css: withoutComments(css) }));
+
   for (const className of primitives) {
     let definedInShared = false;
 
-    for (const { path, css } of stylesheets) {
+    for (const { path, css } of strippedStylesheets) {
       const rules = rulesTargeting(css, className);
       if (rules.length === 0) continue;
 
@@ -128,8 +130,6 @@ export function analyze({
       failures.push(`${className}: named in DESIGN.md Components but not defined in src/styles.css.`);
     }
   }
-
-  const strippedStylesheets = stylesheets.map(({ path, css }) => ({ path, css: withoutComments(css) }));
 
   const usedClasses = new Map();
   for (const { html } of templates) {

@@ -47,19 +47,6 @@ const LIBRARY_COLUMNS: ColumnDef<LibraryGame>[] = [
   { id: 'catalog_link', header: 'Catalog', enableSorting: false },
 ];
 
-/** `/library` (owner) and `/library/:sub` (viewer, canonicalized away from your own sub).
- *
- * Owner mode: trigger + poll a refresh job (`POST/GET /library/refresh[/{runId}]`), and render the
- * caller's own library (`GET /library`) as a server-driven table: sorting, category filtering,
- * title search, and paging are all query parameters against the backend — the full library is never
- * fetched into the browser at once. Table structure/sort-state/pagination-state are managed by
- * TanStack Table (`@tanstack/angular-table`) in manual (server-driven) mode; no hand-rolled comparator
- * or page-slicing logic.
- *
- * Viewer mode: read-only render of another user's library (`GET /users/{sub}/library`), same
- * sort/filter/search/page support — no refresh trigger. A 403 (someone typed the URL directly for a
- * section the profile page wouldn't have linked) renders an inline "this section isn't available"
- * message instead of the table. */
 @Component({
   selector: 'app-library',
   imports: [FormsModule, BreadcrumbComponent, LoadingOverlayComponent, RouterLink],
@@ -136,8 +123,6 @@ export class LibraryComponent implements OnInit, OnDestroy {
     Math.min((this.pagination().pageIndex + 1) * this.pagination().pageSize, this.total()),
   );
 
-  /** Column headers double as sort toggles on desktop, but the mobile card layout hides the
-   * table header row entirely (there's nothing to click) — this drives a `<select>` instead. */
   protected readonly mobileSortValue = computed(() => {
     const current = this.sorting()[0];
     return current ? `${current.id}:${current.desc ? 'desc' : 'asc'}` : 'title:asc';
@@ -207,7 +192,6 @@ export class LibraryComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Viewer-mode rows carry no provenance, so the union needs narrowing before reading `source`. */
   protected isManual(game: LibraryGame): boolean {
     return 'source' in game && game.source === 'manual';
   }
@@ -333,29 +317,22 @@ export class LibraryComponent implements OnInit, OnDestroy {
     this.table().previousPage();
   }
 
-  /** `null` covers both "no PSN link / trophy harvesting off / no confident title match" for the owner
-   * and, always, the not-yet-built viewer-mode case (see the `percentCompletedTitle` note below). */
   protected percentCompletedDisplay(percentCompleted: number | null): string {
     return percentCompleted === null ? '—' : `${percentCompleted}%`;
   }
 
-  /** Viewer mode's `percent_completed` is always `null` today (showing another user's trophy completion
-   * needs their own PSN client looked up against the *viewer's* account, not built in this pass) -- this
-   * explains the otherwise-unexplained blank column rather than leaving it a silent, permanent dash. */
   protected percentCompletedTitle(): string | undefined {
     return this.viewerMode() ? "Trophy completion isn't shown for other users' libraries yet." : undefined;
   }
 
-  protected headerLabel(header: Header<LibraryGame, unknown>): string {
+  protected headerLabel(header: Header<LibraryGame, unknown>): string | null {
     if (header.isPlaceholder) {
-      return '';
+      return null;
     }
     const label = header.column.columnDef.header;
-    return typeof label === 'string' ? label : '';
+    return typeof label === 'string' ? label : null;
   }
 
-  /** Keyboard equivalent for the sortable header's click handler -- Enter/Space toggle sorting the same
-   * way a click does. Space is prevented from also scrolling the page, matching native button behavior. */
   protected onHeaderKeydown(event: Event, header: Header<LibraryGame, unknown>): void {
     event.preventDefault();
     header.column.getToggleSortingHandler()?.(event);
@@ -418,10 +395,10 @@ export class LibraryComponent implements OnInit, OnDestroy {
       });
   }
 
-  protected retryAfterLabel(summary: LibraryRefreshResultSummary | null | undefined): string {
+  protected retryAfterLabel(summary: LibraryRefreshResultSummary | null | undefined): string | null {
     const seconds = summary?.retry_after_seconds;
     if (seconds === undefined || seconds <= 0) {
-      return '';
+      return null;
     }
 
     const minutes = Math.round(seconds / 60);

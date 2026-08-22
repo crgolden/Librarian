@@ -350,6 +350,22 @@ export interface ProfileSettingsResponse {
 
 export type ProfileSettingsRequest = ProfileSettingsResponse;
 
+export type RefreshCadence = 'weekly' | 'monthly';
+
+export interface RefreshScheduleResponse {
+  cadence: RefreshCadence;
+  ps_plus_watch: boolean;
+  next_run_at: string;
+  last_run_at: string | null;
+  consecutive_failures: number;
+  paused_reason: string | null;
+}
+
+export interface RefreshScheduleRequest {
+  cadence: RefreshCadence;
+  ps_plus_watch: boolean;
+}
+
 export interface ProfileTrophySummaryResponse {
   level: number;
   tier: number;

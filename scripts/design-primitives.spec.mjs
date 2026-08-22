@@ -58,6 +58,20 @@ describe('analyze — a primitive must be declared once, in styles.css', () => {
 
     expect(failures).toEqual([]);
   });
+
+  it('does not accept a commented-out shared rule as the primitive being defined', () => {
+    const { failures } = run({ css: { [SHARED]: '/* .card { border-radius: 4px; } */' } });
+
+    expect(failures).toEqual([expect.stringContaining('.card: named in DESIGN.md Components but not defined')]);
+  });
+
+  it('does not read a commented-out component rule as restating a primitive', () => {
+    const { failures } = run({
+      css: { [SHARED]: '.card { border-radius: 4px; }', 'src/a/a.component.css': '/* .card { border-radius: 0; } */' },
+    });
+
+    expect(failures).toEqual([]);
+  });
 });
 
 describe('analyze — a template class must be reachable from a stylesheet', () => {

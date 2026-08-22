@@ -18,7 +18,7 @@ async function createAndPublishCollection(page: import('@playwright/test').Page)
   await page.getByRole('button', { name: 'Save this collection' }).click();
   await expect(page.locator('text=RPG picks')).toBeVisible({ timeout: 10_000 });
 
-  await page.getByRole('button', { name: 'View / Edit' }).click();
+  await page.locator('#collection-open-0').click();
   await page.getByLabel('Visibility').selectOption('unlisted');
   await expect(page.locator('.share-url')).toContainText('/c/', { timeout: 10_000 });
 

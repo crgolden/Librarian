@@ -271,6 +271,26 @@ describe('CollectionsComponent', () => {
     expect(text).not.toContain('Console: c1');
   });
 
+  it('renders each collection as a real link, so it can be middle-clicked, opened in a new tab or copied', () => {
+    const fixture = createAndLoad([definition()]);
+    const link = (fixture.nativeElement as HTMLElement).querySelector('#collection-open-0');
+
+    expect(link).toBeInstanceOf(HTMLAnchorElement);
+    expect((link as HTMLAnchorElement).getAttribute('href')).toBe('/collections/d/d1');
+  });
+
+  it('leaves a modified click to the browser, rather than swallowing it into an in-place navigation', () => {
+    const fixture = createAndLoad([definition()]);
+    const link = (fixture.nativeElement as HTMLElement).querySelector('#collection-open-0');
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true });
+
+    (link as HTMLAnchorElement).dispatchEvent(event);
+    fixture.detectChanges();
+
+    expect(event.defaultPrevented).toBe(false);
+    httpMock.expectNone('/curator/api/collections/d1');
+  });
+
   it('opening a definition updates the URL to /collections/d/:definitionId, and going back restores /collections', () => {
     const fixture = createAndLoad([definition()]);
     const h = harness(fixture);

@@ -57,8 +57,12 @@ test.describe('HomePage — resolved collection summary', () => {
 
     await page.goto('/');
 
-    await expect(page.locator('.totals dd')).toHaveText(['2', '2', '3']);
-    await expect(page.locator('.totals dt')).toHaveText(['Titles catalogued', 'Collections', 'Collection entries']);
+    await expect(page.locator('#home-totals dd')).toHaveText(['2', '2', '3']);
+    await expect(page.locator('#home-totals dt')).toHaveText([
+      'Titles catalogued',
+      'Collections',
+      'Collection entries',
+    ]);
     await expect(page.getByText(UNLINKED_NOTICE)).toHaveCount(0);
   });
 
@@ -88,7 +92,7 @@ test.describe('HomePage — resolved collection summary', () => {
     await page.locator('#site-nav-desktop').getByRole('link', { name: 'Home', exact: true }).click();
     await page.waitForURL((url) => url.pathname === '/', { timeout: 10_000 });
 
-    await expect(page.locator('.totals dd').first()).toBeVisible();
+    await expect(page.locator('#home-totals dd').first()).toBeVisible();
     await expect(page.getByText(UNLINKED_NOTICE)).toHaveCount(0);
   });
 });

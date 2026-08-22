@@ -43,6 +43,8 @@ import {
   PsnPreferencesRequest,
   PsnPreferencesResponse,
   PublicCollectionResponse,
+  RefreshScheduleRequest,
+  RefreshScheduleResponse,
   PublicProfileResponse,
   SaveDefinitionRequest,
   StorageDeviceInstallResponse,
@@ -420,6 +422,18 @@ export class CuratorService {
 
   setProfileSettings(body: ProfileSettingsRequest): Observable<ProfileSettingsResponse> {
     return this.http.put<ProfileSettingsResponse>('/curator/api/me/profile-settings', body);
+  }
+
+  getRefreshSchedule(): Observable<RefreshScheduleResponse> {
+    return this.http.get<RefreshScheduleResponse>('/curator/api/me/refresh-schedule');
+  }
+
+  setRefreshSchedule(body: RefreshScheduleRequest): Observable<RefreshScheduleResponse> {
+    return this.http.put<RefreshScheduleResponse>('/curator/api/me/refresh-schedule', body);
+  }
+
+  deleteRefreshSchedule(): Observable<void> {
+    return this.http.delete<void>('/curator/api/me/refresh-schedule');
   }
 
   listProfileLinkSites(): Observable<ProfileLinkSiteResponse[]> {

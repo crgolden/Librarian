@@ -29,16 +29,6 @@ const ITEMS_PAGE_SIZE = 50;
 
 export const RESULT_PAGE_SIZE = 50;
 
-/** `/collections` (owner) and `/collections/:sub` (viewer, canonicalized away from your own sub).
- *
- * Owner mode: list saved definitions, create/preview/save, view a definition's detail (with its stored
- * items — cover art, rename/description, visibility + share link, membership edits), run a fresh
- * proposal and adopt it, delete, and browse "Collections I follow".
- *
- * Viewer mode: read-only render of another user's saved collections (`GET /users/{sub}/collections`),
- * plus a follow/unfollow toggle per collection (any collection listed there is already visibility
- * `"public"` — see `curator.profile_routes.get_user_collections` — so it's always followable). A 403
- * renders an inline "this section isn't available" message. */
 @Component({
   selector: 'app-collections',
   imports: [FormsModule, RouterLink, BreadcrumbComponent, LoadingOverlayComponent],
@@ -449,6 +439,18 @@ export class CollectionsComponent implements OnInit {
           );
         },
       });
+  }
+
+  protected onDefinitionClick(event: MouseEvent, definitionId: string): void {
+    if (CollectionsComponent.opensInNewTab(event)) {
+      return;
+    }
+    event.preventDefault();
+    this.openDefinition(definitionId);
+  }
+
+  private static opensInNewTab(event: MouseEvent): boolean {
+    return event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey;
   }
 
   protected openDefinition(definitionId: string): void {

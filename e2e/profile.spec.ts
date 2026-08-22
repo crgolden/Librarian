@@ -131,7 +131,8 @@ test.describe('Profile — viewing another user', () => {
     await expect(viewerPage.locator('h1')).not.toContainText('psn-account-owner');
     await expect(viewerPage.locator('#profile-stat-trophy-level')).toHaveCount(0);
     await expect(viewerPage.locator('#profile-stat-trophies-earned')).toHaveCount(0);
-    await expect(viewerPage.locator('.text-error')).toHaveCount(0);
+    await expect(viewerPage.locator('#profile-load-error')).toHaveCount(0);
+    await expect(viewerPage.locator('#profile-follow-error')).toHaveCount(0);
   });
 });
 
@@ -312,7 +313,7 @@ test.describe('Profile — /psn cross-reference copy and region removal', () => 
     await expect(page.getByText('may also appear on your public profile')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Profile Settings' })).toBeVisible();
 
-    const card = page.locator('.psn-category-card', { hasText: 'PSN Identity' });
+    const card = page.locator('#psn-card-identity');
     await expect(card).toBeVisible();
     await expect(card).toContainText('e2e_gamer');
     await expect(page.locator('body')).not.toContainText('Region');

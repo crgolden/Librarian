@@ -2,7 +2,7 @@ import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
-import { firstValueFrom, isObservable, of } from 'rxjs';
+import { firstValueFrom, Observable } from 'rxjs';
 import { profileSettingsResolver, ResolvedProfileSettings } from './profile-settings.resolver';
 import { ProfileLinkResponse, ProfileLinkSiteResponse, ProfileSettingsResponse } from '../curator/curator.models';
 
@@ -24,10 +24,11 @@ const PSNPROFILES_LINK: ProfileLinkResponse = {
 };
 
 function runResolver(): Promise<ResolvedProfileSettings> {
-  const result = TestBed.runInInjectionContext(() =>
-    profileSettingsResolver({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
+  return firstValueFrom(
+    TestBed.runInInjectionContext(() =>
+      profileSettingsResolver({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
+    ) as Observable<ResolvedProfileSettings>,
   );
-  return firstValueFrom(isObservable(result) ? result : of(result as ResolvedProfileSettings));
 }
 
 describe('profileSettingsResolver', () => {

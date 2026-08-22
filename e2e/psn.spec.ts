@@ -1,10 +1,16 @@
-/**
- * PSN settings page E2E — auth guard redirect, link/unlink flows against the mock Curator API.
- */
+import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures.js';
 
 const VALID_NPSSO = 'a'.repeat(64);
+
+const CATEGORY_CARD_IDS = ['#psn-card-trophies', '#psn-card-identity', '#psn-card-presence', '#psn-card-devices'];
+
+async function expectNoCategoryCards(page: Page): Promise<void> {
+  for (const id of CATEGORY_CARD_IDS) {
+    await expect(page.locator(id)).toHaveCount(0);
+  }
+}
 
 test.describe('PSN settings — auth guard', () => {
   test('unauthenticated visitor is redirected to login', async ({ anonymousPage: page, store }) => {
@@ -59,7 +65,9 @@ test.describe('PSN settings — authenticated', () => {
     await page.goto('/psn');
     await expect(page.locator('text=PSN account linked')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Unlink' })).toBeVisible();
-    await expect(page.locator('.text-warning')).toContainText("PSN didn't issue a renewable session");
+    await expect(page.locator('#psn-no-refresh-token-warning')).toContainText(
+      "PSN didn't issue a renewable session",
+    );
   });
 
   test('unlinking removes the PSN link and shows the link form again', async ({
@@ -99,7 +107,7 @@ test.describe('PSN settings — action history', () => {
     await expect(page.getByRole('button', { name: 'Link account' })).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole('button', { name: 'View my action history' }).click();
-    const historyList = page.locator('.action-history-list');
+    const historyList = page.locator('#psn-action-history-list');
     await expect(historyList.getByText(/link_succeeded/)).toBeVisible();
     await expect(historyList.getByText(/unlinked/)).toBeVisible();
 
@@ -160,7 +168,7 @@ test.describe('PSN settings — data-sharing preferences', () => {
     await expect(page.getByLabel('Online Presence')).not.toBeChecked();
     await expect(page.getByLabel('Registered Devices')).not.toBeChecked();
 
-    await expect(page.locator('.psn-category-card')).toHaveCount(0);
+    await expectNoCategoryCards(page);
   });
 
   test('toggling trophies on shows the summary card and persists across reload', async ({
@@ -173,14 +181,14 @@ test.describe('PSN settings — data-sharing preferences', () => {
     await page.goto('/psn');
     await page.getByLabel('Trophies').check();
 
-    const card = page.locator('.psn-category-card', { hasText: 'Trophies' });
+    const card = page.locator('#psn-card-trophies');
     await expect(card).toBeVisible();
     await expect(card).toContainText('Level 42');
     await expect(card).toContainText('3 platinum');
 
     await page.reload();
     await expect(page.getByLabel('Trophies')).toBeChecked();
-    await expect(page.locator('.psn-category-card', { hasText: 'Trophies' })).toBeVisible();
+    await expect(page.locator('#psn-card-trophies')).toBeVisible();
   });
 
   test('the two write-consent toggles are off by default and persist independently', async ({
@@ -212,7 +220,7 @@ test.describe('PSN settings — data-sharing preferences', () => {
     await page.getByLabel('Chat groups').check();
 
     await expect(page.getByLabel('Chat groups')).toBeChecked();
-    await expect(page.locator('.psn-category-card')).toHaveCount(0);
+    await expectNoCategoryCards(page);
   });
 
   test('toggling a category off hides its card immediately', async ({ authedPage: page, store }) => {
@@ -221,7 +229,7 @@ test.describe('PSN settings — data-sharing preferences', () => {
     await store.seedPsnPreferences({ harvest_identity: true });
 
     await page.goto('/psn');
-    const card = page.locator('.psn-category-card', { hasText: 'PSN Identity' });
+    const card = page.locator('#psn-card-identity');
     await expect(card).toBeVisible();
     await expect(card).toContainText('e2e_gamer');
 
@@ -230,7 +238,7 @@ test.describe('PSN settings — data-sharing preferences', () => {
 
     await page.reload();
     await expect(page.getByLabel('PSN Identity')).not.toBeChecked();
-    await expect(page.locator('.psn-category-card', { hasText: 'PSN Identity' })).toHaveCount(0);
+    await expect(page.locator('#psn-card-identity')).toHaveCount(0);
   });
 });
 

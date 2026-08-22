@@ -14,6 +14,8 @@ import {
   IdentityResponse,
   PresenceResponse,
   PsnPreferencesResponse,
+  RefreshCadence,
+  RefreshScheduleResponse,
   TrophySummaryResponse,
 } from '../curator/curator.models';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
@@ -106,6 +108,13 @@ export class PsnSettingsComponent implements OnInit {
   protected readonly deviceLinkPending = signal<string | null>(null);
   protected readonly deviceLinkError = signal<string | null>(null);
 
+  protected readonly schedule = signal<RefreshScheduleResponse | null>(null);
+  protected readonly scheduleLoading = signal(false);
+  protected readonly scheduleError = signal<string | null>(null);
+  protected readonly scheduleSaving = signal(false);
+  protected readonly scheduleCadence = signal<RefreshCadence>('weekly');
+  protected readonly schedulePsPlusWatch = signal(false);
+
   protected readonly enrichmentKeyStatus = signal<EnrichmentKeyStatusResponse | null>(null);
   protected readonly enrichmentKeyStatusError = signal<string | null>(null);
 
@@ -152,7 +161,74 @@ export class PsnSettingsComponent implements OnInit {
     if (me.linked) {
       this.loadPreferences();
       this.loadEnrichmentKeyStatus();
+      this.loadSchedule();
     }
+  }
+
+  private loadSchedule(): void {
+    this.scheduleLoading.set(true);
+    this.scheduleError.set(null);
+    this.curator.getRefreshSchedule().subscribe({
+      next: (schedule) => {
+        this.applySchedule(schedule);
+        this.scheduleLoading.set(false);
+      },
+      error: (err: HttpErrorResponse) => {
+        if (err.status !== 404) {
+          this.scheduleError.set('Unable to load your refresh schedule.');
+        }
+        this.schedule.set(null);
+        this.scheduleLoading.set(false);
+      },
+    });
+  }
+
+  private applySchedule(schedule: RefreshScheduleResponse): void {
+    this.schedule.set(schedule);
+    this.scheduleCadence.set(schedule.cadence);
+    this.schedulePsPlusWatch.set(schedule.ps_plus_watch);
+  }
+
+  protected saveSchedule(): void {
+    this.scheduleSaving.set(true);
+    this.scheduleError.set(null);
+    this.curator
+      .setRefreshSchedule({ cadence: this.scheduleCadence(), ps_plus_watch: this.schedulePsPlusWatch() })
+      .subscribe({
+        next: (schedule) => {
+          this.applySchedule(schedule);
+          this.scheduleSaving.set(false);
+        },
+        error: () => {
+          this.scheduleError.set('Unable to save your refresh schedule.');
+          this.scheduleSaving.set(false);
+        },
+      });
+  }
+
+  protected cancelSchedule(): void {
+    this.scheduleSaving.set(true);
+    this.scheduleError.set(null);
+    this.curator.deleteRefreshSchedule().subscribe({
+      next: () => {
+        this.schedule.set(null);
+        this.scheduleSaving.set(false);
+      },
+      error: () => {
+        this.scheduleError.set('Unable to cancel your refresh schedule.');
+        this.scheduleSaving.set(false);
+      },
+    });
+  }
+
+  protected pausedReasonLabel(reason: string): string {
+    if (reason === 'psn-link-expired') {
+      return 'Your PlayStation Network link expired, so scheduled refreshes stopped. Re-link above to resume them.';
+    }
+    if (reason === 'too-many-consecutive-failures') {
+      return 'Too many refreshes failed in a row, so scheduled refreshes stopped. Save the schedule again to resume them.';
+    }
+    return 'Scheduled refreshes are paused.';
   }
 
   private loadEnrichmentKeyStatus(): void {

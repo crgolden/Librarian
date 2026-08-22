@@ -62,7 +62,13 @@
             <span class="stamp-label" [class.visibility-shared]="definition.visibility !== 'private'">
               {{ definition.visibility }}
             </span>
-            <button type="button" class="btn-ghost" (click)="openDefinition(definition.definition_id)">View / Edit</button>
+            <a
+              class="btn-ghost"
+              [attr.id]="'collection-open-' + $index"
+              [href]="'/collections/d/' + definition.definition_id"
+              (click)="onDefinitionClick($event, definition.definition_id)"
+              >View / Edit</a
+            >
           </li>
         }
       </ul>

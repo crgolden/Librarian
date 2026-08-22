@@ -8,7 +8,7 @@
     <div class="card status-card">
       <h2>Your library</h2>
       @if (summary(); as totals) {
-        <dl class="totals">
+        <dl id="home-totals" class="totals">
           <dt class="stamp-label">Titles catalogued</dt>
           <dd class="catalog-meta">{{ totals.libraryTotal }}</dd>
           <dt class="stamp-label">Collections</dt>

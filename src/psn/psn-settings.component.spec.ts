@@ -80,10 +80,72 @@ describe('PsnSettingsComponent', () => {
     if (response?.linked) {
       httpMock.expectOne('/curator/api/me/psn-preferences').flush(ALL_PREFS_OFF);
       httpMock.expectOne('/curator/api/me/enrichment-keys').flush(NO_ENRICHMENT_KEYS);
+      httpMock
+        .expectOne('/curator/api/me/refresh-schedule')
+        .flush(null, { status: 404, statusText: 'Not Found' });
       fixture.detectChanges();
     }
     return fixture;
   }
+
+  it('treats a 404 refresh-schedule as "not opted in yet", not as an error on the page', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: true, psn: null });
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    expect(compiled.querySelector('#schedule-none')).not.toBeNull();
+    expect(compiled.querySelector('#schedule-error')).toBeNull();
+  });
+
+  it('offers no schedule control at all until a PSN account is linked', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('#schedule-save')).toBeNull();
+    httpMock.expectNone('/curator/api/me/refresh-schedule');
+  });
+
+  it('shows the stored cadence and next run, and offers a cancel, once a schedule exists', () => {
+    routeSnapshotData.status = { sub: 'u1', email: null, linked: true, psn: null };
+    const fixture = TestBed.createComponent(PsnSettingsComponent);
+    fixture.detectChanges();
+    httpMock.expectOne('/curator/api/me/psn-preferences').flush(ALL_PREFS_OFF);
+    httpMock.expectOne('/curator/api/me/enrichment-keys').flush(NO_ENRICHMENT_KEYS);
+    httpMock.expectOne('/curator/api/me/refresh-schedule').flush({
+      cadence: 'monthly',
+      ps_plus_watch: true,
+      next_run_at: '2026-09-21T00:00:00Z',
+      last_run_at: '2026-08-21T00:00:00Z',
+      consecutive_failures: 0,
+      paused_reason: null,
+    });
+    fixture.detectChanges();
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.querySelector('#schedule-next-run')).not.toBeNull();
+    expect(compiled.querySelector('#schedule-last-run')).not.toBeNull();
+    expect(compiled.querySelector('#schedule-cancel')).not.toBeNull();
+    expect(compiled.querySelector('#schedule-none')).toBeNull();
+  });
+
+  it('explains a paused chain in terms of the remedy, rather than echoing the stored reason', () => {
+    routeSnapshotData.status = { sub: 'u1', email: null, linked: true, psn: null };
+    const fixture = TestBed.createComponent(PsnSettingsComponent);
+    fixture.detectChanges();
+    httpMock.expectOne('/curator/api/me/psn-preferences').flush(ALL_PREFS_OFF);
+    httpMock.expectOne('/curator/api/me/enrichment-keys').flush(NO_ENRICHMENT_KEYS);
+    httpMock.expectOne('/curator/api/me/refresh-schedule').flush({
+      cadence: 'weekly',
+      ps_plus_watch: false,
+      next_run_at: '2026-09-01T00:00:00Z',
+      last_run_at: null,
+      consecutive_failures: 3,
+      paused_reason: 'psn-link-expired',
+    });
+    fixture.detectChanges();
+
+    const paused = (fixture.nativeElement as HTMLElement).querySelector('#schedule-paused');
+    expect(paused?.textContent).toContain('Re-link');
+    expect(paused?.textContent).not.toContain('psn-link-expired');
+  });
 
   it('shows the link form once loaded when no PSN account is linked', () => {
     const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
@@ -177,6 +239,9 @@ describe('PsnSettingsComponent', () => {
 
     httpMock.expectOne('/curator/api/me/psn-preferences').flush(ALL_PREFS_OFF);
     httpMock.expectOne('/curator/api/me/enrichment-keys').flush(NO_ENRICHMENT_KEYS);
+    httpMock
+      .expectOne('/curator/api/me/refresh-schedule')
+      .flush(null, { status: 404, statusText: 'Not Found' });
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
@@ -479,6 +544,9 @@ describe('PsnSettingsComponent', () => {
 
     httpMock.expectOne('/curator/api/me/psn-preferences').flush(prefs);
     httpMock.expectOne('/curator/api/me/enrichment-keys').flush(NO_ENRICHMENT_KEYS);
+    httpMock
+      .expectOne('/curator/api/me/refresh-schedule')
+      .flush(null, { status: 404, statusText: 'Not Found' });
     fixture.detectChanges();
 
     if (prefs.harvest_trophies) {
@@ -808,6 +876,9 @@ describe('PsnSettingsComponent', () => {
         opencritic_key_rejected_at: null,
         ...status,
       });
+      httpMock
+        .expectOne('/curator/api/me/refresh-schedule')
+        .flush(null, { status: 404, statusText: 'Not Found' });
       fixture.detectChanges();
 
       return fixture;

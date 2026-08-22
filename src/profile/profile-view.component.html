@@ -1,6 +1,6 @@
 <section id="profile-view" class="page-section profile-view">
   @if (loadError()) {
-    <p class="text-error">{{ loadError() }}</p>
+    <p id="profile-load-error" class="text-error">{{ loadError() }}</p>
   } @else if (profile(); as current) {
     <header class="profile-header">
       <app-avatar id="profile-avatar" [sub]="current.sub" [size]="96" />
@@ -12,7 +12,7 @@
 
       @if (!current.viewer_is_owner) {
         @if (followError()) {
-          <p class="text-error">{{ followError() }}</p>
+          <p id="profile-follow-error" class="text-error">{{ followError() }}</p>
         }
         @if (current.viewer_is_following) {
           <button type="button" class="btn-ghost" [disabled]="followBusy()" (click)="unfollow()">

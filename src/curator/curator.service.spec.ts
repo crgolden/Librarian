@@ -191,6 +191,45 @@ describe('CuratorService', () => {
     req.flush(null);
   });
 
+  it('getRefreshSchedule gets the caller\'s own recurring-refresh schedule', () => {
+    service.getRefreshSchedule().subscribe();
+
+    const req = httpMock.expectOne('/curator/api/me/refresh-schedule');
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      cadence: 'weekly',
+      ps_plus_watch: false,
+      next_run_at: '2026-09-01T00:00:00Z',
+      last_run_at: null,
+      consecutive_failures: 0,
+      paused_reason: null,
+    });
+  });
+
+  it('setRefreshSchedule puts the cadence and the PS Plus watch flag', () => {
+    const body = { cadence: 'monthly' as const, ps_plus_watch: true };
+    service.setRefreshSchedule(body).subscribe();
+
+    const req = httpMock.expectOne('/curator/api/me/refresh-schedule');
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual(body);
+    req.flush({
+      ...body,
+      next_run_at: '2026-09-21T00:00:00Z',
+      last_run_at: null,
+      consecutive_failures: 0,
+      paused_reason: null,
+    });
+  });
+
+  it('deleteRefreshSchedule withdraws the opt-in', () => {
+    service.deleteRefreshSchedule().subscribe();
+
+    const req = httpMock.expectOne('/curator/api/me/refresh-schedule');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+  });
+
   it('getProfileSettings gets the caller\'s own profile settings', () => {
     service.getProfileSettings().subscribe();
 

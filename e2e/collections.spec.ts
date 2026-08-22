@@ -81,7 +81,7 @@ test.describe('Collections — authenticated', () => {
     await expect(page.locator('text=Console pack')).toBeVisible({ timeout: 10_000 });
 
 
-    await page.getByRole('button', { name: 'View / Edit' }).click();
+    await page.locator('#collection-open-0').click();
     await expect(page.getByRole('button', { name: 'Mark installed' })).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole('button', { name: 'Mark installed' }).click();
@@ -110,7 +110,7 @@ test.describe('Collections — authenticated', () => {
     await page.getByRole('button', { name: 'Save this collection' }).click();
     await expect(page.locator('text=Console pack')).toBeVisible({ timeout: 10_000 });
 
-    await page.getByRole('button', { name: 'View / Edit' }).click();
+    await page.locator('#collection-open-0').click();
     await expect(page.getByRole('button', { name: 'Mark installed' })).toBeVisible({ timeout: 10_000 });
 
     await store.seedConsoles([]);
@@ -137,7 +137,7 @@ test.describe('Collections — authenticated', () => {
     await page.getByRole('button', { name: 'Save this collection' }).click();
     await expect(page.locator('text=RPG picks')).toBeVisible({ timeout: 10_000 });
 
-    await page.getByRole('button', { name: 'View / Edit' }).click();
+    await page.locator('#collection-open-0').click();
     await page.getByRole('button', { name: 'Rename / edit description' }).click();
     await page.getByLabel('Name').fill('RPG favorites');
     await page.getByRole('button', { name: 'Save' }).click();
