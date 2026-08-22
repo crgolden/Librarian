@@ -4,7 +4,6 @@ export default defineConfig({
   test: {
     globals: true,
     pool: 'threads',
-    fileParallelism: false,
     testTimeout: 15000,
     environment: 'jsdom',
     setupFiles: ['src/test-setup.ts'],

@@ -24,8 +24,15 @@ npx vitest run             # one-shot
 npx vitest run --coverage  # LCOV → coverage/lcov.info
 ```
 
-Vitest runs with `pool: threads`, `fileParallelism: false`, `testTimeout: 15000`. Angular 22 is zoneless —
-always call `fixture.detectChanges()` manually.
+Vitest runs with `pool: threads`, `testTimeout: 15000`, and vitest's default `isolate: true`. Angular 22
+is zoneless — always call `fixture.detectChanges()` manually.
+
+**`isolate: true` is load-bearing; `fileParallelism` was not.** Isolation gives each file its own jsdom,
+which this suite depends on because `document.title` and `<meta>` tags persist between tests within a
+file (the catalog-detail and public-collection specs rely on that). Test files run in parallel — the
+inherited `fileParallelism: false` was scaffold boilerplate with no recorded reason, and removing it kept
+all 469 tests green across three full runs. See `AGENTS/PARKING_LOT.md` §8e for the measurements and for
+what to check first if CI time regresses.
 
 **A collaborator call that issues no HTTP is invisible to these specs unless you provide a stub for it.**
 Most component specs here assert through `HttpTestingController` and close on `httpMock.verify()`, so
@@ -200,32 +207,69 @@ own-sub-canonicalization redirects — `/u/{own sub}`, `/u/{own sub}/followers`,
 equivalents, while the same paths keyed to a *different* user's sub render viewer mode without
 redirecting).
 
-### Every local `npm run e2e` after the first one poisons itself — clear port 4100 first
+### Local runs never reuse a server, and a `setup` project proves the environment before any test runs
 
-**Symptom: every authenticated test fails, the anonymous ones pass, and the reported error names a missing
-nav link.** The cause is never the nav. It is a leftover SSR server on port 4100, and there are two ways
-to get one:
+Two guards exist because of one incident: a leftover SSR server on port 4100 made every local run after
+the first one lie. Every authenticated test failed on a *nav* locator while the anonymous ones passed, so
+the reported symptom named the nav and the real fault was login. It cost four full E2E cycles and three
+wrong root-cause diagnoses (a scope change, a component change, and a CSS change — none at fault).
 
-1. **A manual `serve:ssr` you started for local testing.** `playwright.config.ts` sets `SSR_PORT = 4100`,
-   the *same* port, with `reuseExistingServer: !CI` — so Playwright adopts your dev server rather than
-   starting its own. That server loads `.env.local`, pointing `OidcAuthority` at the **real** Identity
-   instead of the mock on 4102, so `/bff/login` fails and no session is ever created.
-2. **The previous `npm run e2e`.** `reuseExistingServer` starts servers but never tears them down, so a
-   run leaves an SSR process behind. The next run regenerates the mock provider's self-signed cert
-   (`generate-oidc-cert.ts`), but the leftover process read `NODE_EXTRA_CA_CERTS` at startup and still
-   trusts the *old* cert — so TLS discovery against the fresh mock provider fails. **This makes local E2E
-   runs non-idempotent: the first is honest and every one after it is poisoned.**
+**Guard 1 — `reuseExistingServer: false` on all three webServer entries.** Playwright now starts its own
+servers, so local behaviour matches CI and no run can adopt a stale process. If something already holds
+4100/4101/4102 the run aborts immediately naming the port:
 
-Both produce an anonymous page and a misleading locator error. Clear the port before every run:
+```
+Error: http://localhost:4101 is already used, make sure that nothing is running
+on the port/url or set reuseExistingServer:true in config.webServer.
+```
+
+That is deliberate: an adopted server is either running the *previous build's bundle*, or — for a manual
+`serve:ssr` — loading `.env.local` and pointing `OidcAuthority` at the **real** Identity instead of the
+mock on 4102. **You can no longer keep a manual `serve:ssr` on 4100 while running E2E**; stop it first.
+
+**Teardown is not instant — back-to-back runs collide.** Starting a second run the moment the first
+exits reproducibly hits either the "already used" error above or, when the check races the release,
+`Error: Timed out waiting 30000ms from config.webServer`. The ports do free themselves; wait a few
+seconds, or clear them:
 
 ```powershell
 Get-NetTCPConnection -LocalPort 4100 -State Listen |
     ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
 ```
 
-Cost in one session: four full E2E cycles and three wrong root-cause diagnoses (a scope change, a
-component change, and a CSS change — none of them at fault). Check ports 4100/4101/4102 *first*, and
-treat "only the anonymous test passes" as this until proven otherwise.
+**A `webServer` timeout usually means broken OIDC config, not a slow machine.** The SSR server fails to
+start if `OidcAuthority` is unreachable or `NODE_EXTRA_CA_CERTS` points at a missing file — both
+measured — and Playwright reports only the generic timeout. Check those two env values in
+`playwright.config.ts` before suspecting load.
+
+```powershell
+Get-NetTCPConnection -LocalPort 4100 -State Listen |
+    ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+```
+
+**Guard 2 — the `setup` project (`e2e/setup/environment.setup.ts`).** It resets the mock Curator and
+performs one real `/bff/login` round trip, asserting `/bff/user` returns 200 carrying the expected `sub`.
+The `e2e` project declares `dependencies: ['setup']`, so a broken environment aborts the whole suite in
+seconds with a message naming the port and the cause, rather than 21 × 30s of timeouts blaming a nav
+locator. Measured: the guard costs **~1.8s** on an idle machine, and a failing guard skipped all 117 e2e
+tests and reported in 26.8s.
+
+**Its `timeout` is 60s deliberately, not tuned to that 1.8s.** On a heavily loaded box the same login
+round trip was measured at **24.3s**, so a tight bound would abort the whole suite spuriously — the one
+failure a guard must never have. The goal is a *correct* fast abort (~1 min instead of ~10), not the
+fastest possible one.
+
+This is a **setup project, not `globalSetup`** — Playwright runs `globalSetup` *before* `webServer` is
+ready, so a login attempt there cannot work. Project dependencies run as tests, after the servers are up.
+`--grep` does not filter dependency projects, so the guard still fires during
+`npm run e2e -- --grep "..."`.
+
+Guard 2 is defence in depth, not the fix for the original incident — Guard 1 removes that failure mode
+outright by refusing to adopt the stale server at all. Two things Guard 2 does **not** catch, both
+measured rather than assumed: a broken `OidcAuthority`/`NODE_EXTRA_CA_CERTS` stops the SSR server
+starting, so the run aborts at `webServer` before any test executes; and **the mock OIDC provider does
+not validate the client secret**, so a deliberately wrong `LibrarianClientSecret` still passes the guard
+and the full suite. No test here covers client-credential misconfiguration.
 
 **Changing `SCOPES` in `src/bff/routes.ts` breaks every authenticated E2E test, and the symptom points at
 the wrong thing.** Every authenticated test times out on a locator and the page snapshot shows the
@@ -290,12 +334,24 @@ There is no SQL dacpac in this pipeline.
 A single SonarCloud project, `crgolden_Librarian`, covers the Angular client (Vitest LCOV). There is
 no C# surface. Use the global sonar-scanner CLI:
 
-**To run a subset, pass `--grep` through `npm run e2e`; never call `playwright test` directly.**
-`npm run e2e` chains `npx tsx e2e/mocks/generate-oidc-cert.ts` between `build:ci` and the test run,
-and the mock OIDC provider needs that cert to serve HTTPS discovery. Skipping it fails as
-`Error: Timed out waiting 30000ms from config.webServer` — which names the SSR server, not the cert,
-and looks exactly like a slow cold start. `npm run e2e -- --grep "some describe"` appends correctly,
-since the playwright invocation is last in the chain.
+**Iterating on tests: use `npm run e2e:run`, which skips the ~85s rebuild.**
+
+| Script | Does | Use when |
+|---|---|---|
+| `npm run e2e` | `build:ci` → cert → Playwright | source changed, and in CI |
+| `npm run e2e:run` | cert → Playwright | only `e2e/` changed |
+
+`e2e:run` reuses whatever is in `dist/`, so **it does not pick up `src/` edits** — that is the trade for
+skipping the build. If a source change appears to do nothing, you wanted `npm run e2e`.
+
+**Never call `playwright test` directly.** Both scripts chain
+`npx tsx e2e/mocks/generate-oidc-cert.ts` first, and the mock OIDC provider needs that cert to serve
+HTTPS discovery. Skipping it fails as `Error: Timed out waiting 30000ms from config.webServer` — which
+names the SSR server, not the cert, and looks exactly like a slow cold start.
+
+**To run a subset, pass `--grep` through either script**: `npm run e2e -- --grep "some describe"`. Both
+end at the `playwright test` invocation, so npm forwards the argument rather than consuming it as its
+own flag — this is why neither script delegates to the other.
 
 **Generate coverage with the *whole* suite.** A filtered run (`vitest run --coverage src/home`)
 overwrites `coverage/lcov.info` with only the files that run touched, so a scan straight afterwards

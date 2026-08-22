@@ -28,11 +28,18 @@ export default defineConfig({
 
   projects: [
     {
+      name: 'setup',
+      testMatch: /.*\/e2e\/setup\/.*\.setup\.ts$/,
+      use: { ...devices['Desktop Chrome'] },
+      timeout: 60_000,
+    },
+    {
       name: 'e2e',
       testMatch: /.*\/e2e\/(?!smoke\/).*\.spec\.ts$/,
       use: { ...devices['Desktop Chrome'] },
       fullyParallel: false,
       workers: 1,
+      dependencies: ['setup'],
     },
     {
       name: 'smoke',
@@ -48,13 +55,13 @@ export default defineConfig({
     {
       command: 'npx tsx e2e/mocks/curator-server.ts',
       port: MOCK_CURATOR_PORT,
-      reuseExistingServer: !process.env['CI'],
+      reuseExistingServer: false,
       timeout: 30_000,
     },
     {
       command: 'npx tsx e2e/mocks/oidc-server.ts',
       port: MOCK_OIDC_PORT,
-      reuseExistingServer: !process.env['CI'],
+      reuseExistingServer: false,
       timeout: 30_000,
     },
     {
@@ -71,7 +78,7 @@ export default defineConfig({
         NODE_EXTRA_CA_CERTS: OIDC_TLS_CERT_PATH,
         SessionSecret: 'e2e-test-secret-must-be-at-least-32-chars',
       },
-      reuseExistingServer: !process.env['CI'],
+      reuseExistingServer: false,
       timeout: 60_000,
     },
   ],
