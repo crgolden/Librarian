@@ -1,92 +1,101 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { AdminService } from './admin.service';
+import { AdminService, ADMIN_CLAIM_TYPE } from './admin.service';
+import { AuthService } from '../auth/auth.service';
+
+function configure(): { service: AdminService; httpMock: HttpTestingController; auth: AuthService } {
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({
+    providers: [provideHttpClient(withXhr()), provideHttpClientTesting()],
+  });
+  return {
+    service: TestBed.inject(AdminService),
+    httpMock: TestBed.inject(HttpTestingController),
+    auth: TestBed.inject(AuthService),
+  };
+}
+
+function signIn(auth: AuthService, httpMock: HttpTestingController, claims: { type: string; value: string }[]): void {
+  auth.initialize().subscribe();
+  httpMock.expectOne('bff/user').flush(claims);
+}
 
 describe('AdminService', () => {
-  let service: AdminService;
-  let httpMock: HttpTestingController;
+  it('reports isAdmin false before the session has resolved', () => {
+    const { service, httpMock } = configure();
 
-  beforeEach(() => {
-    TestBed.configureTestingModule({
-      providers: [provideHttpClient(withXhr()), provideHttpClientTesting()],
-    });
-    service = TestBed.inject(AdminService);
-    httpMock = TestBed.inject(HttpTestingController);
+    expect(service.isAdmin()).toBe(false);
+    httpMock.expectNone('/curator/api/me');
   });
 
-  afterEach(() => {
+  it('derives isAdmin from the session claim, with no request of its own', () => {
+    const { service, httpMock, auth } = configure();
+
+    signIn(auth, httpMock, [
+      { type: 'sub', value: 'user-1' },
+      { type: ADMIN_CLAIM_TYPE, value: 'true' },
+    ]);
+
+    expect(service.isAdmin()).toBe(true);
+    httpMock.expectNone('/curator/api/me');
     httpMock.verify();
   });
 
-  it('reports isAdmin false before ensureLoaded() has ever been called', () => {
+  it('reports isAdmin false for a signed-in user whose session carries no admin claim', () => {
+    const { service, httpMock, auth } = configure();
+
+    signIn(auth, httpMock, [{ type: 'sub', value: 'user-1' }]);
+
     expect(service.isAdmin()).toBe(false);
+    httpMock.verify();
   });
 
-  it('resolves isAdmin true when GET /me returns is_admin: true', () => {
-    let resolved: boolean | undefined;
-    service.ensureLoaded().subscribe((value) => (resolved = value));
+  it('treats a false-valued admin claim as not an admin, rather than as claim-present', () => {
+    const { service, httpMock, auth } = configure();
 
-    const req = httpMock.expectOne('/curator/api/me');
-    expect(req.request.method).toBe('GET');
-    req.flush({ sub: 'user-1', email: null, linked: false, psn: null, is_admin: true });
+    signIn(auth, httpMock, [
+      { type: 'sub', value: 'user-1' },
+      { type: ADMIN_CLAIM_TYPE, value: 'false' },
+    ]);
+
+    expect(service.isAdmin()).toBe(false);
+    httpMock.verify();
+  });
+
+  it('accepts the claim however Identity cases it', () => {
+    const { service, httpMock, auth } = configure();
+
+    signIn(auth, httpMock, [
+      { type: 'sub', value: 'user-1' },
+      { type: ADMIN_CLAIM_TYPE, value: 'True' },
+    ]);
 
     expect(service.isAdmin()).toBe(true);
-    expect(resolved).toBe(true);
+    httpMock.verify();
   });
 
-  it('resolves isAdmin false when GET /me returns is_admin: false', () => {
-    service.ensureLoaded().subscribe();
-    httpMock.expectOne('/curator/api/me').flush({ sub: 'user-1', email: null, linked: false, psn: null, is_admin: false });
+  it('settles with the session in one step, never flipping after a later request', () => {
+    const { service, httpMock, auth } = configure();
 
     expect(service.isAdmin()).toBe(false);
-  });
-
-  it('resolves isAdmin false (not an error) when GET /me fails', () => {
-    let resolved: boolean | undefined;
-    service.ensureLoaded().subscribe((value) => (resolved = value));
-
-    httpMock.expectOne('/curator/api/me').flush(null, { status: 403, statusText: 'Forbidden' });
-
-    expect(service.isAdmin()).toBe(false);
-    expect(resolved).toBe(false);
-  });
-
-  it('retries GET /me on the next ensureLoaded() after a failure, instead of staying false for the session', () => {
-    service.ensureLoaded().subscribe();
-    httpMock.expectOne('/curator/api/me').flush(null, { status: 503, statusText: 'Service Unavailable' });
-    expect(service.isAdmin()).toBe(false);
-
-    service.ensureLoaded().subscribe();
-    httpMock
-      .expectOne('/curator/api/me')
-      .flush({ sub: 'user-1', email: null, linked: false, psn: null, is_admin: true });
+    signIn(auth, httpMock, [
+      { type: 'sub', value: 'user-1' },
+      { type: ADMIN_CLAIM_TYPE, value: 'true' },
+    ]);
 
     expect(service.isAdmin()).toBe(true);
-  });
-
-  it('serves the stale false to the retrying activation itself, so recovery lands on the activation after', () => {
-    service.ensureLoaded().subscribe();
-    httpMock.expectOne('/curator/api/me').flush(null, { status: 503, statusText: 'Service Unavailable' });
-
-    let retryResolved: boolean | undefined;
-    service.ensureLoaded().subscribe((value) => (retryResolved = value));
-    httpMock
-      .expectOne('/curator/api/me')
-      .flush({ sub: 'user-1', email: null, linked: false, psn: null, is_admin: true });
-
-    expect(retryResolved).toBe(false);
-    expect(service.isAdmin()).toBe(true);
-  });
-
-  it('ensureLoaded() only issues one GET /me request across multiple calls', () => {
-    service.ensureLoaded().subscribe();
-    httpMock.expectOne('/curator/api/me').flush({ sub: 'user-1', email: null, linked: false, psn: null, is_admin: true });
-
-    let secondResolved: boolean | undefined;
-    service.ensureLoaded().subscribe((value) => (secondResolved = value));
-
     httpMock.expectNone('/curator/api/me');
-    expect(secondResolved).toBe(true);
+    httpMock.verify();
+  });
+
+  it('reports isAdmin false when the session fetch fails', () => {
+    const { service, httpMock, auth } = configure();
+
+    auth.initialize().subscribe();
+    httpMock.expectOne('bff/user').flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    expect(service.isAdmin()).toBe(false);
+    httpMock.verify();
   });
 });

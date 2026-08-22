@@ -1,6 +1,7 @@
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import { CatalogDetailComponent } from './catalog-detail.component';
 import { ResolvedCatalogGame } from './catalog-detail.resolver';
@@ -84,5 +85,24 @@ describe('CatalogDetailComponent', () => {
     const fixture = render({ status: 'error' });
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load this game.');
+  });
+
+  it('names the game in the document title and the social metadata', () => {
+    render({ status: 'ok', game: game() });
+
+    expect(TestBed.inject(Title).getTitle()).toBe('Bloodborne — Librarian');
+    const meta = TestBed.inject(Meta);
+    expect(meta.getTag('name="description"')?.content).toContain('Souls · Action · AAA');
+    expect(meta.getTag('property="og:title"')?.content).toBe('Bloodborne — Librarian');
+    expect(meta.getTag('property="og:description"')?.content).toContain('Bloodborne');
+    expect(meta.getTag('property="og:type"')?.content).toBe('article');
+  });
+
+  it('gives the not-found and error branches their own titles rather than the route default', () => {
+    render({ status: 'not-found' });
+    expect(TestBed.inject(Title).getTitle()).toBe('Game not found — Librarian');
+
+    render({ status: 'error' });
+    expect(TestBed.inject(Title).getTitle()).toBe('Game unavailable — Librarian');
   });
 });

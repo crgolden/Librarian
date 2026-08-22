@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -15,6 +15,7 @@ import {
 import { filter } from 'rxjs';
 import { AuthService } from '../../auth/auth.service';
 import { AdminService } from '../../admin/admin.service';
+import { AvatarComponent } from '../../shared/avatar/avatar.component';
 
 export interface NavLink {
   path: string;
@@ -36,7 +37,7 @@ export const PRIMARY_NAV_LINKS: NavLink[] = [
 
 @Component({
   selector: 'app-site-nav',
-  imports: [RouterLink, RouterLinkActive, NgIcon],
+  imports: [RouterLink, RouterLinkActive, NgIcon, AvatarComponent],
   templateUrl: './site-nav.component.html',
   styleUrl: './site-nav.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -72,11 +73,4 @@ export class SiteNavComponent {
       : this.auth.loginUrl;
   });
 
-  constructor() {
-    effect(() => {
-      if (this.auth.isAuthenticated()) {
-        this.admin.ensureLoaded().subscribe();
-      }
-    });
-  }
 }

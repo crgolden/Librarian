@@ -196,13 +196,19 @@
           <p class="catalog-meta">Estimated size: {{ preview.used_gb }} GB</p>
         }
 
-        <h3>Included ({{ preview.included.length }})</h3>
+        <h3>Included ({{ preview.included_total }})</h3>
         <ul class="catalog-list">
           @for (game of preview.included; track game.game_id) {
             <li class="card catalog-card">
               <span class="catalog-title">{{ game.title }}</span>
               <span class="spine-label">{{ game.genre }}</span>
-              <span class="catalog-meta">{{ game.franchise }} &middot; {{ game.aaa_tier }} &middot; {{ game.size_gb }} GB</span>
+              <span class="catalog-meta">
+                {{ game.franchise }}
+                @if (game.aaa_tier) {
+                  &middot; {{ game.aaa_tier }}
+                }
+                &middot; {{ game.size_gb }} GB
+              </span>
               @if (game.percent_completed !== null) {
                 <span class="catalog-meta">{{ game.percent_completed }}% complete</span>
               }
@@ -210,20 +216,52 @@
           }
         </ul>
 
-        @if (preview.excluded.length > 0) {
-          <h3>Excluded ({{ preview.excluded.length }})</h3>
-          <ul class="catalog-list">
+        @if (preview.excluded_total > 0) {
+          <h3>Excluded ({{ preview.excluded_total }})</h3>
+          <p class="text-muted">These did not meet the filters and are not part of the collection.</p>
+          <ul class="catalog-list excluded-list">
             @for (game of preview.excluded; track game.game_id) {
               <li class="card catalog-card">
                 <span class="catalog-title">{{ game.title }}</span>
                 <span class="spine-label">{{ game.genre }}</span>
-                <span class="catalog-meta">{{ game.franchise }} &middot; {{ game.aaa_tier }}</span>
+                <span class="catalog-meta">
+                  {{ game.franchise }}
+                  @if (game.aaa_tier) {
+                    &middot; {{ game.aaa_tier }}
+                  }
+                </span>
                 @if (game.percent_completed !== null) {
                   <span class="catalog-meta">{{ game.percent_completed }}% complete</span>
                 }
               </li>
             }
           </ul>
+        }
+
+        @if (previewPageableTotal() > resultPageSize) {
+          <div class="pager">
+            <button
+              id="preview-prev"
+              type="button"
+              class="btn-ghost"
+              [disabled]="previewOffset() === 0"
+              (click)="pagePreview(-1)"
+            >
+              Previous
+            </button>
+            <span class="text-muted">
+              {{ previewOffset() + 1 }}&ndash;{{ previewOffset() + resultPageSize }} of {{ previewPageableTotal() }}
+            </span>
+            <button
+              id="preview-next"
+              type="button"
+              class="btn-ghost"
+              [disabled]="previewOffset() + resultPageSize >= previewPageableTotal()"
+              (click)="pagePreview(1)"
+            >
+              Next
+            </button>
+          </div>
         }
       </div>
     }
@@ -329,18 +367,25 @@
             [value]="itemSearch()"
             (input)="searchItems($any($event.target).value)"
           />
-          <button id="collection-sort-rank" type="button" class="link-button" (click)="sortItemsBy('rank')">
-            Rank
-          </button>
-          <button id="collection-sort-title" type="button" class="link-button" (click)="sortItemsBy('title')">
-            Title
-          </button>
-          <button id="collection-sort-oc" type="button" class="link-button" (click)="sortItemsBy('oc_score')">
-            OpenCritic
-          </button>
-          <button id="collection-sort-psn" type="button" class="link-button" (click)="sortItemsBy('psn_rating')">
-            PSN
-          </button>
+          <span id="collection-sort-label" class="stamp-label">Sort by</span>
+          <div class="collection-item-sort" role="group" aria-labelledby="collection-sort-label">
+            @for (option of itemSortOptions; track option.field) {
+              <button
+                [attr.id]="'collection-sort-' + option.id"
+                type="button"
+                class="btn-ghost btn-sm"
+                [class.sort-active]="itemSort() === option.field"
+                [attr.aria-pressed]="itemSort() === option.field"
+                (click)="sortItemsBy(option.field)"
+              >
+                {{ option.label }}
+                @if (itemSort() === option.field) {
+                  <span aria-hidden="true">{{ itemSortDir() === 'asc' ? ' ▲' : ' ▼' }}</span>
+                  <span class="sr-only">{{ itemSortDir() === 'asc' ? ', sorted ascending' : ', sorted descending' }}</span>
+                }
+              </button>
+            }
+          </div>
         </div>
         @if (itemsError()) {
           <p class="text-error">{{ itemsError() }}</p>
@@ -452,23 +497,23 @@
             }
           </ul>
           @if (itemsTotal() > itemsPageSize) {
-            <div class="collection-item-pager">
+            <div class="pager">
               <button
                 id="collection-items-prev"
                 type="button"
-                class="link-button"
+                class="btn-ghost"
                 [disabled]="itemOffset() === 0"
                 (click)="pageItems(-1)"
               >
                 Previous
               </button>
               <span class="text-muted">
-                {{ itemOffset() + 1 }}–{{ itemOffset() + items().length }} of {{ itemsTotal() }}
+                {{ itemOffset() + 1 }}&ndash;{{ itemOffset() + items().length }} of {{ itemsTotal() }}
               </span>
               <button
                 id="collection-items-next"
                 type="button"
-                class="link-button"
+                class="btn-ghost"
                 [disabled]="itemOffset() + itemsPageSize >= itemsTotal()"
                 (click)="pageItems(1)"
               >
@@ -492,13 +537,19 @@
               <p class="catalog-meta">Estimated size: {{ result.used_gb }} GB</p>
             }
 
-            <h3>Proposed ({{ result.included.length }})</h3>
+            <h3>Proposed ({{ result.included_total }})</h3>
             <ul class="catalog-list">
               @for (game of result.included; track game.game_id) {
                 <li class="card catalog-card">
                   <span class="catalog-title">{{ game.title }}</span>
                   <span class="spine-label">{{ game.genre }}</span>
-                  <span class="catalog-meta">{{ game.franchise }} &middot; {{ game.aaa_tier }} &middot; {{ game.size_gb }} GB</span>
+                  <span class="catalog-meta">
+                    {{ game.franchise }}
+                    @if (game.aaa_tier) {
+                      &middot; {{ game.aaa_tier }}
+                    }
+                    &middot; {{ game.size_gb }} GB
+                  </span>
                   @if (game.percent_completed !== null) {
                     <span class="catalog-meta">{{ game.percent_completed }}% complete</span>
                   }
@@ -506,20 +557,52 @@
               }
             </ul>
 
-            @if (result.excluded.length > 0) {
-              <h3>Excluded ({{ result.excluded.length }})</h3>
-              <ul class="catalog-list">
+            @if (result.excluded_total > 0) {
+              <h3>Excluded ({{ result.excluded_total }})</h3>
+              <p class="text-muted">These did not meet the filters and are not part of the proposal.</p>
+              <ul class="catalog-list excluded-list">
                 @for (game of result.excluded; track game.game_id) {
                   <li class="card catalog-card">
                     <span class="catalog-title">{{ game.title }}</span>
                     <span class="spine-label">{{ game.genre }}</span>
-                    <span class="catalog-meta">{{ game.franchise }} &middot; {{ game.aaa_tier }}</span>
+                    <span class="catalog-meta">
+                      {{ game.franchise }}
+                      @if (game.aaa_tier) {
+                        &middot; {{ game.aaa_tier }}
+                      }
+                    </span>
                     @if (game.percent_completed !== null) {
                       <span class="catalog-meta">{{ game.percent_completed }}% complete</span>
                     }
                   </li>
                 }
               </ul>
+            }
+
+            @if (runPageableTotal() > resultPageSize) {
+              <div class="pager">
+                <button
+                  id="run-prev"
+                  type="button"
+                  class="btn-ghost"
+                  [disabled]="runOffset() === 0"
+                  (click)="pageRun(-1)"
+                >
+                  Previous
+                </button>
+                <span class="text-muted">
+                  {{ runOffset() + 1 }}&ndash;{{ runOffset() + resultPageSize }} of {{ runPageableTotal() }}
+                </span>
+                <button
+                  id="run-next"
+                  type="button"
+                  class="btn-ghost"
+                  [disabled]="runOffset() + resultPageSize >= runPageableTotal()"
+                  (click)="pageRun(1)"
+                >
+                  Next
+                </button>
+              </div>
             }
 
             @if (adoptError()) {

@@ -41,16 +41,24 @@ describe('HomeComponent', () => {
     expect(link?.getAttribute('href')).toBe('/bff/login');
   });
 
-  it('pitches how titles enter a collection only to anonymous visitors', () => {
+  it('pitches how titles enter your library only to anonymous visitors', () => {
     configure({ isAuthenticated: signal(false), loginUrl: '/bff/login' });
 
-    expect(render().textContent).toContain('Four ways titles enter a collection');
+    expect(render().textContent).toContain('How titles enter your library');
   });
 
   it('withholds the pitch from a signed-in visitor', () => {
     configure({ isAuthenticated: signal(true) }, linkedSummary);
 
-    expect(render().textContent).not.toContain('Four ways titles enter a collection');
+    expect(render().textContent).not.toContain('How titles enter your library');
+  });
+
+  it('heads the signed-in summary as the library, since its leading figure is the library count', () => {
+    configure({ isAuthenticated: signal(true) }, linkedSummary);
+
+    const heading = render().querySelector('h2')?.textContent;
+    expect(heading).toContain('Your library');
+    expect(heading).not.toContain('Your collection');
   });
 
   it('reports the resolved collection totals when authenticated', () => {
@@ -89,7 +97,7 @@ describe('HomeComponent', () => {
 
     const compiled = render();
 
-    expect(compiled.textContent).toContain('Collection totals are unavailable right now');
+    expect(compiled.textContent).toContain('Library totals are unavailable right now');
     expect(compiled.textContent).not.toContain('Titles catalogued');
   });
 });

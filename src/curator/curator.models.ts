@@ -44,7 +44,8 @@ export interface CollectionGameResponse {
   game_id: string;
   title: string;
   genre: string;
-  aaa_tier: string;
+  /** Null when the game has no stored publisher tier — render the absence, not an empty label. */
+  aaa_tier: string | null;
   franchise: string;
   composite_score: number | null;
   rank_score: number;
@@ -55,6 +56,15 @@ export interface CollectionGameResponse {
 export interface CollectionPreviewResponse {
   included: CollectionGameResponse[];
   excluded: CollectionGameResponse[];
+  /** Counts the whole generated result; `included` is only the requested page of it. */
+  included_total: number;
+  excluded_total: number;
+  /**
+   * Every included id, unpaged. Saving a collection sends membership as an id list, and a preview
+   * persists nothing — so this is the only complete copy. Deriving membership from `included` would
+   * silently store just the first page.
+   */
+  included_game_ids: string[];
   used_gb: number | null;
 }
 
@@ -135,6 +145,11 @@ export interface CollectionRunResponse {
   run_id: string;
   included: CollectionGameResponse[];
   excluded: CollectionGameResponse[];
+  /** Counts the whole generated result; the run persists all of it, the response carries one page. */
+  included_total: number;
+  excluded_total: number;
+  /** Every proposed id, unpaged — adopting a run PATCHes this list, so the page would truncate it. */
+  included_game_ids: string[];
   used_gb: number | null;
 }
 
@@ -355,6 +370,28 @@ export interface PublicProfileResponse {
   collections_visible: boolean;
   trophies: ProfileTrophySummaryResponse | null;
   identity: ProfileIdentityResponse | null;
+  created_at: string | null;
+  /** Null when `library_visible` is false — the count is gated with the link it labels. */
+  library_count: number | null;
+  /** Null when `collections_visible` is false; counts only public definitions for a non-owner. */
+  collections_count: number | null;
+  /** Owner-only. Always false for a viewer — another user's settings are never disclosed. */
+  trophies_hidden_by_owner_setting: boolean;
+  /** Empty for a viewer of a private profile, gated with the rest of the public sections. */
+  profile_links: ProfileLinkResponse[];
+}
+
+export interface ProfileLinkSiteResponse {
+  site_key: string;
+  display_name: string;
+}
+
+export interface ProfileLinkResponse {
+  site_key: string;
+  display_name: string;
+  handle: string;
+  /** Built by Curator from the site's own template; never supplied by, or echoed from, a client. */
+  url: string;
 }
 
 export interface FollowListEntryResponse {

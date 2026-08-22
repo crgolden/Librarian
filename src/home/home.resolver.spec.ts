@@ -37,7 +37,7 @@ function configure(isAuthenticated: boolean): HttpTestingController {
     providers: [
       provideHttpClient(withXhr()),
       provideHttpClientTesting(),
-      { provide: AuthService, useValue: { isAuthenticated: signal(isAuthenticated) } },
+      { provide: AuthService, useValue: { isAuthenticated: signal(isAuthenticated), session: signal([]) } },
     ],
   });
   return TestBed.inject(HttpTestingController);
@@ -139,7 +139,7 @@ describe('homeSummaryResolver', () => {
     httpMock.verify();
   });
 
-  it('issues one GET /me for the resolver and the nav together', async () => {
+  it('issues the only GET /me — admin status costs no request of its own', async () => {
     const httpMock = configure(true);
     const resultPromise = firstValueFrom(resolve());
 
@@ -148,7 +148,7 @@ describe('homeSummaryResolver', () => {
     httpMock.expectOne('/curator/api/me').flush(me);
     await resultPromise;
 
-    TestBed.inject(AdminService).ensureLoaded().subscribe();
+    TestBed.inject(AdminService).isAdmin();
 
     httpMock.expectNone('/curator/api/me');
     httpMock.verify();

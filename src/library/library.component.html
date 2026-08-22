@@ -208,7 +208,7 @@
                         @if (!viewerMode()) {
                           <button
                             type="button"
-                            class="link-button"
+                            class="btn-ghost btn-sm"
                             [attr.id]="'library-manual-remove-' + $index"
                             [disabled]="manualPending() === row.original.game_id"
                             (click)="removeManualGame(row.original)"
@@ -245,10 +245,10 @@
             </table>
           </div>
 
-          <div class="library-pager">
-            <button type="button" class="btn-secondary" [disabled]="!hasPrevPage()" (click)="prevPage()">Previous</button>
-            <span class="catalog-meta">{{ total() }} game(s)</span>
-            <button type="button" class="btn-secondary" [disabled]="!hasNextPage()" (click)="nextPage()">Next</button>
+          <div class="pager">
+            <button type="button" class="btn-ghost" [disabled]="!hasPrevPage()" (click)="prevPage()">Previous</button>
+            <span class="text-muted">{{ pageStart() }}&ndash;{{ pageEnd() }} of {{ total() }}</span>
+            <button type="button" class="btn-ghost" [disabled]="!hasNextPage()" (click)="nextPage()">Next</button>
           </div>
         }
       }

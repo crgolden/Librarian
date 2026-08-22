@@ -1,20 +1,45 @@
+import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { Meta } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import {
+  phosphorArchive,
+  phosphorBooks,
+  phosphorLink,
+  phosphorMedal,
+  phosphorRanking,
+  phosphorStamp,
+  phosphorUserPlus,
+  phosphorUsersThree,
+} from '@ng-icons/phosphor-icons/regular';
 import { CuratorService } from '../curator/curator.service';
 import { PublicProfileResponse } from '../curator/curator.models';
 import { ResolvedProfile } from './profile.resolver';
 
-/** `/profile` (owner) and `/u/:sub` (viewer, canonicalized away from your own sub) — renders the
- * PSN account id (or "Unlinked user"), a Follow/Unfollow button (hidden for the owner), follower/
- * following counts linking to the followers/following pages, library/collections links (gated on
- * visibility for viewer mode, always shown for the owner), a trophy card, and an identity card. */
+/** `/profile` (owner) and `/u/:sub` (viewer, canonicalized away from your own sub) — an identity
+ * header (name, PSN-linked badge, Follow/Unfollow for a viewer, library/collections links gated on
+ * visibility) over a grid of stat tiles. A tile renders only when its value is permitted and known;
+ * `0` is a real value and must still render, which is why every guard tests `!== null` rather than
+ * truthiness. */
 @Component({
   selector: 'app-profile-view',
-  imports: [RouterLink],
+  imports: [DatePipe, NgIcon, RouterLink],
   templateUrl: './profile-view.component.html',
   styleUrl: './profile-view.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  viewProviders: [
+    provideIcons({
+      phosphorArchive,
+      phosphorBooks,
+      phosphorLink,
+      phosphorMedal,
+      phosphorRanking,
+      phosphorStamp,
+      phosphorUserPlus,
+      phosphorUsersThree,
+    }),
+  ],
 })
 export class ProfileViewComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
@@ -53,6 +78,12 @@ export class ProfileViewComponent implements OnInit {
     }
 
     this.profile.set(resolved.profile);
+  }
+
+  /** The raw `psn_account_id` must never reach the DOM — when PSN's online id is unavailable the
+   * heading falls back to a generic label rather than exposing the identifier. */
+  protected displayName(profile: PublicProfileResponse): string {
+    return profile.identity?.online_id ?? (profile.psn_account_id ? 'PlayStation account' : 'Unlinked user');
   }
 
   protected followerLabel(count: number): string {

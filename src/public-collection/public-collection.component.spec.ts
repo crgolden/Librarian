@@ -1,7 +1,7 @@
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { Meta } from '@angular/platform-browser';
+import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { signal } from '@angular/core';
 import { PublicCollectionComponent } from './public-collection.component';
@@ -66,6 +66,15 @@ describe('PublicCollectionComponent', () => {
 
     const meta = TestBed.inject(Meta);
     expect(meta.getTag('name="robots"')?.content).toBe('noindex, nofollow');
+  });
+
+  it('names the collection in the document title rather than leaving the route default', () => {
+    configure('slug1', false, ok({ name: 'Shared picks' }));
+    const fixture = TestBed.createComponent(PublicCollectionComponent);
+    fixture.detectChanges();
+    httpMock.expectOne('/curator/api/collections/followed').flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    expect(TestBed.inject(Title).getTitle()).toBe('Shared picks — Librarian');
   });
 
   it('renders a shared collection with its items and cover art', () => {

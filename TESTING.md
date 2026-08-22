@@ -50,7 +50,8 @@ against the mock authority on first use:
 1. **Mock Curator API** (`e2e/mocks/curator-server.ts`, backed by `e2e/mocks/curator.ts`) — handles
    `/me`, `/psn/link` (POST/DELETE), `/me/psn-preferences` (GET/PUT), `/trophies/summary`, `/identity`,
    `/presence`, `/devices` (each enforcing the same 404-unlinked/403-flag-off semantics as the real
-   backend), the profile/follow routes (`/me/profile-settings`, `/users/{sub}/profile`,
+   backend), the profile/follow routes (`/me/profile-settings`, `/me/profile-link-sites`,
+   `/me/profile-links[/{site_key}]`, `/users/{sub}/profile`,
    `/users/{sub}/follow`, `/users/{sub}/followers`, `/users/{sub}/following`, `/users/{sub}/library`,
    `/users/{sub}/collections`), and the `/_test/*` control API used by test helpers (`e2e/fixtures.ts`,
    including `seedPsnPreferences` and the multi-user profile/follow seed methods).
@@ -68,10 +69,17 @@ against the mock authority on first use:
    you care about needs a row count, not a visibility assertion.
 
    **Seed the configuration the code does *not* special-case.** Both original wrap tests called
-   `store.seedAdmin()` on the reasoning that eight links is the tightest case — but `.nav-crowded` is
-   bound to `admin.isAdmin()` and strips every label, so those tests measured eight *icons* in a row
+   `store.seedAdmin()` on the reasoning that eight links is the tightest case — but `.nav-crowded` was
+   bound to `admin.isAdmin()` and stripped every label, so those tests measured eight *icons* in a row
    that cannot wrap. They could not fail. Before trusting a layout test, ask which branch the
-   mitigation turns on and point the test at the branch where it is **off**.
+   mitigation turns on and point the test at the branch where it is **off**. (`.nav-crowded` is gone —
+   the header is one shape now — so the current specs measure both the admin and non-admin link counts,
+   and neither is special-cased.)
+
+   **A row count does not catch a row that left the viewport.** The same header, during the window
+   before admin status settled, wrapped to two rows *and* rode up past the top edge, so the first row
+   was sliced through horizontally. Both rows still counted as rows. Pair every row-count assertion
+   with `min(top) >= 0` across the links.
 
    **A layout measurement taken in fallback metrics is not a measurement of the shipped layout, and
    `document.fonts.ready` is not enough to prevent one.** `src/styles.css` pulls Lora, Inter and IBM
@@ -85,6 +93,18 @@ against the mock authority on first use:
    any runner that cannot reach Google Fonts. `e2e/nav.spec.ts`'s `settleWebfonts()` therefore awaits
    `document.fonts.ready` **and** asserts `document.fonts.check()` for all three families, so a
    font-starved runner fails loudly instead of publishing a different layout's numbers.
+
+   **A broken image is not a missing image — it renders its `alt` text, at whatever width that text
+   needs.** `app-avatar` sets explicit `width`/`height`, and that still does not contain a failed load:
+   the browser lays out the alt string instead. This wrapped the non-admin header at 1281px the moment
+   the nav's initial-letter fallback became an `<img>`, because the alt is the user's email address —
+   the chip measured **294px against an expected ~110px**, 35px past the row's capacity. Two things
+   follow. The component pins its own box (`:host` carries the width/height with `overflow: hidden`),
+   so a failed load can never resize a layout — this is a production property, not a test convenience,
+   since the avatar endpoint can fail in production too. And the **mock OIDC server serves
+   `/avatar/:sub`** (a 1×1 GIF): without it the redirect 404s and every avatar in the suite is a broken
+   image, so the measured layout is not the shipped one. Same class of defect as measuring in fallback
+   font metrics.
 
    **Make layout failures self-diagnosing.** Asserting a bare row count tells you it broke, not why.
    Return the per-child widths, the container width and the content total, and pass them as the
@@ -179,6 +199,59 @@ own-sub-canonicalization redirects — `/u/{own sub}`, `/u/{own sub}/followers`,
 `/library/{own sub}`, `/collections/{own sub}` all silently redirect (`replaceUrl`) to their bare-path
 equivalents, while the same paths keyed to a *different* user's sub render viewer mode without
 redirecting).
+
+### Every local `npm run e2e` after the first one poisons itself — clear port 4100 first
+
+**Symptom: every authenticated test fails, the anonymous ones pass, and the reported error names a missing
+nav link.** The cause is never the nav. It is a leftover SSR server on port 4100, and there are two ways
+to get one:
+
+1. **A manual `serve:ssr` you started for local testing.** `playwright.config.ts` sets `SSR_PORT = 4100`,
+   the *same* port, with `reuseExistingServer: !CI` — so Playwright adopts your dev server rather than
+   starting its own. That server loads `.env.local`, pointing `OidcAuthority` at the **real** Identity
+   instead of the mock on 4102, so `/bff/login` fails and no session is ever created.
+2. **The previous `npm run e2e`.** `reuseExistingServer` starts servers but never tears them down, so a
+   run leaves an SSR process behind. The next run regenerates the mock provider's self-signed cert
+   (`generate-oidc-cert.ts`), but the leftover process read `NODE_EXTRA_CA_CERTS` at startup and still
+   trusts the *old* cert — so TLS discovery against the fresh mock provider fails. **This makes local E2E
+   runs non-idempotent: the first is honest and every one after it is poisoned.**
+
+Both produce an anonymous page and a misleading locator error. Clear the port before every run:
+
+```powershell
+Get-NetTCPConnection -LocalPort 4100 -State Listen |
+    ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+```
+
+Cost in one session: four full E2E cycles and three wrong root-cause diagnoses (a scope change, a
+component change, and a CSS change — none of them at fault). Check ports 4100/4101/4102 *first*, and
+treat "only the anonymous test passes" as this until proven otherwise.
+
+**Changing `SCOPES` in `src/bff/routes.ts` breaks every authenticated E2E test, and the symptom points at
+the wrong thing.** Every authenticated test times out on a locator and the page snapshot shows the
+*anonymous* page — it reads like a nav bug when it is a login bug. Check `/bff/user` and the mock
+provider's discovery document before touching a component. **The same hazard is far worse in production**:
+requesting a scope the live Identity client has not been granted fails sign-in for every user, so a scope
+change is a deploy-ordering one-way door. Prefer `accessTokenClaims`' allowlist in `src/bff/routes.ts`,
+which surfaces a claim the access token already carries and needs no Identity change at all.
+
+**`store.seedAdmin()` alone no longer makes a page an admin — use `signInAsAdmin(page)`.** Admin status
+reaches the browser as the `curator.admin` OIDC claim, settled once during the login round trip the
+`authedPage` fixture performs before the test body runs. Seeding Curator mid-test cannot retro-fit a claim
+onto a session that already exists, so `signInAsAdmin` sets the mock provider's `e2e_admin` cookie and
+re-runs `/bff/login`. Call `store.seedAdmin()` *as well* when the test also hits a `require_admin`
+endpoint, since Curator enforces that from the access token independently of the UI claim. The failure
+mode if you forget is quiet: the nav simply renders without the admin destination, and an assertion for
+it times out with no clue as to why.
+
+**A dynamic `<title>` can only be proved from the SSR response body.** The router applies
+`TitleStrategy.updateTitle()` *after* component construction, so a `setTitle` in a constructor is
+silently overwritten by the route's own static `title`. A `TestBed` with `provideRouter([])` runs no
+`TitleStrategy`, and `page.title()` reads post-router DOM — **both pass either way**. The one
+discriminating assertion is an anonymous `request.get('/catalog/g1')` reading `<title>` out of the raw
+body, which is also the branch a crawler actually takes. Verified by moving
+`CatalogDetailComponent`'s title call back into the constructor: the unit spec stayed green and
+`e2e/catalog.spec.ts`'s SSR assertion went red, with the served body carrying `<title>Game</title>`.
 
 ---
 

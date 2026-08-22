@@ -50,7 +50,9 @@ columns, and paging; see "The library page" below) — all backed by real Curato
 social-profile feature adds `/profile` and its sub-keyed counterpart `/u/:sub`: a viewable, followable
 profile with opt-in display toggles for library, collections, PSN trophies, and PSN identity, plus
 always-visible follower/following lists — collections can also be followed individually, from a "Collections
-I follow" view. `/library` and `/collections` are themselves now sub-keyed (`/library/:sub`,
+I follow" view. The profile also carries your handle on other PlayStation sites, declared from
+`/profile/settings`: you pick a site from a short allowlist and type a handle, and the link itself is
+built server-side from that site's own URL template. `/library` and `/collections` are themselves now sub-keyed (`/library/:sub`,
 `/collections/:sub`) so the same components render a read-only view of another user's library/collections
 when their profile makes that section public; the bare paths always mean "mine," and a sub-keyed URL for
 your own sub redirects straight back to the bare one. `/c/:slug` is the one page that needs no sign-in at
@@ -93,11 +95,11 @@ page-slicing implementation.
 
 | Layer | Technology |
 |---|---|
-| Framework | Node.js 22 / Express 5 |
+| Framework | Node.js 24 / Express 5 |
 | Auth / BFF | `openid-client` v6 + `express-session` + `connect-redis` |
 | Frontend | Angular 22 SSR (`@angular/ssr`) |
 | Observability | OpenTelemetry → Grafana Alloy (OTLP), `pino` → Elasticsearch |
-| Hosting | Azure App Service (Linux, Node 22) |
+| Hosting | Azure App Service (Linux, Node 24) |
 | Secrets | Azure Key Vault (Managed Identity) |
 
 ## Getting Started
@@ -184,7 +186,7 @@ instrumentation.mjs   # OpenTelemetry Node SDK init (loaded via --import)
 
 ## Deployment
 
-Deployed to Azure App Service (Linux, Node 22) as `crgolden-librarian` via GitHub Actions
+Deployed to Azure App Service (Linux, Node 24) as `crgolden-librarian` via GitHub Actions
 (`.github/workflows/main_crgolden-librarian.yml`) — build, SonarCloud analysis, Vitest + Playwright
 E2E, then deploy and post-deploy smoke test. Secrets are Key Vault-referenced App Service settings
 (`@Microsoft.KeyVault(SecretUri=...)`), resolved by the platform via the app's system-assigned managed

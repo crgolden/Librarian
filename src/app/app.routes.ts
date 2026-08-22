@@ -4,6 +4,7 @@ import { adminGuard } from './admin.guard';
 import { ownSubRedirectGuard } from '../profile/own-sub-redirect.guard';
 import { followListResolver } from '../profile/follow-list.resolver';
 import { profileResolver } from '../profile/profile.resolver';
+import { profileSettingsResolver } from '../profile/profile-settings.resolver';
 import { HomeComponent } from '../home/home.component';
 import { homeSummaryResolver } from '../home/home.resolver';
 import { psnStatusResolver } from '../psn/psn-status.resolver';
@@ -110,6 +111,7 @@ export const routes: Routes = [
     path: 'profile/settings',
     loadComponent: () => import('../profile/profile-settings.component').then((m) => m.ProfileSettingsComponent),
     canActivate: [authGuard],
+    resolve: { settings: profileSettingsResolver },
     title: 'Profile Settings',
   },
   {

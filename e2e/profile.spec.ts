@@ -61,9 +61,13 @@ test.describe('Profile — viewing another user', () => {
     await viewerPage.goto(`/u/${DEFAULT_E2E_SUB}`);
 
     await expect(viewerPage.locator('h1')).toContainText('Unlinked user');
-    await expect(viewerPage.locator('.profile-counts')).toContainText('followers');
-    await expect(viewerPage.locator('.profile-section-links a')).toHaveCount(0);
-    await expect(viewerPage.locator('.psn-category-card')).toHaveCount(0);
+    await expect(viewerPage.locator('#profile-stat-followers')).toBeVisible();
+    await expect(viewerPage.locator('#profile-library-link')).toHaveCount(0);
+    await expect(viewerPage.locator('#profile-collections-link')).toHaveCount(0);
+    await expect(viewerPage.locator('#profile-stat-trophy-level')).toHaveCount(0);
+    await expect(viewerPage.locator('#profile-stat-trophies-earned')).toHaveCount(0);
+    await expect(viewerPage.locator('#profile-stat-library')).toHaveCount(0);
+    await expect(viewerPage.locator('#profile-stat-collections')).toHaveCount(0);
   });
 
   test('viewing another user\'s fully public profile shows every gated section', async ({
@@ -100,8 +104,12 @@ test.describe('Profile — viewing another user', () => {
     await expect(viewerPage.locator('h1')).not.toContainText('psn-account-owner');
     await expect(viewerPage.getByRole('link', { name: 'View library' })).toBeVisible();
     await expect(viewerPage.getByRole('link', { name: 'View collections' })).toBeVisible();
-    await expect(viewerPage.locator('.psn-category-card', { hasText: 'Trophies' })).toBeVisible();
-    await expect(viewerPage.locator('.psn-category-card', { hasText: 'PSN Identity' })).toBeVisible();
+    await expect(viewerPage.locator('#profile-stat-trophy-level')).toBeVisible();
+    await expect(viewerPage.locator('#profile-stat-trophies-earned')).toBeVisible();
+    await expect(viewerPage.locator('#profile-stat-library .stat-value')).toHaveText('1');
+    await expect(viewerPage.locator('#profile-stat-member-since')).toBeVisible();
+    await expect(viewerPage.locator('#profile-psn-badge')).toBeVisible();
+    await expect(viewerPage.locator('body')).not.toContainText('psn-account-owner');
   });
 
   test('show_trophies=true but the viewer has no PSN link -> no trophies section, no error', async ({
@@ -121,7 +129,8 @@ test.describe('Profile — viewing another user', () => {
 
     await expect(viewerPage.locator('h1')).toContainText('PlayStation account');
     await expect(viewerPage.locator('h1')).not.toContainText('psn-account-owner');
-    await expect(viewerPage.locator('.psn-category-card')).toHaveCount(0);
+    await expect(viewerPage.locator('#profile-stat-trophy-level')).toHaveCount(0);
+    await expect(viewerPage.locator('#profile-stat-trophies-earned')).toHaveCount(0);
     await expect(viewerPage.locator('.text-error')).toHaveCount(0);
   });
 });
@@ -136,16 +145,18 @@ test.describe('Profile — follow / unfollow', () => {
     await page.goto('/profile');
 
     await viewerPage.goto(`/u/${DEFAULT_E2E_SUB}`);
-    await expect(viewerPage.locator('.profile-counts')).toContainText('0 followers');
+    const followerCount = viewerPage.locator('#profile-stat-followers .stat-value');
+    await expect(followerCount).toHaveText('0');
     await expect(viewerPage.getByRole('button', { name: 'Follow' })).toBeVisible();
 
     await viewerPage.getByRole('button', { name: 'Follow' }).click();
     await expect(viewerPage.getByRole('button', { name: 'Unfollow' })).toBeVisible({ timeout: 10_000 });
-    await expect(viewerPage.locator('.profile-counts')).toContainText('1 follower');
+    await expect(followerCount).toHaveText('1');
+    await expect(viewerPage.locator('#profile-stat-followers')).toHaveAttribute('aria-label', '1 follower');
 
     await viewerPage.getByRole('button', { name: 'Unfollow' }).click();
     await expect(viewerPage.getByRole('button', { name: 'Follow' })).toBeVisible({ timeout: 10_000 });
-    await expect(viewerPage.locator('.profile-counts')).toContainText('0 followers');
+    await expect(followerCount).toHaveText('0');
   });
 
   test('no Follow/Unfollow button is shown on your own profile', async ({ authedPage: page, store }) => {
@@ -209,6 +220,82 @@ test.describe('Profile — settings', () => {
 
     await page.goto('/profile/settings');
     await expect(page.getByRole('link', { name: 'PlayStation settings page' })).toBeVisible();
+  });
+
+  test('a declared PlayStation profile handle persists and resolves to the site URL', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+
+    await page.goto('/profile/settings');
+    await page.locator('#profile-link-handle-0').fill('e2e_curator');
+    await page.locator('#profile-link-save-0').click();
+    await expect(page.locator('#profile-link-url-0')).toHaveAttribute(
+      'href',
+      'https://psnprofiles.com/e2e_curator',
+      { timeout: 10_000 },
+    );
+
+    await page.reload();
+    await expect(page.locator('#profile-link-handle-0')).toHaveValue('e2e_curator');
+    await expect(page.locator('#profile-link-url-0')).toHaveAttribute('rel', 'noopener noreferrer nofollow ugc');
+  });
+
+  test('removing a declared handle takes the link off the settings page', async ({ authedPage: page, store }) => {
+    await store.reset();
+
+    await page.goto('/profile/settings');
+    await page.locator('#profile-link-handle-0').fill('e2e_curator');
+    await page.locator('#profile-link-save-0').click();
+    await expect(page.locator('#profile-link-url-0')).toBeVisible({ timeout: 10_000 });
+
+    await page.locator('#profile-link-remove-0').click();
+    await expect(page.locator('#profile-link-url-0')).toHaveCount(0);
+    await expect(page.locator('#profile-link-handle-0')).toHaveValue('');
+  });
+
+  test('Save stays disabled for a handle the API would reject', async ({ authedPage: page, store }) => {
+    await store.reset();
+
+    await page.goto('/profile/settings');
+    await page.locator('#profile-link-handle-0').fill('no spaces');
+    await expect(page.locator('#profile-link-save-0')).toBeDisabled();
+    await expect(page.locator('#profile-link-invalid-0')).toBeVisible();
+
+    await page.locator('#profile-link-handle-0').fill('e2e_curator');
+    await expect(page.locator('#profile-link-save-0')).toBeEnabled();
+  });
+});
+
+test.describe('Profile — declared PlayStation profile links', () => {
+  test('a public profile shows the owner\'s links to a viewer; a private one shows none', async ({
+    authedPage: page,
+    secondAuthedPage: viewerPage,
+    store,
+  }) => {
+    await store.reset();
+    await viewerPage.goto('/profile');
+
+    await page.goto('/profile/settings');
+    await page.locator('#profile-link-handle-0').fill('e2e_curator');
+    await page.locator('#profile-link-save-0').click();
+    await expect(page.locator('#profile-link-url-0')).toBeVisible({ timeout: 10_000 });
+
+    await page.goto('/profile');
+    await expect(page.locator('#profile-stat-profile-links')).toBeVisible();
+    await expect(page.locator('#profile-link-0')).toHaveAttribute('href', 'https://psnprofiles.com/e2e_curator');
+
+    await viewerPage.goto(`/u/${DEFAULT_E2E_SUB}`);
+    await expect(viewerPage.locator('#profile-stat-profile-links')).toHaveCount(0);
+
+    await store.seedUserProfileSettings(DEFAULT_E2E_SUB, { is_public: true });
+    await viewerPage.goto(`/u/${DEFAULT_E2E_SUB}`);
+    await expect(viewerPage.locator('#profile-stat-profile-links')).toBeVisible();
+    await expect(viewerPage.locator('#profile-link-0')).toHaveAttribute(
+      'href',
+      'https://psnprofiles.com/e2e_curator',
+    );
   });
 });
 

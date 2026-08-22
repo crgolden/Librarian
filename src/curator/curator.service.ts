@@ -36,6 +36,8 @@ import {
   PresenceResponse,
   ProfileDefinitionResponse,
   ProfileLibraryPageResponse,
+  ProfileLinkResponse,
+  ProfileLinkSiteResponse,
   ProfileSettingsRequest,
   ProfileSettingsResponse,
   PsnPreferencesRequest,
@@ -170,8 +172,18 @@ export class CuratorService {
     return this.http.get<CatalogGenresResponse>('/curator/api/catalog/genres');
   }
 
-  previewCollection(spec: CollectionSpecRequest): Observable<CollectionPreviewResponse> {
-    return this.http.post<CollectionPreviewResponse>('/curator/api/collections/preview', spec);
+  previewCollection(
+    spec: CollectionSpecRequest,
+    options: { limit?: number; offset?: number } = {},
+  ): Observable<CollectionPreviewResponse> {
+    let params = new HttpParams();
+    if (options.limit !== undefined) {
+      params = params.set('limit', options.limit);
+    }
+    if (options.offset !== undefined) {
+      params = params.set('offset', options.offset);
+    }
+    return this.http.post<CollectionPreviewResponse>('/curator/api/collections/preview', spec, { params });
   }
 
   saveDefinition(body: SaveDefinitionRequest): Observable<DefinitionResponse> {
@@ -233,8 +245,18 @@ export class CuratorService {
     return this.http.get<PublicCollectionResponse>(`/curator/api/public/collections/${shareSlug}`);
   }
 
-  runDefinition(definitionId: string): Observable<CollectionRunResponse> {
-    return this.http.post<CollectionRunResponse>(`/curator/api/collections/${definitionId}/runs`, {});
+  runDefinition(
+    definitionId: string,
+    options: { limit?: number; offset?: number } = {},
+  ): Observable<CollectionRunResponse> {
+    let params = new HttpParams();
+    if (options.limit !== undefined) {
+      params = params.set('limit', options.limit);
+    }
+    if (options.offset !== undefined) {
+      params = params.set('offset', options.offset);
+    }
+    return this.http.post<CollectionRunResponse>(`/curator/api/collections/${definitionId}/runs`, {}, { params });
   }
 
   createConsole(body: ConsoleRequest): Observable<ConsoleResponse> {
@@ -398,6 +420,22 @@ export class CuratorService {
 
   setProfileSettings(body: ProfileSettingsRequest): Observable<ProfileSettingsResponse> {
     return this.http.put<ProfileSettingsResponse>('/curator/api/me/profile-settings', body);
+  }
+
+  listProfileLinkSites(): Observable<ProfileLinkSiteResponse[]> {
+    return this.http.get<ProfileLinkSiteResponse[]>('/curator/api/me/profile-link-sites');
+  }
+
+  getProfileLinks(): Observable<ProfileLinkResponse[]> {
+    return this.http.get<ProfileLinkResponse[]>('/curator/api/me/profile-links');
+  }
+
+  setProfileLink(siteKey: string, handle: string): Observable<ProfileLinkResponse> {
+    return this.http.put<ProfileLinkResponse>(`/curator/api/me/profile-links/${siteKey}`, { handle });
+  }
+
+  deleteProfileLink(siteKey: string): Observable<void> {
+    return this.http.delete<void>(`/curator/api/me/profile-links/${siteKey}`);
   }
 
   getUserProfile(sub: string): Observable<PublicProfileResponse> {

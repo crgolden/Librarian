@@ -126,6 +126,14 @@ export class LibraryComponent implements OnInit, OnDestroy {
   protected readonly hasNextPage = computed(() => this.table().getCanNextPage());
   protected readonly hasPrevPage = computed(() => this.table().getCanPreviousPage());
 
+  protected readonly pageStart = computed(() =>
+    this.total() === 0 ? 0 : this.pagination().pageIndex * this.pagination().pageSize + 1,
+  );
+
+  protected readonly pageEnd = computed(() =>
+    Math.min((this.pagination().pageIndex + 1) * this.pagination().pageSize, this.total()),
+  );
+
   /** Column headers double as sort toggles on desktop, but the mobile card layout hides the
    * table header row entirely (there's nothing to click) — this drives a `<select>` instead. */
   protected readonly mobileSortValue = computed(() => {

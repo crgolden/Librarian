@@ -14,7 +14,8 @@
   max-width: 320px;
 }
 
-.catalog-detail > .link-button {
+/* The "Back to the catalog" links, which sit directly under the section rather than inside the card. */
+.catalog-detail > a {
   display: inline-block;
   margin-top: var(--space-4);
 }

@@ -54,9 +54,10 @@
 
   @if (error()) {
     <p class="text-error">{{ error() }}</p>
-  } @else if (games().length === 0) {
-    <p class="text-muted">No titles match these filters.</p>
   } @else {
+    @if (games().length === 0) {
+      <p class="text-muted">No titles match these filters.</p>
+    } @else {
     <ul class="catalog-list">
       @for (game of games(); track $index) {
         <li class="card catalog-card" [class.card-accent]="game.aaa_tier === 'AAA'">
@@ -81,7 +82,6 @@
           </span>
           @if (storeUrl(game); as url) {
             <a
-              class="link-button"
               [attr.id]="'catalog-store-link-' + $index"
               [href]="url"
               target="_blank"
@@ -93,12 +93,19 @@
         </li>
       }
     </ul>
+    }
 
-    <div class="catalog-pager">
+    <div class="pager">
       <button id="catalog-prev" type="button" class="btn-ghost" [disabled]="!hasPrevPage()" (click)="prevPage()">
         Previous
       </button>
-      <span class="text-muted">{{ offset() + 1 }}&ndash;{{ offset() + games().length }} of {{ total() }}</span>
+      <span class="text-muted">
+        @if (total() === 0) {
+          0 of 0
+        } @else {
+          {{ offset() + 1 }}&ndash;{{ offset() + games().length }} of {{ total() }}
+        }
+      </span>
       <button id="catalog-next" type="button" class="btn-ghost" [disabled]="!hasNextPage()" (click)="nextPage()">
         Next
       </button>

@@ -181,6 +181,11 @@ async function applyAuthRoutes(page: Page, identity: IdentityConfig): Promise<vo
   await page.goto('/bff/login');
 }
 
+export async function signInAsAdmin(page: Page): Promise<void> {
+  await page.context().addCookies([{ name: 'e2e_admin', value: 'true', url: MOCK_OIDC_BASE }]);
+  await page.goto('/bff/login');
+}
+
 type LibrarianFixtures = {
   store: TestStore;
   anonymousPage: Page;

@@ -2,10 +2,10 @@
   <h1 id="top">Privacy Policy</h1>
   <p class="text-muted">Effective 2026-07-17. See the <a routerLink="/faq">FAQ</a> for a plainer walkthrough of linking your account.</p>
 
-  <app-page-toc headingSelector=".privacy .privacy-section h3" />
+  <app-page-toc headingSelector=".privacy .privacy-section h2" />
 
   <div class="card privacy-section">
-    <h3>What we collect</h3>
+    <h2>What we collect</h2>
     <p>When you link your PlayStation account, Curator stores:</p>
     <ul>
       <li>Your PlayStation account ID</li>
@@ -18,6 +18,11 @@
       </li>
       <li>A log of the high-level actions taken on your behalf (see "Your action history" below)</li>
       <li>
+        Any handle you choose to declare on another PlayStation site. Only the site and the handle are
+        stored — the link itself is built from that site's own address template, and the list of sites you
+        can pick from is fixed. Removing a handle deletes it.
+      </li>
+      <li>
         If you've turned on trophy harvesting, one number per game in your library — how far through its
         trophy list you are — so you can filter and sort by it without Curator re-reading your whole
         library from PlayStation on every page load. Turning trophy harvesting back off erases those
@@ -27,7 +32,7 @@
   </div>
 
   <div class="card privacy-section">
-    <h3>What we never collect</h3>
+    <h2>What we never collect</h2>
     <ul>
       <li>
         Your NPSSO token — used once to obtain your access/refresh tokens, then discarded. It is never
@@ -48,7 +53,7 @@
   </div>
 
   <div class="card privacy-section">
-    <h3>How it's protected</h3>
+    <h2>How it's protected</h2>
     <p>
       Access and refresh tokens are encrypted before they're stored; only Curator holds the key. If you
       provide a RAWG or OpenCritic key, it's encrypted with that same key. Every connection to Curator uses
@@ -57,7 +62,7 @@
   </div>
 
   <div class="card privacy-section">
-    <h3>About RAWG/OpenCritic keys</h3>
+    <h2>About RAWG/OpenCritic keys</h2>
     <p>
       Curator doesn't provision a shared RAWG or OpenCritic key for every user — it doesn't scale. If you
       choose to provide your own, it's stored encrypted and used only to enrich your own library; it's
@@ -74,7 +79,7 @@
   </div>
 
   <div class="card privacy-section">
-    <h3>Sharing and visibility</h3>
+    <h2>Sharing and visibility</h2>
     <p>
       Every collection you create starts private — visible only to you. From a collection's own page you
       can change that to <strong>unlisted</strong> (anyone with its link can open it — nobody discovers it
@@ -92,6 +97,11 @@
       profile; unfollowing is always available, even for a collection that's since been made private again.
     </p>
     <p>
+      Handles you've declared on other PlayStation sites appear on your profile under the same rule as
+      everything else there: a visitor sees them only once your profile is public. They're always visible
+      to you, and you can remove one at any time from your profile settings.
+    </p>
+    <p>
       <strong>Share links are kept out of search engines.</strong> Librarian publishes a sitemap so the
       public game catalog can be found on the web, and it lists only catalog pages — never a share link,
       a profile, a library, or a collection. Our <code>robots.txt</code> additionally asks crawlers to stay
@@ -100,7 +110,7 @@
   </div>
 
   <div class="card privacy-section">
-    <h3>The public game catalog</h3>
+    <h2>The public game catalog</h2>
     <p>
       The game catalog is public and needs no account to browse — it describes games, not people. It's built
       from the PlayStation Store's own public listings plus the titles that turn up in users' libraries, and
@@ -116,7 +126,7 @@
   </div>
 
   <div class="card privacy-section">
-    <h3>Advertising and tracking</h3>
+    <h2>Advertising and tracking</h2>
     <p>
       We don't run ads, and we never will. There is no ad network on this site, no ad-tracking or
       retargeting cookies, and no advertising or marketing company ever receives your data. The only
@@ -126,7 +136,7 @@
   </div>
 
   <div class="card privacy-section">
-    <h3>How long we keep it</h3>
+    <h2>How long we keep it</h2>
     <p>
       Your library, tokens, and account data are kept until you unlink or delete your account. Trophy reads
       are cached for 15 minutes and expire on their own; your stored per-game completion percentages are
@@ -137,7 +147,7 @@
   </div>
 
   <div class="card privacy-section">
-    <h3>Your controls</h3>
+    <h2>Your controls</h2>
     <p>From your <a routerLink="/psn">PSN settings</a> page you can, at any time:</p>
     <ul>
       <li><strong>Unlink</strong> — immediately deletes your stored PlayStation tokens</li>
@@ -154,7 +164,7 @@
   </div>
 
   <div class="card privacy-section">
-    <h3>Your action history</h3>
+    <h2>Your action history</h2>
     <p>
       If your PlayStation account were ever compromised by something unrelated to Curator and you needed
       to know exactly what Curator itself did with your account, this is how we — and you — can check.
@@ -172,7 +182,7 @@
   </div>
 
   <div class="card privacy-section">
-    <h3>Open source</h3>
+    <h2>Open source</h2>
     <p>
       Every claim on this page is verifiable in public code — we'd rather you check than take our word for
       it. Librarian (this site and its BFF) is at
@@ -204,7 +214,7 @@
   </div>
 
   <div class="card privacy-section">
-    <h3>Questions or data requests</h3>
+    <h2>Questions or data requests</h2>
     <p>
       Email <a href="mailto:privacy@crgolden.com">privacy&#64;crgolden.com</a> for anything not covered by
       the self-service controls above.

@@ -100,6 +100,24 @@ test.describe('Catalog — anonymous', () => {
     expect(response.status()).toBe(200);
     expect(await response.text()).toContain('Bloodborne');
   });
+
+  test('the server-rendered body names the game in the title and social tags, not the route default', async ({
+    request,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedCatalogGames([
+      { game_id: 'g1', canonical_title: 'Bloodborne', franchise: 'Souls', genre: 'RPG', aaa_tier: 'AAA' },
+    ]);
+
+    const body = await (await request.get('/catalog/g1')).text();
+
+    expect(body).toContain('<title>Bloodborne');
+    expect(body).not.toContain('<title>Game</title>');
+    expect(body).toContain('property="og:title"');
+    expect(body).toContain('property="og:description"');
+    expect(body).toMatch(/<meta name="description" content="[^"]*Bloodborne/);
+  });
 });
 
 test.describe('Sitemap and robots', () => {

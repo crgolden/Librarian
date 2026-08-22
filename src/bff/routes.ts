@@ -21,6 +21,28 @@ const SCOPES = 'offline_access openid profile email curator';
 const CALLBACK_PATH =
   process.env['OidcCallbackPath'] ?? '/bff/callback';
 
+const ACCESS_TOKEN_CLAIM_ALLOWLIST = ['curator.admin'] as const;
+
+function accessTokenClaims(accessToken: string | undefined): Record<string, unknown> {
+  const payload = accessToken?.split('.')[1];
+  if (!payload) {
+    return {};
+  }
+
+  try {
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, unknown>;
+    const picked: Record<string, unknown> = {};
+    for (const claim of ACCESS_TOKEN_CLAIM_ALLOWLIST) {
+      if (decoded[claim] !== undefined) {
+        picked[claim] = decoded[claim];
+      }
+    }
+    return picked;
+  } catch {
+    return {};
+  }
+}
+
 function stringifyClaimValue(value: unknown): string {
   if (typeof value === 'string') return value;
   if (
@@ -147,6 +169,7 @@ export function buildBffRouter({ getOidcConfig, logger }: BffRouterDependencies)
       const merged: Record<string, unknown> = {
         ...(idClaims ?? {}),
         ...userInfo,
+        ...accessTokenClaims(tokens.access_token),
       };
 
       const claims: { type: string; value: string }[] = [];
@@ -199,6 +222,23 @@ export function buildBffRouter({ getOidcConfig, logger }: BffRouterDependencies)
     ];
 
     res.json(claims);
+  });
+
+  router.get('/avatar/:sub', async (req: Request, res: Response) => {
+    const sub = req.params['sub'];
+    if (typeof sub !== 'string' || !/^[A-Za-z0-9-]{1,64}$/.test(sub)) {
+      res.status(400).json({ error: 'Invalid subject identifier' });
+      return;
+    }
+
+    try {
+      const config = await getOidcConfig();
+      const issuer = config.serverMetadata().issuer.replace(/\/$/, '');
+      res.redirect(`${issuer}/avatar/${encodeURIComponent(sub)}`);
+    } catch (err) {
+      logger.error({ err }, 'Avatar redirect failed');
+      res.status(502).json({ error: 'Avatar unavailable' });
+    }
   });
 
   router.get('/logout', async (req: Request, res: Response) => {

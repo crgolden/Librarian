@@ -1,32 +1,15 @@
-import { Injectable, Signal, inject } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { Observable, Subject, map, shareReplay, switchMap, take, tap } from 'rxjs';
-import { MeService } from '../curator/me.service';
+import { Injectable, Signal, computed, inject } from '@angular/core';
+import { AuthService } from '../auth/auth.service';
+
+export const ADMIN_CLAIM_TYPE = 'curator.admin';
 
 @Injectable({ providedIn: 'root' })
 export class AdminService {
-  private readonly me = inject(MeService);
-  private readonly _refresh$ = new Subject<void>();
-  private loaded = false;
+  private readonly auth = inject(AuthService);
 
-  private readonly _isAdmin$ = this._refresh$.pipe(
-    switchMap(() => this.me.load()),
-    tap((me) => {
-      if (me === null) {
-        this.loaded = false;
-      }
-    }),
-    map((me) => me?.is_admin ?? false),
-    shareReplay({ bufferSize: 1, refCount: true }),
+  public readonly isAdmin: Signal<boolean> = computed(() =>
+    this.auth
+      .session()
+      .some((claim) => claim.type === ADMIN_CLAIM_TYPE && claim.value.toLowerCase() === 'true'),
   );
-
-  public readonly isAdmin: Signal<boolean> = toSignal(this._isAdmin$, { initialValue: false });
-
-  public ensureLoaded(): Observable<boolean> {
-    if (!this.loaded) {
-      this.loaded = true;
-      this._refresh$.next();
-    }
-    return this._isAdmin$.pipe(take(1));
-  }
 }

@@ -45,6 +45,7 @@ interface AuthorizationCodeRecord {
   sub: string;
   email: string;
   name: string;
+  isAdmin: boolean;
 }
 
 export async function createOidcApp(issuer: string): Promise<Express> {
@@ -72,10 +73,10 @@ export async function createOidcApp(issuer: string): Promise<Express> {
       response_types_supported: ['code'],
       subject_types_supported: ['public'],
       id_token_signing_alg_values_supported: ['RS256'],
-      scopes_supported: ['openid', 'profile', 'email', 'offline_access', 'curator'],
+      scopes_supported: ['openid', 'profile', 'email', 'offline_access', 'curator', 'curator.roles'],
       token_endpoint_auth_methods_supported: ['client_secret_post'],
       code_challenge_methods_supported: ['S256'],
-      claims_supported: ['sub', 'email', 'name'],
+      claims_supported: ['sub', 'email', 'name', 'curator.admin'],
     });
   });
 
@@ -93,9 +94,10 @@ export async function createOidcApp(issuer: string): Promise<Express> {
     }
     const email = readCookie(req, 'e2e_email') ?? `${sub}@test.invalid`;
     const name = readCookie(req, 'e2e_name') ?? email;
+    const isAdmin = readCookie(req, 'e2e_admin') === 'true';
 
     const code = `mock-code-${Math.random().toString(36).slice(2)}`;
-    codes.set(code, { redirectUri, sub, email, name });
+    codes.set(code, { redirectUri, sub, email, name, isAdmin });
 
     const redirectUrl = new URL(redirectUri);
     redirectUrl.searchParams.set('code', code);
@@ -117,7 +119,11 @@ export async function createOidcApp(issuer: string): Promise<Express> {
     const accessToken = `mock-access-${record.sub}-${Math.random().toString(36).slice(2)}`;
     sessions.set(accessToken, record);
 
-    const idToken = await new SignJWT({ email: record.email, name: record.name })
+    const idToken = await new SignJWT({
+      email: record.email,
+      name: record.name,
+      ...(record.isAdmin ? { 'curator.admin': 'true' } : {}),
+    })
       .setProtectedHeader({ alg: 'RS256', kid })
       .setSubject(record.sub)
       .setIssuedAt(now)
@@ -142,7 +148,18 @@ export async function createOidcApp(issuer: string): Promise<Express> {
       res.status(401).end();
       return;
     }
-    res.json({ sub: record.sub, email: record.email, name: record.name });
+    res.json({
+      sub: record.sub,
+      email: record.email,
+      name: record.name,
+      ...(record.isAdmin ? { 'curator.admin': 'true' } : {}),
+    });
+  });
+
+  app.get('/avatar/:sub', (_req: Request, res: Response) => {
+    res.type('gif').send(
+      Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64'),
+    );
   });
 
   app.get('/end-session', (_req: Request, res: Response) => {

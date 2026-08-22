@@ -8,6 +8,7 @@ import { ResolvedCollections } from './collections.resolver';
 import {
   CollectionGameResponse,
   CollectionItemResponse,
+  CollectionPreviewResponse,
   ConsoleResponse,
   DefinitionDetailResponse,
   DefinitionResponse,
@@ -71,6 +72,13 @@ function game(id: string, percentCompleted: number | null = null): CollectionGam
     size_gb: 40,
     percent_completed: percentCompleted,
   };
+}
+
+/** Preview and run now carry `limit`/`offset`, and `expectOne(string)` matches the URL *with* params. */
+const previewUrl = (r: { url: string }): boolean => r.url === '/curator/api/collections/preview';
+
+function emptyPreview(): CollectionPreviewResponse {
+  return { included: [], excluded: [], included_total: 0, excluded_total: 0, included_game_ids: [], used_gb: null };
 }
 
 interface CollectionsHarness {
@@ -194,9 +202,9 @@ describe('CollectionsComponent', () => {
 
       component.preview();
 
-      const request = httpMock.expectOne('/curator/api/collections/preview');
+      const request = httpMock.expectOne(previewUrl);
       expect(request.request.body.genre_filter).toEqual(['RPG', 'Shooter']);
-      request.flush({ included: [], excluded: [], total_size_gb: 0 });
+      request.flush(emptyPreview());
     });
   });
 
@@ -327,9 +335,38 @@ describe('CollectionsComponent', () => {
     h.minPercentCompleted.set(50);
 
     h.preview();
-    const previewReq = httpMock.expectOne('/curator/api/collections/preview');
+    const previewReq = httpMock.expectOne(previewUrl);
     expect(previewReq.request.body).toEqual(expect.objectContaining({ min_percent_completed: 50, include_inactive: false }));
-    previewReq.flush({ included: [], excluded: [], used_gb: null });
+    expect(previewReq.request.params.get('limit')).toBe('50');
+    expect(previewReq.request.params.get('offset')).toBe('0');
+    previewReq.flush(emptyPreview());
+  });
+
+  it('saveDefinition() sends every included id, not just the page the preview rendered', () => {
+    const fixture = createAndLoad([]);
+    const h = harness(fixture);
+    h.showCreate();
+    fixture.detectChanges();
+
+    h.preview();
+    // One page of objects, but the full membership alongside it — saving must use the latter.
+    httpMock.expectOne(previewUrl).flush({
+      included: [game('g1', 87)],
+      excluded: [],
+      included_total: 3,
+      excluded_total: 0,
+      included_game_ids: ['g1', 'g2', 'g3'],
+      used_gb: 40,
+    });
+    fixture.detectChanges();
+
+    h.name.set('My picks');
+    h.saveDefinition();
+    const saveReq = httpMock.expectOne('/curator/api/collections');
+    expect(saveReq.request.body).toEqual(expect.objectContaining({ game_ids: ['g1', 'g2', 'g3'] }));
+    saveReq.flush(definition({ name: 'My picks' }));
+
+    httpMock.expectOne('/curator/api/collections').flush([definition({ name: 'My picks' })]);
   });
 
   it('preview() renders included/excluded games, then saveDefinition() sends the preview game_ids', () => {
@@ -339,8 +376,15 @@ describe('CollectionsComponent', () => {
     fixture.detectChanges();
 
     h.preview();
-    const previewReq = httpMock.expectOne('/curator/api/collections/preview');
-    previewReq.flush({ included: [game('g1', 87)], excluded: [], used_gb: 40 });
+    const previewReq = httpMock.expectOne(previewUrl);
+    previewReq.flush({
+      included: [game('g1', 87)],
+      excluded: [],
+      included_total: 1,
+      excluded_total: 0,
+      included_game_ids: ['g1'],
+      used_gb: 40,
+    });
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Game g1');
@@ -496,7 +540,15 @@ describe('CollectionsComponent', () => {
     fixture.detectChanges();
 
     h.runSelected();
-    httpMock.expectOne('/curator/api/collections/d1/runs').flush({ run_id: 'r1', included: [game('g1')], excluded: [], used_gb: 40 });
+    httpMock.expectOne((r) => r.url === '/curator/api/collections/d1/runs').flush({
+      run_id: 'r1',
+      included: [game('g1')],
+      excluded: [],
+      included_total: 1,
+      excluded_total: 0,
+      included_game_ids: ['g1'],
+      used_gb: 40,
+    });
     fixture.detectChanges();
 
     h.adoptRunResult();

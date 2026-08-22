@@ -6,7 +6,7 @@
 
   @if (auth.isAuthenticated()) {
     <div class="card status-card">
-      <h2>Your collection</h2>
+      <h2>Your library</h2>
       @if (summary(); as totals) {
         <dl class="totals">
           <dt class="stamp-label">Titles catalogued</dt>
@@ -22,7 +22,7 @@
           </p>
         }
       } @else {
-        <p class="text-muted">Collection totals are unavailable right now.</p>
+        <p class="text-muted">Library totals are unavailable right now.</p>
       }
       <div class="actions">
         <a routerLink="/library" class="btn-primary">My Library</a>
@@ -33,7 +33,7 @@
     </div>
   } @else {
     <div class="card who-for">
-      <h2>Four ways titles enter a collection</h2>
+      <h2>How titles enter your library</h2>
       <div class="who-for-grid">
         <div class="who-for-item">
           <ng-icon name="phosphorBookmarkSimple" aria-hidden="true" />

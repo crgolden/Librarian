@@ -27,6 +27,9 @@ type View = 'list' | 'create' | 'detail' | 'followed';
 
 const ITEMS_PAGE_SIZE = 50;
 
+/** Page size for a preview's / run's generated result. Curator caps `limit` at 100 for both. */
+const RESULT_PAGE_SIZE = 50;
+
 /** `/collections` (owner) and `/collections/:sub` (viewer, canonicalized away from your own sub).
  *
  * Owner mode: list saved definitions, create/preview/save, view a definition's detail (with its stored
@@ -80,6 +83,14 @@ export class CollectionsComponent implements OnInit {
   protected readonly createError = signal<string | null>(null);
   protected readonly previewing = signal(false);
   protected readonly previewResult = signal<CollectionPreviewResponse | null>(null);
+  protected readonly previewOffset = signal(0);
+  protected readonly resultPageSize = RESULT_PAGE_SIZE;
+
+  /** One offset pages both lists, so the pager has to run to whichever is longer. */
+  protected readonly previewPageableTotal = computed(() => {
+    const result = this.previewResult();
+    return result ? Math.max(result.included_total, result.excluded_total) : 0;
+  });
   protected readonly name = signal('');
   protected readonly description = signal('');
   protected readonly saving = signal(false);
@@ -108,6 +119,17 @@ export class CollectionsComponent implements OnInit {
   protected readonly itemSearch = signal('');
   protected readonly itemSort = signal<CollectionItemSortField>('rank');
   protected readonly itemSortDir = signal<'asc' | 'desc'>('asc');
+
+  protected readonly itemSortOptions: readonly {
+    id: string;
+    field: CollectionItemSortField;
+    label: string;
+  }[] = [
+    { id: 'rank', field: 'rank', label: 'Rank' },
+    { id: 'title', field: 'title', label: 'Title' },
+    { id: 'oc', field: 'oc_score', label: 'OpenCritic' },
+    { id: 'psn', field: 'psn_rating', label: 'PSN' },
+  ];
   protected readonly itemOffset = signal(0);
   protected readonly itemsPageSize = ITEMS_PAGE_SIZE;
 
@@ -118,6 +140,12 @@ export class CollectionsComponent implements OnInit {
   protected readonly running = signal(false);
   protected readonly runError = signal<string | null>(null);
   protected readonly runResult = signal<CollectionRunResponse | null>(null);
+  protected readonly runOffset = signal(0);
+
+  protected readonly runPageableTotal = computed(() => {
+    const result = this.runResult();
+    return result ? Math.max(result.included_total, result.excluded_total) : 0;
+  });
   protected readonly adopting = signal(false);
   protected readonly adoptError = signal<string | null>(null);
 
@@ -356,6 +384,20 @@ export class CollectionsComponent implements OnInit {
   }
 
   protected preview(): void {
+    this.previewOffset.set(0);
+    this.loadPreview();
+  }
+
+  protected pagePreview(delta: number): void {
+    const next = this.previewOffset() + delta * RESULT_PAGE_SIZE;
+    if (next < 0 || next >= this.previewPageableTotal()) {
+      return;
+    }
+    this.previewOffset.set(next);
+    this.loadPreview();
+  }
+
+  private loadPreview(): void {
     this.createError.set(null);
     const spec = this.buildSpec();
     if (!spec) {
@@ -363,14 +405,14 @@ export class CollectionsComponent implements OnInit {
     }
 
     this.previewing.set(true);
-    this.previewResult.set(null);
-    this.curator.previewCollection(spec).subscribe({
+    this.curator.previewCollection(spec, { limit: RESULT_PAGE_SIZE, offset: this.previewOffset() }).subscribe({
       next: (result) => {
         this.previewing.set(false);
         this.previewResult.set(result);
       },
       error: () => {
         this.previewing.set(false);
+        this.previewResult.set(null);
         this.createError.set('Unable to generate a preview for this spec.');
       },
     });
@@ -388,7 +430,7 @@ export class CollectionsComponent implements OnInit {
       return;
     }
 
-    const gameIds = this.previewResult()?.included.map((game) => game.game_id) ?? [];
+    const gameIds = this.previewResult()?.included_game_ids ?? [];
 
     this.saving.set(true);
     this.saveError.set(null);
@@ -707,6 +749,20 @@ export class CollectionsComponent implements OnInit {
   }
 
   protected runSelected(): void {
+    this.runOffset.set(0);
+    this.executeRun();
+  }
+
+  protected pageRun(delta: number): void {
+    const next = this.runOffset() + delta * RESULT_PAGE_SIZE;
+    if (next < 0 || next >= this.runPageableTotal()) {
+      return;
+    }
+    this.runOffset.set(next);
+    this.executeRun();
+  }
+
+  private executeRun(): void {
     const definition = this.selectedDefinition();
     if (!definition) {
       return;
@@ -715,16 +771,18 @@ export class CollectionsComponent implements OnInit {
     this.running.set(true);
     this.runError.set(null);
     this.adoptError.set(null);
-    this.curator.runDefinition(definition.definition_id).subscribe({
-      next: (result) => {
-        this.running.set(false);
-        this.runResult.set(result);
-      },
-      error: () => {
-        this.running.set(false);
-        this.runError.set('Unable to run this collection.');
-      },
-    });
+    this.curator
+      .runDefinition(definition.definition_id, { limit: RESULT_PAGE_SIZE, offset: this.runOffset() })
+      .subscribe({
+        next: (result) => {
+          this.running.set(false);
+          this.runResult.set(result);
+        },
+        error: () => {
+          this.running.set(false);
+          this.runError.set('Unable to run this collection.');
+        },
+      });
   }
 
   protected adoptRunResult(): void {
@@ -736,7 +794,7 @@ export class CollectionsComponent implements OnInit {
     this.adopting.set(true);
     this.adoptError.set(null);
     this.curator
-      .updateDefinition(definition.definition_id, { game_ids: result.included.map((game) => game.game_id) })
+      .updateDefinition(definition.definition_id, { game_ids: [...result.included_game_ids] })
       .subscribe({
         next: (updated) => {
           this.adopting.set(false);

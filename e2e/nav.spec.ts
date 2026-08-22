@@ -6,7 +6,7 @@
  */
 
 import type { Page } from '@playwright/test';
-import { test, expect } from './fixtures.js';
+import { test, expect, signInAsAdmin } from './fixtures.js';
 
 const PRIMARY_LINKS = ['Home', 'Catalog', 'Collections', 'Library', 'Profile'];
 
@@ -67,26 +67,47 @@ test.describe('SiteNavComponent — desktop', () => {
 });
 
 test.describe('SiteNavComponent — responsive escalation', () => {
-  test('above xl the header carries icons, labels and the user chip together', async ({ authedPage: page, store }) => {
+  test('above xl the header carries icons and the user chip, with labels held back as tooltips', async ({
+    authedPage: page,
+    store,
+  }) => {
     await store.reset();
     await page.setViewportSize({ width: 1440, height: 900 });
 
     await page.goto('/');
     await expect(page.locator('.site-nav-desktop .user-chip')).toBeVisible();
-    await expect(page.locator('.site-nav-desktop .nav-label').first()).toBeVisible();
+    await expect(page.locator('.site-nav-desktop .nav-label').first()).toBeHidden();
     expect(await page.locator('.site-nav-desktop ng-icon').count()).toBeGreaterThan(0);
   });
 
-  test('between lg and xl the user chip is dropped but the labels stay', async ({ authedPage: page, store }) => {
+  test('a label appears on hover and on keyboard focus, and only for the link addressed', async ({
+    authedPage: page,
+    store,
+  }) => {
     await store.reset();
-    await page.setViewportSize({ width: 1100, height: 900 });
-
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/');
-    await expect(page.locator('.site-nav-desktop .user-chip')).toBeHidden();
-    await expect(page.locator('.site-nav-desktop .nav-label').first()).toBeVisible();
+
+    const catalog = page.locator('.site-nav-desktop').getByRole('link', { name: 'Catalog', exact: true });
+    const catalogLabel = catalog.locator('.nav-label');
+    const homeLabel = page
+      .locator('.site-nav-desktop')
+      .getByRole('link', { name: 'Home', exact: true })
+      .locator('.nav-label');
+
+    await expect(catalogLabel).toBeHidden();
+    await catalog.hover();
+    await expect(catalogLabel).toBeVisible();
+    await expect(homeLabel).toBeHidden();
+
+    await page.mouse.move(0, 400);
+    await expect(catalogLabel).toBeHidden();
+
+    await catalog.focus();
+    await expect(catalogLabel).toBeVisible();
   });
 
-  test('the breakpoints are max-width, so each named width sits in the narrower band', async ({
+  test('the chip boundary is max-width, so each named width sits in the narrower band', async ({
     authedPage: page,
     store,
   }) => {
@@ -98,86 +119,88 @@ test.describe('SiteNavComponent — responsive escalation', () => {
 
     await page.setViewportSize({ width: 1280, height: 900 });
     await expect(page.locator('.site-nav-desktop .user-chip')).toBeHidden();
-    await expect(page.locator('.site-nav-desktop .nav-label').first()).toBeVisible();
+  });
 
-    await page.setViewportSize({ width: 1025, height: 900 });
-    await expect(page.locator('.site-nav-desktop .nav-label').first()).toBeVisible();
+  test('the tab bar below md keeps its labels visible, unlike the desktop header', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await page.setViewportSize({ width: 700, height: 900 });
 
-    await page.setViewportSize({ width: 1024, height: 900 });
-    await expect(page.locator('.site-nav-desktop .nav-label').first()).toBeHidden();
+    await page.goto('/');
+    await expect(page.locator('.site-nav-desktop')).toBeHidden();
+    await expect(page.locator('.site-nav-tabbar .tab-label').first()).toBeVisible();
   });
 
   for (const width of [1440, 1100]) {
-    test(`an admin's eighth link does not wrap the header onto a second row at ${width}px`, async ({
-      authedPage: page,
-      store,
-    }) => {
-      await store.reset();
-      await store.seedAdmin();
-      await page.setViewportSize({ width, height: 900 });
+    for (const asAdmin of [false, true]) {
+      const who = asAdmin ? 'an admin' : 'a non-admin';
+      test(`${who}'s header stays on one unclipped row at ${width}px`, async ({ authedPage: page, store }) => {
+        await store.reset();
+        if (asAdmin) {
+          await store.seedAdmin();
+          await signInAsAdmin(page);
+        }
+        await page.setViewportSize({ width, height: 900 });
 
-      await page.goto('/');
-      await expect(page.locator('.site-nav-desktop').getByRole('link', { name: 'Enrichment Runs', exact: true })).toBeVisible();
-      await settleWebfonts(page, ['.brand']);
+        await page.goto('/');
+        if (asAdmin) {
+          await expect(
+            page.locator('.site-nav-desktop').getByRole('link', { name: 'Enrichment Runs', exact: true }),
+          ).toBeVisible();
+        }
+        await settleWebfonts(page, ['.brand']);
 
-      const rows = await page.locator('.site-nav-desktop').evaluate((nav) => {
-        const centres = Array.from(nav.querySelectorAll('a')).map((link) => {
-          const box = link.getBoundingClientRect();
-          return Math.round(box.top + box.height / 2);
+        const layout = await page.locator('.site-nav-desktop').evaluate((nav) => {
+          const links = Array.from(nav.querySelectorAll('a'));
+          const centres = links.map((link) => {
+            const box = link.getBoundingClientRect();
+            return Math.round(box.top + box.height / 2);
+          });
+          return {
+            rows: new Set(centres).size,
+            linkCount: links.length,
+            minTop: Math.min(...links.map((link) => Math.round(link.getBoundingClientRect().top))),
+          };
         });
-        return new Set(centres).size;
-      });
-      expect(rows).toBe(1);
-    });
-  }
 
-  for (const { width, chip } of [
-    { width: 1281, chip: true },
-    { width: 1100, chip: false },
-  ]) {
-    test(`a non-admin header does not wrap at ${width}px, where the labels still render`, async ({
-      authedPage: page,
-      store,
-    }) => {
-      await store.reset();
-      await page.setViewportSize({ width, height: 900 });
-
-      await page.goto('/');
-      await expect(page.locator('.site-nav-desktop .nav-label').first()).toBeVisible();
-      await expect(page.locator('.site-nav-desktop .user-chip')).toBeVisible({ visible: chip });
-      await settleWebfonts(page, ['.brand', '.site-nav-desktop .nav-label', ...(chip ? ['.user-email'] : [])]);
-
-      const layout = await page.locator('.site-nav-desktop').evaluate((nav) => {
-        const items = Array.from(nav.children).map((child) => {
-          const box = child.getBoundingClientRect();
-          return { label: child.textContent?.trim().slice(0, 20) ?? '', width: Math.round(box.width) };
-        });
-        const centres = Array.from(nav.querySelectorAll('a')).map((link) => {
-          const box = link.getBoundingClientRect();
-          return Math.round(box.top + box.height / 2);
-        });
-        const email = nav.querySelector('.user-email');
-        return {
-          rows: new Set(centres).size,
-          width: Math.round(nav.getBoundingClientRect().width),
-          content: items.reduce((running, item) => running + item.width, 0),
-          emailClipped: email ? email.scrollWidth > email.clientWidth : false,
-          items,
-        };
-      });
-
-      expect(layout.rows, `header wrapped; ${JSON.stringify(layout)}`).toBe(1);
-
-      if (chip) {
+        expect(layout.linkCount).toBe(asAdmin ? 8 : 7);
+        expect(layout.rows, `header wrapped; ${JSON.stringify(layout)}`).toBe(1);
         expect(
-          layout.emailClipped,
-          'the fixture email no longer overflows .user-email\'s 10ch cap, so deleting the cap would leave this test green',
-        ).toBe(true);
-      }
-    });
+          layout.minTop,
+          `header escaped the top of the viewport; ${JSON.stringify(layout)}`,
+        ).toBeGreaterThanOrEqual(0);
+      });
+    }
   }
 
-  test('below lg the labels give way to icons, and every link keeps its accessible name', async ({
+  test('the .user-email cap truncates a long address, measured against the cap itself', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    await page.goto('/');
+    await expect(page.locator('.site-nav-desktop .user-chip')).toBeVisible();
+    await settleWebfonts(page, ['.user-email']);
+
+    const email = await page.locator('.site-nav-desktop .user-email').evaluate((el) => ({
+      clipped: el.scrollWidth > el.clientWidth,
+      maxWidth: getComputedStyle(el).maxWidth,
+      overflow: getComputedStyle(el).overflow,
+    }));
+
+    expect(email.maxWidth).not.toBe('none');
+    expect(email.overflow).toBe('hidden');
+    expect(
+      email.clipped,
+      'the fixture address no longer overflows the cap, so deleting the cap would leave this green',
+    ).toBe(true);
+  });
+
+  test('every link keeps its accessible name once the labels are tooltips', async ({
     authedPage: page,
     store,
   }) => {

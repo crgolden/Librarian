@@ -2,10 +2,10 @@
   @if (notFound()) {
     <h1>Game not found</h1>
     <p class="text-muted">No game in the catalog has that id.</p>
-    <a class="link-button" routerLink="/catalog">Back to the catalog</a>
+    <a routerLink="/catalog">Back to the catalog</a>
   } @else if (error()) {
     <p class="text-error">{{ error() }}</p>
-    <a class="link-button" routerLink="/catalog">Back to the catalog</a>
+    <a routerLink="/catalog">Back to the catalog</a>
   } @else if (game(); as current) {
     <h1>{{ current.canonical_title }}</h1>
 
@@ -28,12 +28,12 @@
       }
 
       @if (storeUrl(current); as url) {
-        <a id="catalog-detail-store-link" class="link-button" [href]="url" target="_blank" rel="noopener noreferrer">
+        <a id="catalog-detail-store-link" [href]="url" target="_blank" rel="noopener noreferrer">
           View on PlayStation Store
         </a>
       }
     </div>
 
-    <a class="link-button" routerLink="/catalog">Back to the catalog</a>
+    <a routerLink="/catalog">Back to the catalog</a>
   }
 </section>

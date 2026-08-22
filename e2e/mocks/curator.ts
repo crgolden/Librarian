@@ -62,6 +62,8 @@ export interface UserRecord {
   isAdmin: boolean;
 }
 
+const ACCOUNT_CREATED_AT = '2026-01-02T03:04:05+00:00';
+
 const DEFAULT_PSN_PREFERENCES: PsnPreferences = {
   harvest_trophies: false,
   harvest_identity: false,
@@ -289,7 +291,16 @@ const nextLibraryOutcome = new Map<string, LibraryRefreshOutcome>();
 const actionLog = new Map<string, ActionLogEntry[]>();
 const libraryGames = new Map<string, LibraryGame[]>();
 const profileSettings = new Map<string, ProfileSettings>();
+const profileLinkHandles = new Map<string, Map<string, string>>();
 const followEdges: FollowEdge[] = [];
+
+const PROFILE_LINK_SITES = [
+  { site_key: 'psnprofiles', display_name: 'PSNProfiles', url_template: 'https://psnprofiles.com/{handle}' },
+  { site_key: 'truetrophies', display_name: 'TrueTrophies', url_template: 'https://www.truetrophies.com/gamer/{handle}' },
+  { site_key: 'exophase', display_name: 'Exophase', url_template: 'https://www.exophase.com/psn/user/{handle}/' },
+];
+
+const PROFILE_LINK_HANDLE_PATTERN = /^[A-Za-z0-9_-]{3,16}$/;
 
 const DEFAULT_SUB = 'e2e-user-id';
 let nextShareSlug = 1;
@@ -516,6 +527,22 @@ function settingsFor(sub: string): ProfileSettings {
   return profileSettings.get(sub) ?? DEFAULT_PROFILE_SETTINGS;
 }
 
+function profileLinksFor(sub: string): { site_key: string; display_name: string; handle: string; url: string }[] {
+  const handles = profileLinkHandles.get(sub);
+  if (!handles) {
+    return [];
+  }
+  return PROFILE_LINK_SITES.filter((site) => handles.has(site.site_key)).map((site) => {
+    const handle = handles.get(site.site_key) ?? '';
+    return {
+      site_key: site.site_key,
+      display_name: site.display_name,
+      handle,
+      url: site.url_template.replace('{handle}', handle),
+    };
+  });
+}
+
 function isFollowing(follower: string, followed: string): boolean {
   return followEdges.some((e) => e.follower === follower && e.followed === followed);
 }
@@ -584,6 +611,29 @@ function generateCollection(
   return { included, excluded, used_gb: usedGb };
 }
 
+function pageCollectionResult(
+  result: { included: CollectionGame[]; excluded: CollectionGame[]; used_gb: number | null },
+  req: Request,
+): {
+  included: CollectionGame[];
+  excluded: CollectionGame[];
+  included_total: number;
+  excluded_total: number;
+  included_game_ids: string[];
+  used_gb: number | null;
+} {
+  const limit = Number(req.query['limit'] ?? 50);
+  const offset = Number(req.query['offset'] ?? 0);
+  return {
+    included: result.included.slice(offset, offset + limit),
+    excluded: result.excluded.slice(offset, offset + limit),
+    included_total: result.included.length,
+    excluded_total: result.excluded.length,
+    included_game_ids: result.included.map((game) => game.game_id),
+    used_gb: result.used_gb,
+  };
+}
+
 function toProfileDefinition(
   d: DefinitionRecord,
 ): { definition_id: string; name: string; kind: string; console_id: string | null; item_count: number } {
@@ -603,8 +653,6 @@ export function createCuratorApp(): Express {
     next();
   });
 
-
-
   /** Clear all state (called at the start of each test). */
   app.post('/_test/reset', (_req: Request, res: Response) => {
     users.clear();
@@ -619,6 +667,7 @@ export function createCuratorApp(): Express {
     actionLog.clear();
     libraryGames.clear();
     profileSettings.clear();
+    profileLinkHandles.clear();
     followEdges.length = 0;
     nextShareSlug = 1;
     nextConsoleId = 1;
@@ -1066,14 +1115,13 @@ export function createCuratorApp(): Express {
       return;
     }
 
-    res.json(
-      generateCollection(sub, {
-        kind: spec.kind,
-        genre_filter: spec.genre_filter ?? [],
-        min_score: spec.min_score ?? null,
-        aaa_tier_filter: spec.aaa_tier_filter ?? null,
-      }),
-    );
+    const generated = generateCollection(sub, {
+      kind: spec.kind,
+      genre_filter: spec.genre_filter ?? [],
+      min_score: spec.min_score ?? null,
+      aaa_tier_filter: spec.aaa_tier_filter ?? null,
+    });
+    res.json(pageCollectionResult(generated, req));
   });
 
   /** POST /collections — save a named collection definition, freezing `game_ids` as its membership. */
@@ -1243,7 +1291,7 @@ export function createCuratorApp(): Express {
     }
 
     const result = generateCollection(sub, definition);
-    res.status(201).json({ run_id: `run-${Date.now()}`, ...result });
+    res.status(201).json({ run_id: `run-${String(Date.now())}`, ...pageCollectionResult(result, req) });
   });
 
 
@@ -1550,11 +1598,51 @@ export function createCuratorApp(): Express {
     res.json({ run_id: req.params['runId'], status: run.status, error: run.error, result_summary: run.result_summary });
   });
 
-
-
   /** GET /me/profile-settings — the caller's own display-visibility toggles. Never 404s. */
   app.get('/me/profile-settings', (req: Request, res: Response) => {
     res.json(settingsFor(subFromRequest(req)));
+  });
+
+  /** GET /me/profile-link-sites — the allowlisted sites a profile link may point at, in display order. */
+  app.get('/me/profile-link-sites', (_req: Request, res: Response) => {
+    res.json(PROFILE_LINK_SITES.map((site) => ({ site_key: site.site_key, display_name: site.display_name })));
+  });
+
+  /** GET /me/profile-links — the caller's own declared profile links. Never 404s. */
+  app.get('/me/profile-links', (req: Request, res: Response) => {
+    res.json(profileLinksFor(subFromRequest(req)));
+  });
+
+  /** PUT /me/profile-links/{site_key} — declare or replace a handle. 400 on an unknown site or a
+   * handle outside the stored CHECK constraint's charset. */
+  app.put('/me/profile-links/:site_key', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const siteKey = req.params['site_key'];
+    const site = PROFILE_LINK_SITES.find((s) => s.site_key === siteKey);
+    if (!site) {
+      res.status(400).json({ detail: 'Unknown site.' });
+      return;
+    }
+    const handle = ((req.body as { handle?: string }).handle ?? '').trim();
+    if (!PROFILE_LINK_HANDLE_PATTERN.test(handle)) {
+      res.status(400).json({ detail: 'Handle must be 3-16 characters: letters, digits, - or _.' });
+      return;
+    }
+    const handles = profileLinkHandles.get(sub) ?? new Map<string, string>();
+    handles.set(site.site_key, handle);
+    profileLinkHandles.set(sub, handles);
+    res.json({
+      site_key: site.site_key,
+      display_name: site.display_name,
+      handle,
+      url: site.url_template.replace('{handle}', handle),
+    });
+  });
+
+  /** DELETE /me/profile-links/{site_key} — remove a link. Idempotent; always 204. */
+  app.delete('/me/profile-links/:site_key', (req: Request, res: Response) => {
+    profileLinkHandles.get(subFromRequest(req))?.delete(req.params['site_key']);
+    res.status(204).end();
   });
 
   /** PUT /me/profile-settings — replace the caller's own display-visibility toggles. */
@@ -1606,6 +1694,11 @@ export function createCuratorApp(): Express {
       }
     }
 
+    const libraryCount = libraryVisible ? (libraryGames.get(target) ?? []).length : null;
+    const collectionsCount = collectionsVisible
+      ? userDefinitions(target).filter((d) => viewerIsOwner || d.visibility === 'public').length
+      : null;
+
     res.json({
       sub: target,
       psn_account_id: psnAccountId,
@@ -1618,6 +1711,15 @@ export function createCuratorApp(): Express {
       collections_visible: collectionsVisible,
       trophies,
       identity,
+      created_at: ACCOUNT_CREATED_AT,
+      library_count: libraryCount,
+      collections_count: collectionsCount,
+      trophies_hidden_by_owner_setting:
+        viewerIsOwner &&
+        trophies === null &&
+        targetUser.psn !== null &&
+        !(settings.show_trophies && targetUser.psnPreferences.harvest_trophies),
+      profile_links: viewerCanSeePublicSections ? profileLinksFor(target) : [],
     });
   });
 

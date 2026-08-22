@@ -1,15 +1,17 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { UrlTree, provideRouter, Router } from '@angular/router';
-import { Observable, firstValueFrom, isObservable, of } from 'rxjs';
+import { Observable, firstValueFrom, isObservable } from 'rxjs';
 import { adminGuard } from './admin.guard';
 import { AdminService } from '../admin/admin.service';
 
 describe('adminGuard', () => {
   function configure(isAdmin: boolean): void {
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
-        { provide: AdminService, useValue: { ensureLoaded: () => of(isAdmin) } },
+        { provide: AdminService, useValue: { isAdmin: signal(isAdmin) } },
       ],
     });
   }

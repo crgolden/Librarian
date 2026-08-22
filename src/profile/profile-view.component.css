@@ -1,33 +1,20 @@
 .profile-view {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  max-width: 480px;
+  gap: var(--space-5);
+  max-width: 1000px;
   margin-inline: auto;
 }
 
-.status-card {
-  padding: var(--card-pad);
+.profile-header {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
   align-items: flex-start;
-}
-
-.profile-identity-card {
-  width: 100%;
-}
-
-.profile-counts {
-  display: flex;
-  gap: var(--space-4);
-}
-
-.profile-section-links {
-  display: flex;
   gap: var(--space-3);
 }
 
-.psn-category-card {
-  width: 100%;
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
 }

@@ -49,7 +49,3 @@
   }
 }
 
-.catalog-pager {
-  display: flex;
-  gap: var(--space-3);
-}

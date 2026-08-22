@@ -1,15 +1,15 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { of } from 'rxjs';
 import { SiteNavComponent } from './site-nav.component';
 import { AuthService } from '../../auth/auth.service';
 import { AdminService } from '../../admin/admin.service';
 
 function configure(
   auth: Partial<AuthService>,
-  admin: Partial<AdminService> = { isAdmin: signal(false), ensureLoaded: () => of(false) },
+  admin: Partial<AdminService> = { isAdmin: signal(false) },
 ): ComponentFixture<SiteNavComponent> {
+  TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [SiteNavComponent],
     providers: [
@@ -21,7 +21,7 @@ function configure(
         { path: 'profile', children: [] },
         { path: 'admin/enrichment', children: [] },
       ]),
-      { provide: AuthService, useValue: auth },
+      { provide: AuthService, useValue: { sub: signal('e2e-user-id'), ...auth } },
       { provide: AdminService, useValue: admin },
     ],
   });
@@ -84,7 +84,7 @@ describe('SiteNavComponent', () => {
         picture: signal(null),
         logoutUrl: signal(null),
       },
-      { isAdmin: signal(false), ensureLoaded: () => of(false) },
+      { isAdmin: signal(false) },
     );
 
     expect(fixture.nativeElement.textContent).not.toContain('Enrichment Runs');
@@ -99,7 +99,7 @@ describe('SiteNavComponent', () => {
         picture: signal(null),
         logoutUrl: signal(null),
       },
-      { isAdmin: signal(true), ensureLoaded: () => of(true) },
+      { isAdmin: signal(true) },
     );
     const compiled: HTMLElement = fixture.nativeElement;
 
@@ -107,20 +107,9 @@ describe('SiteNavComponent', () => {
     expect(compiled.querySelector('.site-nav-tabbar')?.textContent).not.toContain('Enrichment Runs');
   });
 
-  it('calls ensureLoaded() when authenticated, not when anonymous', () => {
-    let calls = 0;
-    const admin: Partial<AdminService> = {
-      isAdmin: signal(false),
-      ensureLoaded: () => {
-        calls++;
-        return of(false);
-      },
-    };
-    configure({ isAuthenticated: signal(false), loginUrl: '/bff/login' }, admin);
-    expect(calls).toBe(0);
-
-    TestBed.resetTestingModule();
-    configure(
+  it('renders one header shape across an isAdmin false -> true transition', () => {
+    const isAdmin = signal(false);
+    const fixture = configure(
       {
         isAuthenticated: signal(true),
         email: signal('chris@example.com'),
@@ -128,9 +117,18 @@ describe('SiteNavComponent', () => {
         picture: signal(null),
         logoutUrl: signal(null),
       },
-      admin,
+      { isAdmin },
     );
-    expect(calls).toBe(1);
+    const compiled: HTMLElement = fixture.nativeElement;
+    const chipBefore = !!compiled.querySelector('.user-chip');
+    const labelsBefore = compiled.querySelectorAll('.site-nav-desktop .nav-label').length;
+
+    isAdmin.set(true);
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.nav-crowded')).toBeNull();
+    expect(!!compiled.querySelector('.user-chip')).toBe(chipBefore);
+    expect(compiled.querySelectorAll('.site-nav-desktop .nav-label').length).toBe(labelsBefore + 1);
   });
 
   it('marks the active route with routerLinkActive', async () => {
@@ -159,7 +157,7 @@ describe('SiteNavComponent', () => {
         picture: signal(null),
         logoutUrl: signal(null),
       },
-      { isAdmin: signal(true), ensureLoaded: () => of(true) },
+      { isAdmin: signal(true) },
     );
     const compiled: HTMLElement = fixture.nativeElement;
 
@@ -168,7 +166,32 @@ describe('SiteNavComponent', () => {
     }
   });
 
-  it('marks the header crowded for an admin, whose eighth link leaves no room for the user chip', () => {
+  it('gives an admin and a non-admin the same header shape, so there is no second layout to flash between', () => {
+    const session = {
+      isAuthenticated: signal(true),
+      email: signal('chris@example.com'),
+      username: signal(null),
+      picture: signal(null),
+      logoutUrl: signal(null),
+    };
+    const linkCount = (fixture: ComponentFixture<SiteNavComponent>): number =>
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.site-nav-desktop a').length;
+
+    const asAdmin = configure(session, { isAdmin: signal(true) });
+    const adminLinks = linkCount(asAdmin);
+    const adminChip = (asAdmin.nativeElement as HTMLElement).querySelector('.user-chip');
+    const adminCrowded = (asAdmin.nativeElement as HTMLElement).querySelector('.nav-crowded');
+
+    const asUser = configure(session, { isAdmin: signal(false) });
+
+    expect(adminCrowded).toBeNull();
+    expect((asUser.nativeElement as HTMLElement).querySelector('.nav-crowded')).toBeNull();
+    expect(adminChip).not.toBeNull();
+    expect((asUser.nativeElement as HTMLElement).querySelector('.user-chip')).not.toBeNull();
+    expect(adminLinks).toBe(linkCount(asUser) + 1);
+  });
+
+  it('keeps every link label in the markup, since the label is the tooltip text', () => {
     const fixture = configure(
       {
         isAuthenticated: signal(true),
@@ -177,22 +200,36 @@ describe('SiteNavComponent', () => {
         picture: signal(null),
         logoutUrl: signal(null),
       },
-      { isAdmin: signal(true), ensureLoaded: () => of(true) },
+      { isAdmin: signal(true) },
     );
+    const compiled: HTMLElement = fixture.nativeElement;
 
-    expect((fixture.nativeElement as HTMLElement).querySelector('.site-nav-desktop.nav-crowded')).not.toBeNull();
+    const labels = [...compiled.querySelectorAll('.site-nav-desktop .nav-label')].map((el) => el.textContent?.trim());
+    expect(labels).toEqual([
+      'Home',
+      'Catalog',
+      'Collections',
+      'Library',
+      'Profile',
+      'PSN Settings',
+      'Enrichment Runs',
+      'Sign out',
+    ]);
   });
 
-  it('leaves the header uncrowded for a non-admin, who keeps the user chip', () => {
-    const fixture = configure({
-      isAuthenticated: signal(true),
-      email: signal('chris@example.com'),
-      username: signal(null),
-      picture: signal(null),
-      logoutUrl: signal(null),
-    });
+  it('issues no request of its own — admin status comes from the session, not a round trip', () => {
+    const fixture = configure(
+      {
+        isAuthenticated: signal(true),
+        email: signal('chris@example.com'),
+        username: signal(null),
+        picture: signal(null),
+        logoutUrl: signal(null),
+      },
+      { isAdmin: signal(true) },
+    );
 
-    expect((fixture.nativeElement as HTMLElement).querySelector('.site-nav-desktop.nav-crowded')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('a[aria-label="Enrichment Runs"]')).not.toBeNull();
   });
 
   it('hides every icon from assistive technology, leaving the name to the link', () => {

@@ -315,10 +315,15 @@ else in the scale.
 
   | Measure | Used by | Why |
   |---|---|---|
-  | `480px` | `/psn`, `/profile*` | Form and settings pages — single column of labelled controls |
+  | `480px` | `/psn`, `/profile/settings`, `/profile/followers`, `/profile/following`, `/u/:sub/followers`, `/u/:sub/following` | Form and settings pages, and single-column lists — one column of labelled controls or rows |
   | `640px` | `/`, `/collections` | Prose plus a short list |
   | `720px` | `/faq`, `/privacy`, 404 | Long-form reading text |
-  | `1000px` | `/library` | The one data table wide enough to need it |
+  | `1000px` | `/library`, `/profile`, `/u/:sub` | The data table, and the profile's stat grid — both need four columns to read as a grid rather than a list |
+
+  `/profile` and `/u/:sub` share one component and one stylesheet, so they share a measure; both are
+  listed rather than left inferred, which is how `/u/:sub` went unlisted here for as long as it did.
+  `/profile*` used to name the whole family at `480px`, from when the profile was two status cards. It
+  is an overview page now; only its genuinely form-and-list siblings still belong at that measure.
 
   Don't introduce a fifth value without a reason that isn't already covered above.
 - **Breakpoint scale** (CSS custom properties can't be read inside `@media` conditions, so these
@@ -406,6 +411,29 @@ else in the scale.
   because it is provenance rather than a captioned field.
 - **`.psn-badge`** — PSN-linked-account indicator only (see Colors' `--color-psn` rule). A small dot
   + label in `--color-psn`.
+- **`.stat-grid` / `.stat` / `.stat-head` / `.stat-value`** — a divided grid of label + figure stats,
+  used by the profile overview. `.stat-grid` reflows **4 → 3 → 2 → 1 columns with no media query**
+  (`repeat(auto-fit, minmax(200px, 1fr))`); at the `1000px` measure four tracks fit, and each narrower
+  arrangement falls out of `auto-fit` rather than out of a breakpoint. `.stat` is hairline-divided by a
+  `border-top` rather than boxed — the tiles are one table of figures, not a row of cards, so `.card` is
+  deliberately *not* composed here. `.stat-head` pairs an `ng-icon` with a `.stamp-label` caption
+  (`.stamp-label`, not `.spine-label`: the text says what the block *is called*, not what a work *is*).
+  A tile whose value is unknown or not permitted **must not render at all** — but `0` is a real value
+  and must render, so guards test `!== null`, never truthiness. Tiles that navigate are `<a class="stat">`
+  and carry their own `aria-label`, because the visible label and figure read as two separate nodes.
+  Two tiles carry prose and links in place of a `.stat-value` figure — the trophies-off notice and the
+  "Elsewhere" list of declared PlayStation profiles. Both still satisfy the rule above: each renders
+  only when it has something real to say, and neither is a figure with the number left out.
+- **`.pager`** — the Previous / position / Next row under a paged list, used by the Catalog grid, the
+  Library table and a collection's item list. Those three previously carried three bespoke names
+  (`.catalog-pager`, `.library-pager`, `.collection-item-pager`) and agreed on nothing: one had no
+  `align-items`, one had no rule at all, and the library's read `1171 game(s)` where the other two read
+  `1–50 of 1171`. **`align-items: center` is load-bearing and must not be dropped** — without it the
+  count `<span>` stretches to the buttons' height while its line box stays pinned to the top, so the text
+  sits ~6px high. That failure is invisible to a test comparing element *centres*, because stretched
+  children all report the same centre; assert the span's own height instead (~21.8px content-sized vs
+  34.5px stretched). The position label is `from–to of total` in a `.text-muted` span, and the buttons
+  are `.btn-ghost`.
 - **`ng-icon`** — the icon element, from `@ng-icons/core` with glyphs out of
   `@ng-icons/phosphor-icons/regular` (see Appendix: Iconography & Imagery for the pack decision and
   the concept-to-glyph map). Colour inherits from context and the glyph holds its size in a flex row,
@@ -419,45 +447,58 @@ else in the scale.
   + user chip + PSN Settings + Sign out) above the `md` breakpoint, and a fixed bottom tab bar
   (`.site-nav-tabbar`, 5 primary destinations: Home/Catalog/Collections/Library/Profile) below it.
   Active route gets `routerLinkActive="nav-active"` → `--color-primary` text.
-  **The desktop bar sheds the whole `.user-chip` (avatar *and* email) at `xl` and narrower.** The chip is
-  the widest item in the row, and the row it has to fit into is the non-admin one — seven links carrying
-  icon *and* label. The breakpoint was originally justified by an admin's extra "Enrichment Runs" link
-  wrapping "Sign out" onto a second line, but that argument describes the state before `.nav-crowded`
-  existed; an admin now sheds every label at every desktop width, so for an admin this media query is
-  redundant and its live justification is the non-admin row. Drop the pair, never just the email: the avatar exists
-  to anchor the address, so alone it reads as a stray image between two nav links rather than an account
-  indicator. Who is signed in stays evident from Profile and Sign out. If more top-level links are ever
-  added, the next thing to give is the link labels, not the breakpoint — which is what happens at `lg` and
-  narrower, where the labels are hidden and each link's `aria-label` becomes its only accessible name.
-  **A wider window buys the nav no room.** The header sits inside `.page-container`, so its usable
-  width is pinned at `1100px` minus padding for every viewport at or above that. There are therefore
-  only three desktop configurations — chip+labels above `xl` (>1280px), labels alone from just above
-  `lg` through `xl` (1025–1280px), icons alone from just above `md` through `lg` (769–1024px).
-  **The tightest case is the non-admin one above `xl`, not the admin's extra eighth link.** An admin
-  has more links but `.nav-crowded` strips every label, so an admin row is eight icons and has room to
-  spare; the unmitigated configuration is seven links carrying icon *and* label plus the chip, and that
-  is the one that overflowed. Treating the admin case as the worst case is what let a wrapped header
-  ship — see the `.user-email` note below. Every rule is a `max-width` media query, so
-  each named breakpoint sits in the *narrower* band: at exactly 1280px the chip is already gone. That
-  is pinned by `e2e/nav.spec.ts`'s boundary test at 1281/1280/1025/1024 rather than left as prose —
-  an off-by-one here is invisible on screen and this passage previously had one.
-  Widening the browser makes the widest case *worse*, not better, because that is where the chip returns.
-  That is why **an admin sheds both the chip and the labels at every desktop width** — `.nav-crowded`,
-  set from `admin.isAdmin()` in the component because CSS cannot count links. Eight labelled links do
-  not fit in that pinned width at any viewport, with or without the chip: the row overflows above the
-  header and pushes `Sign out` onto a second line. Dropping only the chip was tried and is not enough.
-  Adding icons made this case *worse* before `.nav-crowded` existed, since each glyph costs width the
-  labels were already using.
-  **`.user-email` is capped at `10ch` with an ellipsis, and the cap is load-bearing.** Without it the
-  header's width depends on how long the signed-in user's email address is — the one unbounded,
-  data-dependent element in the row — so the layout held for short addresses and wrapped for ordinary
-  ones. Measured at 1281px with all three webfonts applied: usable width 947px against 1032px of
-  content, with the chip alone at 232px for a 24-character address. Capped, the same row measures
-  916px — 806px of items plus seven 16px gaps — leaving 31px of headroom. Every figure in this
-  paragraph is a webfont measurement and means nothing in fallback metrics, which draw the same row
-  39px narrower. `--font-meta` is IBM Plex Mono, so `ch` is an exact unit here and the cap
-  is a hard 82px rather than an approximation. The full address stays in the DOM, so screen readers and
-  the avatar's `alt` still carry it; only the painted text is clipped.
+  **The desktop header is icon-only for everyone, and each link's label is a tooltip on `:hover` and
+  `:focus-visible`.** There is exactly one desktop shape — no admin variant, no label band. The old
+  `.nav-crowded` class stripped labels and the chip for admins only, which meant the header had two
+  layouts and flashed between them: `admin.isAdmin()` resolved after first paint, so labels painted and
+  then vanished about a second later. Deleting the conditional removes the flash *by construction*
+  rather than by timing. It also removes a subtler failure — during that window the row wrapped to two
+  lines **and escaped the top of the viewport**, slicing the first row of labels in half.
+  **A wider window buys the nav no room.** The header sits inside `.page-container`, so its usable width
+  is pinned at `1100px` minus padding for every viewport at or above that — measured at 1281/1440/2560px
+  it is **963px at all three** (`1100` container − `48` padding − `89` brand). The three candidate
+  layouts against that budget:
+
+  | Layout | Width | Headroom |
+  |---|---|---|
+  | Icon only | 304px | 659px |
+  | Stacked icon-over-label | 680px | 283px |
+  | Inline icon + label | ~936px | ~27px |
+
+  So labels *do* fit — just never inline, which is the assumption the old breakpoint model rested on.
+  **Stacked was offered and declined:** it roughly doubles the header's content height (~24px → ~46–50px),
+  and the compact header is worth more than always-visible labels. The binding constraint is header
+  *height*, not width; do not re-litigate this as a width problem.
+  **The tooltip is presentation of text that always exists, not conditional rendering.** That is on the
+  right side of "CSS decides how something looks, the component decides whether it exists" above: the
+  `<span class="nav-label">` is always in the DOM, so the label lives in exactly one place and cannot
+  drift from the `aria-label`. It is styled rather than swapped for a native `title` because `title`
+  fires only on mouse hover, after a delay, and cannot be themed — `:focus-visible` is what covers
+  keyboard users. Below `md` the tab bar is untouched and keeps its visible `.tab-label`s.
+  **`app-avatar` is eagerly loaded, deliberately.** It carried `loading="lazy"`, which is wrong for a 28px
+  image that is always above the fold: the browser defers a request it is going to make anyway, and inside
+  a `display: none` ancestor it may never make it at all — measured, the nav avatar's `<img>` never
+  reached `complete` while the chip was hidden. The `:host` box is pinned to `size` with
+  `overflow: hidden`, so a slow or failed load can never resize the header either way; that box is what
+  makes eager loading safe rather than the lazy attribute.
+  **The desktop bar still sheds the whole `.user-chip` (avatar *and* email) at `xl` and narrower**, and
+  that is now the only remaining media query in the header. Drop the pair, never just the email: the
+  avatar exists to anchor the address, so alone it reads as a stray image between two nav links rather
+  than an account indicator. Who is signed in stays evident from Profile and Sign out. The rule is a
+  `max-width` query, so the named breakpoint sits in the *narrower* band: at exactly 1280px the chip is
+  already gone, pinned by `e2e/nav.spec.ts`'s 1281/1280 boundary test rather than left as prose.
+  **`.user-email` is capped at `10ch` with an ellipsis, and the cap is still load-bearing — but the
+  reason it is provable changed.** Without it the header's width depends on how long the signed-in
+  user's email address is, the one unbounded, data-dependent element in the row. That used to be proved
+  by deleting the cap and watching the row wrap. With labels gone the row has ~659px of headroom, so
+  deleting the cap now wraps nothing and a wrap-based test would pass against the very bug it exists to
+  catch. **`e2e/nav.spec.ts` therefore asserts the cap directly** — computed `max-width` is not `none`,
+  `overflow` is `hidden`, and the fixture address actually overflows it (`scrollWidth > clientWidth`).
+  Proven rather than assumed: deleting `max-width: 10ch` fails that test, and restoring it passes.
+  Keep it that way; do not restore a wrap-based assertion, and do not delete the cap on the grounds that
+  nothing fails without it. `--font-meta` is IBM Plex Mono, so `ch` is an exact unit here and the cap is
+  a hard 82px rather than an approximation. The full address stays in the DOM, so screen readers and the
+  avatar's `alt` still carry it; only the painted text is clipped.
   **The chip renders the whole address and lets the cap clip it, rather than rendering a shortened form
   of it.** A local-part-only chip was considered and rejected: it reads better, but it also costs the
   regression test its teeth. The e2e identity's address is 24 characters and needs 196px uncapped, which
@@ -467,15 +508,15 @@ else in the scale.
   shortening either the address or the rendered form of it fails loudly instead of quietly retiring the
   detector. `.user-email` carries a `title`, which is the only place a sighted user can read their own
   full address — the truncation affects exactly the group the DOM-based accessibility argument does not
-  cover. Do not raise this cap to "show
-  more of the address" without re-measuring — a generous cap reintroduces the same bug for long
-  addresses, which is precisely how it shipped unnoticed. The non-admin case is the one to measure,
-  not the admin one: `.nav-crowded` hides every label for admins, so admin tests count icons in a row
-  that cannot wrap and will pass while this is broken. `e2e/nav.spec.ts` counts non-admin rows at both
-  label-bearing bands (1281px and 1100px); a test that only asserts an element is *visible* at a width
-  does not measure whether the row fits at that width, which is how this survived a passing suite.
-  Those measurements wait for the webfonts and assert they applied, because `styles.css` loads all
-  three with `display=swap` and the fallback row is narrower than the headroom — see TESTING.md.
+  cover. Do not raise this cap to "show more of the address" without re-measuring — a generous cap
+  reintroduces the same bug for long addresses, which is precisely how it shipped unnoticed.
+  **Row counting is kept, for both the admin and non-admin shapes, and paired with a clipping check.**
+  A test that only asserts an element is *visible* at a width does not measure whether the row fits at
+  that width, which is how a wrapped header survived a passing suite. A row count alone is not enough
+  either: a row that has escaped the top of the viewport still counts as one row, so the spec also
+  asserts no nav link has a negative `top`. Those measurements wait for the webfonts and assert they
+  applied, because `styles.css` loads all three with `display=swap` and the fallback row is narrower
+  than the headroom — see TESTING.md.
 - **`app-page-toc`** (`src/app/shared/toc/page-toc.component.ts`) — client-side-only in-page table
   of contents + back-to-top link, generated from a page's own headings via a CSS selector input.
   Used on `/faq` and `/privacy`.
@@ -560,6 +601,27 @@ Two consequences worth stating plainly:
   between a 48px table thumbnail and a 320px detail image; shape, radius, fit and color do not.
   Express the difference as a modifier class or a local width, and leave the primitive alone.
 
+### Declarations that look removable and are not
+
+Two rules in component stylesheets exist to *cancel* a global default, so they read as noise and delete
+cleanly with no visible failure — until the page is measured. Both were live defects found by an
+exploratory pass, and both are now the reason the global rule is safe to keep.
+
+- **`.footer-inner p { margin: 0 }`.** The footer `<p>` is followed by the footer nav, so it is not
+  `p:last-child` and keeps the global `p { margin: 0 0 1rem }`. `.footer-inner` is a flex row, and flex
+  centres the *margin* box, not the text — so the bottom margin both offsets the sentence ~8px above its
+  siblings and inflates the row to 37.76px against 21.76px children. No alignment property fixes this;
+  only zeroing the margin does.
+- **`.library-category-filter { flex: 0 1 14rem; min-width: 10rem }`.** `styles.css` gives every
+  `select` `width: 100%`. Without its own flex basis this one inherits that, takes a whole line to
+  itself inside `.library-controls`, and opens a native dropdown as wide as the card. Its two
+  neighbours (`.library-search`, `.library-mobile-sort`) already carry the same pair — this one was
+  simply missed, which is why it alone broke, and only above the `md` breakpoint.
+- **`.library-table th { white-space: nowrap }`.** The sort arrow is a separate `<span>` after a space,
+  so a narrow column orphans it onto its own line and doubles the header row's height.
+  `.library-table-scroll` already has `overflow-x: auto`, so a header row that no longer fits scrolls
+  instead of wrapping — which is the intended behaviour, not a regression.
+
 ### Enforcing it
 
 This erodes one reasonable-looking exception at a time, so it is worth enforcing mechanically rather
@@ -594,6 +656,10 @@ Components list must appear exactly once across `src/**/*.css`, and that once mu
   definition; vary size and placement locally, never shape, radius, fit or color.
 - **Don't** use gamepad/controller iconography or storefront/gamified copy (see Appendix:
   Iconography & Imagery, Voice & Tone).
+- **Don't** render a rejected set identically to an accepted one. A collection preview's *excluded*
+  list is what the filters turned down, not more of the collection; styled the same as the included
+  cards it reads as part of the result and makes the stated count look wrong. It takes the same
+  `opacity: 0.6` de-emphasis as an entry the owner no longer has access to.
 
 ---
 
@@ -648,6 +714,22 @@ package root exports nothing.
 | Free-to-play | `phosphorDownloadSimple` |
 | Monthly games | `phosphorCalendarDots` |
 | Catalog entitlements | `phosphorStack` |
+| Trophy level | `phosphorRanking` |
+| Trophies earned | `phosphorMedal` |
+| Followers | `phosphorUsersThree` |
+| Following | `phosphorUserPlus` |
+| Member since | `phosphorStamp` |
+| Profiles elsewhere | `phosphorLink` |
+
+The profile's library and collections tiles **reuse `phosphorBooks` and `phosphorArchive`** rather than
+taking new glyphs: those already mean Library and Collections in the nav, and a stat counting titles in
+your library is the same concept, not a new one. The same reasoning rules *out* reusing
+`phosphorBookmarkSimple` or `phosphorStack` there — those meanings are already spoken for by
+"purchased" and "catalog entitlements", so borrowing them would make the vocabulary ambiguous.
+
+**`phosphorMedal`, not `phosphorTrophy`**, and the distinction is the Voice & Tone one: trophy is PSN's
+own noun for the data, and the tile reports a count flatly, but the trophy glyph is the more
+celebratory of the two and would sit directly beside the medal in the same grid. One is enough.
 
 Phosphor also ships `phosphorStorefront`, `phosphorShoppingBag`, `phosphorCoins`, `phosphorTicket`
 and `phosphorCrown`. Those are off-limits for the same reason storefront copy is — see Voice & Tone.
@@ -676,9 +758,15 @@ Copy reads like a curator's working notes, not marketing copy. Prefer:
 - "Added to your collection" over "Added to library!"
 - "Last catalogued" over "Last synced"
 
-Avoid exclamation points, gamified verbs ("unlock," "level up," "earn"), and storefront language
-("buy," "deal," "sale") entirely — none of that is Librarian's job; Curator's job is cataloging,
-not commerce.
+Avoid exclamation points, gamified *framing*, and storefront language ("buy," "deal," "sale")
+entirely — none of that is Librarian's job; Curator's job is cataloging, not commerce.
+
+**Gamified framing is the ban, not the vocabulary.** "Unlock" and "level up" stay out because they
+editorialise about achievement. PSN's own domain nouns — trophy, tier, level, *earned* — are the names
+of the data being reported, and reporting them flatly is not gamification: "Trophies earned / 180" is a
+count on an index card, while "You've earned 180 trophies!" is a celebration. An earlier draft of this
+section banned the verb "earn" outright, which was an over-reach: it was already violated in production
+by the profile page, and following it would have forced a worse paraphrase of PSN's own term.
 
 ### Accessibility
 

@@ -2,8 +2,12 @@
   @if (loadError()) {
     <p class="text-error">{{ loadError() }}</p>
   } @else if (profile(); as current) {
-    <div class="card status-card profile-identity-card">
-      <h1>{{ current.identity?.online_id ?? (current.psn_account_id ? 'PlayStation account' : 'Unlinked user') }}</h1>
+    <header class="profile-header">
+      <h1>{{ displayName(current) }}</h1>
+
+      @if (current.psn_account_id) {
+        <span id="profile-psn-badge" class="psn-badge">PlayStation Network linked</span>
+      }
 
       @if (!current.viewer_is_owner) {
         @if (followError()) {
@@ -20,38 +24,124 @@
         }
       }
 
-      <div class="profile-counts">
-        <a [routerLink]="followersLink()">{{ current.follower_count }} {{ followerLabel(current.follower_count) }}</a>
-        <a [routerLink]="followingLink()">{{ current.following_count }} following</a>
-      </div>
-
-      <div class="profile-section-links">
+      <div id="profile-actions" class="profile-actions">
         @if (current.viewer_is_owner || current.library_visible) {
-          <a class="btn-ghost" [routerLink]="libraryLink()">View library</a>
+          <a id="profile-library-link" class="btn-ghost" [routerLink]="libraryLink()">View library</a>
         }
         @if (current.viewer_is_owner || current.collections_visible) {
-          <a class="btn-ghost" [routerLink]="collectionsLink()">View collections</a>
+          <a id="profile-collections-link" class="btn-ghost" [routerLink]="collectionsLink()">View collections</a>
         }
       </div>
+    </header>
+
+    <div class="stat-grid">
+      @if (current.library_count !== null) {
+        <div id="profile-stat-library" data-stat="library" class="stat">
+          <span class="stat-head">
+            <ng-icon name="phosphorBooks" aria-hidden="true" />
+            <span class="stamp-label">Titles catalogued</span>
+          </span>
+          <span class="stat-value">{{ current.library_count }}</span>
+        </div>
+      }
+
+      @if (current.collections_count !== null) {
+        <div id="profile-stat-collections" data-stat="collections" class="stat">
+          <span class="stat-head">
+            <ng-icon name="phosphorArchive" aria-hidden="true" />
+            <span class="stamp-label">Collections</span>
+          </span>
+          <span class="stat-value">{{ current.collections_count }}</span>
+        </div>
+      }
+
+      @if (current.trophies; as trophies) {
+        <div id="profile-stat-trophy-level" data-stat="trophy-level" class="stat">
+          <span class="stat-head">
+            <ng-icon name="phosphorRanking" aria-hidden="true" />
+            <span class="stamp-label">Trophy level</span>
+          </span>
+          <span class="stat-value">{{ trophies.level }}</span>
+          <span class="catalog-meta">Tier {{ trophies.tier }}</span>
+        </div>
+
+        <div id="profile-stat-trophies-earned" data-stat="trophies-earned" class="stat">
+          <span class="stat-head">
+            <ng-icon name="phosphorMedal" aria-hidden="true" />
+            <span class="stamp-label">Trophies earned</span>
+          </span>
+          <span class="stat-value">{{ trophiesEarnedTotal(current) }}</span>
+          <span class="catalog-meta">
+            {{ trophies.earned.platinum }} platinum &middot; {{ trophies.earned.gold }} gold &middot;
+            {{ trophies.earned.silver }} silver &middot; {{ trophies.earned.bronze }} bronze
+          </span>
+        </div>
+      } @else if (current.trophies_hidden_by_owner_setting) {
+        <div id="profile-stat-trophies-off" data-stat="trophies-off" class="stat">
+          <span class="stat-head">
+            <ng-icon name="phosphorMedal" aria-hidden="true" />
+            <span class="stamp-label">Trophies</span>
+          </span>
+          <span class="catalog-meta">Not catalogued — trophy data is switched off for your account.</span>
+          <a routerLink="/psn">Turn it on in PlayStation settings</a>
+        </div>
+      }
+
+      <a
+        id="profile-stat-followers"
+        data-stat="followers"
+        class="stat"
+        [routerLink]="followersLink()"
+        [attr.aria-label]="current.follower_count + ' ' + followerLabel(current.follower_count)"
+      >
+        <span class="stat-head">
+          <ng-icon name="phosphorUsersThree" aria-hidden="true" />
+          <span class="stamp-label">Followers</span>
+        </span>
+        <span class="stat-value">{{ current.follower_count }}</span>
+      </a>
+
+      <a
+        id="profile-stat-following"
+        data-stat="following"
+        class="stat"
+        [routerLink]="followingLink()"
+        [attr.aria-label]="current.following_count + ' following'"
+      >
+        <span class="stat-head">
+          <ng-icon name="phosphorUserPlus" aria-hidden="true" />
+          <span class="stamp-label">Following</span>
+        </span>
+        <span class="stat-value">{{ current.following_count }}</span>
+      </a>
+
+      @if (current.profile_links.length > 0) {
+        <div id="profile-stat-profile-links" data-stat="profile-links" class="stat">
+          <span class="stat-head">
+            <ng-icon name="phosphorLink" aria-hidden="true" />
+            <span class="stamp-label">Elsewhere</span>
+          </span>
+          @for (link of current.profile_links; track link.site_key; let i = $index) {
+            <a
+              [attr.id]="'profile-link-' + i"
+              [href]="link.url"
+              target="_blank"
+              rel="noopener noreferrer nofollow ugc"
+              >{{ link.display_name }}</a
+            >
+          }
+        </div>
+      }
+
+      @if (current.created_at !== null) {
+        <div id="profile-stat-member-since" data-stat="member-since" class="stat">
+          <span class="stat-head">
+            <ng-icon name="phosphorStamp" aria-hidden="true" />
+            <span class="stamp-label">In the catalogue since</span>
+          </span>
+          <span class="catalog-meta">{{ current.created_at | date: 'longDate' }}</span>
+        </div>
+      }
     </div>
-
-    @if (current.trophies; as trophies) {
-      <div class="card status-card psn-category-card">
-        <h3>Trophies</h3>
-        <p>Level {{ trophies.level }} &middot; Tier {{ trophies.tier }}</p>
-        <p class="catalog-meta">{{ trophiesEarnedTotal(current) }} trophies earned</p>
-        <p class="catalog-meta">
-          {{ trophies.earned.platinum }} platinum &middot; {{ trophies.earned.gold }} gold &middot;
-          {{ trophies.earned.silver }} silver &middot; {{ trophies.earned.bronze }} bronze
-        </p>
-      </div>
-    }
-
-    @if (current.identity; as identity) {
-      <div class="card status-card psn-category-card">
-        <h3>PSN Identity</h3>
-        <p>{{ identity.online_id }}</p>
-      </div>
-    }
   }
 </section>

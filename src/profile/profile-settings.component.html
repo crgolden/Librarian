@@ -6,9 +6,7 @@
     default.
   </p>
 
-  @if (loading()) {
-    <p class="text-muted">Loading profile settings...</p>
-  } @else if (loadError()) {
+  @if (loadError()) {
     <p class="text-error">{{ loadError() }}</p>
   } @else if (settings(); as current) {
     <div class="card status-card profile-settings-card">
@@ -89,6 +87,72 @@
         Trophies and identity only show on your public profile if you've also enabled harvesting them on
         the <a routerLink="/psn">PlayStation settings page</a>.
       </p>
+    </div>
+
+    <div class="card status-card profile-settings-card">
+      <h2>PlayStation profiles</h2>
+      <p class="text-muted">
+        Your handle on other PlayStation sites. These appear on your public profile alongside everything
+        else it shows.
+      </p>
+
+      @if (linkError()) {
+        <p class="text-error">{{ linkError() }}</p>
+      }
+
+      @for (site of linkSites(); track site.site_key; let i = $index) {
+        <div class="profile-link-row">
+          <label [attr.for]="'profile-link-handle-' + i">{{ site.display_name }}</label>
+          <input
+            [attr.id]="'profile-link-handle-' + i"
+            type="text"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="16"
+            placeholder="Your handle"
+            [ngModel]="handleFor(site.site_key)"
+            (ngModelChange)="onHandleInput(site.site_key, $event)"
+            [disabled]="savingLink() !== null"
+          />
+          <div class="profile-link-actions">
+            <button
+              type="button"
+              class="btn-ghost btn-sm"
+              [attr.id]="'profile-link-save-' + i"
+              [attr.aria-label]="'Save your ' + site.display_name + ' handle'"
+              [disabled]="savingLink() !== null || !isHandleValid(site.site_key) || isHandleUnchanged(site.site_key)"
+              (click)="saveLink(site.site_key)"
+            >
+              Save
+            </button>
+            @if (linkFor(site.site_key); as link) {
+              <button
+                type="button"
+                class="btn-ghost btn-sm"
+                [attr.id]="'profile-link-remove-' + i"
+                [attr.aria-label]="'Remove your ' + site.display_name + ' handle'"
+                [disabled]="savingLink() !== null"
+                (click)="removeLink(site.site_key)"
+              >
+                Remove
+              </button>
+              <a
+                [attr.id]="'profile-link-url-' + i"
+                [href]="link.url"
+                target="_blank"
+                rel="noopener noreferrer nofollow ugc"
+                [attr.aria-label]="'Open your ' + site.display_name + ' profile'"
+                >Open</a
+              >
+            }
+          </div>
+          @if (handleFor(site.site_key) && !isHandleValid(site.site_key)) {
+            <span class="text-error" [attr.id]="'profile-link-invalid-' + i"
+              >3–16 characters: letters, digits, - or _.</span
+            >
+          }
+        </div>
+      }
     </div>
   }
 </section>

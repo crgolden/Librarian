@@ -4,10 +4,15 @@ import { provideRouter } from '@angular/router';
 import { AppComponent } from './app.component';
 import { AuthService } from '../auth/auth.service';
 
+const SIGNED_IN_SUB = 'e2e-user-id';
+
 function configure(auth: Partial<AuthService>): void {
   TestBed.configureTestingModule({
     imports: [AppComponent],
-    providers: [provideRouter([]), { provide: AuthService, useValue: auth }],
+    providers: [
+      provideRouter([]),
+      { provide: AuthService, useValue: { sub: signal(SIGNED_IN_SUB), session: signal([]), ...auth } },
+    ],
   });
 }
 
@@ -43,14 +48,14 @@ describe('AppComponent', () => {
     expect(compiled.querySelector('.user-email')?.getAttribute('title')).toBe('chris@example.com');
     const img = compiled.querySelector<HTMLImageElement>('img.avatar');
     expect(img?.getAttribute('src')).toBe('https://example.com/avatar.png');
-    expect(compiled.querySelector('.avatar-fallback')).toBeNull();
+    expect(img?.getAttribute('loading')).toBeNull();
     expect(compiled.textContent).toContain('PSN Settings');
     const signOut = compiled.querySelector('a.btn-ghost');
     expect(signOut?.textContent).toContain('Sign out');
     expect(signOut?.getAttribute('href')).toBe('/bff/logout?sid=abc');
   });
 
-  it('falls back to an initial-letter avatar when no picture claim is present', () => {
+  it('serves the avatar from Identity when no picture claim is present, rather than an initial letter', () => {
     configure({
       isAuthenticated: signal(true),
       email: signal('chris@example.com'),
@@ -63,8 +68,9 @@ describe('AppComponent', () => {
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    expect(compiled.querySelector('.avatar-fallback')?.textContent?.trim()).toBe('C');
-    expect(compiled.querySelector('img.avatar')).toBeNull();
+    const img = compiled.querySelector<HTMLImageElement>('img.avatar');
+    expect(img?.getAttribute('src')).toBe(`/bff/avatar/${SIGNED_IN_SUB}`);
+    expect(compiled.querySelector('.avatar-fallback')).toBeNull();
     expect(compiled.querySelector('a.btn-ghost')?.getAttribute('href')).toBe('#');
   });
 
@@ -82,7 +88,7 @@ describe('AppComponent', () => {
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.querySelector('.user-email')?.textContent?.trim()).toBe('chris');
-    expect(compiled.querySelector('.avatar-fallback')?.textContent?.trim()).toBe('C');
+    expect(compiled.querySelector<HTMLImageElement>('img.avatar')?.getAttribute('alt')).toBe('chris');
   });
 
   it('falls back to "you" / "?" when neither email nor username claims are present', () => {
@@ -99,6 +105,6 @@ describe('AppComponent', () => {
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.querySelector('.user-email')?.textContent?.trim()).toBe('you');
-    expect(compiled.querySelector('.avatar-fallback')?.textContent?.trim()).toBe('?');
+    expect(compiled.querySelector<HTMLImageElement>('img.avatar')?.getAttribute('alt')).toBe('Signed-in account');
   });
 });
