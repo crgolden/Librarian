@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { SiteNavComponent } from './site-nav.component';
+import { ANONYMOUS_NAV_LINKS, PRIMARY_NAV_LINKS, SiteNavComponent } from './site-nav.component';
 import { AuthService } from '../../auth/auth.service';
 import { AdminService } from '../../admin/admin.service';
 
@@ -35,13 +35,35 @@ function configure(
 }
 
 describe('SiteNavComponent', () => {
-  it('shows only Sign in when anonymous, no primary links', () => {
+  it('offers an anonymous visitor the destinations that need no account, plus Sign in', () => {
     const fixture = configure({ isAuthenticated: signal(false), loginUrl: '/bff/login' });
     const compiled: HTMLElement = fixture.nativeElement;
 
     expect(compiled.querySelector('a.btn-primary')?.textContent).toContain('Sign in');
-    expect(compiled.textContent).not.toContain('Catalog');
-    expect(compiled.querySelector('.site-nav-tabbar')).toBeNull();
+    for (const label of ANONYMOUS_NAV_LINKS.map((link) => link.label)) {
+      expect(compiled.textContent).toContain(label);
+    }
+  });
+
+  it('offers an anonymous visitor no destination that sits behind the auth guard', () => {
+    const fixture = configure({ isAuthenticated: signal(false), loginUrl: '/bff/login' });
+    const desktop = (fixture.nativeElement as HTMLElement).querySelector('.site-nav-desktop');
+
+    const guarded = PRIMARY_NAV_LINKS.filter((link) => link.reachableWithoutSigningIn !== true);
+    for (const link of guarded) {
+      expect(desktop?.textContent).not.toContain(link.label);
+    }
+  });
+
+  it('advertises the same destinations to an anonymous visitor in the desktop nav and the mobile tab bar', () => {
+    const fixture = configure({ isAuthenticated: signal(false), loginUrl: '/bff/login' });
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    const desktop = [...compiled.querySelectorAll('.site-nav-desktop a.nav-link')].map((a) => a.textContent?.trim());
+    const tabbar = [...compiled.querySelectorAll('.site-nav-tabbar a.tab-link')].map((a) => a.textContent?.trim());
+
+    expect(desktop).toEqual(tabbar);
+    expect(desktop.length).toBe(ANONYMOUS_NAV_LINKS.length);
   });
 
   it('sends the page the visitor is on as returnTo, so signing in does not dump them at home', async () => {

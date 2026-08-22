@@ -47,6 +47,21 @@
   </nav>
 } @else {
   <nav id="site-nav-desktop" class="site-nav-desktop" aria-label="Primary">
+    @for (link of anonymousLinks; track link.path; let linkIndex = $index) {
+      <a [routerLink]="link.path" routerLinkActive="nav-active" [routerLinkActiveOptions]="{ exact: !!link.exact }" [attr.aria-label]="link.label" [attr.id]="'nav-link-anonymous-' + linkIndex" class="nav-link">
+        <ng-icon [attr.id]="'nav-icon-anonymous-' + linkIndex" [name]="link.icon" aria-hidden="true" />
+        <span [attr.id]="'nav-label-anonymous-' + linkIndex" class="nav-label">{{ link.label }}</span>
+      </a>
+    }
     <a id="nav-link-signin" [href]="loginHref()" class="btn-primary btn-sm">Sign in</a>
+  </nav>
+
+  <nav id="site-nav-tabbar" class="site-nav-tabbar" aria-label="Primary">
+    @for (link of anonymousLinks; track link.path; let linkIndex = $index) {
+      <a [routerLink]="link.path" routerLinkActive="nav-active" [routerLinkActiveOptions]="{ exact: !!link.exact }" [attr.id]="'tab-link-anonymous-' + linkIndex" class="tab-link">
+        <ng-icon [name]="link.icon" aria-hidden="true" />
+        <span [attr.id]="'tab-label-anonymous-' + linkIndex" class="tab-label">{{ link.label }}</span>
+      </a>
+    }
   </nav>
 }

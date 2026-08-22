@@ -248,13 +248,38 @@ test.describe('SiteNavComponent — mobile bottom tab bar', () => {
 });
 
 test.describe('SiteNavComponent — anonymous', () => {
-  test('shows only Sign in, no primary destinations', async ({ anonymousPage: page, store }) => {
+  test('offers the destinations that need no account, and Sign in', async ({ anonymousPage: page, store }) => {
     await store.reset();
 
     await page.goto('/');
     await expect(page.getByRole('link', { name: 'Sign in' }).first()).toBeVisible();
-    for (const label of ['Catalog', 'Collections', 'Library']) {
+    for (const label of ['Home', 'Catalog']) {
+      await expect(page.locator(DESKTOP_NAV).getByRole('link', { name: label, exact: true })).toBeVisible();
+    }
+  });
+
+  test('offers no destination that would bounce the visitor to the login page', async ({
+    anonymousPage: page,
+    store,
+  }) => {
+    await store.reset();
+
+    await page.goto('/');
+    for (const label of ['Collections', 'Library', 'Profile', 'PSN Settings', 'Enrichment Runs']) {
       await expect(page.locator(DESKTOP_NAV).getByRole('link', { name: label, exact: true })).toHaveCount(0);
     }
+  });
+
+  test('the catalog the header advertises is genuinely reachable without an account', async ({
+    anonymousPage: page,
+    store,
+  }) => {
+    await store.reset();
+
+    await page.goto('/');
+    await page.locator(DESKTOP_NAV).getByRole('link', { name: 'Catalog', exact: true }).click();
+
+    await expect(page).toHaveURL(/\/catalog$/);
+    await expect(page.getByRole('link', { name: 'Sign in' }).first()).toBeVisible();
   });
 });
