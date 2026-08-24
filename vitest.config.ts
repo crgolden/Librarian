@@ -8,6 +8,12 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['src/test-setup.ts'],
     exclude: ['**/node_modules/**', '**/e2e/**'],
+    typecheck: {
+      enabled: true,
+      tsconfig: './tsconfig.spec.json',
+      include: ['src/**/*.spec.ts'],
+      ignoreSourceErrors: false,
+    },
     coverage: {
       provider: 'istanbul',
       reporter: ['lcov', 'text'],

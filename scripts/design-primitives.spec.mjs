@@ -34,6 +34,48 @@ describe('classesUsedIn', () => {
 
     expect(used.get('.card')).toBe(2);
   });
+
+  it('counts a single-quoted class attribute', () => {
+    const used = classesUsedIn("<div class='card card-accent'></div>");
+
+    expect([...used]).toEqual([
+      ['.card', 1],
+      ['.card-accent', 1],
+    ]);
+  });
+
+  it('counts the object keys of an [ngClass] binding, splitting a multi-class key', () => {
+    const used = classesUsedIn(`<div [ngClass]="{ 'card': on, 'stat stat-head': off }"></div>`);
+
+    expect([...used]).toEqual([
+      ['.card', 1],
+      ['.stat', 1],
+      ['.stat-head', 1],
+    ]);
+  });
+
+  it('counts the array elements and both ternary branches of an [ngClass] binding', () => {
+    const used = classesUsedIn(`<div [ngClass]="['card', 'stat']"></div><p [ngClass]="on ? 'pager' : 'stamp-label'"></p>`);
+
+    expect([...used]).toEqual([
+      ['.card', 1],
+      ['.stat', 1],
+      ['.pager', 1],
+      ['.stamp-label', 1],
+    ]);
+  });
+
+  it('contributes nothing for an [ngClass] bound to a bare expression rather than literals', () => {
+    const used = classesUsedIn('<div [ngClass]="someObject"></div>');
+
+    expect([...used]).toEqual([]);
+  });
+
+  it('reads [class.card-accent] as the class name alone, never as the attribute text', () => {
+    const used = classesUsedIn('<div [class.card-accent]="on"></div>');
+
+    expect([...used]).toEqual([['.card-accent', 1]]);
+  });
 });
 
 describe('analyze — a primitive must be declared once, in styles.css', () => {
@@ -112,6 +154,26 @@ describe('analyze — a template class must be reachable from a stylesheet', () 
     expect(allowedScopedSeen).toEqual(['.tab-link (1 usage(s))']);
   });
 
+  it('fails a whole-attribute [class] binding, which no static parse can resolve', () => {
+    const { failures } = run({
+      css: declaredCard,
+      html: { 'src/a/a.component.html': '<div [class]="computedClasses"></div>' },
+    });
+
+    expect(failures).toEqual([
+      expect.stringContaining('src/a/a.component.html: un-analyzable class binding; use [class.x] or a static class attribute.'),
+    ]);
+  });
+
+  it('fails a phantom class reached only through an [ngClass] object key', () => {
+    const { failures } = run({
+      css: declaredCard,
+      html: { 'src/a/a.component.html': `<div [ngClass]="{'phantom-a': on}"></div>` },
+    });
+
+    expect(failures).toEqual([expect.stringContaining('.phantom-a: used 1 time(s)')]);
+  });
+
   it('skips an allow-listed undeclared class', () => {
     const { failures } = run({
       css: declaredCard,
@@ -135,6 +197,17 @@ describe('analyze — one appearance, one definition', () => {
 
   it('fails a class declared in two component stylesheets', () => {
     const { failures } = run(forked);
+
+    expect(failures).toEqual([
+      expect.stringContaining('.tile: declared in 2 component stylesheets (src/a/a.component.css, src/b/b.component.css)'),
+    ]);
+  });
+
+  it('fails a fork whose only template usage is an [ngClass] object key', () => {
+    const { failures } = run({
+      ...forked,
+      html: { 'src/a/a.component.html': `<div [ngClass]="{'tile': on}"></div>` },
+    });
 
     expect(failures).toEqual([
       expect.stringContaining('.tile: declared in 2 component stylesheets (src/a/a.component.css, src/b/b.component.css)'),

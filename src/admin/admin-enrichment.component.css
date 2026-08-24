@@ -3,11 +3,6 @@
   margin-top: var(--space-4);
 }
 
-.delete-confirm-actions {
-  display: flex;
-  gap: var(--space-3);
-}
-
 .admin-pass-summaries {
   display: flex;
   flex-direction: column;

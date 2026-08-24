@@ -37,8 +37,3 @@
   gap: var(--space-1);
   font-weight: var(--font-weight-semibold);
 }
-
-.form-actions {
-  display: flex;
-  gap: var(--space-3);
-}

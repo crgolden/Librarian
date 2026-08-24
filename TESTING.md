@@ -27,6 +27,27 @@ npx vitest run --coverage  # LCOV → coverage/lcov.info
 Vitest runs with `pool: threads`, `testTimeout: 15000`, and vitest's default `isolate: true`. Angular 22
 is zoneless — always call `fixture.detectChanges()` manually.
 
+**`vitest run` type-checks the specs as well as running them, and the explicit `typecheck.tsconfig` is
+what makes that true.** Without a `typecheck` block, esbuild strips the types and a `TS2322` in a spec
+reaches `main` untouched: `ng lint`, `lint:css`, `lint:primitives`, `vitest run --coverage` and the
+production build all pass on it, and `ng test` — the one command CI does not run — is the only thing
+that fails. `vitest.config.ts` now sets `typecheck: { enabled: true, tsconfig: './tsconfig.spec.json',
+include: ['src/**/*.spec.ts'], ignoreSourceErrors: false }`. Naming the tsconfig is load-bearing rather
+than tidy: vitest otherwise resolves the nearest `tsconfig.json`, and this repo's root one is
+solution-style (`"files": []` plus `references`), which compiles nothing and would report a clean pass
+over a broken spec. Two consequences to expect. **The reported counts roughly double** — each spec file
+is listed once as a runtime suite and once as a typecheck suite (95 files / 986 tests, against 48 / 500
+runtime-only); coverage totals are unaffected, since only the runtime pass is instrumented. And
+**`ignoreSourceErrors: false` fails the run on a type error anywhere under `src/`, not only one in a
+spec** — but it arrives in a different shape, which matters when reading the tail of a CI log: a spec
+error is a failed test under `Type Errors`, while a source error is reported as an *unhandled* error
+(`Type Errors  no errors` / `Errors  1 error`) with every suite still green. Both exit non-zero. That is
+deliberate, so do not flip the flag to get a red run green.
+
+**Playwright's specs are still not type-checked.** `tsconfig.spec.json` includes only `src/**`, and
+Playwright transpiles `e2e/**/*.spec.ts` with esbuild the same way vitest used to, so a type error there
+still reaches `main`. Covering it needs a tsconfig of its own and is a separate piece of work.
+
 **`isolate: true` is load-bearing; `fileParallelism` was not.** Isolation gives each file its own jsdom,
 which this suite depends on because `document.title` and `<meta>` tags persist between tests within a
 file (the catalog-detail and public-collection specs rely on that). Test files run in parallel — the
@@ -39,8 +60,8 @@ decorator in any component a spec renders.** Vitest transpiles TypeScript withou
 pass, and it is `ngtsc` that turns an `input()` field into component input metadata; the decorator is a
 runtime construct and survives, `input()` does not. Converting `AvatarComponent` to signal inputs made
 every binding on it silently inert, and the only signal was `NG0303: Can't bind to 'sub' since it isn't
-a known property of 'app-avatar'` on **stderr** — not a failure, and easy to scroll past in a 48-file
-run. The template compiles, the component renders, and every input reads its declared default.
+a known property of 'app-avatar'` on **stderr** — not a failure, and easy to scroll past in a run this
+size. The template compiles, the component renders, and every input reads its declared default.
 
 **A collaborator call that issues no HTTP is invisible to these specs unless you provide a stub for it.**
 Most component specs here assert through `HttpTestingController` and close on `httpMock.verify()`, so
@@ -373,13 +394,22 @@ npx vitest run --coverage
 # Run the scanner (uses global sonar-scanner.properties; override token via env)
 $env:SONAR_TOKEN = '<token>'
 sonar-scanner `
-  -Dsonar.projectKey=crgolden_Librarian `
-  -Dsonar.organization=crgolden `
-  -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info `
-  -Dsonar.exclusions="**/node_modules/**,**/*.d.ts,e2e/**,instrumentation.mjs" `
-  -Dsonar.coverage.exclusions="e2e/**,scripts/**,**/*.config.*,src/test-setup.ts,src/proxy.conf.js,src/environments/**,src/main.ts,src/main.server.ts,src/server.ts,src/app/app.routes.server.ts" `
-  -Dsonar.test.inclusions="**/*.spec.ts"
+  "-Dsonar.projectKey=crgolden_Librarian" `
+  "-Dsonar.organization=crgolden" `
+  "-Dsonar.javascript.lcov.reportPaths=coverage/lcov.info" `
+  "-Dsonar.exclusions=**/node_modules/**,**/*.d.ts,e2e/**,instrumentation.mjs" `
+  "-Dsonar.coverage.exclusions=e2e/**,scripts/**,**/*.config.*,src/test-setup.ts,src/proxy.conf.js,src/environments/**,src/main.ts,src/main.server.ts,src/server.ts,src/app/app.routes.server.ts" `
+  "-Dsonar.test.inclusions=**/*.spec.ts"
 ```
+
+**Quote each `-D` argument whole**, as above. Unquoted, PowerShell parses `-Dsonar.projectKey=…` as a
+parameter named `-Dsonar` and passes the remainder as a separate token, and the scanner exits 1 with
+`Unrecognized option: .projectKey=crgolden_Librarian`. It survives interactively often enough to look
+correct, then fails the moment the same lines run from a `.ps1`. Quoting the whole argument — rather than
+only the value, as the exclusion lines used to — is what makes the two cases behave alike.
+
+Add `"-Dsonar.branch.name=<branch>"` whenever you are scanning anything other than the default branch;
+without it the analysis replaces the main-branch result, as the paragraph below explains.
 
 **These flags and the `SonarCloud analysis` step in
 `.github/workflows/main_crgolden-librarian.yml` are the only definition of the project's analysis

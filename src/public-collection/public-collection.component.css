@@ -15,8 +15,3 @@
 .cover-art {
   max-width: 180px;
 }
-
-.form-actions {
-  display: flex;
-  gap: var(--space-3);
-}

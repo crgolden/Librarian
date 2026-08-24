@@ -10,8 +10,12 @@ const SIZING_AND_PLACEMENT = new RegExp(
 
 const RULE_BLOCK = /([^{}]+)\{([^{}]*)\}/g;
 const DECLARED_PROPERTY = /(?:^|;)\s*([a-z-]+)\s*:/g;
-const CLASS_ATTRIBUTE = /\bclass\s*=\s*"([^"]*)"/g;
+const CLASS_ATTRIBUTE = /\bclass\s*=\s*("[^"]*"|'[^']*')/g;
 const CLASS_BINDING = /\[class\.([a-z][a-z0-9-]*)\]/gi;
+const NG_CLASS_ATTRIBUTE = /\[ngClass\]\s*=\s*("[^"]*"|'[^']*')/g;
+const QUOTED_LITERAL = /'([^']*)'|"([^"]*)"/g;
+const UNANALYZABLE_CLASS_BINDING = /\[class\]\s*=/;
+const CLASS_TOKEN_NAME = /^[a-z][a-z0-9-]*$/i;
 
 export const SANITY_FLOOR = 6;
 
@@ -19,15 +23,7 @@ export const ALLOWED_UNDECLARED = new Set(['.ng-star-inserted', '.tab-label']);
 
 export const ALLOWED_SCOPED = new Set(['.catalog-detail', '.nav-label', '.tab-link']);
 
-export const KNOWN_FORKS = new Set([
-  '.catalog-card',
-  '.cover-art',
-  '.delete-confirm-actions',
-  '.follow-list',
-  '.follow-list-entry',
-  '.form-actions',
-  '.status-card',
-]);
+export const KNOWN_FORKS = new Set(['.catalog-card', '.cover-art', '.status-card']);
 
 const escapeForRegExp = (className) => className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -62,11 +58,20 @@ export const primitivesFromDesignDoc = (designDoc) => {
   return [...names].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 };
 
+const unquoted = (literal) => literal.slice(1, -1);
+
 export const classesUsedIn = (html) => {
   const used = new Map();
+  const count = (token) => {
+    if (CLASS_TOKEN_NAME.test(token)) used.set(`.${token}`, (used.get(`.${token}`) ?? 0) + 1);
+  };
+
   for (const [, value] of html.matchAll(CLASS_ATTRIBUTE)) {
-    for (const token of value.split(/\s+/)) {
-      if (/^[a-z][a-z0-9-]*$/i.test(token)) used.set(`.${token}`, (used.get(`.${token}`) ?? 0) + 1);
+    for (const token of unquoted(value).split(/\s+/)) count(token);
+  }
+  for (const [, expression] of html.matchAll(NG_CLASS_ATTRIBUTE)) {
+    for (const [, single, double] of unquoted(expression).matchAll(QUOTED_LITERAL)) {
+      for (const token of (single ?? double).split(/\s+/)) count(token);
     }
   }
   for (const [, name] of html.matchAll(CLASS_BINDING)) {
@@ -132,7 +137,13 @@ export function analyze({
   }
 
   const usedClasses = new Map();
-  for (const { html } of templates) {
+  for (const { path, html } of templates) {
+    if (UNANALYZABLE_CLASS_BINDING.test(html)) {
+      failures.push(
+        `${path}: un-analyzable class binding; use [class.x] or a static class attribute. ` +
+          'A whole-attribute [class] expression hides its class names from this check and from the fork check below.',
+      );
+    }
     for (const [className, count] of classesUsedIn(html)) {
       usedClasses.set(className, (usedClasses.get(className) ?? 0) + count);
     }

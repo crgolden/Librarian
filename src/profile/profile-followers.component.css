@@ -5,24 +5,3 @@
   max-width: 480px;
   margin-inline: auto;
 }
-
-.follow-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.follow-list-entry {
-  padding: var(--card-pad);
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.follow-list-entry span {
-  margin-left: auto;
-}

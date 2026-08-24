@@ -384,6 +384,37 @@ ng-icon {
   padding-bottom: var(--space-7);
 }
 
+.form-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.delete-confirm-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.follow-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.follow-list-entry {
+  padding: var(--card-pad);
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.follow-list-entry span {
+  margin-left: auto;
+}
+
 /* State utilities */
 .text-muted {
   color: var(--color-text-muted);

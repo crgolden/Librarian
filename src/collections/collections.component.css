@@ -27,11 +27,6 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.form-actions {
-  display: flex;
-  gap: var(--space-3);
-}
-
 .measured-size-panel {
   display: flex;
   flex-direction: column;

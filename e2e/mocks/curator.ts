@@ -682,8 +682,6 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** Seed the current (DEFAULT_SUB) user's owned console ids as minimal PS5 console records (empty
-   * by default — capacity_fill/install-toggle 404s are the default path). */
   app.post('/_test/consoles', (req: Request, res: Response) => {
     const body = req.body as { consoleIds?: string[] };
     consoleRecords.set(
@@ -703,7 +701,6 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** Seed the current (DEFAULT_SUB) user's library entries (empty by default — GET /library). */
   app.post('/_test/library-games', (req: Request, res: Response) => {
     const body = req.body as { games?: SeededLibraryGame[] };
     libraryGames.set(DEFAULT_SUB, normalizeLibraryGames(body.games ?? []));
@@ -718,7 +715,6 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** Seed the current (DEFAULT_SUB) user's PSN link state. */
   app.post('/_test/psn-link', (req: Request, res: Response) => {
     const body = req.body as Partial<PsnLink>;
     const user = getUser(DEFAULT_SUB);
@@ -731,8 +727,6 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** Seed the current (DEFAULT_SUB) user's PSN harvest preferences (defaults back to all-false on
-   * reset). */
   app.post('/_test/psn-preferences', (req: Request, res: Response) => {
     const body = req.body as Partial<PsnPreferences>;
     const user = getUser(DEFAULT_SUB);
@@ -740,9 +734,6 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** Seed the current (DEFAULT_SUB) user's enrichment-key status directly (defaults back to
-   * unconfigured on reset) -- lets a test start from an already-configured state without going
-   * through the UI first. */
   app.post('/_test/enrichment-keys', (req: Request, res: Response) => {
     const body = req.body as Partial<EnrichmentKeyStatus>;
     const user = getUser(DEFAULT_SUB);
