@@ -419,12 +419,12 @@ than CI and then *publishes* it, because a local scan with no `-Dsonar.branch.na
 main-branch analysis until the next push. A narrower local list once understated coverage by several
 points and made a passing gate look failed.
 
-**Sync them by fixing whichever is wrong, not by copying one into the other.** Every
-`sonar.coverage.exclusions` entry must answer *"could a unit test catch a bug in this file?"* — if
-yes, it stays measured however inconvenient the number. Prefer category globs (`scripts/**`,
-`**/*.config.*`) over file extensions or filename lists: a glob states the reason and keeps covering
-files nobody has written yet, while `**/*.mjs` silently drops any future application module that
-happens to use that extension.
+**Sync them by fixing whichever is wrong, not by copying one into the other.** The rules that decide
+which entries belong — the *"could a unit test catch a bug in this file?"* test, category globs over
+extensions or filename lists, and when a zero-match pattern may be deleted — are fleet-wide and live in
+`AGENTS/TESTING.md` § SonarCloud → Coverage exclusions. The Librarian-specific case they settle: `**/*.mjs`
+would silently drop any future application module that happens to use that extension, which is why this
+list names categories instead.
 
 The three composition roots — `src/main.ts`, `src/main.server.ts` and `src/server.ts` — answer *no*
 together and are excluded together. Each is top-level wiring whose every branch is an import or an
