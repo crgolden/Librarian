@@ -13,6 +13,7 @@ import { getOidcConfig } from './bff/oidc';
 import { robotsHandler, createSitemapHandler } from './bff/sitemap';
 import { logger, requestLogger } from './telemetry/logging';
 import { exposeTraceParentToBrowser } from './telemetry/server-timing';
+import { nameSpansByRoute } from './telemetry/span-route-name';
 import { environment } from './environments/environment';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
@@ -29,6 +30,8 @@ const angularApp = new AngularNodeAppEngine({
 app.get('/health', (_req, res) => {
   res.type('text/plain').send('Healthy');
 });
+
+app.use(nameSpansByRoute);
 
 app.use(exposeTraceParentToBrowser);
 
