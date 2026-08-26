@@ -12,19 +12,10 @@ const POLL_ERROR_RETRY_DELAY_MS = 2000;
 const TERMINAL_STATUSES = new Set(['succeeded', 'failed']);
 const KNOWN_STATUSES = new Set(['queued', 'running', 'succeeded', 'failed']);
 
-/** `/admin/enrichment` -- admin-gated (`authGuard` + `adminGuard`). Triggers and polls
- * `POST/GET /enrichment/runs[/latest|/{run_id}]`: a global catalog-wide re-enrichment pass (OpenCritic
- * cache refresh, franchise/tier reclassification, best-effort full enrichment for unenriched games).
- *
- * Mirrors `psn-settings.component.ts`'s two-step confirm pattern (this spends real provider quota and
- * rewrites catalog data, same class of action as "Delete my data") and `library.component.ts`'s exact
- * polling mechanism (interval + retry + takeWhile), reused as-is since enrichment-run jobs share the
- * same status vocabulary. */
 @Component({
   selector: 'app-admin-enrichment',
   imports: [],
   templateUrl: './admin-enrichment.component.html',
-  styleUrl: './admin-enrichment.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminEnrichmentComponent implements OnInit, OnDestroy {

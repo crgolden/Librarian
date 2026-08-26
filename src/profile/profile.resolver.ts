@@ -10,7 +10,6 @@ export type ResolvedProfile =
   | { status: 'no-user' }
   | { status: 'error' };
 
-/** Resolves the profile for the `:sub` param when present, otherwise the signed-in user. */
 export const profileResolver: ResolveFn<ResolvedProfile> = (route: ActivatedRouteSnapshot) => {
   const curator = inject(CuratorService);
   const auth = inject(AuthService);

@@ -1,14 +1,3 @@
-/**
- * Social profile E2E — auth guard redirect, owner/viewer profile rendering, follow/unfollow,
- * followers/following pages, profile settings persistence, the /psn cross-reference copy and
- * region removal, and the bare-vs-:sub canonicalization redirect for /profile, /u/:sub,
- * /library, and /collections.
- *
- * Two distinct signed-in identities are needed for the viewer-mode cases (`authedPage`, sub
- * DEFAULT_E2E_SUB, and `secondAuthedPage`, sub SECOND_E2E_SUB) -- see fixtures.ts's module
- * docstring for how the mock Curator server tells them apart (X-E2E-Sub header, no real bearer
- * token validation).
- */
 
 import { test, expect, DEFAULT_E2E_SUB, SECOND_E2E_SUB } from './fixtures.js';
 
@@ -31,8 +20,8 @@ test.describe('Profile — owner mode', () => {
 
     await page.goto('/profile');
 
-    await expect(page.locator('h1')).toContainText('PlayStation account');
-    await expect(page.locator('h1')).not.toContainText('psn-account-owner');
+    await expect(page.locator('#page-title')).toContainText('PlayStation account');
+    await expect(page.locator('#page-title')).not.toContainText('psn-account-owner');
     await expect(page.getByRole('button', { name: 'Follow' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Unfollow' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'View library' })).toBeVisible();
@@ -43,7 +32,7 @@ test.describe('Profile — owner mode', () => {
     await store.reset();
 
     await page.goto('/profile');
-    await expect(page.locator('h1')).toContainText('Unlinked user');
+    await expect(page.locator('#page-title')).toContainText('Unlinked user');
   });
 });
 
@@ -60,7 +49,7 @@ test.describe('Profile — viewing another user', () => {
 
     await viewerPage.goto(`/u/${DEFAULT_E2E_SUB}`);
 
-    await expect(viewerPage.locator('h1')).toContainText('Unlinked user');
+    await expect(viewerPage.locator('#page-title')).toContainText('Unlinked user');
     await expect(viewerPage.locator('#profile-stat-followers')).toBeVisible();
     await expect(viewerPage.locator('#profile-library-link')).toHaveCount(0);
     await expect(viewerPage.locator('#profile-collections-link')).toHaveCount(0);
@@ -100,8 +89,8 @@ test.describe('Profile — viewing another user', () => {
 
     await viewerPage.goto(`/u/${DEFAULT_E2E_SUB}`);
 
-    await expect(viewerPage.locator('h1')).toContainText('e2e_gamer');
-    await expect(viewerPage.locator('h1')).not.toContainText('psn-account-owner');
+    await expect(viewerPage.locator('#page-title')).toContainText('e2e_gamer');
+    await expect(viewerPage.locator('#page-title')).not.toContainText('psn-account-owner');
     await expect(viewerPage.getByRole('link', { name: 'View library' })).toBeVisible();
     await expect(viewerPage.getByRole('link', { name: 'View collections' })).toBeVisible();
     await expect(viewerPage.locator('#profile-stat-trophy-level')).toBeVisible();
@@ -127,8 +116,8 @@ test.describe('Profile — viewing another user', () => {
     await viewerPage.goto(`/u/${DEFAULT_E2E_SUB}`);
 
 
-    await expect(viewerPage.locator('h1')).toContainText('PlayStation account');
-    await expect(viewerPage.locator('h1')).not.toContainText('psn-account-owner');
+    await expect(viewerPage.locator('#page-title')).toContainText('PlayStation account');
+    await expect(viewerPage.locator('#page-title')).not.toContainText('psn-account-owner');
     await expect(viewerPage.locator('#profile-stat-trophy-level')).toHaveCount(0);
     await expect(viewerPage.locator('#profile-stat-trophies-earned')).toHaveCount(0);
     await expect(viewerPage.locator('#profile-load-error')).toHaveCount(0);

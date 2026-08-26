@@ -1,34 +1,12 @@
-.page-toc {
-  margin-bottom: var(--space-6);
-  padding: var(--card-pad);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-top: 3px solid var(--color-primary);
-  border-radius: var(--radius-md);
-}
-
-.page-toc-heading {
-  margin: 0 0 var(--space-2);
-}
-
-.page-toc ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
-  gap: var(--space-2) var(--space-6);
-}
-
 .back-to-top {
   position: fixed;
   right: var(--space-4);
-  bottom: var(--space-4);
-  z-index: 15;
+  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + var(--space-4));
+  z-index: var(--z-back-to-top);
 }
 
-@media (max-width: 768px) {
+@media (min-width: 1024px) {
   .back-to-top {
-    bottom: calc(var(--nav-height) + var(--space-4));
+    bottom: var(--space-4);
   }
 }

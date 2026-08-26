@@ -25,7 +25,7 @@ describe('PageTocComponent', () => {
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    const tocLinks = compiled.querySelectorAll('.page-toc a');
+    const tocLinks = compiled.querySelectorAll('#page-toc a');
     expect(tocLinks).toHaveLength(3);
 
     const headings = compiled.querySelectorAll('.item-heading');
@@ -33,7 +33,7 @@ describe('PageTocComponent', () => {
     expect(new Set(ids).size).toBe(3);
     expect(ids[0]).not.toBe(ids[2]);
 
-    expect(compiled.querySelector('.back-to-top')?.getAttribute('href')).toBe('#top');
+    expect(compiled.querySelector('#back-to-top')?.getAttribute('href')).toBe('#top');
   });
 
   it('renders no TOC nav when the selector matches nothing, but still renders back-to-top', async () => {
@@ -48,7 +48,7 @@ describe('PageTocComponent', () => {
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    expect(compiled.querySelector('.page-toc')).toBeNull();
-    expect(compiled.querySelector('.back-to-top')).not.toBeNull();
+    expect(compiled.querySelector('#page-toc')).toBeNull();
+    expect(compiled.querySelector('#back-to-top')).not.toBeNull();
   });
 });

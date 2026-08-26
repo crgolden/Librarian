@@ -50,7 +50,7 @@ describe('AppComponent', () => {
     expect(img?.getAttribute('src')).toBe('https://example.com/avatar.png');
     expect(img?.getAttribute('loading')).toBeNull();
     expect(compiled.textContent).toContain('PSN Settings');
-    const signOut = compiled.querySelector('a.btn-ghost');
+    const signOut = compiled.querySelector('#nav-rail-signout');
     expect(signOut?.textContent).toContain('Sign out');
     expect(signOut?.getAttribute('href')).toBe('/bff/logout?sid=abc');
   });
@@ -71,7 +71,7 @@ describe('AppComponent', () => {
     const img = compiled.querySelector<HTMLImageElement>('img.avatar');
     expect(img?.getAttribute('src')).toBe(`/bff/avatar/${SIGNED_IN_SUB}`);
     expect(compiled.querySelector('.avatar-fallback')).toBeNull();
-    expect(compiled.querySelector('a.btn-ghost')?.getAttribute('href')).toBe('#');
+    expect(compiled.querySelector('#nav-rail-signout')?.getAttribute('href')).toBe('#');
   });
 
   it('falls back to username, then "?", when no email claim is present', () => {

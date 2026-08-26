@@ -22,7 +22,8 @@ const filesWithExtension = (dir, extension) =>
         : [];
   });
 
-const { primitives, failures, allowedScopedSeen, knownForksSeen, templateClassCount } = analyze({
+const { primitives, failures, knownForksSeen } = analyze({
+  skipReachability: true,
   designDoc: readText(designDocPath),
   stylesheets: filesWithExtension(stylesheetRoot, '.css').map((path) => ({
     path: repoRelative(path),
@@ -52,10 +53,6 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-if (allowedScopedSeen.length > 0) {
-  console.log(`\nAllow-listed scoping hooks (${allowedScopedSeen.length}): ${allowedScopedSeen.join(', ')}`);
-}
-
 if (knownForksSeen.length > 0) {
   console.log(
     `\nKnown forks, baselined against AGENTS/PARKING_LOT.md §8a (${knownForksSeen.length}): ` +
@@ -64,6 +61,6 @@ if (knownForksSeen.length > 0) {
 }
 
 console.log(
-  `\nOK: every primitive is declared exactly once in src/styles.css, and all ${templateClassCount} ` +
-    'template classes are reached by a stylesheet selector.',
+  '\nOK: every primitive is declared exactly once in src/styles.css. Template-class reachability is ' +
+    "`npm run lint:utilities`, which needs a build and so runs after it.",
 );

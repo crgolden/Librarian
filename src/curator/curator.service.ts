@@ -137,8 +137,6 @@ function libraryQueryParams(query: LibraryQuery): HttpParams {
   return params;
 }
 
-/** Thin HTTP wrapper over the Curator catalog/collections/consoles/library endpoints, shared
- * across the catalog/collections/library feature areas since their result DTOs overlap. */
 @Injectable({ providedIn: 'root' })
 export class CuratorService {
   private readonly http = inject(HttpClient);

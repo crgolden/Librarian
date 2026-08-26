@@ -1,10 +1,3 @@
-/**
- * Public collection share page (`/c/:slug`) E2E — the one anonymous route in the app. Covers the
- * two-account journey the product exists for: an owner publishes a collection and shares its link;
- * an anonymous visitor can open it with no account at all; a second signed-in user can follow it
- * from the share page and see it in "Collections I follow"; and setting visibility back to private
- * breaks the old link immediately.
- */
 
 import { test, expect } from './fixtures.js';
 
@@ -20,11 +13,11 @@ async function createAndPublishCollection(page: import('@playwright/test').Page)
 
   await page.locator('#collection-open-0').click();
   await page.getByLabel('Visibility').selectOption('unlisted');
-  await expect(page.locator('.share-url')).toContainText('/c/', { timeout: 10_000 });
+  await expect(page.locator('#collection-share-url')).toContainText('/c/', { timeout: 10_000 });
 
-  const shareUrl = (await page.locator('.share-url').textContent()) ?? '';
-  const match = shareUrl.match(/\/c\/[a-zA-Z0-9_-]+/);
-  if (!match) {
+  const shareUrl = await page.locator('#collection-share-url').textContent();
+  const match = shareUrl === null ? null : shareUrl.match(/\/c\/[a-zA-Z0-9_-]+/);
+  if (match === null) {
     throw new Error(`Could not parse a share path out of "${shareUrl}"`);
   }
   return match[0];
@@ -44,7 +37,7 @@ test.describe('Public collection share page', () => {
     const sharePath = await createAndPublishCollection(owner);
 
     await visitor.goto(sharePath);
-    await expect(visitor.locator('h1')).toContainText('RPG picks');
+    await expect(visitor.locator('#page-title')).toContainText('RPG picks');
     await expect(visitor.getByText('Bloodborne', { exact: true })).toBeVisible({ timeout: 10_000 });
     await expect(visitor.getByRole('link', { name: 'Sign in to follow this collection' })).toBeVisible();
   });
@@ -90,6 +83,6 @@ test.describe('Public collection share page', () => {
     await expect(owner.getByRole('button', { name: 'Copy share link' })).toHaveCount(0);
 
     await visitor.goto(sharePath);
-    await expect(visitor.locator('h1')).toContainText('Collection not found');
+    await expect(visitor.locator('#page-title')).toContainText('Collection not found');
   });
 });

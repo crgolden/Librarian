@@ -8,6 +8,7 @@ import { PublicCollectionComponent } from './public-collection.component';
 import { ResolvedPublicCollection } from './public-collection.resolver';
 import { PublicCollectionResponse } from '../curator/curator.models';
 import { AuthService } from '../auth/auth.service';
+import { textOf } from '../testing/text-of';
 
 function publicCollection(overrides: Partial<PublicCollectionResponse> = {}): PublicCollectionResponse {
   return {
@@ -156,7 +157,8 @@ describe('PublicCollectionComponent', () => {
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    const followButton = () => Array.from(compiled.querySelectorAll('button')).find((b) => /follow/i.test(b.textContent ?? ''));
+    const followButton = () =>
+      Array.from(compiled.querySelectorAll('button')).find((button) => /follow/i.test(textOf(button)));
     expect(followButton()?.textContent?.trim()).toBe('Follow this collection');
 
     followButton()?.dispatchEvent(new Event('click'));

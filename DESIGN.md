@@ -1,60 +1,42 @@
 ---
 version: alpha
-name: Librarian — Reading Room / After Hours
+name: Librarian
+description: A reading light over a large, dark collection — dark-first OKLCH, one accent, an instrument-panel type pairing.
 colors:
-  primary: "#1F4D3D"
-  primaryDark: "#163B2E"
-  neutral:
-    bg: "#F6F1E7"
-    surface: "#FFFDF8"
-    surfaceAlt: "#EFE7D8"
-    text: "#241C15"
-    textMuted: "#7A6F5E"
-    border: "#E4D9C5"
-  semantic:
-    error: "#A3342A"
-    errorHover: "#82291F"
-    errorContrast: "#FFFDF8"
-    success: "#3E6B4F"
-    warning: "#B8752E"
-  accent: "#B4790A"
-  psn: "#2C4A7C"
-  afterHours:
-    primary: "#3E7A5C"
-    primaryDark: "#316148"
-    accent: "#D4A017"
-    psn: "#4C6FA5"
-    neutral:
-      bg: "#19140F"
-      surface: "#241C15"
-      surfaceAlt: "#2E251C"
-      text: "#EDE3D3"
-      textMuted: "#A6957D"
-      border: "#3A2E22"
-    semantic:
-      error: "#CB7367"
-      errorHover: "#D1847A"
-      errorContrast: "#19140F"
-      success: "#5FA57E"
-      warning: "#D99A4E"
+  canvas: "oklch(0.18 0.012 265)"
+  surface: "oklch(0.22 0.014 265)"
+  surface2: "oklch(0.26 0.016 265)"
+  line: "oklch(0.32 0.016 265)"
+  lineStrong: "oklch(0.56 0.02 265)"
+  text: "oklch(0.95 0.005 265)"
+  textMuted: "oklch(0.72 0.012 265)"
+  accent: "oklch(0.72 0.17 155)"
+  accentHover: "oklch(0.8 0.15 155)"
+  onFill: "oklch(0.18 0.012 265)"
+  danger: "oklch(0.65 0.19 25)"
+  dangerHover: "oklch(0.73 0.17 25)"
+  warn: "oklch(0.78 0.15 75)"
+  ok: "oklch(0.72 0.17 155)"
+  psn: "oklch(0.62 0.15 265)"
+  focus: "oklch(0.85 0.12 155)"
 typography:
   h1:
-    fontFamily: Lora
+    fontFamily: Space Grotesk
     fontSize: 2.25rem
     fontWeight: 700
     lineHeight: 1.25
   h2:
-    fontFamily: Lora
+    fontFamily: Space Grotesk
     fontSize: 1.5rem
     fontWeight: 700
     lineHeight: 1.25
   h3:
-    fontFamily: Lora
+    fontFamily: Space Grotesk
     fontSize: 1.25rem
     fontWeight: 700
     lineHeight: 1.25
   h4:
-    fontFamily: Lora
+    fontFamily: Space Grotesk
     fontSize: 1.125rem
     fontWeight: 700
     lineHeight: 1.25
@@ -64,180 +46,243 @@ typography:
     fontWeight: 400
     lineHeight: 1.6
   catalogTitle:
-    fontFamily: Lora
-    fontStyle: italic
+    fontFamily: Space Grotesk
     fontWeight: 600
   catalogMeta:
-    fontFamily: IBM Plex Mono
+    fontFamily: JetBrains Mono
     fontSize: 0.85rem
   stampLabel:
-    fontFamily: IBM Plex Mono
+    fontFamily: JetBrains Mono
     fontSize: 0.8rem
     fontWeight: 400
     letterSpacing: 0.06em
-    textTransform: uppercase
   spineLabel:
     fontFamily: Inter
     fontSize: 0.7rem
     fontWeight: 600
     letterSpacing: 0.06em
-    textTransform: uppercase
+rounded:
+  sm: 4px
+  md: 6px
+  lg: 12px
+spacing:
+  1: 0.25rem
+  2: 0.5rem
+  3: 0.75rem
+  4: 1rem
+  5: 1.5rem
+  6: 2rem
+  7: 3rem
+  8: 4rem
+components:
+  - card
+  - card-accent
+  - btn-primary
+  - btn-ghost
+  - btn-ghost-danger
+  - btn-danger
+  - btn-sm
+  - catalog-list
+  - catalog-title
+  - catalog-meta
+  - cover-art
+  - item-unavailable
+  - pager
+  - psn-badge
+  - spine-label
+  - stamp-label
+  - stat-grid
+  - stat
+  - stat-head
+  - stat-value
 ---
 
 # Design Language
 
 ## Overview
 
-Librarian is not a storefront and not a companion app. It is a personal archivist for a PlayStation
-collection — the same relationship a librarian has to a collection of books: custodianship,
-classification, provenance, care. Every design decision below is a consequence of taking that
-metaphor seriously rather than treating it as a naming pun.
+**A reading light over a large, dark collection.**
 
-This has two direct implications:
+Librarian is an instrument for scanning a big collection, not a storefront and not a document. Three
+consequences follow, and every decision below is one of them:
 
-1. **Librarian does not borrow PlayStation's brand identity.** A blue-and-black reskin would read as
-   an unofficial reproduction of Sony's own visual system, and it would also be the less interesting
-   design — it says "PlayStation app" instead of saying anything about what this particular tool is
-   for. PlayStation Network is a data source Librarian connects to, not Librarian's own identity.
-   Where PSN needs to be acknowledged visually (a linked-account indicator, for instance), it gets a
-   single restrained accent color — never the dominant palette.
-2. **Librarian does not borrow generic SaaS/dashboard identity either.** Rounded cards, indigo
-   gradients, and Inter-everywhere is the default look of every admin panel and B2B product built in
-   the last decade. It's neutral to the point of saying nothing. A library card catalog has a
-   specific, tactile visual vocabulary — paper, ink, cloth binding, brass fixtures, stamped dates,
-   spine labels, hand classification — and that vocabulary is distinct enough to build a real
-   identity from.
+1. **Dark is the base, not the alternate.** The content *is* the light. A grid of saturated 1:1 cover
+   tiles reads as a shelf against near-black and as noise against parchment — the ground has to recede
+   so the art can be the brightest thing on screen. Light is a re-binding of the same tokens under
+   `@media (prefers-color-scheme: light)`, not a second design.
+2. **One accent, because in a scanning tool colour is a pointer.** A palette with four decorative hues
+   has no way left to say *look here*. Librarian spends its chroma on exactly one accent and keeps every
+   surface within `0.02` chroma of neutral. Success is not a second green — it is the accent, and it is
+   distinguished by *shape* (inline text with a check glyph) rather than by hue.
 
-Concretely: every game in the collection is treated like a cataloged volume. It has a title (set in
-a serif, sometimes italicized the way a card catalog italicizes a work's title), a classification
-(genre, rendered as a spine label), and provenance metadata (acquired date, platform, completion
-state — rendered in a monospace, like a stamped index card). The UI's job is to make a game
-collection feel *catalogued*, not *merchandised*.
+   **That accent is green (hue 155), and the reason is the alias, not the heritage.** Green arrived from
+   the retired card-catalog identity ("library green — leather, shelving, brass fixtures") and could have
+   left with it. It stayed because **`--color-ok` is an alias of the accent**: this palette has no second
+   hue for success, so success *is* the accent. Green is the only candidate where that reads naturally —
+   "success is violet" fights a convention every visitor arrives with, and the alias would have to become
+   a real second hue, which is the thing rule 2 exists to prevent. Measured, contrast does not decide it:
+   at the shipped `L`/`C`, hues 155, 225, 300 and 330 all clear every bar in both schemes, 195 fails the
+   light text bar at 4.31:1, and 25 / 75 / 265 are excluded because they collide with `--color-danger`,
+   `--color-warn` and `--color-psn` — a single accent indistinguishable from a status colour would be
+   worse than any aesthetic objection. **The light accent's headroom is the thing to watch: 4.57:1 against
+   a 4.5 bar, 1.6% spare** — the tightest text pair in the palette, so any lightening of
+   `--color-accent` in the light scheme fails `e2e/contrast.spec.ts`, by design.
+3. **Space Grotesk, because these are labels on an instrument panel.** Headings are controls and
+   section markers, not prose. Body copy is Inter; anything the eye compares column-wise — counts,
+   percentages, dates, ids — is JetBrains Mono, so digits align.
 
-Instead of a generic light/dark theme pair, Librarian has two color moods, each named for what it
-evokes, both driven by the same `prefers-color-scheme` mechanism (no JS toggle, and none should be
-added — see Do's and Don'ts):
+The palette is expressed in **OKLCH**, and that is load-bearing rather than fashionable: lightness in
+OKLCH is perceptually uniform, so `0.22` and `0.26` are a predictable step apart on every hue, which is
+what makes the three-surface ladder in Elevation work without a shadow. It also makes a bad value
+visible as a number — a surface token with chroma above `0.02` is wrong on sight.
 
-- **Reading Room** (light) — daytime, parchment and ink. A library reading room: cream paper,
-  warm dark ink text, forest-green shelving, brass accents.
-- **After Hours** (dark) — a reading room after the lights go down except for a desk lamp: deep
-  walnut brown (not neutral gray, not blue-black), warm off-white text under lamplight, the same
-  green/brass accents brightened just enough to read as lit rather than muted.
+**Theme switching stays `prefers-color-scheme` only.** No JS toggle, and none should be added — see
+Do's and Don'ts.
 
-Both rooms use warm neutrals (paper/wood undertones), never cool neutral grays — that warmth is
-what separates "library" from "generic app shell." Pure black/white and pure gray were deliberately
-rejected everywhere in this palette.
+**There is no site footer, and one should not be re-added.** It carried a nav duplicating the rail
+(Home / Catalog / FAQ / Privacy — all four already in the rail, and in the More sheet on mobile) plus the
+line *"Librarian — game curation frontend for the Curator API"*, which describes the architecture rather
+than telling a user anything. It also could not be centred: the footer sits inside `.app-body`, the flex
+sibling of the rail, so its `.page-container` centres against the viewport **minus** the rail and reads
+as skewed right on every desktop width — the same class of bug as the header brand, which is fixed by
+un-capping instead. Three problems, and removing it solves all three while matching the mobile-app idiom
+the brief asked for: apps have a tab bar, not a footer. Privacy stays reachable from the rail and the
+sheet, which is what actually matters.
+
+**`:root` also declares the CSS `color-scheme: dark light` property, and it is not the same thing as the
+media query.** `prefers-color-scheme` tells *this stylesheet* what the user prefers; `color-scheme` tells
+*the browser* what this document supports, and the order lists dark first so dark is what a user with no
+preference gets. Without it the UA paints its own chrome — scrollbars, form controls, the canvas behind
+the page — from the OS light theme, which on Windows means bright scrollbars with stepper arrows against
+a near-black UI. **No token, contrast or layout assertion can see that**, because none of it is the
+page's own CSS; `e2e/theme.spec.ts` asserts the declared property directly.
 
 ## Colors
 
-```css
-:root {
-  /* Reading Room (light) */
-  --color-bg: #F6F1E7;              /* parchment */
-  --color-surface: #FFFDF8;          /* index card */
-  --color-surface-alt: #EFE7D8;      /* recessed / hover surface */
-  --color-text: #241C15;             /* ink */
-  --color-text-muted: #7A6F5E;       /* pencil */
-  --color-border: #E4D9C5;           /* card edge */
+Dark is the base and lives in Tailwind's `@theme`. Light re-binds the *same* token names in a plain
+`:root` rule inside the media query — plain, not `@theme inline`, because `@theme inline` bakes the value
+into every utility and the re-binding would then do nothing.
 
-  --color-primary: #1F4D3D;          /* library green — leather, shelving, brass fixtures */
-  --color-primary-dark: #163B2E;
-  --color-primary-rgb: 31, 77, 61;
-
-  --color-accent: #B4790A;           /* brass / gold-leaf title */
-  --color-accent-rgb: 180, 121, 10;
-
-  --color-psn: #2C4A7C;              /* muted cobalt — PSN-linked state ONLY, never primary UI */
-  --color-psn-rgb: 44, 74, 124;
-
-  --color-error: #A3342A;            /* oxblood ink, not stop-sign red */
-  --color-error-rgb: 163, 52, 42;
-  --color-error-hover: #82291F;      /* solid destructive hover — moves AWAY from the text colour */
-  --color-error-contrast: #FFFDF8;   /* text ON an error fill — never assume white works */
-  --color-success: #3E6B4F;          /* same family as primary, darker/desaturated */
-  --color-warning: #B8752E;          /* same warm-ink family, between accent and error */
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* After Hours (dark) */
-    --color-bg: #19140F;             /* walnut, near-dark */
-    --color-surface: #241C15;
-    --color-surface-alt: #2E251C;
-    --color-text: #EDE3D3;           /* lamp-lit page */
-    --color-text-muted: #A6957D;
-    --color-border: #3A2E22;
-
-    --color-primary: #3E7A5C;
-    --color-primary-dark: #316148;
-    --color-primary-rgb: 62, 122, 92;
-
-    --color-accent: #D4A017;
-    --color-accent-rgb: 212, 160, 23;
-
-    --color-psn: #4C6FA5;
-    --color-psn-rgb: 76, 111, 165;
-
-    --color-error: #CB7367;
-    --color-error-rgb: 203, 115, 103;
-    --color-error-hover: #D1847A;
-    --color-error-contrast: #19140F;
-    --color-success: #5FA57E;
-    --color-warning: #D99A4E;
-  }
-}
-```
+| Token | Dark (base) | Light |
+|---|---|---|
+| `--color-canvas` | `oklch(0.18 0.012 265)` | `oklch(0.97 0.004 265)` |
+| `--color-surface` | `oklch(0.22 0.014 265)` | `oklch(1 0 0)` |
+| `--color-surface-2` | `oklch(0.26 0.016 265)` | `oklch(0.945 0.006 265)` |
+| `--color-line` | `oklch(0.32 0.016 265)` | `oklch(0.89 0.008 265)` |
+| `--color-line-strong` | `oklch(0.48 0.02 265)` | `oklch(0.68 0.014 265)` |
+| `--color-text` | `oklch(0.95 0.005 265)` | `oklch(0.24 0.012 265)` |
+| `--color-text-muted` | `oklch(0.72 0.012 265)` | `oklch(0.48 0.014 265)` |
+| `--color-accent` | `oklch(0.72 0.17 155)` | `oklch(0.52 0.15 155)` |
+| `--color-accent-hover` | `oklch(0.8 0.15 155)` | `oklch(0.44 0.14 155)` |
+| `--color-on-fill` | `oklch(0.18 0.012 265)` | `oklch(0.99 0.002 265)` |
+| `--color-danger` | `oklch(0.65 0.19 25)` | `oklch(0.52 0.2 25)` |
+| `--color-danger-hover` | `oklch(0.73 0.17 25)` | `oklch(0.44 0.19 25)` |
+| `--color-warn` | `oklch(0.78 0.15 75)` | `oklch(0.55 0.13 75)` |
+| `--color-ok` | = accent | = accent |
+| `--color-psn` | `oklch(0.62 0.15 265)` | `oklch(0.48 0.16 265)` |
+| `--color-focus` | `oklch(0.85 0.12 155)` | `oklch(0.44 0.14 155)` |
 
 **Usage rules:**
 
-- `--color-primary` (library green) is the workhorse: primary buttons, links, focus rings, and the
-  active/current-route state in `SiteNavComponent` (desktop header and mobile bottom tab bar alike).
-  It is the app's actual identity color.
-- `--color-accent` (brass) is reserved for things that deserve to look *cataloged and valuable* —
-  a title treatment, a "featured" or "recently acquired" marker (e.g. the Catalog grid's `AAA`-tier
-  card top-border), a rating/score display. Used sparingly, never as a background fill.
-- `--color-psn` exists **only** to indicate "this data/state came from or reflects your linked PSN
-  account" — a small badge, a linked-account status line, a PSN-sourced data attribution. It must
-  never become the button color, the nav color, or a decorative brand nod.
-- `--color-warning` follows the same warm-ink-family rule as error/success — used sparingly for
-  non-error caution states (e.g. an enrichment key that's saved but hasn't been validated yet).
-- `--color-error` / `--color-success` stay in the same warm-ink family as everything else (oxblood /
-  moss) rather than stock red/green, so validation states don't look like they were dropped in from
-  a different design system.
-- **`--color-error-contrast` is the text colour to put *on* an error fill, and it is not white in both
-  rooms.** After Hours brightens error the same way it brightens primary and accent — error had been
-  left behind at `#C1584A`, which reads at only 3.80:1 against the dark surface and fails AA for its
-  own label. Lifting it to `#CB7367` clears that at 4.94:1, but a lighter fill then leaves white text
-  at 3.39:1, so the dark room puts near-black ink on the fill instead (5.39:1). Reading Room keeps
-  paper-white on oxblood at 6.81:1. Never hardcode `#fff` on a destructive button — take the token.
-- **`--color-error-hover` moves away from the text colour, which means it darkens in one room and
-  lightens in the other.** Reading Room has paper text on an oxblood fill, so hover darkens to
-  `#82291F`; After Hours has ink text on a lifted fill, so hover *lightens* to `#D1847A`. Naming it
-  `--color-error-dark`, by analogy with `--color-primary-dark`, produced a 3.75:1 hover in the dark
-  room — the token has to name its role, not its direction. Every danger pair in both rooms now clears
-  AA, worst case 4.94:1.
-- **No JS light/dark toggle.** The two rooms are driven entirely by `prefers-color-scheme`. Do not
-  reintroduce a manual toggle — this has been discussed and rejected; it complicates state
-  management for no benefit this app needs.
+- **Chroma above `0.02` on a surface, line or text token is a defect.** The ground is a near-neutral at
+  hue 265; the accent is the only place chroma is spent. This is checkable by reading the number, which
+  is the point of expressing the palette in OKLCH rather than hex.
+- **`--color-accent` at `0.17` chroma, not `0.19`.** `oklch(0.72 0.19 155)` is outside the sRGB gamut
+  (its linear-red component is negative), so a browser silently gamut-maps it — and every contrast ratio
+  computed from the token then describes a colour that is not the one rendered. A token you cannot
+  measure is worse than a duller one.
+- **Ink on a fill is `--color-on-fill`, never `#fff` and never assumed.** White fails on all three dark
+  fills. The direction is not automatic and does not follow the scheme: on the dark scheme's accent,
+  near-white measures 5.00:1 while dark ink measures 3.60:1 and fails AA. Measure before inverting.
+- **Every `*-hover` lightens in dark and darkens in light**, because hover must move *away* from the
+  on-fill ink and the ink sits at opposite ends in the two schemes. A name like `accent-hi` encodes a
+  direction that is only true in one of them. This applies to `--color-danger-hover` exactly as it does
+  to `--color-accent-hover`; both are measured on their fills by the contrast spec, because a hover fill
+  carries ink too and is easy to forget.
+- **`--color-line` is a divider; `--color-line-strong` is a control outline.** `line` on `surface` is
+  fine between rows and a WCAG 1.4.11 failure the moment it becomes the edge of an input. Anything a user
+  can operate uses `line-strong`. **`line-strong` is the tightest token in the palette against both
+  raised surfaces, and it is the one the contrast spec has actually caught failing** — do not darken it
+  in dark or lighten it in light without re-running `e2e/contrast.spec.ts`.
+- **Focus rings carry `outline-offset: 2px`, mandatory.** `focus` directly on an `accent` fill is
+  1.32:1; offset onto the page background it is 10.94:1. The offset is the contrast.
+- **`--color-ok` is an alias of the accent.** Success is distinguished by *shape* — inline text with a
+  check glyph — never by a second green surface.
+- **`--color-psn` marks a linked PlayStation account.** It is descriptive, not restrictive.
+
+### The failure mode this palette actually has: a token that still resolves
+
+**Every defect found while building this palette had the same shape — a `var()` that still resolved, so
+nothing failed, while the thing it expressed quietly stopped being true.** Six of them, and **only one was
+visible in review**: the rest were found by a test measuring them, by a control run, or by an operator
+asking why something looked wrong. Recorded together because the *shape* is the reusable part, not the
+individual bugs. Note the last two are not colour at all — the shape generalises to any token:
+
+| What was written | What it meant | Why nothing failed |
+|---|---|---|
+| `.card { border-top: … var(--color-primary) }` | a neutral card edge, with `.card-accent` as the marked variant | `--color-primary` aliases `--color-accent`, so **both classes rendered identically** and the variant stopped meaning anything |
+| `--color-error-hover: var(--color-danger)` | a hover that moves away from the ink | it resolved to the base colour, so **destructive buttons had no hover at all** |
+| `--color-line-strong` at `L 0.48` | a control edge clearing 3:1 | it resolved fine and looked plausible; it measured **2.38:1** |
+| `a { text-decoration: none }` | links distinguished by the accent | the accent resolved; links in prose were **colour-only**, failing WCAG 1.4.1 |
+| `--color-focus` declared, and no `:focus-visible` rule anywhere | every control ringed in the focus token at a 2px offset | the token resolved, and `e2e/contrast.spec.ts` **measured it passing** — while nothing applied it, so every control fell back to the browser's default ring at offset 0 |
+| `--container-prose` in `@theme`, spelled `max-w-prose` | a 720px reading measure | `max-w-prose` is a Tailwind **built-in** pinned to `65ch`; the token was emitted and greppable while the utility ignored it, so the measure was 656px and font-dependent |
+
+Two rules follow, and they are the whole defence:
+
+1. **An alias must point at something that differs.** If `--x-hover` resolves to the same value as `--x`,
+   the state it names does not exist. Aliasing a legacy name into the new palette is where this creeps in,
+   because the compiler is perfectly happy.
+2. **If a token expresses a *relationship* — a hover that must differ, an edge that must clear a ratio,
+   a variant that must be distinguishable — the relationship gets a test.** That is why
+   `e2e/contrast.spec.ts` now measures the hover fills as well as the resting ones.
+3. **A contrast spec proves a pair is legible. It cannot prove the pair is used.** `--color-focus` on
+   `--color-canvas` measured green throughout the whole period in which no element was ringed in it. A
+   token needs a test that the *rule* exists, separately from the test that its colours work — which is
+   what `e2e/theme.spec.ts`'s focus-ring suite is. It asserts `outline-style: solid`, because Chromium's
+   fallback ring is `auto`, and `auto` ignores `outline-color` entirely: asserting the colour alone would
+   pass against the browser default.
+
+   **The suite was proven to discriminate rather than assumed to.** Reverting the `:focus-visible` rule at
+   runtime and re-reading the same three selectors moved every one of them from `solid/2px/2px` to
+   **`auto/1px/1px`** — so all three assertions (style, width, offset) fail when the rule is removed, on
+   every selector. Note the measured fallback offset is `1px`, not `0`; an earlier version of this section
+   said `0`, which is the kind of unmeasured detail this file exists to keep out.
+
+**No ratio is quoted in this file, and that is deliberate.** `e2e/contrast.spec.ts` resolves each token
+through a 1×1 canvas in **both** schemes and checks 15 pairs against their WCAG bar — 4.5:1 for text,
+3:1 for a control edge or icon under 1.4.11. A number written down here is a claim that rots; the spec is
+a measurement that cannot. **This is not hypothetical: the first version of this palette was documented
+with ratios of "3.57:1" and "3.11:1" for the `line-strong` pairs, and the spec measured them failing.**
+The table above is the palette; the spec is the proof.
+
+The canvas is pre-set to a magenta sentinel before every fill, because **Canvas2D ignores an invalid
+colour silently** — without the sentinel a token that failed to parse would inherit the previous pixel
+and quietly pass.
 
 ## Typography
 
 | Level | Font | Size | Weight | Line height | Use |
 |---|---|---|---|---|---|
-| h1 | Lora | 2.25rem | 700 | 1.25 | Page titles |
-| h2 | Lora | 1.5rem | 700 | 1.25 | Section headings |
-| h3 | Lora | 1.25rem | 700 | 1.25 | Card/subsection headings |
-| h4 | Lora | 1.125rem | 700 | 1.25 | Minor headings |
+| h1 | Space Grotesk | 2.25rem | 700 | 1.25 | Page titles |
+| h2 | Space Grotesk | 1.5rem | 700 | 1.25 | Section headings |
+| h3 | Space Grotesk | 1.25rem | 700 | 1.25 | Card/subsection headings |
+| h4 | Space Grotesk | 1.125rem | 700 | 1.25 | Minor headings |
 | body | Inter | 1rem | 400 | 1.6 | Everything else |
-| `.catalog-title` | Lora | inherit | 600, italic | inherit | Game titles — italicized like a card catalog's title entry |
-| `.catalog-meta` | IBM Plex Mono | 0.85rem | 400 | inherit | Stamped metadata: dates, PSN ids, ratings, completion % |
-| `.stamp-label` | IBM Plex Mono | 0.8rem | 400, uppercase, `letter-spacing: 0.06em` | inherit | Typed captions: a heading over a block, a state stamped on a record |
+| `.catalog-title` | Space Grotesk | inherit | 600, italic | inherit | Game titles |
+| `.catalog-meta` | JetBrains Mono | 0.85rem | 400 | inherit | Metadata: dates, PSN ids, ratings, completion % |
+| `.stamp-label` | JetBrains Mono | 0.8rem | 400, uppercase, `letter-spacing: 0.06em` | inherit | Captions: a heading over a block, a state on a record |
 | `.spine-label` | Inter | 0.7rem | 600, uppercase, `letter-spacing: 0.06em` | inherit | Genre/platform classification tags |
 
+**Anything the eye compares down a column is monospace, and that is the whole rule.** Counts,
+percentages, dates, ids and scores are set in JetBrains Mono so their digits align between rows; prose is
+Inter; headings are Space Grotesk because they label controls rather than open paragraphs. All three are
+**variable** faces, self-hosted from `public/fonts/` — one file per family covers every weight in the
+scale.
+
 ```css
---font-heading: 'Lora', Georgia, serif;
---font-body: 'Inter', system-ui, sans-serif;
---font-meta: 'IBM Plex Mono', ui-monospace, monospace;
+--font-heading: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+--font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+--font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
 /* Type scale — named by role, not by value. */
 --font-size-display: 2.25rem;      /* h1 */
@@ -269,23 +314,22 @@ text surrounds it, so a snippet inside an `h3` stays proportional to that headin
 step would shrink it there. A token that resolves differently by context is correct here and nowhere
 else in the scale.
 
-- **Headings & game titles** — `Lora` (serif). Game titles get their own treatment, italicized the
-  way a library catalog italicizes the title of a cataloged work. Series/edition subtitles use the
-  same serif at a smaller size, roman (not italic), the way a catalog card lists an edition note
-  under the italicized title.
-- **Body** — `Inter`. A clean, quiet reading face that doesn't compete with the serif.
-- **Metadata / catalog numbers** — `IBM Plex Mono` for anything that reads like a stamped catalog
-  entry — acquisition dates, PSN account identifiers, completion percentages, platform codes,
-  ratings. This is the detail that sells the "index card" metaphor: metadata should look *typed*,
-  not styled. Live in `.catalog-meta`, and used in the Library table's rating columns.
+- **Headings & game titles** — `Space Grotesk`. Its tight apertures and near-mechanical forms read as
+  labelling rather than prose, which is what a heading does in a scanning tool. Game titles take the same
+  face at 600 rather than a separate treatment: the title is the primary thing on a card, so it needs
+  weight, not decoration.
+- **Body** — `Inter`. A quiet reading face that does not compete with the headings for attention.
+- **Metadata / numbers** — `JetBrains Mono` for anything compared down a column: acquisition dates, PSN
+  account identifiers, completion percentages, platform codes, ratings. Alignment is the point — a
+  proportional face makes `98%` and `100%` different widths and the eye has to re-find the decimal on
+  every row. Lives in `.catalog-meta`, and in the Library table's rating columns.
 - **Classification labels** — a small-caps, letter-spaced treatment (`.spine-label`) for genre and
-  platform tags, evoking a book spine label or a card-catalog subject heading — uppercase,
-  `letter-spacing: 0.06em`, small size, set in `Inter` at 600 weight, not a filled pill/badge.
-- **Typed captions** — `.stamp-label` is the same small-caps idea in the *metadata* family: monospace,
-  and without the spine's bottom rule. It labels a thing rather than classifying it — the "On this page"
-  heading over a table of contents, or a `private`/`shared` state stamped on a collection. Reach for
-  `.spine-label` when the text says what a work *is*, and `.stamp-label` when it says what a block or a
-  record *is called* or *is currently*.
+  platform tags — uppercase, `letter-spacing: 0.06em`, small size, `Inter` at 600, not a filled pill.
+  A filled badge would spend colour, and colour is reserved for the accent.
+- **Captions** — `.stamp-label` is the same small-caps idea in the *metadata* family: monospace, without
+  the spine's bottom rule. It labels a thing rather than classifying it — the "On this page" heading over
+  a table of contents, or a `private`/`shared` state on a collection. Reach for `.spine-label` when the
+  text says what a work *is*, and `.stamp-label` when it says what a block *is called* or *is currently*.
 
 ## Layout
 
@@ -299,9 +343,33 @@ else in the scale.
 --space-7: 3rem;
 --space-8: 4rem;
 
---card-pad: 1.5rem;    /* standard inner padding for .card surfaces */
---nav-height: 60px;    /* desktop header height; also the mobile bottom tab bar's height */
+--card-pad: 1.5rem;              /* standard inner padding for .card surfaces; exactly `p-6` */
+
+--container-narrow: 480px;       /* max-w-narrow */
+--container-reading: 720px;      /* max-w-reading */
+--container-data: 960px;         /* max-w-data */
+
+--rail-width: 15rem;             /* the desktop rail's width */
+--tabbar-height: 3.75rem;        /* the mobile bottom tab bar's height */
+--header-height: 3.5rem;         /* the slim brand bar above both */
 ```
+
+**The spacing scale is Tailwind's, which is why the migration was mechanical rather than approximate:**
+`--space-2/3/4` are `gap-2/3/4` exactly. The one to watch is `--space-5`, which is `1.5rem` and therefore
+**`gap-6`, not `gap-5`**.
+
+**`--nav-height` is gone, and splitting it was a bug fix.** One token named two unrelated things — a
+desktop height and a mobile bar height — which is why the rail and the tab bar could not be sized
+independently. They are now `--rail-width` (a width) and `--tabbar-height` (a height), and the tab bar
+adds `env(safe-area-inset-bottom)` to both its own height and `main`'s bottom padding, so it no longer
+sits under an iOS home indicator.
+
+**Anything fixed to the bottom edge on mobile clears the bar *and* the inset — that is three separate
+places, not one.** The tab bar's own height and `main`'s padding are two; `app-page-toc`'s back-to-top
+button is the third, and it was the one that was missed, because it was written against the old
+`--nav-height` and so read as a desktop concern. Its offset is
+`calc(var(--tabbar-height) + env(safe-area-inset-bottom) + var(--space-4))`. A fourth bottom-anchored
+element would need the same treatment, and no test emulates a safe area, so this is the record.
 
 - **Grid model**: a centered outer column (`.page-container`, `max-width: 1100px`, `margin: 0 auto`,
   horizontal padding `1.5rem` — `1rem` below the `sm` breakpoint), not a multi-column app-shell grid.
@@ -313,43 +381,93 @@ else in the scale.
   (`margin-inline: auto`) — an inner column narrower than the shell that doesn't centre leaves the
   page visibly weighted to the left on wide viewports. The four permitted measures:
 
-  | Measure | Used by | Why |
-  |---|---|---|
-  | `480px` | `/psn`, `/profile/settings`, `/profile/followers`, `/profile/following`, `/u/:sub/followers`, `/u/:sub/following` | Form and settings pages, and single-column lists — one column of labelled controls or rows |
-  | `640px` | `/`, `/collections` | Prose plus a short list |
-  | `720px` | `/faq`, `/privacy`, 404 | Long-form reading text |
-  | `1000px` | `/library`, `/profile`, `/u/:sub` | The data table, and the profile's stat grid — both need four columns to read as a grid rather than a list |
+  | Token | Value | Used by | Why |
+  |---|---|---|---|
+  | `max-w-narrow` | `480px` | `/psn`, `/profile/settings`, `/profile/followers`, `/profile/following`, and the `/u/:sub` equivalents | Form and settings pages, and single-column lists — one column of labelled controls or rows |
+  | `max-w-reading` | `720px` | `/faq`, `/privacy`, 404, the two `collections` explainer cards | Long-form reading text |
+  | `max-w-data` | `960px` | `/library`, `/profile`, `/u/:sub` | The data table, and the profile's stat grid — both need four columns to read as a grid rather than a list |
 
-  `/profile` and `/u/:sub` share one component and one stylesheet, so they share a measure; both are
-  listed rather than left inferred, which is how `/u/:sub` went unlisted here for as long as it did.
-  `/profile*` used to name the whole family at `480px`, from when the profile was two status cards. It
-  is an overview page now; only its genuinely form-and-list siblings still belong at that measure.
+  **Each is a `--container-*` theme token, so `max-w-data` is the only spelling** and an arbitrary
+  `max-w-[60rem]` stands out in review. `/profile` and `/library` share the data measure, and
+  `e2e/layout.spec.ts` asserts they are *equal to each other* rather than to a literal — so changing the
+  token moves both and the test still means something.
 
-  Don't introduce a fifth value without a reason that isn't already covered above.
-- **Breakpoint scale** (CSS custom properties can't be read inside `@media` conditions, so these
-  pixel values are what every `@media` query in this app should use directly): `sm: 480px` (large
-  phone — tighter `.page-container` padding), `md: 768px` (tablet — the nav pattern switch point:
-  desktop header nav above, bottom tab bar below), `lg: 1024px`, `xl: 1280px`.
+  **The reading measure is `max-w-reading`, not `max-w-prose`, and the name is load-bearing.**
+  `max-w-prose` is a Tailwind **built-in static utility pinned to `65ch`**, and a `--container-prose`
+  theme variable does *not* override it — both declarations land in the same emitted rule and the
+  built-in comes last, so it wins:
+
+  ```css
+  max-w-prose{max-width:var(--container-prose);max-width:65ch}   /* the token loses */
+  ```
+
+  So while the token was named `prose`, every page carrying `max-w-reading`'s predecessor measured
+  **656px** rather than the 720px documented here, and `--container-prose` was declared, emitted and
+  greppable while nothing consumed it — the palette's characteristic defect (a token that still
+  resolves) reappearing in the layout scale. Worse, `65ch` is a **font-dependent** measure in an app
+  whose recorded incident is a layout measured 39px narrow in fallback font metrics; every other
+  measure here is `px`. Renaming the token is the only fix, because a built-in static utility cannot
+  be removed. **Do not rename it back to `prose`.**
+
+  **`1000px` became `960px`, and that is forced arithmetic rather than taste.** At `xl` (1280px) the
+  content column is `1280 − 240 (rail) − 48 (padding) = 992px`, so a 1000px measure clips. 960px fits
+  with 32px spare and the four-column stat grid still lands (`4×200 + 3×16 = 848`).
+
+  The old `640px` measure is retired — `/` and `/collections` were its only users and neither needed a
+  fourth step. Don't introduce one without a reason not already covered above.
+- **Breakpoints are `@theme` tokens: `sm: 480px`, `md: 768px`, `lg: 1024px`, `xl: 1280px`.** Tailwind
+  resolves `--breakpoint-*` at build time, so in a template `lg:` *is* the token and there is no pixel
+  value to typo. Note `sm` is **480px deliberately**, overriding Tailwind's 640px default, because this
+  app's `sm` marks the point where `.page-container` padding tightens on a large phone.
+  **A surviving component stylesheet still hand-writes its `@media` condition** — a `.css` file cannot use
+  a variant — so when you write one, take the pixel value from this list rather than inventing a near-miss.
+  The nav switch point is **`lg` (1024px)**, not `md`: Playwright's default `Desktop Chrome` viewport is
+  1280×720, so putting the switch at `xl` would sit every unviewported test exactly on the boundary.
 - Keep paddings/margins on the `--space-*` steps for a cohesive rhythm; don't introduce one-off
   pixel values for spacing that already has a step close enough.
 
 ## Elevation & Depth
 
-```css
---shadow-sm: 0 1px 2px rgba(36, 28, 21, .10), 0 1px 1px rgba(36, 28, 21, .06);
---shadow-md: 0 6px 16px rgba(36, 28, 21, .12), 0 2px 4px rgba(36, 28, 21, .08);
---shadow-lg: 0 10px 30px rgba(36, 28, 21, .14), 0 4px 8px rgba(36, 28, 21, .08);
-```
+**On a near-black canvas a drop shadow is a no-op, so depth is carried by lightness and an edge instead.**
+`--color-canvas` sits at `L 0.18`; a shadow cast onto it has almost nothing left to darken. The old
+three-step `--shadow-sm/md/lg` scale was built for a parchment ground and does not survive the inversion.
 
-(After Hours/dark values use black-based rgba at higher opacity — see the Colors block's dark
-`@media` section; the same three-step scale applies in both rooms.)
+Depth is therefore **three surface levels plus a mandatory hairline**:
 
-- `--shadow-sm` is the resting state for every `.card` — cards sit, they don't float.
-- `--shadow-md` is for hover/interactive elevation (e.g. the Catalog grid's hover lift) and dropdown
-  surfaces.
-- `--shadow-lg` is for anything that sits above the page itself — the mobile bottom tab bar's
-  top-edge shadow being the current example.
-- No glow, no colored shadows, no blur-heavy "neumorphic" effects.
+| Token | Role |
+|---|---|
+| `--color-canvas` | the page itself |
+| `--color-surface` | a raised plane — cards, the rail, the tab bar |
+| `--color-surface-2` | a plane raised above *that* — hover states, recessed wells, the sheet |
+
+The steps are deliberately small (roughly 1.10:1 and 1.15:1 against each other), because a surface
+ladder that reads as *contrast* starts competing with the content for attention. Lightness alone is not
+enough to say where a plane stops, so **every raised surface also carries `1px solid var(--color-line)`**.
+Lightness says "different plane"; the hairline says "this is where it ends".
+
+`--shadow-overlay` is the one surviving shadow token, and it exists for the More sheet alone — something
+that genuinely floats over the page rather than sitting in it.
+
+- No glow, no coloured shadows, no blur-heavy "neumorphic" effects.
+- **A z-index ladder, stated as tokens and enforced — never a literal:**
+
+  ```css
+  --z-header: 10;
+  --z-back-to-top: 15;
+  --z-tabbar: 20;
+  --z-loading-overlay: 1100;
+  ```
+
+  **`stylelint` rejects any `z-index` that is not `var(--z-*)`** (bare `auto` and `0` aside), because a
+  ladder documented in prose is a ladder nobody has to obey: the four rungs were literals in four
+  different files, and a fifth added elsewhere would have joined at a number nobody chose. A collision
+  only shows when two of them happen to overlap, which is exactly the defect that survives review.
+  **Adding a rung means adding a token here first.**
+
+  A modal `<dialog>` renders in the browser's *top layer*, above every z-index, so the sheet needs no rung
+  at all. The loading overlay is **not** in the top layer, and it sits above the sheet on purpose: its
+  whole job is to swallow input during an in-flight request, and a sheet drawn over it would accept taps
+  it must not.
 
 ## Shapes
 
@@ -358,35 +476,63 @@ else in the scale.
 --radius-md: 6px;
 ```
 
-- **Radius stays small and restrained.** Books and index cards have square-ish edges; a heavily
-  rounded UI reads as "friendly consumer app," which undercuts the archival tone this app is going
-  for.
-- **Cards are "catalog cards," not generic panels.** A `.card` gets a `3px` top border in
-  `--color-primary` (`.card`) or `--color-accent` (`.card-accent`) — like a colored tab divider on a
-  card-catalog drawer — rather than relying on shadow alone to read as a distinct object.
-- A very subtle paper-grain texture (a tiled, low-contrast noise background, opacity ~3–4%) on
-  `--color-bg` is still worth trying now that Catalog/Collections/Library have real surface area to
-  judge it against — still not implemented, revisit as a follow-up.
+- **Radius stays small and restrained.** A heavily rounded UI reads as a friendly consumer app; this is
+  an instrument for scanning a collection, and its edges should be quiet. `--radius-lg` exists for exactly
+  one thing — the top corners of the More sheet, where the curve reads as "this slid up over the page".
+- **A card is defined by its edge, not by a shadow.** `.card` is `--color-surface` with the mandatory
+  hairline and a `3px` **neutral** top border; `.card-accent` recolours that border to `--color-accent`
+  to mark an entry that deserves attention. That accent border is one of the few places chroma is spent,
+  so it has to mean something.
+  **The 3px lives on `.card`, not on `.card-accent`, and that is deliberate** — moving it to the variant
+  would make an accented card 2px taller than its neighbours in a grid. The variant changes colour only.
+  This is also the shape of a bug worth remembering: when the palette collapsed to one accent, `.card`'s
+  border was `var(--color-primary)`, which now aliases the accent, so **both classes rendered identically
+  and the variant silently stopped meaning anything.** Nothing failed; both tokens still resolved.
+- **Cover art is the only saturated thing on the page, by design.** Every surface stays within `0.02`
+  chroma of neutral precisely so a grid of 1:1 box art reads as the content and the chrome recedes.
 
 ## Components
 
 - **`.card` / `.card-accent`** — the base surface primitive (see Shapes). Used by every status card,
   the Catalog grid item, and the Library page's mobile card-per-row layout.
-- **`.btn-primary`** — solid `--color-primary` fill, white text, `--radius-sm`. The default action
-  button.
-- **`.btn-ghost`** — transparent fill, `--color-border` outline, `--color-text-muted` text. Secondary
-  actions. **`.btn-ghost-danger`** — the same shape with `--color-error` text/border, for destructive
-  actions (unfollow, remove a key, delete).
-- **`.btn-danger`** — solid `--color-error` fill with `--color-error-contrast` text, for the *confirm*
-  step of a destructive action only; the button that opens the confirmation is `.btn-ghost-danger`.
-  It is a peer of `.btn-primary`, not a modifier on it: composing them produced error-coloured text on
-  the primary green fill, which measured 1.41:1 in Reading Room and 1.15:1 in After Hours against a
-  4.5:1 requirement — the least readable control in the app sitting on its most destructive action.
+- **`.btn-primary`** — solid `--color-accent` fill, `--color-on-fill` ink, `--radius-sm`. The default
+  action button. **Never `#fff` for the ink** — see Colors.
+- **`.btn-ghost`** — transparent fill, `--color-line-strong` outline, `--color-text-muted` text.
+  Secondary actions. **`.btn-ghost-danger`** — the same shape with `--color-danger` text/border, for
+  destructive actions (unfollow, remove a key, delete). The outline takes `line-strong`, not `line`,
+  because it is the edge of a control and `line` fails WCAG 1.4.11 there.
+- **`.btn-danger`** — solid `--color-danger` fill with `--color-on-fill` ink, for the *confirm* step of a
+  destructive action only; the button that opens the confirmation is `.btn-ghost-danger`. It is a peer of
+  `.btn-primary`, **not a modifier on it**: composing them produced danger-coloured text on the accent
+  fill, measuring 1.41:1 and 1.15:1 in the two schemes against a 4.5:1 requirement — the least readable
+  control in the app sitting on its most destructive action.
 - **`.btn-sm`** — a smaller padding/font-size variant, composed with `.btn-primary`/`.btn-ghost`.
+- **A group of three or more peer buttons is a grid, never `flex flex-wrap`.** Buttons are content-sized
+  and `white-space: nowrap`, so a wrapping flex row spaces them by label length: the gaps are uniform
+  while the buttons are not, which reads as arbitrary rhythm, and the last one drops to a row of its own
+  as soon as the labels outgrow the measure. The home card showed exactly that — three buttons then a
+  lone *Manage PSN Link* — and nothing about the arrangement was a decision. Use
+  `grid grid-cols-1 sm:grid-cols-2 gap-3 w-full`: grid tracks are equal by construction, both button
+  classes are `justify-content: center` so they centre inside a stretched track, and four actions fall
+  into two rows of two with no orphan. **`w-full` is load-bearing** — these cards are
+  `flex flex-col items-start`, so without it the grid shrink-wraps and the tracks are unequal again.
+  `e2e/layout.spec.ts` asserts one distinct width and exactly two rows.
+
+  **In such a group the first action is the primary one, and that is the only thing order encodes.**
+  Home renders its four actions from a single array and marks `$first` as `.btn-primary`, so promoting an
+  action is a reordering rather than a second class list to keep in sync — the same "one array, rendered"
+  shape the nav uses. It earns its place immediately: while no PSN account is linked, the card says
+  nothing has been catalogued and the filled primary pointed at **My Library**, a page that is empty
+  precisely because of what the card just said. **Manage PSN Link** leads instead until `linked` is true.
+  Note the promotion tests `linked === false` explicitly, not falsiness: `linked` is
+  `boolean | null`, and `null` means the `/me` call degraded — offering the link step there would push
+  PSN linking at someone who is already linked. `home.component.spec.ts` pins all three states and that
+  exactly one action is primary.
 - **Form inputs** (`input[type=text|email|password|number|search]`, `select`, `textarea`) — flat fill,
-  `--color-border` outline, `--radius-sm`, `--color-primary` focus ring. A new input `type` must be added
-  to that selector list or it renders unstyled next to its neighbours — `search` was missing until the
-  catalog, collection-item and manual-add search boxes exposed it.
+  `--color-line-strong` outline, `--radius-sm`, and a `--color-focus` ring with **`outline-offset: 2px`**,
+  which is what makes the ring legible against a filled control. A new input `type` must be added to that
+  selector list or it renders unstyled next to its neighbours — `search` was missing until the catalog,
+  collection-item and manual-add search boxes exposed it.
 - **`.spine-label`** — genre/platform classification tag (see Typography).
 - **`.stamp-label`** — typed caption in the metadata family (see Typography). Live on the `app-page-toc`
   heading and the Collections visibility state. It exists because both had reimplemented the treatment
@@ -440,89 +586,68 @@ else in the scale.
   children all report the same centre; assert the span's own height instead (~21.8px content-sized vs
   34.5px stretched). The position label is `from–to of total` in a `.text-muted` span, and the buttons
   are `.btn-ghost`.
-- **`ng-icon`** — the icon element, from `@ng-icons/core` with glyphs out of
-  `@ng-icons/phosphor-icons/regular` (see Appendix: Iconography & Imagery for the pack decision and
-  the concept-to-glyph map). Colour inherits from context and the glyph holds its size in a flex row,
-  both defined once in `styles.css`; the default `1.5rem` size comes from `provideNgIconsConfig` in
-  `app.config.ts`. Register glyphs per component through `provideIcons({ … })` in `viewProviders`, so
-  unused ones tree-shake away — never register a whole pack. Every `ng-icon` carries
+- **`.quiet-scroll`** — a scroll container that scrolls without showing a scrollbar:
+  `overflow-y: auto`, `overscroll-behavior: contain`, and the scrollbar hidden via `scrollbar-width: none`
+  plus the `::-webkit-scrollbar` fallback. **This is nav chrome only — never content.** The desktop rail
+  uses it because the brief asked for a mobile-app navigation idiom, and a mobile drawer does not carry a
+  persistent scrollbar; the page's own scrollbar stays visible, because a reader of `/faq` needs to know
+  how much is left. Measured cost of the alternatives on the rail: the default `auto` scrollbar consumes
+  **16px** of layout width, `scrollbar-width: thin` **11px**, and hidden **1px** — and hiding changes
+  nothing about scrolling itself, which still works by wheel, touch, keyboard and `scrollIntoView`.
+  Moving the bar to the left instead (via `direction: rtl` on the container and a reset on every child)
+  was measured too: it keeps the 11px cost, shifts the content 10px, and needs a `direction` override on
+  each child, so it buys nothing the hidden bar does not.
+- **`ng-icon`** — the icon element, from `@ng-icons/core` with glyphs out of `@ng-icons/lucide`
+  (see Appendix: Iconography & Imagery for the pack decision and the concept-to-glyph map). Colour
+  inherits from context and the glyph holds its size in a flex row, both defined once in `styles.css`;
+  the default `1.5rem` size comes from `provideNgIconsConfig` in `app.config.ts`. Register glyphs per
+  component through `provideIcons({ … })` in `viewProviders`, so unused ones tree-shake away — never
+  register a whole pack. Every `ng-icon` carries
   `aria-hidden="true"`: the accessible name belongs to the control around it, which is why an
   icon-only nav link needs its own `aria-label`.
-- **`app-site-nav`** (`src/app/nav/site-nav.component.ts`) — the single sitewide nav-link data
-  source, rendered two ways from one array: a desktop header (`.site-nav-desktop`, horizontal links
-  + user chip + PSN Settings + Sign out) above the `md` breakpoint, and a fixed bottom tab bar
-  (`.site-nav-tabbar`, 5 primary destinations: Home/Catalog/Collections/Library/Profile) below it.
-  Active route gets `routerLinkActive="nav-active"` → `--color-primary` text.
-  **The desktop header is icon-only for everyone, and each link's label is a tooltip on `:hover` and
-  `:focus-visible`.** There is exactly one desktop shape — no admin variant, no label band. The old
-  `.nav-crowded` class stripped labels and the chip for admins only, which meant the header had two
-  layouts and flashed between them: `admin.isAdmin()` resolved after first paint, so labels painted and
-  then vanished about a second later. Deleting the conditional removes the flash *by construction*
-  rather than by timing. It also removes a subtler failure — during that window the row wrapped to two
-  lines **and escaped the top of the viewport**, slicing the first row of labels in half.
-  **A wider window buys the nav no room.** The header sits inside `.page-container`, so its usable width
-  is pinned at `1100px` minus padding for every viewport at or above that — measured at 1281/1440/2560px
-  it is **963px at all three** (`1100` container − `48` padding − `89` brand). The three candidate
-  layouts against that budget:
-
-  | Layout | Width | Headroom |
-  |---|---|---|
-  | Icon only | 304px | 659px |
-  | Stacked icon-over-label | 680px | 283px |
-  | Inline icon + label | ~936px | ~27px |
-
-  So labels *do* fit — just never inline, which is the assumption the old breakpoint model rested on.
-  **Stacked was offered and declined:** it roughly doubles the header's content height (~24px → ~46–50px),
-  and the compact header is worth more than always-visible labels. The binding constraint is header
-  *height*, not width; do not re-litigate this as a width problem.
-  **The tooltip is presentation of text that always exists, not conditional rendering.** That is on the
-  right side of "CSS decides how something looks, the component decides whether it exists" above: the
-  `<span class="nav-label">` is always in the DOM, so the label lives in exactly one place and cannot
-  drift from the `aria-label`. It is styled rather than swapped for a native `title` because `title`
-  fires only on mouse hover, after a delay, and cannot be themed — `:focus-visible` is what covers
-  keyboard users. Below `md` the tab bar is untouched and keeps its visible `.tab-label`s.
+- **`app-site-nav`** (`src/app/nav/site-nav.component.ts`) — the single sitewide nav-link data source,
+  rendered **three** ways from one array (`PRIMARY_NAV_LINKS`): a persistent left **rail** at `lg` and
+  above, a fixed bottom **tab bar** below it, and a **More sheet** holding whatever the tab bar cannot.
+  `tab: true` marks the four destinations that earn a tab; the rest fall to the sheet, so tabs ∪ sheet is
+  always exactly the rail. Active route gets `routerLinkActive="nav-active"` → `--color-accent` text.
+  **The rail replaced a horizontal header, and the reason is structural rather than aesthetic.** The old
+  header lived inside `.page-container`, so its usable width was pinned at 963px for every viewport at or
+  above 1100px — a wider window bought the nav no room, and each new destination ate into a fixed budget
+  until the row wrapped. A vertical rail has no such budget: appending a ninth destination moves nothing
+  sideways, which is why the admin and non-admin shapes can no longer diverge. That divergence was a real
+  defect — `.nav-crowded` stripped labels for admins only, `admin.isAdmin()` resolved after first paint,
+  and the header visibly re-laid-out about a second in. **Do not reintroduce a layout that varies with an
+  async signal.**
+  **The rail's failure mode is vertical, so the tests are too.** `e2e/nav.spec.ts` asserts a single
+  column, `min(top) >= 0`, and `max(bottom) <= innerHeight` — a destination below the fold is a rail's
+  version of a wrapped row — and it loops over viewport *height* rather than width.
+  **The More sheet is a native `<dialog>`.** `showModal()` gives modal semantics, a focus trap, Escape,
+  focus restore to the trigger, and `::backdrop` for free; only backdrop-click dismiss is written by hand.
+  A component library was measured at +75 kB for the same behaviour and rejected. Two things the platform
+  does *not* give: a `<dialog>` survives navigation, so the component closes it on `NavigationEnd`; and it
+  renders in the browser's **top layer**, above every z-index — see Elevation for why `.loading-overlay`
+  still has to sit above it.
   **`app-avatar` is eagerly loaded, deliberately.** It carried `loading="lazy"`, which is wrong for a 28px
-  image that is always above the fold: the browser defers a request it is going to make anyway, and inside
-  a `display: none` ancestor it may never make it at all — measured, the nav avatar's `<img>` never
-  reached `complete` while the chip was hidden. The `:host` box is pinned to `size` with
-  `overflow: hidden`, so a slow or failed load can never resize the header either way; that box is what
-  makes eager loading safe rather than the lazy attribute.
-  **The desktop bar still sheds the whole `.user-chip` (avatar *and* email) at `xl` and narrower**, and
-  that is now the only remaining media query in the header. Drop the pair, never just the email: the
-  avatar exists to anchor the address, so alone it reads as a stray image between two nav links rather
-  than an account indicator. Who is signed in stays evident from Profile and Sign out. The rule is a
-  `max-width` query, so the named breakpoint sits in the *narrower* band: at exactly 1280px the chip is
-  already gone, pinned by `e2e/nav.spec.ts`'s 1281/1280 boundary test rather than left as prose.
-  **`.user-email` is capped at `10ch` with an ellipsis, and the cap is still load-bearing — but the
-  reason it is provable changed.** Without it the header's width depends on how long the signed-in
-  user's email address is, the one unbounded, data-dependent element in the row. That used to be proved
-  by deleting the cap and watching the row wrap. With labels gone the row has ~659px of headroom, so
-  deleting the cap now wraps nothing and a wrap-based test would pass against the very bug it exists to
-  catch. **`e2e/nav.spec.ts` therefore asserts the cap directly** — computed `max-width` is not `none`,
-  `overflow` is `hidden`, and the fixture address actually overflows it (`scrollWidth > clientWidth`).
-  Proven rather than assumed: deleting `max-width: 10ch` fails that test, and restoring it passes.
-  Keep it that way; do not restore a wrap-based assertion, and do not delete the cap on the grounds that
-  nothing fails without it. `--font-meta` is IBM Plex Mono, so `ch` is an exact unit here and the cap is
-  a hard 82px rather than an approximation. The full address stays in the DOM, so screen readers and the
-  avatar's `alt` still carry it; only the painted text is clipped.
-  **The chip renders the whole address and lets the cap clip it, rather than rendering a shortened form
-  of it.** A local-part-only chip was considered and rejected: it reads better, but it also costs the
-  regression test its teeth. The e2e identity's address is 24 characters and needs 196px uncapped, which
-  is what makes the row wrap when the cap is deleted; its local part is 11 characters and needs 90px,
-  which fits — the cap would still be correct for long addresses and nothing would fail if it were
-  removed. `e2e/nav.spec.ts` therefore asserts the fixture address still overflows the cap, so
-  shortening either the address or the rendered form of it fails loudly instead of quietly retiring the
-  detector. `.user-email` carries a `title`, which is the only place a sighted user can read their own
-  full address — the truncation affects exactly the group the DOM-based accessibility argument does not
-  cover. Do not raise this cap to "show more of the address" without re-measuring — a generous cap
-  reintroduces the same bug for long addresses, which is precisely how it shipped unnoticed.
-  **Row counting is kept, for both the admin and non-admin shapes, and paired with a clipping check.**
-  A test that only asserts an element is *visible* at a width does not measure whether the row fits at
-  that width, which is how a wrapped header survived a passing suite. A row count alone is not enough
-  either: a row that has escaped the top of the viewport still counts as one row, so the spec also
-  asserts no nav link has a negative `top`. Those measurements wait for the webfonts and assert they
-  applied, because `styles.css` loads all three with `display=swap` and the fallback row is narrower
-  than the headroom — see TESTING.md.
+  image that is always above the fold: the browser defers a request it will make anyway, and inside a
+  `display: none` ancestor may never make it at all — measured, the avatar's `<img>` never reached
+  `complete` while the chip was hidden. The `:host` box is pinned to `size` with `overflow: hidden`, and
+  **that box is what makes eager loading safe**. It is also load-bearing for a second reason: a *broken*
+  image renders its `alt` text at whatever width that text needs, and the alt is an email address — once
+  measured at 294px against an expected 110px.
+  **`.user-email` is capped at `10ch` with an ellipsis, and the cap is load-bearing.** Without it the
+  layout depends on how long the signed-in address is — the one unbounded, data-dependent element in the
+  nav. That used to be proved by deleting the cap and watching the row wrap; a rail has room to spare, so
+  a wrap-based test would now pass against the very bug it exists to catch. **`e2e/nav.spec.ts` therefore
+  asserts the cap directly** — computed `max-width` is not `none`, `overflow` is `hidden`, and the fixture
+  address actually overflows it (`scrollWidth > clientWidth`) — plus a separate assertion that the rail's
+  own width does not track the address. Do not restore a wrap-based assertion, and do not delete the cap
+  on the grounds that nothing fails without it. Note `--font-mono` changed with the redesign, so the `ch`
+  unit no longer resolves to the old hard 82px; re-measure before quoting a pixel figure.
+  **The chip renders the whole address and lets the cap clip it**, rather than rendering a shortened form.
+  A local-part-only chip reads better but costs the regression test its teeth: the e2e identity's address
+  needs 196px uncapped while its local part needs 90px and fits, so nothing would fail if the cap were
+  removed. `.user-email` carries a `title`, which is the only place a sighted user can read their own full
+  address — truncation affects exactly the group the DOM-based accessibility argument does not cover.
 - **`app-page-toc`** (`src/app/shared/toc/page-toc.component.ts`) — client-side-only in-page table
   of contents + back-to-top link, generated from a page's own headings via a CSS selector input.
   Used on `/faq` and `/privacy`.
@@ -535,6 +660,51 @@ else in the scale.
   flight. It deliberately does not dim the page: it exists to stop input, not to signal progress, and
   the content underneath stays readable. Takes a classic `@Input()`, not a signal input — the Vitest
   harness JIT-compiles without ngtsc, where signal inputs silently fail to bind (`NG0303`).
+
+## Do's and Don'ts
+
+- **Do** keep `--color-accent` as the only colour driving buttons, links, focus rings and active-nav
+  state. One accent is the whole point; a second one costs the first its meaning.
+- **Do** keep every surface, line and text token within `0.02` chroma of neutral. This is checkable by
+  reading the number.
+- **Do** take the ink on any fill from `--color-on-fill`, and use `--color-line-strong` (never `line`)
+  for the edge of anything a user can operate.
+- **Do** keep radii small — `--radius-lg` is for the sheet's top corners and nothing else.
+- **Do** maintain WCAG AA contrast (4.5:1 body text, 3:1 large text, 3:1 non-text per 1.4.11) for every
+  pair **in both schemes**, and let `e2e/contrast.spec.ts` be what proves it.
+- **Do** drive nav-link data from a single source (`PRIMARY_NAV_LINKS`) — never duplicate the link list
+  between the rail, the tab bar and the sheet.
+- **Don't** spend chroma on a surface. Cover art is the saturated thing on the page; chrome recedes.
+- **Don't** reach for a drop shadow to express depth — the ladder is three surface levels plus a
+  hairline, and `--shadow-overlay` exists for the sheet alone.
+- **Don't** use gradients, glow, or neon — flat colour fills only.
+- **Don't** use scale-up hover bounce or elastic easing — motion is deliberate, not springy (see
+  Appendix: Motion).
+- **Don't** add a manual light/dark toggle — the schemes are `prefers-color-scheme`-only.
+- **Don't** use Tailwind's `dark:` variant. Dark is the *base*, so `dark:` either no-ops or inverts the
+  model; the light scheme is a token re-binding, not a variant.
+- **Don't** use `@theme inline` for a colour. It bakes the value into every utility and the light
+  re-binding silently stops working.
+- **Don't** use CSS to decide whether something renders, and don't key a selector off an attribute
+  another feature owns (see Where styling lives).
+- **Don't** grow the design language inside a component stylesheet — a reused appearance becomes a
+  named primitive in `styles.css` plus a Components entry here, in the same change.
+- **Don't** redefine a class named in Components inside a component stylesheet. One primitive, one
+  definition; vary size and placement locally, never shape, radius, fit or colour.
+- **Don't** vary a layout on an async signal. `admin.isAdmin()` resolves after first paint, and the
+  header that keyed off it visibly re-laid-out a second in.
+- **Don't** remove the underline from a link that sits inside a sentence. A link in a text block must be
+  distinguishable from the prose around it by something other than colour (WCAG 1.4.1), unless the two
+  colours differ by 3:1 — which an accent and body text on the same surface generally do not. `a` is
+  underlined by default for exactly this reason; a link that is a **control** rather than prose (the
+  brand, breadcrumb, rail and tab links, anything `.btn-*`) opts out with `no-underline`,
+  because it is not in a text block and was never the violation.
+- **Don't** render a rejected set identically to an accepted one. A collection preview's *excluded*
+  list is what the filters turned down, not more of the collection; styled the same as the included
+  cards it reads as part of the result and makes the stated count look wrong. It composes
+  `.item-unavailable`, the same de-emphasis an entry the owner no longer has access to takes.
+
+---
 
 ## Loading & hydration
 
@@ -561,6 +731,31 @@ belongs in a resolver.
 
 ## Where styling lives
 
+### There is deliberately no `scroll-behavior: smooth`
+
+Smooth scrolling is driven by animation frames, so anywhere frames are not running — a throttled
+background tab, a stalled GPU process, a scroll-hijacking extension — the scroll is dropped entirely
+rather than degrading to a jump. Anchor navigation and programmatic scrolls have to land
+unconditionally, and the animation is not worth making them fail closed. This matters more here than
+in most apps because `/faq` and `/privacy` are built around deep links to authored heading ids.
+
+### Tailwind is imported as layers, and Preflight is deliberately not among them
+
+`styles.css` opens with a `@layer` declaration and two imports rather than the usual single
+`@import "tailwindcss"`:
+
+```css
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+```
+
+The one-line form additionally pulls in **Preflight**, Tailwind's base reset, which zeroes heading and
+list defaults this stylesheet still relies on. That is a visual change with its own verification, so it
+lands as its own step once the templates are converted — not alongside the tooling. **Collapsing these
+three lines into `@import "tailwindcss"` is therefore not the tidy-up it looks like**; it restyles every
+page.
+
 **CSS decides how something looks. The component decides whether it exists.** Presence, absence and
 conditional rendering belong in the template (`@if`), never in a selector that reaches into markup
 shape to hide things. A rule like `td[data-label='Cover']:not(:has(img)) { display: none }` looks
@@ -568,21 +763,35 @@ economical and is the opposite: it couples two unrelated features through an att
 owns, and it buries a decision about what an entry *is* somewhere nobody looking for that decision
 would think to search.
 
-Three questions before writing any rule, in order:
+**A component stylesheet is now the last resort, not the first.** Under Tailwind the default home for a
+page's own arrangement is **utilities in its template** — `flex flex-col gap-4 max-w-data mx-auto` says
+what a one-off column is without inventing a class name that then has to be maintained, documented and
+checked for forking. Four questions before writing any rule, in order:
 
-1. **Does a token already express this?** Use `var(--space-*)`, `var(--color-*)`, `var(--radius-*)`,
-   `var(--shadow-*)`. A literal color, a one-off pixel spacing, or a bespoke shadow is a defect, not a
-   shortcut.
-2. **Does a named primitive already express this?** `.card`, `.btn-*`, `.spine-label`,
+1. **Can utilities express this?** Almost always yes for a page's own layout. The spacing scale maps
+   exactly (`--space-2/3/4` are `gap-2/3/4`, `--card-pad` is `p-6`), and the page measures are theme
+   tokens, so `max-w-data` stays greppable where `max-w-[60rem]` would not.
+2. **Does a token already express this?** Use `var(--color-*)`, `var(--radius-*)`, `var(--container-*)`.
+   A literal colour, a one-off pixel spacing, or a bespoke shadow is a defect, not a shortcut.
+3. **Does a named primitive already express this?** `.card`, `.btn-*`, `.spine-label`,
    `.catalog-title`, `.catalog-meta`, `.cover-art`, `.psn-badge`. Reach for the vocabulary before
    inventing beside it.
-3. **Is this actually structure rather than style?** If the rule's job is to make something disappear
+4. **Is this actually structure rather than style?** If the rule's job is to make something disappear
    or appear, it is the component's job instead.
 
 Appearance that repeats becomes a **new named primitive in `styles.css` with an entry in Components
-above, added in the same change** — not a rule in one component's stylesheet. Component `.css` files
-are for that page's own arrangement: grid and flex layout, its breakpoint behaviour, its spacing
-rhythm. They are not where the design language grows.
+above, added in the same change** — never a rule copied into a second component stylesheet.
+
+**What still justifies a component stylesheet**, since some do survive: an `@keyframes` block, a rule
+that must reach an element the template cannot address (a descendant of projected content), or a
+genuinely page-specific responsive table. `.status-card` was none of those — it was `card` plus padding
+plus a start-aligned column, duplicated across four files with drifting `gap`, and it became four
+utilities at each call site.
+
+**One class of coupling to check before deleting a class as "just styling":** a class can be a *selector
+contract*. `app-page-toc` addressed `/faq` and `/privacy` through `headingSelector=".privacy
+.privacy-section h2"`, so removing those classes would have silently emptied both tables of contents.
+Those pages now expose an `id` instead, which cannot be restyled away.
 
 ### One primitive, one definition
 
@@ -609,15 +818,10 @@ Two consequences worth stating plainly:
 
 ### Declarations that look removable and are not
 
-Two rules in component stylesheets exist to *cancel* a global default, so they read as noise and delete
-cleanly with no visible failure — until the page is measured. Both were live defects found by an
-exploratory pass, and both are now the reason the global rule is safe to keep.
+A rule in a component stylesheet can exist to *cancel* a global default, so it reads as noise and deletes
+cleanly with no visible failure — until the page is measured. This one was a live defect found by an
+exploratory pass, and it is the reason the global rule is safe to keep.
 
-- **`.footer-inner p { margin: 0 }`.** The footer `<p>` is followed by the footer nav, so it is not
-  `p:last-child` and keeps the global `p { margin: 0 0 1rem }`. `.footer-inner` is a flex row, and flex
-  centres the *margin* box, not the text — so the bottom margin both offsets the sentence ~8px above its
-  siblings and inflates the row to 37.76px against 21.76px children. No alignment property fixes this;
-  only zeroing the margin does.
 - **`.library-category-filter { flex: 0 1 14rem; min-width: 10rem }`.** `styles.css` gives every
   `select` `width: 100%`. Without its own flex basis this one inherits that, takes a whole line to
   itself inside `.library-controls`, and opens a native dropdown as wide as the card. Its two
@@ -636,39 +840,6 @@ color, typography, radius and shadow to come from `var(--*)` — turns the revie
 A second, cheaper check catches the failure above directly: every class named in this document's
 Components list must appear exactly once across `src/**/*.css`, and that once must be `styles.css`.
 
-## Do's and Don'ts
-
-- **Do** keep `--color-primary` as the only color driving buttons, links, focus rings, and active-nav
-  state.
-- **Do** reserve `--color-accent` for "featured/valuable" moments, never as a background fill.
-- **Do** reserve `--color-psn` exclusively for PSN-linked-account indication.
-- **Do** keep radii small (`--radius-sm`/`--radius-md`) — no heavily rounded "friendly app" shapes.
-- **Do** maintain WCAG AA contrast (4.5:1 body text, 3:1 large text) for every text/background pair
-  in both rooms.
-- **Do** drive nav-link data from a single source (`SiteNavComponent`'s link array) — never duplicate
-  the link list between desktop and mobile markup.
-- **Don't** reskin toward PlayStation's own blue/black brand identity.
-- **Don't** default to generic SaaS/dashboard styling (indigo gradients, Inter-everywhere, heavy
-  rounding).
-- **Don't** use gradients, glow, or neon — flat color fills only.
-- **Don't** use scale-up hover bounce or elastic easing — motion is deliberate, not springy (see
-  Appendix: Motion).
-- **Don't** add a manual light/dark toggle — the two rooms are `prefers-color-scheme`-only.
-- **Don't** use CSS to decide whether something renders, and don't key a selector off an attribute
-  another feature owns (see Where styling lives).
-- **Don't** grow the design language inside a component stylesheet — a reused appearance becomes a
-  named primitive in `styles.css` plus a Components entry here, in the same change.
-- **Don't** redefine a class named in Components inside a component stylesheet. One primitive, one
-  definition; vary size and placement locally, never shape, radius, fit or color.
-- **Don't** use gamepad/controller iconography or storefront/gamified copy (see Appendix:
-  Iconography & Imagery, Voice & Tone).
-- **Don't** render a rejected set identically to an accepted one. A collection preview's *excluded*
-  list is what the filters turned down, not more of the collection; styled the same as the included
-  cards it reads as part of the result and makes the stated count look wrong. It composes
-  `.item-unavailable`, the same de-emphasis an entry the owner no longer has access to takes.
-
----
-
 ## Appendix
 
 Content below isn't part of the design.md spec's own section vocabulary, but is kept here as
@@ -686,75 +857,48 @@ to near-instant globally (`styles.css`).
 
 ### Iconography & Imagery
 
-Avoid gamepad/controller iconography as the default visual language — it's the same reflex as
-reaching for PlayStation blue, and it's equally generic. Prefer library-native motifs instead:
+**The pack is Lucide** (`@ng-icons/lucide`, ISC), delivered through `@ng-icons/core` — the only delivery
+mechanism peering `@angular/core >=22` (`lucide-angular` itself caps at `13.x - 21.x` and will not install
+against this app). Import from the **package root**; unlike the previous pack there is no `/regular`
+subpath.
 
-- "Owned / in your collection" → a bookmark or ribbon marker, not a checkmark badge
-- "Search the catalog" → a card-catalog drawer glyph, not a magnifying glass over a game icon
-- "Favorite / highlighted" → an ex-libris-style stamp or plate mark
-- A future wordmark/favicon should lean on the serif logotype plus a simple bookplate or open-book
-  mark — not a controller silhouette.
+The earlier prohibition on gamepad and controller motifs is retired along with the rest of the old
+identity, so `lucideGamepad2` is available if it is genuinely the right glyph. What replaces the rule is a
+constraint that is actually testable: **Catalog, Collections and Library sit adjacent in the tab bar at
+24px and must read as three different things there.** They therefore take structurally unrelated
+silhouettes — a grid, an open folder, a stack of spines — rather than three variations on a rectangle.
+Check a new glyph at 24px against its neighbours, not at 48px on its own.
 
-**The pack is Phosphor** (`@ng-icons/phosphor-icons`, MIT), regular weight. It won over Lucide,
-Tabler, Heroicons and Iconoir because it is the only candidate that carries the motifs above as
-drawn glyphs rather than approximations: `phosphorCards` *is* the card-catalog drawer, and
-`phosphorStamp` is the ex-libris stamp. It also keeps Catalog, Collections and Library legible as
-three different things at 24px, which is the hard constraint — they sit adjacent in the same nav row.
-
-`@ng-icons/core` is the delivery mechanism because it is the only one peering `@angular/core >=22`.
-`lucide-angular` caps at `13.x - 21.x` and will not install against this app; `@ng-icons/lucide`
-routes around that if the pack is ever revisited. Import from the **`/regular` subpath** — the
-package root exports nothing.
+Colour inherits from context and the glyph holds its size in a flex row, both defined once in
+`styles.css`; the default `1.5rem` size comes from `provideNgIconsConfig` in `app.config.ts`. Register
+glyphs per component through `provideIcons({ … })` in `viewProviders` so unused ones tree-shake away —
+never register a whole pack.
 
 | Concept | Glyph |
 |---|---|
-| Home | `phosphorHouse` |
-| Catalog | `phosphorCards` |
-| Collections | `phosphorArchive` |
-| Library | `phosphorBooks` |
-| Profile | `phosphorUserCircle` |
-| PSN Settings | `phosphorPlugsConnected` |
-| Enrichment Runs | `phosphorSparkle` |
-| Sign out | `phosphorSignOut` |
-| Purchased / owned | `phosphorBookmarkSimple` |
-| Free-to-play | `phosphorDownloadSimple` |
-| Monthly games | `phosphorCalendarDots` |
-| Catalog entitlements | `phosphorStack` |
-| Trophy level | `phosphorRanking` |
-| Trophies earned | `phosphorMedal` |
-| Followers | `phosphorUsersThree` |
-| Following | `phosphorUserPlus` |
-| Member since | `phosphorStamp` |
-| Profiles elsewhere | `phosphorLink` |
-
-The profile's library and collections tiles **reuse `phosphorBooks` and `phosphorArchive`** rather than
-taking new glyphs: those already mean Library and Collections in the nav, and a stat counting titles in
-your library is the same concept, not a new one. The same reasoning rules *out* reusing
-`phosphorBookmarkSimple` or `phosphorStack` there — those meanings are already spoken for by
-"purchased" and "catalog entitlements", so borrowing them would make the vocabulary ambiguous.
-
-**`phosphorMedal`, not `phosphorTrophy`**, and the distinction is the Voice & Tone one: trophy is PSN's
-own noun for the data, and the tile reports a count flatly, but the trophy glyph is the more
-celebratory of the two and would sit directly beside the medal in the same grid. One is enough.
-
-Phosphor also ships `phosphorStorefront`, `phosphorShoppingBag`, `phosphorCoins`, `phosphorTicket`
-and `phosphorCrown`. Those are off-limits for the same reason storefront copy is — see Voice & Tone.
-A glyph existing in the pack is not a licence to use it.
-
-Cover art is the one imagery exception, and it earns its place as provenance rather than decoration:
-`GameSummaryResponse` carries `cover_image_url`, and the Catalog grid, the game detail page, the
-Library table, the Collections list and the public shared-collection view all render it.
-
-**Square art only — never the 16:9 store hero.** The two sources are different kinds of asset, not
-different qualities of one: entitlement artwork is a 1:1 icon and covers effectively the whole
-library, while the store cache holds widescreen key art for a minority of titles. Preferring the hero
-gave a page whose artwork changed shape from one game to the next. The detail page locks its image to
-a 1:1 aspect ratio so a stray non-square source cannot alter the layout. Hero art has no use today; if
-one is found later it needs its own treatment, not a substitution into a square slot.
-
-PSN carries no artwork at all for part of the back catalogue, mostly PS3 and Vita titles, and there is
-no second source to fall back to. That is the case the `.cover-art` rule in Components exists for: the
-entry is complete without it.
+| Home | `lucideHouse` |
+| Catalog | `lucideLayoutGrid` |
+| Library | `lucideLibraryBig` |
+| Collections | `lucideFolderOpen` |
+| Profile | `lucideCircleUser` |
+| PSN Settings | `lucideSettings` |
+| Consoles & Storage | `lucideHardDrive` |
+| Enrichment Runs | `lucideSparkles` |
+| FAQ | `lucideCircleHelp` |
+| Privacy | `lucideShield` |
+| More (opens the sheet) | `lucideEllipsis` |
+| Close the sheet | `lucideX` |
+| Sign out | `lucideLogOut` |
+| Purchased / owned | `lucideBookmark` |
+| Free-to-play | `lucideDownload` |
+| Monthly games | `lucideCalendarDays` |
+| Catalog entitlements | `lucideLayers` |
+| Trophy level | `lucideTrophy` |
+| Trophies earned | `lucideMedal` |
+| Followers | `lucideUsers` |
+| Following | `lucideUserPlus` |
+| Member since | `lucideStamp` |
+| Profiles elsewhere | `lucideLink` |
 
 ### Voice & Tone
 
@@ -764,27 +908,36 @@ Copy reads like a curator's working notes, not marketing copy. Prefer:
 - "Added to your collection" over "Added to library!"
 - "Last catalogued" over "Last synced"
 
-Avoid exclamation points, gamified *framing*, and storefront language ("buy," "deal," "sale")
-entirely — none of that is Librarian's job; Curator's job is cataloging, not commerce.
+**The preference is flat reporting, and it is a preference rather than a ban.** An earlier version of this
+section prohibited exclamation points, "storefront language", and gamified framing outright; those rules
+were retired with the identity reset that produced the current palette. What survives is the reason they
+existed: a curation tool states what is true and lets the reader draw the conclusion. "Trophies earned /
+180" is a count; "You've earned 180 trophies!" is a celebration, and celebrating is not this app's job.
 
-**Gamified framing is the ban, not the vocabulary.** "Unlock" and "level up" stay out because they
-editorialise about achievement. PSN's own domain nouns — trophy, tier, level, *earned* — are the names
-of the data being reported, and reporting them flatly is not gamification: "Trophies earned / 180" is a
-count on an index card, while "You've earned 180 trophies!" is a celebration. An earlier draft of this
-section banned the verb "earn" outright, which was an over-reach: it was already violated in production
-by the profile page, and following it would have forced a worse paraphrase of PSN's own term.
+PSN's own domain nouns — trophy, tier, level, *earned* — are the names of the data being reported, and
+reporting them flatly is not gamification. An even earlier draft banned the verb "earn" entirely, which
+was an over-reach: production already violated it on the profile page, and obeying it would have forced a
+worse paraphrase of PSN's own term.
 
 ### Accessibility
 
-- All text/background pairs in both rooms must hold WCAG AA contrast (4.5:1 body, 3:1 large text).
-- **Icons are non-text content and answer to WCAG 1.4.11: 3:1 against their own background**, not the
-  4.5:1 body-text bar. That distinction matters because `--color-primary` on `--color-surface` is
-  comfortable in Reading Room and tight in After Hours — the dark room's lifted green is the closest
-  pair in the palette to its floor. Measure with `getComputedStyle`, not by eye, and re-measure that
-  pair before changing either token. An icon that is the *only* carrier of meaning (an icon-only nav
-  link, a status glyph) also needs a text alternative — see the `ng-icon` entry in Components.
-- Focus rings use `--color-primary` at 3px — never rely on color alone for any state (error/success
-  text also carries an icon or label, not just a color change).
+- All text/background pairs in **both schemes** must hold WCAG AA contrast (4.5:1 body, 3:1 large text).
+- **Icons, borders and control edges are non-text content and answer to WCAG 1.4.11: 3:1 against their
+  own background**, not the 4.5:1 body-text bar. This is exactly why `--color-line` and
+  `--color-line-strong` are two tokens rather than one: `line` measures 1.42:1 on `surface`, which is
+  correct for a divider between rows and a failure the moment it becomes the edge of an input. The
+  tightest pair in the palette is `line-strong` on `surface-2`; re-measure it before touching either
+  token. An icon that is the *only* carrier of meaning (an icon-only rail link, a status glyph) also
+  needs a text alternative — see the `ng-icon` entry in Components.
+- Focus rings use `--color-focus` **with `outline-offset: 2px`**, from a single global `:focus-visible`
+  rule in `styles.css`. The offset is what makes them legible: the same ring sitting directly on an accent
+  fill is far tighter than the same ring offset onto the surface behind the control. Because the offset
+  paints on that surface rather than on the control, `e2e/contrast.spec.ts` measures the ring against
+  **`canvas`, `surface` and `surface-2`** — canvas alone would leave the rail and the cards unmeasured.
+  Text inputs are the one deliberate exception: they set `outline: none` and take `--shadow-focus`
+  instead, because a ring offset outside a bordered field reads as a second border.
+  Never rely on colour alone for a state — error and success text carries an icon or a label
+  too, which is also why success is the accent rather than a second hue.
 - `prefers-reduced-motion` collapses all transitions/animations to near-instant, wired globally in
   `styles.css`.
 

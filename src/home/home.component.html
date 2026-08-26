@@ -1,20 +1,20 @@
-<section class="page-section hero">
-  <h1>Welcome to Librarian</h1>
+<section class="page-section flex flex-col gap-4 max-w-narrow mx-auto">
+  <h1 id="page-title">Welcome to Librarian</h1>
   <p class="text-muted">
     Librarian curates and organizes your game library, backed by the Curator API.
   </p>
 
   @if (auth.isAuthenticated()) {
-    <div class="card status-card">
+    <div class="card p-6 flex flex-col items-start gap-4">
       <h2>Your library</h2>
       @if (summary(); as totals) {
-        <dl id="home-totals" class="totals">
-          <dt class="stamp-label">Titles catalogued</dt>
-          <dd class="catalog-meta">{{ totals.libraryTotal }}</dd>
-          <dt class="stamp-label">Collections</dt>
-          <dd class="catalog-meta">{{ totals.collectionCount }}</dd>
-          <dt class="stamp-label">Collection entries</dt>
-          <dd class="catalog-meta">{{ totals.collectionEntries }}</dd>
+        <dl id="home-totals" class="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1 w-full m-0">
+          <dt class="stamp-label sm:row-start-1">Titles catalogued</dt>
+          <dd id="home-total-library" class="catalog-meta m-0 sm:row-start-2">{{ totals.libraryTotal }}</dd>
+          <dt class="stamp-label sm:row-start-1">Collections</dt>
+          <dd id="home-total-collections" class="catalog-meta m-0 sm:row-start-2">{{ totals.collectionCount }}</dd>
+          <dt class="stamp-label sm:row-start-1">Collection entries</dt>
+          <dd id="home-total-collection-entries" class="catalog-meta m-0 sm:row-start-2">{{ totals.collectionEntries }}</dd>
         </dl>
         @if (totals.linked === false) {
           <p class="text-muted">
@@ -24,42 +24,47 @@
       } @else {
         <p class="text-muted">Library totals are unavailable right now.</p>
       }
-      <div class="actions">
-        <a routerLink="/library" class="btn-primary">My Library</a>
-        <a routerLink="/catalog" class="btn-ghost">Browse Catalog</a>
-        <a routerLink="/collections" class="btn-ghost">Collections</a>
-        <a routerLink="/psn" class="btn-ghost">Manage PSN Link</a>
+      <div id="home-actions" class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+        @for (action of actions(); track action.path) {
+          <a
+            [attr.id]="'home-action-' + $index"
+            [routerLink]="action.path"
+            [class.btn-primary]="$first"
+            [class.btn-ghost]="!$first"
+            >{{ action.label }}</a
+          >
+        }
       </div>
     </div>
   } @else {
-    <div class="card who-for">
+    <div class="card p-6 flex flex-col gap-3">
       <h2>How titles enter your library</h2>
-      <div class="who-for-grid">
-        <div class="who-for-item">
-          <ng-icon name="phosphorBookmarkSimple" aria-hidden="true" />
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
+        <div class="flex items-start gap-3">
+          <ng-icon class="text-accent" name="lucideBookmark" aria-hidden="true" />
           <div>
-            <h3>Purchased</h3>
+            <h3 class="mt-0 mb-1">Purchased</h3>
             <p class="text-muted">Every PSN purchase, back to the first</p>
           </div>
         </div>
-        <div class="who-for-item">
-          <ng-icon name="phosphorDownloadSimple" aria-hidden="true" />
+        <div class="flex items-start gap-3">
+          <ng-icon class="text-accent" name="lucideDownload" aria-hidden="true" />
           <div>
-            <h3>Free-to-play</h3>
+            <h3 class="mt-0 mb-1">Free-to-play</h3>
             <p class="text-muted">Downloaded once, easily lost track of afterward</p>
           </div>
         </div>
-        <div class="who-for-item">
-          <ng-icon name="phosphorCalendarDots" aria-hidden="true" />
+        <div class="flex items-start gap-3">
+          <ng-icon class="text-accent" name="lucideCalendarDays" aria-hidden="true" />
           <div>
-            <h3>Monthly games</h3>
+            <h3 class="mt-0 mb-1">Monthly games</h3>
             <p class="text-muted">Added each month, retained while the subscription stays active</p>
           </div>
         </div>
-        <div class="who-for-item">
-          <ng-icon name="phosphorStack" aria-hidden="true" />
+        <div class="flex items-start gap-3">
+          <ng-icon class="text-accent" name="lucideLayers" aria-hidden="true" />
           <div>
-            <h3>Catalog entitlements</h3>
+            <h3 class="mt-0 mb-1">Catalog entitlements</h3>
             <p class="text-muted">
               Extra and Premium titles, held as entitlements rather than purchases; Premium adds trials
             </p>
@@ -73,7 +78,7 @@
       </p>
     </div>
 
-    <div class="card status-card">
+    <div class="card p-6 flex flex-col items-start gap-4">
       <p>Sign in to link your PlayStation Network account and manage your library.</p>
       <a [href]="auth.loginUrl" class="btn-primary">Sign in</a>
     </div>

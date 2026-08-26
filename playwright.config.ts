@@ -20,6 +20,7 @@ export default defineConfig({
 
   use: {
     baseURL: `http://localhost:${SSR_PORT}`,
+    colorScheme: 'dark',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'on-first-retry',

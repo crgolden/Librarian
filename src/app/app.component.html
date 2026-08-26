@@ -1,20 +1,13 @@
 <header class="site-header">
   <div class="page-container header-inner">
     <a id="brand" routerLink="/" class="brand">Librarian</a>
-    <app-site-nav />
   </div>
 </header>
-<main class="page-container">
-  <router-outlet />
-</main>
-<footer class="site-footer">
-  <div id="footer-inner" class="page-container footer-inner">
-    <p id="footer-note" class="text-muted">Librarian — game curation frontend for the Curator API.</p>
-    <nav class="footer-nav">
-      <a routerLink="/">Home</a>
-      <a routerLink="/catalog">Catalog</a>
-      <a routerLink="/faq">FAQ</a>
-      <a routerLink="/privacy">Privacy</a>
-    </nav>
+<div class="app-shell">
+  <app-site-nav />
+  <div class="app-body">
+    <main id="page-main" class="page-container">
+      <router-outlet />
+    </main>
   </div>
-</footer>
+</div>

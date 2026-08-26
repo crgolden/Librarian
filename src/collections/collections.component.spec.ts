@@ -87,7 +87,7 @@ interface CollectionsHarness {
   name: { set(value: string): void };
   minPercentCompleted: { set(value: number | null): void };
   editName: { set(value: string): void };
-  editDescription: { set(value: string): void };
+  editDescription: { set(value: string | null): void };
   showCreate(): void;
   showFollowed(): void;
   preview(): void;
@@ -223,7 +223,7 @@ describe('CollectionsComponent', () => {
 
   it('lists saved collections with their item count and visibility', () => {
     const fixture = createAndLoad([definition({ item_count: 3, visibility: 'public' })]);
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    const text = (fixture.nativeElement as HTMLElement).textContent;
     expect(text).toContain('Weekend picks');
     expect(text).toContain('3 games');
     expect(text).toContain('public');
@@ -234,7 +234,7 @@ describe('CollectionsComponent', () => {
       definition({ definition_id: 'd1', kind: 'filter_list' }),
       definition({ definition_id: 'd2', kind: 'capacity_fill', console_id: 'c1' }),
     ]);
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    const text = (fixture.nativeElement as HTMLElement).textContent;
     expect(text).toContain('Filter list');
     expect(text).toContain('Capacity fill');
     expect(text).not.toContain('filter_list');
@@ -266,7 +266,7 @@ describe('CollectionsComponent', () => {
     httpMock.expectOne('/curator/api/storage-devices').flush([]);
     fixture.detectChanges();
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    const text = (fixture.nativeElement as HTMLElement).textContent;
     expect(text).toContain('Console: Living Room PS5');
     expect(text).not.toContain('Console: c1');
   });
@@ -404,7 +404,7 @@ describe('CollectionsComponent', () => {
     });
     fixture.detectChanges();
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    const text = (fixture.nativeElement as HTMLElement).textContent;
     expect(text).toContain(`${RESULT_PAGE_SIZE + 1}–${includedTotal} of ${includedTotal}`);
     expect(text).not.toContain(`${RESULT_PAGE_SIZE + 1}–${RESULT_PAGE_SIZE * 2} of ${includedTotal}`);
   });

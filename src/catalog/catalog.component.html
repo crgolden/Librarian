@@ -1,14 +1,15 @@
-<section class="page-section catalog">
+<section class="page-section flex flex-col gap-4">
   <app-loading-overlay [visible]="loading()" />
 
-  <h1>Catalog</h1>
+  <h1 id="page-title">Catalog</h1>
   <p class="text-muted">Browse the shared game catalog Curator has canonicalized across all libraries.</p>
 
-  <form class="card catalog-filters" (submit)="$event.preventDefault(); applyFilters()">
-    <div class="filter-field">
-      <label for="catalog-search">Title</label>
+  <form class="card p-6 flex flex-wrap gap-3 items-end" (submit)="$event.preventDefault(); applyFilters()">
+    <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
+      <label class="block font-semibold" for="catalog-search">Title</label>
       <input
         id="catalog-search"
+        class="w-full"
         name="catalogSearch"
         type="search"
         placeholder="Search the catalog"
@@ -17,10 +18,11 @@
       />
     </div>
 
-    <div class="filter-field">
-      <label for="franchise">Franchise</label>
+    <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
+      <label class="block font-semibold" for="franchise">Franchise</label>
       <input
         id="franchise"
+        class="w-full"
         name="franchise"
         type="text"
         placeholder="Filter by franchise"
@@ -29,9 +31,9 @@
       />
     </div>
 
-    <div class="filter-field">
-      <label for="genre">Genre</label>
-      <select id="genre" name="genre" [ngModel]="genre()" (ngModelChange)="genre.set($event)">
+    <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
+      <label class="block font-semibold" for="genre">Genre</label>
+      <select id="genre" name="genre" class="w-full" [ngModel]="genre()" (ngModelChange)="genre.set($event)">
         <option value="">Any</option>
         @for (option of genreOptions(); track option) {
           <option [value]="option">{{ option }}</option>
@@ -39,9 +41,9 @@
       </select>
     </div>
 
-    <div class="filter-field">
-      <label for="aaaTier">Tier</label>
-      <select id="aaaTier" name="aaaTier" [ngModel]="aaaTier()" (ngModelChange)="aaaTier.set($event)">
+    <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
+      <label class="block font-semibold" for="aaaTier">Tier</label>
+      <select id="aaaTier" name="aaaTier" class="w-full" [ngModel]="aaaTier()" (ngModelChange)="aaaTier.set($event)">
         <option value="">Any</option>
         <option value="AAA">AAA</option>
         <option value="AA">AA</option>
@@ -60,7 +62,7 @@
     } @else {
     <ul class="catalog-list">
       @for (game of games(); track $index) {
-        <li class="card catalog-card" [class.card-accent]="game.aaa_tier === 'AAA'">
+        <li class="card p-6 flex flex-col gap-2 transition hover:-translate-y-0.5 hover:bg-surface-2 motion-reduce:hover:translate-y-0" [class.card-accent]="game.aaa_tier === 'AAA'">
           @if (game.cover_image_url) {
             <img class="cover-art" [src]="game.cover_image_url" [alt]="game.canonical_title" loading="lazy" />
           }

@@ -1,6 +1,6 @@
-<section class="page-section profile-followers">
+<section class="page-section flex flex-col gap-4 max-w-narrow mx-auto">
   <app-breadcrumb [items]="breadcrumbItems()" />
-  <h1>Followers</h1>
+  <h1 id="page-title">Followers</h1>
 
   @if (loadError()) {
     <p class="text-error">{{ loadError() }}</p>

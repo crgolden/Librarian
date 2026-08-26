@@ -1,20 +1,3 @@
-/**
- * Mock Curator API — stands in for the real FastAPI Curator backend during E2E tests.
- *
- * Serves real HTTP routes matching the real Curator API's actual shape (no path prefix — the
- * Node SSR server's curatorProxy strips the '/curator/api' mount prefix before forwarding) so
- * the server can proxy to it server-side (Playwright page.route() only intercepts browser
- * requests, not outbound Node fetch calls). Tests manipulate state via the control API at /_test/*.
- *
- * Multi-user identity: this mock has no real bearer-token validation (it never inspects the
- * Authorization header for claims). "Who is calling" is instead read from a `X-E2E-Sub` request
- * header — `e2e/fixtures.ts`'s `secondAuthedPage` fixture injects it via a browser-side
- * `page.route()` on `**\/curator/api/**`, forwarded untouched by the real BFF proxy (it only
- * strips `host`/`connection`/`transfer-encoding`/`x-csrf`). When the header is absent, every route
- * falls back to `DEFAULT_SUB` — the original single-user behavior this mock had before the social
- * profile feature, preserved exactly for every pre-existing seed method and spec (`psn.spec.ts`,
- * `home.spec.ts`, etc.).
- */
 
 import express, { type Express, type Request, type Response } from 'express';
 
@@ -187,9 +170,6 @@ export interface LibraryGame {
 const LIBRARY_SORT_FIELDS = ['title', 'category', 'rawg_rating', 'opencritic_rating', 'psn_rating'] as const;
 type LibrarySortField = (typeof LIBRARY_SORT_FIELDS)[number];
 
-/** Mirrors Curator's real `GET /library`/`GET /users/{sub}/library` server-side
- * search/filter/sort/paging so E2E tests exercise real request/response round trips, not a
- * client-side array. */
 function queryLibraryGames(games: LibraryGame[], req: Request): { games: LibraryGame[]; total: number } {
   const q = (req.query['q'] as string | undefined)?.toLowerCase();
   const category = req.query['category'] as string | undefined;
@@ -229,7 +209,6 @@ function libraryCategories(games: LibraryGame[]): string[] {
 type SeededLibraryGame = Pick<LibraryGame, 'game_id' | 'title' | 'rawg_enriched' | 'opencritic_enriched'> &
   Partial<LibraryGame>;
 
-/** Fills in defaults for the rating/category/product-id fields a test didn't bother seeding. */
 function normalizeLibraryGames(games: SeededLibraryGame[]): LibraryGame[] {
   return games.map((g) => ({
     game_id: g.game_id,
@@ -358,8 +337,14 @@ const DEVICES = {
   ],
 };
 
-/** Reads the calling identity from `X-E2E-Sub` (see the module docstring), defaulting to
- * `DEFAULT_SUB` — the pre-existing single-user behavior — when absent. */
+function pathParam(req: Request, name: string): string {
+  const value = req.params[name];
+  if (typeof value !== 'string') {
+    throw new Error(`Route parameter ":${name}" was not a single string on ${req.method} ${req.url}`);
+  }
+  return value;
+}
+
 function subFromRequest(req: Request): string {
   const header = req.headers['x-e2e-sub'];
   if (typeof header === 'string' && header.length > 0) {
@@ -368,9 +353,6 @@ function subFromRequest(req: Request): string {
   return DEFAULT_SUB;
 }
 
-/** Deterministic per-user PSN account id / online id fixtures, keyed off `sub` so a second user
- * doesn't collide with `DEFAULT_SUB`'s existing constants (`psn-account-e2e` / `e2e_gamer`, both
- * already asserted against in `psn.spec.ts`). */
 function psnAccountIdFor(sub: string): string {
   return sub === DEFAULT_SUB ? IDENTITY.account_id : `psn-account-${sub}`;
 }
@@ -379,11 +361,6 @@ function onlineIdFor(sub: string): string {
   return sub === DEFAULT_SUB ? IDENTITY.online_id : `${sub}_gamer`;
 }
 
-/** Get-or-create the user record for `sub` — this is how a sub becomes "known" to the mock
- * (mirrors the real `app_users` row being created once a user has authenticated at least once).
- * Only ever call this for (a) the calling identity of an authenticated request, or (b) a `/_test/*`
- * seed endpoint that explicitly names a target `sub` to register — never for a bare path parameter
- * a route is about to 404-check, or the 404 case becomes untestable. */
 function getUser(sub: string): UserRecord {
   let user = users.get(sub);
   if (!user) {
@@ -401,8 +378,6 @@ function getUser(sub: string): UserRecord {
   return user;
 }
 
-/** Non-mutating lookup — used for target-user existence checks (`/users/{sub}/...`), so an
- * unseeded/unknown sub correctly 404s instead of being silently auto-vivified. */
 function findUser(sub: string): UserRecord | undefined {
   return users.get(sub);
 }
@@ -474,7 +449,6 @@ function toDefinitionResponse(d: DefinitionRecord): Omit<DefinitionRecord, 'iden
   };
 }
 
-/** Deterministic mock artwork/score fixtures for a collection item, matched to CATALOG_GAMES. */
 function toCollectionItem(gameId: string, rank: number): CollectionItem {
   const game = CATALOG_GAMES.find((g) => g.game_id === gameId);
   return {
@@ -532,8 +506,11 @@ function profileLinksFor(sub: string): { site_key: string; display_name: string;
   if (!handles) {
     return [];
   }
-  return PROFILE_LINK_SITES.filter((site) => handles.has(site.site_key)).map((site) => {
-    const handle = handles.get(site.site_key) ?? '';
+  return PROFILE_LINK_SITES.flatMap((site) => {
+    const handle = handles.get(site.site_key);
+    if (handle === undefined) {
+      return [];
+    }
     return {
       site_key: site.site_key,
       display_name: site.display_name,
@@ -567,7 +544,6 @@ function listFollowing(sub: string): FollowEdge[] {
     .sort((a, b) => b.followedAt.localeCompare(a.followedAt));
 }
 
-/** Deterministic mock size/score fixtures, matched to CATALOG_GAMES's fixed rows. */
 function toCollectionGame(game: GameSummary): CollectionGame {
   return {
     game_id: game.game_id,
@@ -591,7 +567,7 @@ function generateCollection(
   },
 ): { included: CollectionGame[]; excluded: CollectionGame[]; used_gb: number | null } {
   const matches = (game: GameSummary): boolean => {
-    if (spec.genre_filter.length > 0 && !spec.genre_filter.includes(game.genre ?? '')) {
+    if (spec.genre_filter.length > 0 && (game.genre === null || !spec.genre_filter.includes(game.genre))) {
       return false;
     }
     if (spec.aaa_tier_filter && game.aaa_tier !== spec.aaa_tier_filter) {
@@ -653,7 +629,6 @@ export function createCuratorApp(): Express {
     next();
   });
 
-  /** Clear all state (called at the start of each test). */
   app.post('/_test/reset', (_req: Request, res: Response) => {
     users.clear();
     consoleRecords.clear();
@@ -675,7 +650,6 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** Override the fixed catalog fixture (defaults back to the built-in list on reset). */
   app.post('/_test/catalog-games', (req: Request, res: Response) => {
     const body = req.body as { games?: GameSummary[] };
     CATALOG_GAMES = body.games ?? CATALOG_GAMES;
@@ -707,8 +681,6 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** Configure the outcome the next `/library/refresh` job resolves to (default: succeeded), for
-   * the current (DEFAULT_SUB) user. */
   app.post('/_test/library-refresh-outcome', (req: Request, res: Response) => {
     const body = req.body as LibraryRefreshOutcome;
     nextLibraryOutcome.set(DEFAULT_SUB, body);
@@ -747,16 +719,12 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** Register a sub as "known" (an `app_users` row exists) without seeding any other state --
-   * covers the "viewing another user's default, unlinked, private profile" case. */
   app.post('/_test/seed-user', (req: Request, res: Response) => {
     const body = req.body as { sub: string };
     getUser(body.sub);
     res.status(204).end();
   });
 
-  /** Seed an explicit user's PSN link state (see `/_test/psn-link` for the DEFAULT_SUB-only
-   * equivalent this generalizes). */
   app.post('/_test/user/psn-link', (req: Request, res: Response) => {
     const body = req.body as Partial<PsnLink> & { sub: string; psn_account_id?: string };
     const user = getUser(body.sub);
@@ -769,7 +737,6 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** Seed an explicit user's PSN harvest preferences. */
   app.post('/_test/user/psn-preferences', (req: Request, res: Response) => {
     const body = req.body as Partial<PsnPreferences> & { sub: string };
     const user = getUser(body.sub);
@@ -777,7 +744,6 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** Seed an explicit user's profile display-visibility settings (`user_profiles`). */
   app.post('/_test/user/profile-settings', (req: Request, res: Response) => {
     const body = req.body as Partial<ProfileSettings> & { sub: string };
     getUser(body.sub);
@@ -785,7 +751,6 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** Seed an explicit user's library entries. */
   app.post('/_test/user/library-games', (req: Request, res: Response) => {
     const body = req.body as { sub: string; games?: SeededLibraryGame[] };
     getUser(body.sub);
@@ -793,7 +758,6 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** Seed an explicit user's saved collection definitions. */
   app.post('/_test/user/collections', (req: Request, res: Response) => {
     const body = req.body as {
       sub: string;
@@ -829,7 +793,6 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** Seed a follow edge directly (bypassing `POST /users/{sub}/follow`). */
   app.post('/_test/follow', (req: Request, res: Response) => {
     const body = req.body as { follower_sub: string; followed_sub: string };
     getUser(body.follower_sub);
@@ -842,12 +805,10 @@ export function createCuratorApp(): Express {
 
 
 
-  /** GET /health — anonymous liveness check. */
   app.get('/health', (_req: Request, res: Response) => {
     res.type('text/plain').send('Healthy');
   });
 
-  /** GET /me — current user + PSN link status. */
   app.get('/me', (req: Request, res: Response) => {
     const user = getUser(subFromRequest(req));
     res.json({
@@ -859,7 +820,6 @@ export function createCuratorApp(): Express {
     });
   });
 
-  /** DELETE /me — permanently delete the caller's account and all associated data. */
   app.delete('/me', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     logAction(sub, 'account_deleted');
@@ -872,12 +832,10 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** GET /me/actions — the caller's own action-history log. */
   app.get('/me/actions', (req: Request, res: Response) => {
     res.json({ actions: actionLog.get(subFromRequest(req)) ?? [] });
   });
 
-  /** POST /psn/link — link a PSN account via NPSSO token. */
   app.post('/psn/link', (req: Request, res: Response) => {
     const body = req.body as Record<string, unknown>;
     const npsso = body['npsso'] as string | undefined;
@@ -894,7 +852,6 @@ export function createCuratorApp(): Express {
     res.status(200).json({ linked: true, psn: user.psn });
   });
 
-  /** DELETE /psn/link — unlink the PSN account. */
   app.delete('/psn/link', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const user = getUser(sub);
@@ -903,7 +860,6 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** GET /me/psn-preferences — the caller's PSN harvest preference flags. 404 if not linked. */
   app.get('/me/psn-preferences', (req: Request, res: Response) => {
     const user = getUser(subFromRequest(req));
     if (!user.psn) {
@@ -913,7 +869,6 @@ export function createCuratorApp(): Express {
     res.json(user.psnPreferences);
   });
 
-  /** PUT /me/psn-preferences — replace all 4 harvest preference flags. 404 if not linked. */
   app.put('/me/psn-preferences', (req: Request, res: Response) => {
     const user = getUser(subFromRequest(req));
     if (!user.psn) {
@@ -925,12 +880,10 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** GET /me/enrichment-keys — the caller's RAWG/OpenCritic key status. Never 404s. */
   app.get('/me/enrichment-keys', (req: Request, res: Response) => {
     res.json(getUser(subFromRequest(req)).enrichmentKeys);
   });
 
-  /** PUT /me/enrichment-keys/{provider} — set (or replace) a key. 400 if empty. */
   app.put('/me/enrichment-keys/:provider', (req: Request, res: Response) => {
     const { provider } = req.params;
     if (provider !== 'rawg' && provider !== 'opencritic') {
@@ -946,20 +899,20 @@ export function createCuratorApp(): Express {
     const sub = subFromRequest(req);
     const user = getUser(sub);
     const now = new Date().toISOString();
+    const clearedBySuccessfulSave = null;
     if (provider === 'rawg') {
       user.enrichmentKeys.rawg_configured = true;
       user.enrichmentKeys.rawg_added_at = now;
-      user.enrichmentKeys.rawg_key_rejected_at = null; // a successful save proves any prior rejection is stale
+      user.enrichmentKeys.rawg_key_rejected_at = clearedBySuccessfulSave;
     } else {
       user.enrichmentKeys.opencritic_configured = true;
       user.enrichmentKeys.opencritic_added_at = now;
-      user.enrichmentKeys.opencritic_key_rejected_at = null;
+      user.enrichmentKeys.opencritic_key_rejected_at = clearedBySuccessfulSave;
     }
     logAction(sub, 'enrichment_key_added', provider);
     res.status(204).end();
   });
 
-  /** DELETE /me/enrichment-keys/{provider} — clear a key. */
   app.delete('/me/enrichment-keys/:provider', (req: Request, res: Response) => {
     const { provider } = req.params;
     if (provider !== 'rawg' && provider !== 'opencritic') {
@@ -980,7 +933,6 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** GET /trophies/summary — 404 if unlinked, 403 if harvest_trophies is off. */
   app.get('/trophies/summary', (req: Request, res: Response) => {
     const user = getUser(subFromRequest(req));
     if (!user.psn) {
@@ -994,7 +946,6 @@ export function createCuratorApp(): Express {
     res.json(TROPHY_SUMMARY);
   });
 
-  /** GET /identity — 404 if unlinked, 403 if harvest_identity is off. */
   app.get('/identity', (req: Request, res: Response) => {
     const user = getUser(subFromRequest(req));
     if (!user.psn) {
@@ -1008,7 +959,6 @@ export function createCuratorApp(): Express {
     res.json(IDENTITY);
   });
 
-  /** GET /presence — 404 if unlinked, 403 if harvest_presence is off. */
   app.get('/presence', (req: Request, res: Response) => {
     const user = getUser(subFromRequest(req));
     if (!user.psn) {
@@ -1022,7 +972,6 @@ export function createCuratorApp(): Express {
     res.json(PRESENCE);
   });
 
-  /** GET /devices — 404 if unlinked, 403 if harvest_devices is off. */
   app.get('/devices', (req: Request, res: Response) => {
     const user = getUser(subFromRequest(req));
     if (!user.psn) {
@@ -1036,7 +985,6 @@ export function createCuratorApp(): Express {
     res.json(DEVICES);
   });
 
-  /** GET /catalog/games — filter + paginate the fixed catalog fixture. */
   app.get('/catalog/games', (req: Request, res: Response) => {
     const q = req.query['q'] as string | undefined;
     const franchise = req.query['franchise'] as string | undefined;
@@ -1063,15 +1011,13 @@ export function createCuratorApp(): Express {
     res.json({ games: page, total: filtered.length });
   });
 
-  /** GET /catalog/genres — the genres carried by at least one game in the catalog fixture. */
   app.get('/catalog/genres', (_req: Request, res: Response) => {
     const genres = [...new Set(CATALOG_GAMES.map((game) => game.genre).filter((genre): genre is string => !!genre))];
     res.json({ genres });
   });
 
-  /** GET /catalog/games/:gameId — one catalogued game, 404 when the id is unknown. */
   app.get('/catalog/games/:gameId', (req: Request, res: Response) => {
-    const game = CATALOG_GAMES.find((candidate) => candidate.game_id === req.params['gameId']);
+    const game = CATALOG_GAMES.find((candidate) => candidate.game_id === pathParam(req, 'gameId'));
     if (!game) {
       res.status(404).json({ detail: 'No such game.' });
       return;
@@ -1086,7 +1032,6 @@ export function createCuratorApp(): Express {
     });
   });
 
-  /** POST /collections/preview — generate an unpersisted collection from an inline spec. */
   app.post('/collections/preview', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const spec = req.body as {
@@ -1115,7 +1060,6 @@ export function createCuratorApp(): Express {
     res.json(pageCollectionResult(generated, req));
   });
 
-  /** POST /collections — save a named collection definition, freezing `game_ids` as its membership. */
   app.post('/collections', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const body = req.body as {
@@ -1160,14 +1104,10 @@ export function createCuratorApp(): Express {
     res.status(201).json(toDefinitionResponse(definition));
   });
 
-  /** GET /collections — list the caller's saved definitions. */
   app.get('/collections', (req: Request, res: Response) => {
     res.json(userDefinitions(subFromRequest(req)).map(toDefinitionResponse));
   });
 
-  /** GET /collections/followed — every collection the caller follows. Registered before
-   * GET /collections/:id below -- Express matches routes in registration order, same reasoning as
-   * the real Curator route. */
   app.get('/collections/followed', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const followed = collectionFollows
@@ -1178,10 +1118,9 @@ export function createCuratorApp(): Express {
     res.json(followed.map(toDefinitionResponse));
   });
 
-  /** GET /collections/{id} — the caller's own collection, with its items. */
   app.get('/collections/:id', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const definition = userDefinitions(sub).find((d) => d.definition_id === req.params['id']);
+    const definition = userDefinitions(sub).find((d) => d.definition_id === pathParam(req, 'id'));
     if (!definition) {
       res.status(404).json({ detail: 'Collection definition not found.' });
       return;
@@ -1189,10 +1128,9 @@ export function createCuratorApp(): Express {
     res.json({ ...toDefinitionResponse(definition), items: toDefinitionItems(definition) });
   });
 
-  /** PATCH /collections/{id} — rename, change description, and/or replace membership. */
   app.patch('/collections/:id', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const definition = userDefinitions(sub).find((d) => d.definition_id === req.params['id']);
+    const definition = userDefinitions(sub).find((d) => d.definition_id === pathParam(req, 'id'));
     if (!definition) {
       res.status(404).json({ detail: 'Collection definition not found.' });
       return;
@@ -1214,10 +1152,9 @@ export function createCuratorApp(): Express {
     res.json({ ...toDefinitionResponse(definition), items: toDefinitionItems(definition) });
   });
 
-  /** PUT /collections/{id}/visibility — change private/unlisted/public. */
   app.put('/collections/:id/visibility', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const definition = userDefinitions(sub).find((d) => d.definition_id === req.params['id']);
+    const definition = userDefinitions(sub).find((d) => d.definition_id === pathParam(req, 'id'));
     if (!definition) {
       res.status(404).json({ detail: 'Collection definition not found.' });
       return;
@@ -1231,11 +1168,10 @@ export function createCuratorApp(): Express {
     res.json(toDefinitionResponse(definition));
   });
 
-  /** DELETE /collections/{id} — delete one of the caller's collections. */
   app.delete('/collections/:id', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const list = userDefinitions(sub);
-    const idx = list.findIndex((d) => d.definition_id === req.params['id']);
+    const idx = list.findIndex((d) => d.definition_id === pathParam(req, 'id'));
     if (idx < 0) {
       res.status(404).json({ detail: 'Collection definition not found.' });
       return;
@@ -1244,10 +1180,9 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** POST /collections/{id}/follow — follow a collection that isn't the caller's own. */
   app.post('/collections/:id/follow', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const definition = findDefinitionAnyOwner(req.params['id']);
+    const definition = findDefinitionAnyOwner(pathParam(req, 'id'));
     if (!definition || definition.visibility === 'private') {
       res.status(404).json({ detail: 'Collection definition not found.' });
       return;
@@ -1262,20 +1197,18 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** DELETE /collections/{id}/follow — unfollow. Always 204, idempotent. */
   app.delete('/collections/:id/follow', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const idx = collectionFollows.findIndex((f) => f.follower === sub && f.definitionId === req.params['id']);
+    const idx = collectionFollows.findIndex((f) => f.follower === sub && f.definitionId === pathParam(req, 'id'));
     if (idx >= 0) {
       collectionFollows.splice(idx, 1);
     }
     res.status(204).end();
   });
 
-  /** POST /collections/{id}/runs — generate + persist a run against a saved definition. */
   app.post('/collections/:id/runs', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const definition = userDefinitions(sub).find((d) => d.definition_id === req.params['id']);
+    const definition = userDefinitions(sub).find((d) => d.definition_id === pathParam(req, 'id'));
     if (!definition) {
       res.status(404).json({ detail: 'Collection definition not found.' });
       return;
@@ -1287,11 +1220,8 @@ export function createCuratorApp(): Express {
 
 
 
-  /** GET /public/collections/{shareSlug} — the one anonymous route in the real API. No caller
-   * identity is trusted; an unknown slug and a currently-private collection's slug are
-   * indistinguishable 404s. */
   app.get('/public/collections/:shareSlug', (req: Request, res: Response) => {
-    const shareSlug = req.params['shareSlug'];
+    const shareSlug = pathParam(req, 'shareSlug');
     let found: DefinitionRecord | undefined;
     for (const list of definitions.values()) {
       found = list.find((d) => d.share_slug === shareSlug);
@@ -1312,7 +1242,6 @@ export function createCuratorApp(): Express {
 
 
 
-  /** POST /consoles — create a console for the caller. */
   app.post('/consoles', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const body = req.body as {
@@ -1344,15 +1273,13 @@ export function createCuratorApp(): Express {
     res.status(201).json({ ...toConsoleResponse(record), capacity_is_default: capacityIsDefault });
   });
 
-  /** GET /consoles — list the caller's own consoles. */
   app.get('/consoles', (req: Request, res: Response) => {
     res.json(userConsoles(subFromRequest(req)).map(toConsoleResponse));
   });
 
-  /** PATCH /consoles/{id} — patch a console's editable fields. */
   app.patch('/consoles/:id', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const record = findOwnedConsole(sub, req.params['id']);
+    const record = findOwnedConsole(sub, pathParam(req, 'id'));
     if (!record) {
       res.status(404).json({ detail: 'Console not found.' });
       return;
@@ -1362,12 +1289,10 @@ export function createCuratorApp(): Express {
     res.json(toConsoleResponse(record));
   });
 
-  /** DELETE /consoles/{id} — delete a console (its own installs go with it; an attached storage
-   * device is detached, not deleted). */
   app.delete('/consoles/:id', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const list = userConsoles(sub);
-    const idx = list.findIndex((c) => c.console_id === req.params['id']);
+    const idx = list.findIndex((c) => c.console_id === pathParam(req, 'id'));
     if (idx < 0) {
       res.status(404).json({ detail: 'Console not found.' });
       return;
@@ -1382,19 +1307,18 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** GET /consoles/{id}/installs — every game id currently marked installed on this console. */
   app.get('/consoles/:id/installs', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    if (!findOwnedConsole(sub, req.params['id'])) {
+    if (!findOwnedConsole(sub, pathParam(req, 'id'))) {
       res.status(404).json({ detail: 'Console not found.' });
       return;
     }
-    res.json({ game_ids: Array.from(consoleInstalls.get(req.params['id']) ?? []).sort() });
+    res.json({ game_ids: Array.from(consoleInstalls.get(pathParam(req, 'id')) ?? []).sort() });
   });
 
-  /** PUT /consoles/{consoleId}/installs/{gameId} — set install-checked state on an owned console. */
   app.put('/consoles/:consoleId/installs/:gameId', (req: Request, res: Response) => {
-    const { consoleId, gameId } = req.params;
+    const consoleId = pathParam(req, 'consoleId');
+    const gameId = pathParam(req, 'gameId');
     if (!ownedConsoles(subFromRequest(req)).has(consoleId)) {
       res.status(404).json({ detail: 'Console not found.' });
       return;
@@ -1416,7 +1340,6 @@ export function createCuratorApp(): Express {
 
 
 
-  /** POST /storage-devices — create a storage device for the caller, optionally attached. */
   app.post('/storage-devices', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const body = req.body as { name: string; kind: string; capacity_gb: number; buffer_gb?: number; console_id?: string | null };
@@ -1441,15 +1364,13 @@ export function createCuratorApp(): Express {
     res.status(201).json(toDeviceResponse(record));
   });
 
-  /** GET /storage-devices — list the caller's own devices, attached or not. */
   app.get('/storage-devices', (req: Request, res: Response) => {
     res.json(userDevices(subFromRequest(req)).map(toDeviceResponse));
   });
 
-  /** PATCH /storage-devices/{id} — patch a device's editable fields. */
   app.patch('/storage-devices/:id', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const record = findOwnedDevice(sub, req.params['id']);
+    const record = findOwnedDevice(sub, pathParam(req, 'id'));
     if (!record) {
       res.status(404).json({ detail: 'Storage device not found.' });
       return;
@@ -1459,11 +1380,10 @@ export function createCuratorApp(): Express {
     res.json(toDeviceResponse(record));
   });
 
-  /** DELETE /storage-devices/{id} — delete a device (cascades to its own install rows). */
   app.delete('/storage-devices/:id', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const list = userDevices(sub);
-    const idx = list.findIndex((d) => d.device_id === req.params['id']);
+    const idx = list.findIndex((d) => d.device_id === pathParam(req, 'id'));
     if (idx < 0) {
       res.status(404).json({ detail: 'Storage device not found.' });
       return;
@@ -1473,26 +1393,24 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** PUT /storage-devices/{id}/attach/{consoleId} — attach a device to one of the caller's consoles. */
   app.put('/storage-devices/:id/attach/:consoleId', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const record = findOwnedDevice(sub, req.params['id']);
+    const record = findOwnedDevice(sub, pathParam(req, 'id'));
     if (!record) {
       res.status(404).json({ detail: 'Storage device not found.' });
       return;
     }
-    if (!findOwnedConsole(sub, req.params['consoleId'])) {
-      res.status(400).json({ detail: `Unknown console_id '${req.params['consoleId']}' for this user.` });
+    if (!findOwnedConsole(sub, pathParam(req, 'consoleId'))) {
+      res.status(400).json({ detail: `Unknown console_id '${pathParam(req, 'consoleId')}' for this user.` });
       return;
     }
-    record.console_id = req.params['consoleId'];
+    record.console_id = pathParam(req, 'consoleId');
     res.json(toDeviceResponse(record));
   });
 
-  /** DELETE /storage-devices/{id}/attach — detach a device from whichever console it's on. */
   app.delete('/storage-devices/:id/attach', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const record = findOwnedDevice(sub, req.params['id']);
+    const record = findOwnedDevice(sub, pathParam(req, 'id'));
     if (!record) {
       res.status(404).json({ detail: 'Storage device not found.' });
       return;
@@ -1501,22 +1419,19 @@ export function createCuratorApp(): Express {
     res.json(toDeviceResponse(record));
   });
 
-  /** GET /storage-devices/{id}/installs — every game id currently marked installed on this device. */
   app.get('/storage-devices/:id/installs', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    if (!findOwnedDevice(sub, req.params['id'])) {
+    if (!findOwnedDevice(sub, pathParam(req, 'id'))) {
       res.status(404).json({ detail: 'Storage device not found.' });
       return;
     }
-    res.json({ game_ids: Array.from(deviceInstalls.get(req.params['id']) ?? []).sort() });
+    res.json({ game_ids: Array.from(deviceInstalls.get(pathParam(req, 'id')) ?? []).sort() });
   });
 
-  /** PUT /storage-devices/{id}/installs/{gameId} — set install-checked state on a device. Marking a
-   * PS5 title installed on kind="usb" is allowed (Sony's own Extended Storage) -- see the real
-   * route's docstring; this mock never rejects it either. */
   app.put('/storage-devices/:deviceId/installs/:gameId', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const { deviceId, gameId } = req.params;
+    const deviceId = pathParam(req, 'deviceId');
+    const gameId = pathParam(req, 'gameId');
     if (!findOwnedDevice(sub, deviceId)) {
       res.status(404).json({ detail: 'Storage device not found.' });
       return;
@@ -1535,18 +1450,14 @@ export function createCuratorApp(): Express {
     res.json({ device_id: deviceId, game_id: gameId, installed: body.installed });
   });
 
-  /** GET /library — the caller's own library: server-side search/filter/sort/paging. */
   app.get('/library', (req: Request, res: Response) => {
     res.json(queryLibraryGames(libraryGames.get(subFromRequest(req)) ?? [], req));
   });
 
-  /** GET /library/categories — the distinct, sorted categories in the caller's own library. */
   app.get('/library/categories', (req: Request, res: Response) => {
     res.json({ categories: libraryCategories(libraryGames.get(subFromRequest(req)) ?? []) });
   });
 
-  /** POST /library/refresh — queue a job that transitions queued -> running -> a terminal status
-   * on short timers, so the real Angular poll loop observes a genuine state transition. */
   app.post('/library/refresh', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const runId = `lib-run-${Date.now()}`;
@@ -1579,43 +1490,37 @@ export function createCuratorApp(): Express {
     res.status(202).json({ run_id: runId });
   });
 
-  /** GET /library/refresh/{runId} — poll a queued library-refresh job's status. */
   app.get('/library/refresh/:runId', (req: Request, res: Response) => {
-    const run = libraryRuns.get(req.params['runId']);
+    const run = libraryRuns.get(pathParam(req, 'runId'));
     if (!run || run.sub !== subFromRequest(req)) {
       res.status(404).json({ detail: 'Library refresh run not found.' });
       return;
     }
-    res.json({ run_id: req.params['runId'], status: run.status, error: run.error, result_summary: run.result_summary });
+    res.json({ run_id: pathParam(req, 'runId'), status: run.status, error: run.error, result_summary: run.result_summary });
   });
 
-  /** GET /me/profile-settings — the caller's own display-visibility toggles. Never 404s. */
   app.get('/me/profile-settings', (req: Request, res: Response) => {
     res.json(settingsFor(subFromRequest(req)));
   });
 
-  /** GET /me/profile-link-sites — the allowlisted sites a profile link may point at, in display order. */
   app.get('/me/profile-link-sites', (_req: Request, res: Response) => {
     res.json(PROFILE_LINK_SITES.map((site) => ({ site_key: site.site_key, display_name: site.display_name })));
   });
 
-  /** GET /me/profile-links — the caller's own declared profile links. Never 404s. */
   app.get('/me/profile-links', (req: Request, res: Response) => {
     res.json(profileLinksFor(subFromRequest(req)));
   });
 
-  /** PUT /me/profile-links/{site_key} — declare or replace a handle. 400 on an unknown site or a
-   * handle outside the stored CHECK constraint's charset. */
   app.put('/me/profile-links/:site_key', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const siteKey = req.params['site_key'];
+    const siteKey = pathParam(req, 'site_key');
     const site = PROFILE_LINK_SITES.find((s) => s.site_key === siteKey);
     if (!site) {
       res.status(400).json({ detail: 'Unknown site.' });
       return;
     }
-    const handle = ((req.body as { handle?: string }).handle ?? '').trim();
-    if (!PROFILE_LINK_HANDLE_PATTERN.test(handle)) {
+    const handle = (req.body as { handle?: string }).handle?.trim() ?? null;
+    if (handle === null || !PROFILE_LINK_HANDLE_PATTERN.test(handle)) {
       res.status(400).json({ detail: 'Handle must be 3-16 characters: letters, digits, - or _.' });
       return;
     }
@@ -1630,13 +1535,11 @@ export function createCuratorApp(): Express {
     });
   });
 
-  /** DELETE /me/profile-links/{site_key} — remove a link. Idempotent; always 204. */
   app.delete('/me/profile-links/:site_key', (req: Request, res: Response) => {
-    profileLinkHandles.get(subFromRequest(req))?.delete(req.params['site_key']);
+    profileLinkHandles.get(subFromRequest(req))?.delete(pathParam(req, 'site_key'));
     res.status(204).end();
   });
 
-  /** PUT /me/profile-settings — replace the caller's own display-visibility toggles. */
   app.put('/me/profile-settings', (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const body = req.body as Partial<ProfileSettings>;
@@ -1645,11 +1548,8 @@ export function createCuratorApp(): Express {
     res.json(next);
   });
 
-  /** GET /users/{sub}/profile — `sub`'s public profile, as seen by the caller. 404 if `sub` is
-   * unknown. Follow status/counts are never gated by `is_public`. A non-owner viewing a private
-   * profile still gets 200, with the PSN-derived sections nulled out. */
   app.get('/users/:sub/profile', (req: Request, res: Response) => {
-    const target = req.params['sub'];
+    const target = pathParam(req, 'sub');
     const viewer = subFromRequest(req);
     const targetUser = findUser(target);
     if (!targetUser) {
@@ -1714,9 +1614,8 @@ export function createCuratorApp(): Express {
     });
   });
 
-  /** POST /users/{sub}/follow — follow `sub`. Idempotent. 404 unknown sub, 400 self-follow. */
   app.post('/users/:sub/follow', (req: Request, res: Response) => {
-    const target = req.params['sub'];
+    const target = pathParam(req, 'sub');
     const viewer = subFromRequest(req);
     if (!findUser(target)) {
       res.status(404).json({ detail: 'User not found.' });
@@ -1733,9 +1632,8 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** DELETE /users/{sub}/follow — unfollow `sub`. Always 204, idempotent. */
   app.delete('/users/:sub/follow', (req: Request, res: Response) => {
-    const target = req.params['sub'];
+    const target = pathParam(req, 'sub');
     const viewer = subFromRequest(req);
     const idx = followEdges.findIndex((e) => e.follower === viewer && e.followed === target);
     if (idx >= 0) {
@@ -1745,11 +1643,8 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
-  /** GET /users/{sub}/followers — paginated, newest first. 404 unknown sub. Never gated by
-   * `is_public`. Each entry's `psn_account_id` reflects only *that* user's own visibility, not
-   * the caller's. */
   app.get('/users/:sub/followers', (req: Request, res: Response) => {
-    const target = req.params['sub'];
+    const target = pathParam(req, 'sub');
     if (!findUser(target)) {
       res.status(404).json({ detail: 'User not found.' });
       return;
@@ -1771,10 +1666,8 @@ export function createCuratorApp(): Express {
     });
   });
 
-  /** GET /users/{sub}/following — paginated, newest first. 404 unknown sub. Never gated by
-   * `is_public`. */
   app.get('/users/:sub/following', (req: Request, res: Response) => {
-    const target = req.params['sub'];
+    const target = pathParam(req, 'sub');
     if (!findUser(target)) {
       res.status(404).json({ detail: 'User not found.' });
       return;
@@ -1796,10 +1689,8 @@ export function createCuratorApp(): Express {
     });
   });
 
-  /** Shared 404/403 gate for the library passthrough routes below. Returns `true` (and has already
-   * written the response) if the request should stop here. */
   function libraryVisibilityGate(req: Request, res: Response): boolean {
-    const target = req.params['sub'];
+    const target = pathParam(req, 'sub');
     const viewer = subFromRequest(req);
     if (!findUser(target)) {
       res.status(404).json({ detail: 'User not found.' });
@@ -1815,28 +1706,22 @@ export function createCuratorApp(): Express {
     return false;
   }
 
-  /** GET /users/{sub}/library — read-only, same server-side search/filter/sort/paging as the
-   * caller's-own GET /library. 404 unknown sub. 403 unless the caller is the owner or the target's
-   * profile is both public and `show_library`. */
   app.get('/users/:sub/library', (req: Request, res: Response) => {
     if (libraryVisibilityGate(req, res)) {
       return;
     }
-    res.json(queryLibraryGames(libraryGames.get(req.params['sub']) ?? [], req));
+    res.json(queryLibraryGames(libraryGames.get(pathParam(req, 'sub')) ?? [], req));
   });
 
-  /** GET /users/{sub}/library/categories — read-only. Same visibility gate as the library itself. */
   app.get('/users/:sub/library/categories', (req: Request, res: Response) => {
     if (libraryVisibilityGate(req, res)) {
       return;
     }
-    res.json({ categories: libraryCategories(libraryGames.get(req.params['sub']) ?? []) });
+    res.json({ categories: libraryCategories(libraryGames.get(pathParam(req, 'sub')) ?? []) });
   });
 
-  /** GET /users/{sub}/collections — read-only. 404 unknown sub. 403 unless caller is the owner or
-   * the target's profile is both public and `show_collections`. */
   app.get('/users/:sub/collections', (req: Request, res: Response) => {
-    const target = req.params['sub'];
+    const target = pathParam(req, 'sub');
     const viewer = subFromRequest(req);
     if (!findUser(target)) {
       res.status(404).json({ detail: 'User not found.' });

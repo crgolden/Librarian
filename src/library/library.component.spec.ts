@@ -244,7 +244,7 @@ describe('LibraryComponent', () => {
     httpMock.expectOne('/curator/api/library/refresh/r1').flush(null, { status: 502, statusText: 'Bad Gateway' });
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent ?? '').not.toContain('Lost track of the refresh job.');
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Lost track of the refresh job.');
 
     await vi.advanceTimersByTimeAsync(4500);
     httpMock
@@ -312,7 +312,7 @@ describe('LibraryComponent', () => {
     httpMock.expectOne('/curator/api/library/categories').flush({ categories: [] });
     fixture.detectChanges();
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    const text = (fixture.nativeElement as HTMLElement).textContent;
     expect(text).toContain('Game 1');
     expect(text).toContain('Game 10');
     expect(text).not.toContain('Game 11');
@@ -340,7 +340,7 @@ describe('LibraryComponent', () => {
     httpMock.expectOne('/curator/api/library/categories').flush({ categories: [] });
     fixture.detectChanges();
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    const text = (fixture.nativeElement as HTMLElement).textContent;
     expect(text).not.toContain('OpenCritic still has more of your library to check');
   });
 

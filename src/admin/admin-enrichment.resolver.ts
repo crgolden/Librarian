@@ -10,7 +10,6 @@ export type ResolvedEnrichmentRun =
   | { status: 'none' }
   | { status: 'error' };
 
-/** Resolves the latest enrichment run before /admin/enrichment activates. */
 export const latestEnrichmentRunResolver: ResolveFn<ResolvedEnrichmentRun> = () => {
   const curator = inject(CuratorService);
 

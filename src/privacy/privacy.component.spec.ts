@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { PrivacyComponent } from './privacy.component';
+import { textOf } from '../testing/text-of';
 
 describe('PrivacyComponent', () => {
   beforeEach(() => {
@@ -32,7 +33,7 @@ describe('PrivacyComponent', () => {
     const fixture = TestBed.createComponent(PrivacyComponent);
     fixture.detectChanges();
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    const text = (fixture.nativeElement as HTMLElement).textContent;
     expect(text).toContain('Sharing and visibility');
     expect(text).toContain("doesn't require signing in at all");
     expect(text).toContain('not your account identity, your PlayStation ID');
@@ -43,7 +44,7 @@ describe('PrivacyComponent', () => {
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    const text = (compiled.textContent ?? '').replace(/\s+/g, ' ');
+    const text = textOf(compiled).replace(/\s+/g, ' ');
     expect(text).toContain('Individual trophies');
     expect(text).toContain('cached for 15 minutes, never stored permanently');
     expect(text).toContain('how far through its trophy list you are');
@@ -54,7 +55,7 @@ describe('PrivacyComponent', () => {
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    const text = (compiled.textContent ?? '').replace(/\s+/g, ' ');
+    const text = textOf(compiled).replace(/\s+/g, ' ');
     expect(text).toContain("erases those numbers, it doesn't just stop refreshing them");
     expect(text).toContain('erased the moment you turn trophy harvesting off, unlink, or delete your account');
   });

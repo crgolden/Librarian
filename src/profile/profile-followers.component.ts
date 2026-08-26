@@ -7,14 +7,10 @@ import { ResolvedFollowList } from './follow-list.resolver';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
 import { AvatarComponent } from '../shared/avatar/avatar.component';
 
-/** `/profile/followers` (owner) and `/u/:sub/followers` (viewer) — paginated list of the users
- * following the profile owner, each entry linking to `/u/{sub}` (self-canonicalizes to `/profile`
- * when the entry is your own). Follower lists are always visible, regardless of `is_public`. */
 @Component({
   selector: 'app-profile-followers',
   imports: [RouterLink, DatePipe, BreadcrumbComponent, AvatarComponent],
   templateUrl: './profile-followers.component.html',
-  styleUrl: './profile-followers.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ProfileFollowersComponent implements OnInit {

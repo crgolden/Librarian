@@ -118,8 +118,37 @@ const tokenOnlyTypography = {
 };
 
 export default {
-  rules: {},
+  rules: {
+    'declaration-property-value-disallowed-list': [
+      literalColourBans,
+      {
+        message: (property) =>
+          `"${property}" uses a literal colour. Use a var(--color-*) / var(--shadow-*) token so every colour scheme stays in step.`,
+      },
+    ],
+    'declaration-property-value-allowed-list': [
+      {
+        'box-shadow': ['/var\\(--shadow-/', 'none'],
+        'z-index': ['/^var\\(--z-/', 'auto', '0'],
+        ...tokenOnlyTypography,
+      },
+      {
+        message: (property) =>
+          property === 'box-shadow'
+            ? 'box-shadow must use a var(--shadow-*) token — the named scale is the whole elevation vocabulary.'
+            : property === 'z-index'
+              ? 'z-index must use a var(--z-*) token. DESIGN.md documents one stacking ladder; a literal here joins it at a rung nobody chose, and the collision only shows when two of them overlap.'
+              : `"${property}" must use a design token, not a literal. The type scale is named by role in styles.css and tabulated in DESIGN.md; a literal here drifts from that table silently.`,
+      },
+    ],
+  },
   overrides: [
+    {
+      files: ['src/fonts.css'],
+      rules: {
+        'declaration-property-value-allowed-list': null,
+      },
+    },
     {
       files: ['src/**/*.component.css'],
       rules: {
@@ -128,22 +157,6 @@ export default {
           {
             message: (property) =>
               `"${property}" is not a layout, motion or themeable property. Component stylesheets hold a page's own arrangement; appearance that repeats belongs in styles.css as a named primitive with a DESIGN.md Components entry.`,
-          },
-        ],
-        'declaration-property-value-disallowed-list': [
-          literalColourBans,
-          {
-            message: (property) =>
-              `"${property}" uses a literal colour. Use a var(--color-*) / var(--shadow-*) token so both Reading Room and After Hours stay in step.`,
-          },
-        ],
-        'declaration-property-value-allowed-list': [
-          { 'box-shadow': ['/var\\(--shadow-/', 'none'], ...tokenOnlyTypography },
-          {
-            message: (property) =>
-              property === 'box-shadow'
-                ? 'box-shadow must use a var(--shadow-*) token — the three-step scale is the whole elevation vocabulary.'
-                : `"${property}" must use a design token, not a literal. The type scale is named by role in styles.css and tabulated in DESIGN.md; a literal here drifts from that table silently.`,
           },
         ],
       },

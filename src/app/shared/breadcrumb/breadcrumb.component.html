@@ -1,11 +1,11 @@
 @if (items.length) {
-  <nav class="breadcrumb" aria-label="Breadcrumb">
+  <nav id="breadcrumb" class="flex items-center gap-2 mb-6 font-mono text-meta" aria-label="Breadcrumb">
     @for (item of items; track item.label; let last = $last) {
       @if (!last && item.link) {
-        <a [routerLink]="item.link">{{ item.label }}</a>
-        <span class="breadcrumb-sep" aria-hidden="true">/</span>
+        <a [routerLink]="item.link" class="no-underline text-text-muted hover:text-accent">{{ item.label }}</a>
+        <span class="text-text-muted" aria-hidden="true">/</span>
       } @else {
-        <span class="breadcrumb-current">{{ item.label }}</span>
+        <span id="breadcrumb-current" class="text-text font-semibold">{{ item.label }}</span>
       }
     }
   </nav>

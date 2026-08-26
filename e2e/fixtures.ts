@@ -1,31 +1,3 @@
-/**
- * Custom Playwright fixtures for the Librarian E2E suite.
- *
- * Provides:
- *  - `store`             HTTP control client for seeding/clearing mock server state.
- *  - `anonymousPage`     Page with /bff/user mocked as 401 and /bff/login as a mock page.
- *  - `authedPage`        Page authenticated via a real /bff/login round trip against the mock OIDC
- *    provider (sub: DEFAULT_E2E_SUB) -- see e2e/mocks/oidc.ts.
- *  - `secondAuthedPage`  Page authenticated as a second, distinct identity (sub: SECOND_E2E_SUB) --
- *    needed for follow/unfollow and cross-viewer profile tests, which genuinely require two
- *    simultaneous signed-in identities in one test (e.g. one page follows the other's profile).
- *
- * `authedPage`/`secondAuthedPage` perform a real `/bff/login` → mock OIDC → `/bff/callback` round
- * trip rather than mocking `/bff/user` directly. A mocked `/bff/user` response only ever proved the
- * browser's own client-side calls carried a cookie -- Angular's SSR HttpClient issues that same
- * call from Node during rendering, a request Playwright's browser-level `page.route()` can never
- * see, so it could never prove SSR itself was authenticated. Only a real session cookie, set by a
- * real server-side login, can catch a regression in SSR cookie forwarding (src/app/app.interceptor.ts).
- *
- * Multi-user identity mechanism: the mock Curator server (`e2e/mocks/curator.ts`) has no real
- * bearer-token validation, so "who is calling" can't come from a real access token. Instead, each
- * authenticated fixture also intercepts `**\/curator/api/**` browser requests and injects an
- * `X-E2E-Sub` header naming that page's identity. The real BFF proxy (`src/bff/proxy.ts`) forwards
- * arbitrary request headers untouched (it only strips host/connection/transfer-encoding/x-csrf), so
- * the header reaches the mock server unmodified. `authedPage`'s header always equals
- * `DEFAULT_E2E_SUB`, which is also the mock's own no-header fallback -- so every pre-existing single-
- * user test and seed method keeps working byte-for-byte unchanged.
- */
 
 import { test as base, type Page } from '@playwright/test';
 
@@ -75,6 +47,7 @@ export interface LibraryGameFixture {
   rawg_enriched: boolean;
   opencritic_enriched: boolean;
   percent_completed?: number | null;
+  platforms?: string[];
 }
 
 export interface LibraryRefreshResultSummaryFixture {

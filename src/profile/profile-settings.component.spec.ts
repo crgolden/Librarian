@@ -65,7 +65,6 @@ describe('ProfileSettingsComponent', () => {
     httpMock.verify();
   });
 
-  /** The route resolves the first payload, so activation waits and the component issues no load request. */
   async function createAndLoad(
     settings: ProfileSettingsResponse = ALL_OFF,
     links: ProfileLinkResponse[] = [],
@@ -189,7 +188,7 @@ describe('ProfileSettingsComponent', () => {
     const fixture = await createAndLoad(ALL_OFF, [PSNPROFILES_LINK]);
     const compiled: HTMLElement = fixture.nativeElement;
 
-    expect(compiled.querySelectorAll('.profile-link-row')).toHaveLength(SITES.length);
+    expect(compiled.querySelectorAll('[id^="profile-link-handle-"]')).toHaveLength(SITES.length);
     expect(compiled.querySelector<HTMLInputElement>('#profile-link-handle-0')?.value).toBe('curator_one');
     expect(compiled.querySelector<HTMLInputElement>('#profile-link-handle-1')?.value).toBe('');
     httpMock.expectNone((r) => r.url.includes('/me/profile-link'));

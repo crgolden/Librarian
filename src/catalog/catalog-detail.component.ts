@@ -10,7 +10,6 @@ const PS_STORE_PRODUCT_BASE = 'https://store.playstation.com/product/';
   selector: 'app-catalog-detail',
   imports: [RouterLink],
   templateUrl: './catalog-detail.component.html',
-  styleUrl: './catalog-detail.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CatalogDetailComponent implements OnInit {

@@ -14,7 +14,6 @@ const PAGE_SIZE = CATALOG_PAGE_SIZE;
   selector: 'app-catalog',
   imports: [FormsModule, LoadingOverlayComponent, RouterLink],
   templateUrl: './catalog.component.html',
-  styleUrl: './catalog.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CatalogComponent {

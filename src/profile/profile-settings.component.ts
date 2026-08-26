@@ -9,13 +9,10 @@ import { ResolvedProfileSettings } from './profile-settings.resolver';
 
 const HANDLE_PATTERN = /^[A-Za-z0-9_-]{3,16}$/;
 
-/** `/profile/settings` — owner-only (no `:sub` variant; settings are inherently self-scoped). The
- * visibility toggles update optimistically and revert on error; the profile links commit on save. */
 @Component({
   selector: 'app-profile-settings',
   imports: [FormsModule, RouterLink, BreadcrumbComponent],
   templateUrl: './profile-settings.component.html',
-  styleUrl: './profile-settings.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ProfileSettingsComponent implements OnInit {
@@ -53,8 +50,17 @@ export class ProfileSettingsComponent implements OnInit {
     this.handleDrafts.set(Object.fromEntries(resolved.links.map((link) => [link.site_key, link.handle])));
   }
 
-  protected handleFor(siteKey: string): string {
-    return this.handleDrafts()[siteKey] ?? '';
+  protected handleFor(siteKey: string): string | null {
+    return this.handleDrafts()[siteKey] ?? null;
+  }
+
+  private trimmedHandleFor(siteKey: string): string | null {
+    const draft = this.handleFor(siteKey);
+    if (draft === null) {
+      return null;
+    }
+    const trimmed = draft.trim();
+    return trimmed.length === 0 ? null : trimmed;
   }
 
   protected linkFor(siteKey: string): ProfileLinkResponse | null {
@@ -66,16 +72,17 @@ export class ProfileSettingsComponent implements OnInit {
   }
 
   protected isHandleValid(siteKey: string): boolean {
-    return HANDLE_PATTERN.test(this.handleFor(siteKey).trim());
+    const trimmed = this.trimmedHandleFor(siteKey);
+    return trimmed !== null && HANDLE_PATTERN.test(trimmed);
   }
 
   protected isHandleUnchanged(siteKey: string): boolean {
-    return this.handleFor(siteKey).trim() === (this.linkFor(siteKey)?.handle ?? '');
+    return this.trimmedHandleFor(siteKey) === (this.linkFor(siteKey)?.handle ?? null);
   }
 
   protected saveLink(siteKey: string): void {
-    const handle = this.handleFor(siteKey).trim();
-    if (!HANDLE_PATTERN.test(handle)) {
+    const handle = this.trimmedHandleFor(siteKey);
+    if (handle === null || !HANDLE_PATTERN.test(handle)) {
       return;
     }
 

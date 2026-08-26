@@ -92,11 +92,13 @@ async function sitemapHandler(
   res: Response,
   { logger }: SitemapDependencies,
 ): Promise<void> {
-  const base = (process.env['CuratorApiAddress'] ?? '').replace(/\/$/, '');
-  if (!base) {
+  const configuredApiAddress = process.env['CuratorApiAddress']?.trim();
+  if (configuredApiAddress === undefined || configuredApiAddress.length === 0) {
     res.status(502).type('text/plain').send('CuratorApiAddress is not configured');
     return;
   }
+
+  const base = configuredApiAddress.replace(/\/$/, '');
 
   const origin = requestOrigin(req);
   if (cached?.origin === origin && cached.expiresAt > Date.now()) {

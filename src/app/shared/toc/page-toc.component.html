@@ -1,11 +1,13 @@
 @if (items().length) {
-  <nav class="page-toc" aria-label="On this page">
-    <p class="stamp-label page-toc-heading">On this page</p>
-    <ul>
+  <nav id="page-toc" class="card card-accent p-6 mb-8" aria-label="On this page">
+    <p class="stamp-label m-0 mb-2">On this page</p>
+    <ul class="m-0 p-0 list-none flex flex-col gap-2">
       @for (item of items(); track item.id) {
-        <li><a [href]="'#' + item.id" (click)="scrollToId(item.id, $event)">{{ item.label }}</a></li>
+        <li>
+          <a [id]="'toc-link-' + $index" [href]="'#' + item.id" (click)="scrollToId(item.id, $event)">{{ item.label }}</a>
+        </li>
       }
     </ul>
   </nav>
 }
-<a href="#top" class="back-to-top btn-ghost btn-sm" (click)="scrollToId('top', $event)">Back to top</a>
+<a id="back-to-top" href="#top" class="back-to-top btn-ghost btn-sm" (click)="scrollToId('top', $event)">Back to top</a>
