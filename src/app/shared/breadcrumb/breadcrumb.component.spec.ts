@@ -16,7 +16,7 @@ function configure(items: BreadcrumbItem[]): ComponentFixture<BreadcrumbComponen
 describe('BreadcrumbComponent', () => {
   it('renders nothing when items is empty', () => {
     const fixture = configure([]);
-    expect((fixture.nativeElement as HTMLElement).querySelector('.breadcrumb')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('#breadcrumb')).toBeNull();
   });
 
   it('renders every non-last item as a link and the last item as plain text', () => {
@@ -27,7 +27,7 @@ describe('BreadcrumbComponent', () => {
     expect(link?.textContent).toContain('Profile');
     expect(link?.getAttribute('href')).toBe('/profile');
 
-    const current = compiled.querySelector('.breadcrumb-current');
+    const current = compiled.querySelector('#breadcrumb-current');
     expect(current?.textContent).toContain('Followers');
     expect(compiled.querySelectorAll('a')).toHaveLength(1);
   });

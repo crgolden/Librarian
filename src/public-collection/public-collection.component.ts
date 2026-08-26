@@ -7,16 +7,10 @@ import { CuratorService } from '../curator/curator.service';
 import { PublicCollectionResponse } from '../curator/curator.models';
 import { ResolvedPublicCollection } from './public-collection.resolver';
 
-/** `/c/:slug` — the one anonymous, unauthenticated page in Librarian, mirroring Curator's one
- * anonymous route (`GET /public/collections/{share_slug}`). Reachable by anyone with the link,
- * signed in or not — the entire point of a share link (see the collections detail view's "Copy share
- * link" control). `noindex` — `"unlisted"` visibility means "unguessable link," not "crawlable page,"
- * and Librarian has no collection-discovery/search feature for `"public"` to opt into either. */
 @Component({
   selector: 'app-public-collection',
   imports: [],
   templateUrl: './public-collection.component.html',
-  styleUrl: './public-collection.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PublicCollectionComponent implements OnInit {
@@ -63,8 +57,9 @@ export class PublicCollectionComponent implements OnInit {
   }
 
   protected returnToUrl(): string {
-    const slug = this.route.snapshot.paramMap.get('slug') ?? '';
-    return `${this.loginUrl}?returnTo=${encodeURIComponent(`/c/${slug}`)}`;
+    const slug = this.route.snapshot.paramMap.get('slug');
+    const target = slug === null ? '/c' : `/c/${slug}`;
+    return `${this.loginUrl}?returnTo=${encodeURIComponent(target)}`;
   }
 
   protected toggleFollow(): void {

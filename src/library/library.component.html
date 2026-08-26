@@ -1,10 +1,10 @@
-<section class="page-section library">
+<section id="library-page" class="page-section library">
   <app-loading-overlay [visible]="gamesLoading()" />
 
   @if (viewerMode()) {
     <app-breadcrumb [items]="breadcrumbItems()" />
   }
-  <h1>{{ viewerMode() ? 'Library' : 'My Library' }}</h1>
+  <h1 id="page-title">{{ viewerMode() ? 'Library' : 'My Library' }}</h1>
 
   @if (viewerForbidden()) {
     <p class="text-muted">This section isn't available.</p>
@@ -12,7 +12,7 @@
     @if (!viewerMode()) {
       <p class="text-muted">Refresh rebuilds your catalog entries from your linked PlayStation Network entitlements.</p>
 
-      <div class="card status-card">
+      <div class="card p-6 flex flex-col items-start gap-3">
         <button type="button" class="btn-primary" [disabled]="refreshing()" (click)="refresh()">
           {{ refreshing() ? 'Refreshing...' : 'Refresh library' }}
         </button>
@@ -124,7 +124,7 @@
       </div>
     }
 
-    <div class="card status-card library-table-card">
+    <div class="card p-6 flex flex-col items-start gap-3 library-table-card">
       <h2>{{ viewerMode() ? 'Games' : 'Your games' }}</h2>
 
       @if (gamesError()) {

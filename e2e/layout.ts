@@ -7,6 +7,13 @@ export async function settleWebfonts(page: Page, measured: string[]): Promise<vo
   });
 
   const applied = await page.evaluate((selectors) => {
+    const unquote = (family: string) => family.replace(/^['"]|['"]$/g, '');
+    const facesByFamily = new Map<string, string[]>();
+    for (const face of document.fonts) {
+      const bare = unquote(face.family);
+      facesByFamily.set(bare, [...(facesByFamily.get(bare) ?? []), face.status]);
+    }
+
     const entries = selectors.map((selector) => {
       const element = document.querySelector(selector);
       if (!element) {
@@ -14,6 +21,15 @@ export async function settleWebfonts(page: Page, measured: string[]): Promise<vo
       }
       const style = getComputedStyle(element);
       const family = style.fontFamily.split(',')[0].trim();
+      const bare = unquote(family);
+      const statuses = facesByFamily.get(bare);
+
+      if (statuses === undefined) {
+        return [selector, `no @font-face declared for "${bare}"`];
+      }
+      if (!statuses.includes('loaded')) {
+        return [selector, `"${bare}" declared but no face loaded (${statuses.join(', ')})`];
+      }
       return [selector, document.fonts.check(`${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${family}`)];
     });
     return Object.fromEntries(entries) as Record<string, boolean | string>;

@@ -435,7 +435,7 @@ export interface ProfileLibraryGameResponse {
   psn_product_id: string | null;
   rawg_enriched: boolean;
   opencritic_enriched: boolean;
-  /** Always null for now -- viewer-mode trophy completion isn't built yet. */
+  /** Always null in viewer mode; Curator only ever populates it for the owner's own request. */
   percent_completed: number | null;
   cover_image_url: string | null;
   /** Platforms this owner holds the game on, newest first. Empty for a manually-added entry. */

@@ -26,7 +26,7 @@ test.describe('PSN settings — authenticated', () => {
     await store.reset();
 
     await page.goto('/psn');
-    await expect(page.locator('h1')).toContainText('PlayStation Network');
+    await expect(page.locator('#page-title')).toContainText('PlayStation Network');
     await expect(page.getByLabel('NPSSO token')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Link account' })).toBeVisible();
   });

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { analyze, classesUsedIn, primitivesFromDesignDoc } from './design-primitives.mjs';
+import {
+  analyze,
+  analyzeUtilities,
+  classesUsedIn,
+  primitivesFromDesignDoc,
+  unconsumedThemeTokens,
+} from './design-primitives.mjs';
 
 const SHARED = 'src/styles.css';
 
@@ -219,5 +225,173 @@ describe('analyze — one appearance, one definition', () => {
 
     expect(failures).toEqual([]);
     expect(knownForksSeen).toEqual(['.tile (2 files)']);
+  });
+});
+
+describe('analyze — skipReachability hands pass (b) to the built-CSS check', () => {
+  const unreachable = {
+    css: { [SHARED]: '.card { border-radius: 4px; }' },
+    html: { 'src/a/a.component.html': '<div class="mistyped-utility"></div>' },
+  };
+
+  it('reports an unreachable template class by default', () => {
+    const { failures } = run(unreachable);
+
+    expect(failures).toEqual([expect.stringContaining('.mistyped-utility: used 1 time(s)')]);
+  });
+
+  it('stays silent about reachability when the built-CSS check owns it', () => {
+    const { failures } = run({ ...unreachable, skipReachability: true });
+
+    expect(failures).toEqual([]);
+  });
+
+  it('still fails an un-analyzable [class] binding, which is not a reachability question', () => {
+    const { failures } = run({
+      css: { [SHARED]: '.card { border-radius: 4px; }' },
+      html: { 'src/a/a.component.html': '<div [class]="whatever"></div>' },
+      skipReachability: true,
+    });
+
+    expect(failures).toEqual([expect.stringContaining('un-analyzable class binding')]);
+  });
+});
+
+describe('analyzeUtilities — reachability against the CSS that actually ships', () => {
+  const utilities = ({ css, html }) =>
+    analyzeUtilities({
+      stylesheets: Object.entries(css).map(([path, text]) => ({ path, css: text })),
+      templates: Object.entries(html).map(([path, text]) => ({ path, html: text })),
+      allowedUndeclared: new Set(),
+      allowedScoped: new Set(),
+    });
+
+  it('passes a utility the compiler emitted into the built stylesheet', () => {
+    const { failures, templateClassCount } = utilities({
+      css: { 'dist/browser/styles-abc.css': '.gap-4{gap:1rem}' },
+      html: { 'src/a/a.component.html': '<div class="gap-4"></div>' },
+    });
+
+    expect(failures).toEqual([]);
+    expect(templateClassCount).toBe(1);
+  });
+
+  it('fails a mistyped utility, which the compiler drops without a word', () => {
+    const { failures } = utilities({
+      css: { 'dist/browser/styles-abc.css': '.gap-4{gap:1rem}' },
+      html: { 'src/a/a.component.html': '<div class="gap-4 gap-4x"></div>' },
+    });
+
+    expect(failures).toEqual([expect.stringContaining('.gap-4x: used 1 time(s)')]);
+  });
+
+  it('passes a class whose rule styles its children, because the class itself is on the element', () => {
+    const { failures } = utilities({
+      css: { 'dist/browser/styles-abc.css': ':where(.space-y-2>:not(:last-child)){margin-top:0.5rem}' },
+      html: { 'src/a/a.component.html': '<ul class="space-y-2"></ul>' },
+    });
+
+    expect(failures).toEqual([]);
+  });
+
+  it('still fails a class that only exists as the SUBJECT of a descendant selector', () => {
+    const { failures } = utilities({
+      css: { 'dist/browser/styles-abc.css': '.catalog-detail > .link-button{color:red}' },
+      html: { 'src/a/a.component.html': '<a class="link-button"></a>' },
+    });
+
+    expect(failures).toEqual([expect.stringContaining('.link-button: used 1 time(s)')]);
+  });
+
+  it('reads a component stylesheet too, because Angular inlines those into JS rather than into dist CSS', () => {
+    const { failures } = utilities({
+      css: {
+        'dist/browser/styles-abc.css': '.gap-4{gap:1rem}',
+        'src/a/a.component.css': '.page-own-arrangement { display: grid; }',
+      },
+      html: { 'src/a/a.component.html': '<div class="gap-4 page-own-arrangement"></div>' },
+    });
+
+    expect(failures).toEqual([]);
+  });
+
+  it('sees an arbitrary value through the escapes Tailwind ships it with', () => {
+    const { failures, templateClassCount } = utilities({
+      css: { 'dist/browser/styles-abc.css': '.max-w-\\[320px\\]{max-width:320px}' },
+      html: { 'src/a/a.component.html': '<img class="max-w-[320px]" />' },
+    });
+
+    expect(failures).toEqual([]);
+    expect(templateClassCount).toBe(1);
+  });
+
+  it('keeps a variant as part of the class name, because Tailwind ships it as one class', () => {
+    const { failures } = utilities({
+      css: { 'dist/browser/styles-abc.css': '@media (min-width:480px){.sm\\:grid-cols-2{grid-template-columns:repeat(2,1fr)}}' },
+      html: { 'src/a/a.component.html': '<div class="sm:grid-cols-2"></div>' },
+    });
+
+    expect(failures).toEqual([]);
+  });
+
+  it('splits a selector list at bracket depth zero, so an arbitrary value keeps its own commas', () => {
+    const { failures } = utilities({
+      css: {
+        'dist/browser/styles-abc.css':
+          '.grid-cols-\\[repeat\\(auto-fit\\,minmax\\(220px\\,1fr\\)\\)\\]{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}',
+      },
+      html: { 'src/a/a.component.html': '<div class="grid-cols-[repeat(auto-fit,minmax(220px,1fr))]"></div>' },
+    });
+
+    expect(failures).toEqual([]);
+  });
+
+  it('still fails a mistyped ARBITRARY utility, which the compiler drops as silently as a plain one', () => {
+    const { failures } = utilities({
+      css: { 'dist/browser/styles-abc.css': '.max-w-\\[320px\\]{max-width:320px}' },
+      html: { 'src/a/a.component.html': '<img class="max-w-[320pxx]" />' },
+    });
+
+    expect(failures).toEqual([expect.stringContaining('.max-w-[320pxx]: used 1 time(s)')]);
+  });
+});
+
+describe('unconsumedThemeTokens — a token that resolves is not a token that is used', () => {
+  const theme = (body) => `@theme {\n${body}\n}`;
+
+  it('fails a token nothing references, which is how --container-prose shipped wrong', () => {
+    const unconsumed = unconsumedThemeTokens({
+      themeCss: theme('  --container-prose: 720px;\n  --container-data: 960px;'),
+      stylesheets: ['.max-w-prose{max-width:65ch}.max-w-data{max-width:var(--container-data)}'],
+    });
+
+    expect(unconsumed).toEqual(['--container-prose']);
+  });
+
+  it('accepts a token a component stylesheet consumes, since Angular inlines those out of dist CSS', () => {
+    const unconsumed = unconsumedThemeTokens({
+      themeCss: theme('  --rail-width: 15rem;'),
+      stylesheets: ['.unrelated{color:red}', '.site-nav-rail { width: var(--rail-width); }'],
+    });
+
+    expect(unconsumed).toEqual([]);
+  });
+
+  it('exempts --breakpoint-*, which Tailwind resolves into an @media condition rather than a var()', () => {
+    const unconsumed = unconsumedThemeTokens({
+      themeCss: theme('  --breakpoint-sm: 480px;'),
+      stylesheets: ['@media (min-width:480px){.sm\\:flex{display:flex}}'],
+    });
+
+    expect(unconsumed).toEqual([]);
+  });
+
+  it('does not exempt --container-*, the family the gate exists to police', () => {
+    const unconsumed = unconsumedThemeTokens({
+      themeCss: theme('  --container-narrow: 480px;'),
+      stylesheets: ['.unrelated{color:red}'],
+    });
+
+    expect(unconsumed).toEqual(['--container-narrow']);
   });
 });

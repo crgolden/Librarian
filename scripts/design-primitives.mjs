@@ -15,7 +15,11 @@ const CLASS_BINDING = /\[class\.([a-z][a-z0-9-]*)\]/gi;
 const NG_CLASS_ATTRIBUTE = /\[ngClass\]\s*=\s*("[^"]*"|'[^']*')/g;
 const QUOTED_LITERAL = /'([^']*)'|"([^"]*)"/g;
 const UNANALYZABLE_CLASS_BINDING = /\[class\]\s*=/;
-const CLASS_TOKEN_NAME = /^[a-z][a-z0-9-]*$/i;
+const CLASS_TOKEN_NAME =
+  /^(?:(?:[a-z][a-z0-9-]*|\[[^\]]*\]):)*[a-z][a-z0-9-]*(?:\[[^\]]*\])?$/i;
+
+const THEME_BLOCK = /@theme\s*\{([\s\S]*?)\n\}/;
+const THEME_TOKEN = /^\s*(--[a-z0-9-]+)\s*:/gim;
 
 export const SANITY_FLOOR = 6;
 
@@ -23,11 +27,31 @@ export const ALLOWED_UNDECLARED = new Set(['.ng-star-inserted', '.tab-label']);
 
 export const ALLOWED_SCOPED = new Set(['.catalog-detail', '.nav-label', '.tab-link']);
 
-export const KNOWN_FORKS = new Set(['.catalog-card', '.cover-art', '.status-card']);
+export const KNOWN_FORKS = new Set();
 
 const escapeForRegExp = (className) => className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 export const withoutComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
+
+export const withoutSelectorEscapes = (css) => css.replace(/\\([^a-zA-Z0-9])/g, '$1');
+
+export const themeTokensIn = (css) => {
+  const block = THEME_BLOCK.exec(withoutComments(css));
+  if (block === null) return [];
+  return [...block[1].matchAll(THEME_TOKEN)].map(([, name]) => name);
+};
+
+export const BUILD_TIME_THEME_NAMESPACES = [/^--breakpoint-/];
+
+export const unconsumedThemeTokens = ({ themeCss, stylesheets, allowedUnconsumed = new Set() }) => {
+  const declared = themeTokensIn(themeCss);
+  const body = withoutComments(stylesheets.join('\n'));
+  return declared.filter((token) => {
+    if (allowedUnconsumed.has(token)) return false;
+    if (BUILD_TIME_THEME_NAMESPACES.some((namespace) => namespace.test(token))) return false;
+    return !new RegExp(`var\\(\\s*${token}(?![a-z0-9-])`, 'i').test(body);
+  });
+};
 
 export const rulesTargeting = (css, className) => {
   const mentions = new RegExp(`${escapeForRegExp(className)}(?![a-z0-9-])`, 'i');
@@ -80,17 +104,116 @@ export const classesUsedIn = (html) => {
   return used;
 };
 
+export const splitSelectorList = (selector) => {
+  const parts = [];
+  let depth = 0;
+  let current = '';
+  for (const character of selector) {
+    if (character === '(' || character === '[') depth += 1;
+    else if (character === ')' || character === ']') depth -= 1;
+    if (character === ',' && depth === 0) {
+      parts.push(current);
+      current = '';
+      continue;
+    }
+    current += character;
+  }
+  parts.push(current);
+  return parts;
+};
+
 export const selectorPartsFor = (css, className) => {
   const escaped = escapeForRegExp(className);
   const mentions = new RegExp(`${escaped}(?![a-z0-9-])`, 'i');
   const subjectCompound = new RegExp(`(^|[ >+~])[^ >+~]*${escaped}(?![a-z0-9-])[^ >+~]*$`, 'i');
+  const actsAsAncestor = new RegExp(`${escaped}(?![a-z0-9-])[^,]*[ >+~]`, 'i');
 
   const parts = rulesTargeting(css, className)
-    .flatMap(({ selector }) => selector.split(',').map((part) => part.trim()))
+    .flatMap(({ selector }) => splitSelectorList(selector).map((part) => part.trim()))
     .filter((part) => mentions.test(part));
 
-  return { parts, unscoped: parts.filter((part) => subjectCompound.test(part) && !/[ >+~]/.test(part)) };
+  const reaches = (part) =>
+    (subjectCompound.test(part) && !/[ >+~]/.test(part)) || actsAsAncestor.test(part);
+
+  return { parts, unscoped: parts.filter(reaches) };
 };
+
+export const collectTemplateClasses = (templates) => {
+  const usedClasses = new Map();
+  const failures = [];
+
+  for (const { path, html } of templates) {
+    if (UNANALYZABLE_CLASS_BINDING.test(html)) {
+      failures.push(
+        `${path}: un-analyzable class binding; use [class.x] or a static class attribute. ` +
+          'A whole-attribute [class] expression hides its class names from this check and from the fork check below.',
+      );
+    }
+    for (const [className, count] of classesUsedIn(html)) {
+      usedClasses.set(className, (usedClasses.get(className) ?? 0) + count);
+    }
+  }
+
+  return { usedClasses, failures };
+};
+
+const reachabilityFailures = ({ usedClasses, strippedStylesheets, allowedUndeclared, allowedScoped }) => {
+  const failures = [];
+  const allowedScopedSeen = [];
+
+  for (const [className, usages] of [...usedClasses].sort()) {
+    if (allowedUndeclared.has(className)) continue;
+
+    const found = strippedStylesheets.map(({ css }) => selectorPartsFor(css, className));
+    const mentioned = found.some(({ parts }) => parts.length > 0);
+    const unscoped = found.some(({ unscoped: reaching }) => reaching.length > 0);
+
+    if (!mentioned) {
+      failures.push(
+        `${className}: used ${usages} time(s) in src/**/*.html and named in no stylesheet selector. ` +
+          'Reach for an existing primitive rather than inventing a name beside the vocabulary.',
+      );
+    } else if (unscoped) {
+      continue;
+    } else if (allowedScoped.has(className)) {
+      allowedScopedSeen.push(`${className} (${usages} usage(s))`);
+    } else {
+      const selectors = [...new Set(found.flatMap(({ parts }) => parts))].join(', ');
+      failures.push(
+        `${className}: used ${usages} time(s) in src/**/*.html and reached only under an ancestor ` +
+          `(${selectors}) — every usage outside that ancestor renders unstyled. Declare it unscoped, ` +
+          'use an existing primitive, or name it in ALLOWED_SCOPED with a reason in AGENTS/Librarian.md.',
+      );
+    }
+  }
+
+  return { failures, allowedScopedSeen };
+};
+
+export function analyzeUtilities({
+  stylesheets,
+  templates,
+  allowedUndeclared = ALLOWED_UNDECLARED,
+  allowedScoped = ALLOWED_SCOPED,
+}) {
+  const strippedStylesheets = stylesheets.map(({ path, css }) => ({
+    path,
+    css: withoutSelectorEscapes(withoutComments(css)),
+  }));
+  const { usedClasses, failures } = collectTemplateClasses(templates);
+  const reachability = reachabilityFailures({
+    usedClasses,
+    strippedStylesheets,
+    allowedUndeclared,
+    allowedScoped,
+  });
+
+  return {
+    failures: [...failures, ...reachability.failures],
+    allowedScopedSeen: reachability.allowedScopedSeen,
+    templateClassCount: usedClasses.size,
+  };
+}
 
 export function analyze({
   designDoc,
@@ -100,6 +223,7 @@ export function analyze({
   allowedUndeclared = ALLOWED_UNDECLARED,
   allowedScoped = ALLOWED_SCOPED,
   knownForks = KNOWN_FORKS,
+  skipReachability = false,
 }) {
   const primitives = primitivesFromDesignDoc(designDoc);
   const failures = [];
@@ -136,43 +260,18 @@ export function analyze({
     }
   }
 
-  const usedClasses = new Map();
-  for (const { path, html } of templates) {
-    if (UNANALYZABLE_CLASS_BINDING.test(html)) {
-      failures.push(
-        `${path}: un-analyzable class binding; use [class.x] or a static class attribute. ` +
-          'A whole-attribute [class] expression hides its class names from this check and from the fork check below.',
-      );
-    }
-    for (const [className, count] of classesUsedIn(html)) {
-      usedClasses.set(className, (usedClasses.get(className) ?? 0) + count);
-    }
-  }
+  const { usedClasses, failures: templateFailures } = collectTemplateClasses(templates);
+  failures.push(...templateFailures);
 
-  for (const [className, usages] of [...usedClasses].sort()) {
-    if (allowedUndeclared.has(className)) continue;
-
-    const found = strippedStylesheets.map(({ css }) => selectorPartsFor(css, className));
-    const mentioned = found.some(({ parts }) => parts.length > 0);
-    const unscoped = found.some(({ unscoped: reaching }) => reaching.length > 0);
-
-    if (!mentioned) {
-      failures.push(
-        `${className}: used ${usages} time(s) in src/**/*.html and named in no stylesheet selector. ` +
-          'Reach for an existing primitive rather than inventing a name beside the vocabulary.',
-      );
-    } else if (unscoped) {
-      continue;
-    } else if (allowedScoped.has(className)) {
-      allowedScopedSeen.push(`${className} (${usages} usage(s))`);
-    } else {
-      const selectors = [...new Set(found.flatMap(({ parts }) => parts))].join(', ');
-      failures.push(
-        `${className}: used ${usages} time(s) in src/**/*.html and reached only under an ancestor ` +
-          `(${selectors}) — every usage outside that ancestor renders unstyled. Declare it unscoped, ` +
-          'use an existing primitive, or name it in ALLOWED_SCOPED with a reason in AGENTS/Librarian.md.',
-      );
-    }
+  if (!skipReachability) {
+    const reachability = reachabilityFailures({
+      usedClasses,
+      strippedStylesheets,
+      allowedUndeclared,
+      allowedScoped,
+    });
+    failures.push(...reachability.failures);
+    allowedScopedSeen.push(...reachability.allowedScopedSeen);
   }
 
   const declaringComponents = new Map();

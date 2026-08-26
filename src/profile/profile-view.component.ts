@@ -4,15 +4,16 @@ import { Meta } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
-  phosphorArchive,
-  phosphorBooks,
-  phosphorLink,
-  phosphorMedal,
-  phosphorRanking,
-  phosphorStamp,
-  phosphorUserPlus,
-  phosphorUsersThree,
-} from '@ng-icons/phosphor-icons/regular';
+  lucideFolderOpen,
+  lucideLibraryBig,
+  lucideLink,
+  lucideMedal,
+  lucideStamp,
+  lucideTrophy,
+  lucideUserPlus,
+  lucideUsers,
+} from '@ng-icons/lucide';
+import { AuthService } from '../auth/auth.service';
 import { CuratorService } from '../curator/curator.service';
 import { PublicProfileResponse } from '../curator/curator.models';
 import { ResolvedProfile } from './profile.resolver';
@@ -22,18 +23,17 @@ import { AvatarComponent } from '../shared/avatar/avatar.component';
   selector: 'app-profile-view',
   imports: [DatePipe, NgIcon, RouterLink, AvatarComponent],
   templateUrl: './profile-view.component.html',
-  styleUrl: './profile-view.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
   viewProviders: [
     provideIcons({
-      phosphorArchive,
-      phosphorBooks,
-      phosphorLink,
-      phosphorMedal,
-      phosphorRanking,
-      phosphorStamp,
-      phosphorUserPlus,
-      phosphorUsersThree,
+      lucideFolderOpen,
+      lucideLibraryBig,
+      lucideLink,
+      lucideMedal,
+      lucideStamp,
+      lucideTrophy,
+      lucideUserPlus,
+      lucideUsers,
     }),
   ],
 })
@@ -41,6 +41,11 @@ export class ProfileViewComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly curator = inject(CuratorService);
   private readonly meta = inject(Meta);
+  protected readonly auth = inject(AuthService);
+
+  protected ownPictureFor(profile: PublicProfileResponse): string | null {
+    return profile.viewer_is_owner ? this.auth.picture() : null;
+  }
 
   protected readonly profile = signal<PublicProfileResponse | null>(null);
   protected readonly loadError = signal<string | null>(null);

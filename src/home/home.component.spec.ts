@@ -66,8 +66,8 @@ describe('HomeComponent', () => {
 
     const compiled = render();
 
-    const terms = [...compiled.querySelectorAll('.totals dt')].map((dt) => dt.textContent?.trim());
-    const totals = [...compiled.querySelectorAll('.totals dd')].map((dd) => dd.textContent?.trim());
+    const terms = [...compiled.querySelectorAll('#home-totals dt')].map((dt) => dt.textContent?.trim());
+    const totals = [...compiled.querySelectorAll('#home-totals dd')].map((dd) => dd.textContent?.trim());
 
     expect(terms).toEqual(['Titles catalogued', 'Collections', 'Collection entries']);
     expect(totals).toEqual(['412', '7', '63']);
@@ -79,7 +79,7 @@ describe('HomeComponent', () => {
     const compiled = render();
 
     expect(compiled.textContent).not.toContain('No PlayStation Network account is linked');
-    expect([...compiled.querySelectorAll('.totals dd')].map((dd) => dd.textContent?.trim())).toEqual([
+    expect([...compiled.querySelectorAll('#home-totals dd')].map((dd) => dd.textContent?.trim())).toEqual([
       '412',
       '7',
       '63',
@@ -99,5 +99,36 @@ describe('HomeComponent', () => {
 
     expect(compiled.textContent).toContain('Library totals are unavailable right now');
     expect(compiled.textContent).not.toContain('Titles catalogued');
+  });
+
+  const primaryActionOf = (compiled: HTMLElement) => ({
+    label: compiled.querySelector('#home-action-0')?.textContent?.trim(),
+    isPrimary: compiled.querySelector('#home-action-0')?.classList.contains('btn-primary'),
+  });
+
+  it('leads with the PSN link step while no account is linked, since My Library would land empty', () => {
+    configure({ isAuthenticated: signal(true) }, { ...linkedSummary, libraryTotal: 0, linked: false });
+
+    expect(primaryActionOf(render())).toEqual({ label: 'Manage PSN Link', isPrimary: true });
+  });
+
+  it('leads with My Library once an account is linked', () => {
+    configure({ isAuthenticated: signal(true) }, linkedSummary);
+
+    expect(primaryActionOf(render())).toEqual({ label: 'My Library', isPrimary: true });
+  });
+
+  it('leaves My Library leading when the profile call degraded, rather than guessing at a link step', () => {
+    configure({ isAuthenticated: signal(true) }, { ...linkedSummary, linked: null });
+
+    expect(primaryActionOf(render())).toEqual({ label: 'My Library', isPrimary: true });
+  });
+
+  it('offers exactly one primary action, whichever leads', () => {
+    configure({ isAuthenticated: signal(true) }, { ...linkedSummary, linked: false });
+
+    const primaries = render().querySelectorAll('#home-actions .btn-primary');
+
+    expect(primaries).toHaveLength(1);
   });
 });

@@ -1,6 +1,3 @@
-/**
- * FAQ page E2E — SSR assertion (public trust/SEO content) + anonymous browsing.
- */
 
 import { test, expect } from './fixtures.js';
 
@@ -28,11 +25,11 @@ test.describe('FaqPage', () => {
     await store.reset();
 
     await page.goto('/faq');
-    await expect(page.locator('h1')).toContainText('Frequently Asked Questions');
+    await expect(page.locator('#top')).toContainText('Frequently Asked Questions');
 
-    await expect(page.getByRole('heading', { name: 'What is an NPSSO token?' })).toBeVisible();
+    await expect(page.locator('#faq-npsso-token')).toBeVisible();
 
-    await page.getByRole('main').getByRole('link', { name: 'privacy policy' }).first().click();
+    await page.locator('#faq-privacy-link').click();
     await expect(page).toHaveURL(/\/privacy$/);
   });
 
@@ -44,13 +41,13 @@ test.describe('FaqPage', () => {
 
     await page.goto('/faq');
 
-    const tocLink = page.locator('.page-toc').getByRole('link', { name: 'How do I get mine?' });
+    const tocLink = page.locator('#toc-link-3');
     await expect(tocLink).toBeVisible();
     await tocLink.click();
     await expect(page).toHaveURL(/\/faq$/);
-    await expect(page.getByRole('heading', { name: 'How do I get mine?' })).toBeInViewport();
+    await expect(page.locator('#faq-get-npsso')).toBeInViewport();
 
-    await page.getByRole('link', { name: 'Back to top' }).click();
+    await page.locator('#back-to-top').click();
     await expect(page).toHaveURL(/\/faq$/);
     await expect(page.locator('h1#top')).toBeInViewport();
   });

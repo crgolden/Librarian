@@ -1,6 +1,6 @@
-<section class="page-section profile-settings">
+<section class="page-section flex flex-col gap-4 max-w-narrow mx-auto">
   <app-breadcrumb [items]="breadcrumbItems" />
-  <h1>Profile Settings</h1>
+  <h1 id="page-title">Profile Settings</h1>
   <p class="text-muted">
     Control what other Librarian users can see on your public profile. Everything here is private by
     default.
@@ -9,12 +9,12 @@
   @if (loadError()) {
     <p class="text-error">{{ loadError() }}</p>
   } @else if (settings(); as current) {
-    <div class="card status-card profile-settings-card">
+    <div class="card p-6 flex flex-col items-start gap-4 w-full">
       @if (saveError()) {
         <p class="text-error">{{ saveError() }}</p>
       }
 
-      <div class="profile-setting-toggle">
+      <div class="flex flex-col gap-1 self-stretch">
         <label for="setting-is-public">
           <input
             id="setting-is-public"
@@ -31,7 +31,7 @@
         >
       </div>
 
-      <div class="profile-setting-toggle">
+      <div class="flex flex-col gap-1 self-stretch">
         <label for="setting-show-library">
           <input
             id="setting-show-library"
@@ -44,7 +44,7 @@
         </label>
       </div>
 
-      <div class="profile-setting-toggle">
+      <div class="flex flex-col gap-1 self-stretch">
         <label for="setting-show-collections">
           <input
             id="setting-show-collections"
@@ -57,7 +57,7 @@
         </label>
       </div>
 
-      <div class="profile-setting-toggle">
+      <div class="flex flex-col gap-1 self-stretch">
         <label for="setting-show-trophies">
           <input
             id="setting-show-trophies"
@@ -70,7 +70,7 @@
         </label>
       </div>
 
-      <div class="profile-setting-toggle">
+      <div class="flex flex-col gap-1 self-stretch">
         <label for="setting-show-identity">
           <input
             id="setting-show-identity"
@@ -89,7 +89,7 @@
       </p>
     </div>
 
-    <div class="card status-card profile-settings-card">
+    <div class="card p-6 flex flex-col items-start gap-4 w-full">
       <h2>PlayStation profiles</h2>
       <p class="text-muted">
         Your handle on other PlayStation sites. These appear on your public profile alongside everything
@@ -101,7 +101,7 @@
       }
 
       @for (site of linkSites(); track site.site_key; let i = $index) {
-        <div class="profile-link-row">
+        <div class="flex flex-col gap-1 self-stretch">
           <label [attr.for]="'profile-link-handle-' + i">{{ site.display_name }}</label>
           <input
             [attr.id]="'profile-link-handle-' + i"
@@ -114,7 +114,7 @@
             (ngModelChange)="onHandleInput(site.site_key, $event)"
             [disabled]="savingLink() !== null"
           />
-          <div class="profile-link-actions">
+          <div class="flex flex-wrap items-center gap-2">
             <button
               type="button"
               class="btn-ghost btn-sm"

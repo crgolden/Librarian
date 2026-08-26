@@ -17,7 +17,7 @@ test.describe('Library — authenticated', () => {
     await store.reset();
 
     await page.goto('/library');
-    await expect(page.locator('h1')).toContainText('My Library');
+    await expect(page.locator('#page-title')).toContainText('My Library');
     await page.getByRole('button', { name: 'Refresh library' }).click();
 
     await expect(page.locator('text=Library catalogued.')).toBeVisible({ timeout: 10_000 });

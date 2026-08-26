@@ -10,7 +10,6 @@ export type ResolvedCatalogGame =
   | { status: 'not-found' }
   | { status: 'error' };
 
-/** Resolves one catalogued game, distinguishing an unknown id from a failed load. */
 export const catalogDetailResolver: ResolveFn<ResolvedCatalogGame> = (route: ActivatedRouteSnapshot) => {
   const curator = inject(CuratorService);
   const gameId = route.paramMap.get('gameId');

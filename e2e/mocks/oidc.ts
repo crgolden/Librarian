@@ -1,28 +1,3 @@
-/**
- * Mock OpenID Connect provider — stands in for Duende IdentityServer during E2E tests, exercising
- * the *real* `openid-client` authorization-code + PKCE flow (`src/bff/routes.ts`'s `/login` and
- * `/callback`) end to end, including a real signed ID token and a real session cookie.
- *
- * This exists because browser-level `page.route()` mocking of `/bff/user` (the previous approach)
- * can only intercept requests made *by the browser*. Angular's SSR HttpClient issues that same
- * call from Node during rendering, invisible to Playwright, so a mocked `/bff/user` never proved
- * the session was real — it only proved the browser's own client-side calls carried a cookie.
- * Only a genuine `/bff/login` → provider → `/bff/callback` round trip produces a real
- * `librarian.sid` cookie backed by a real server-side session, which is what's needed to catch
- * regressions in cookie forwarding during SSR (see `src/app/app.interceptor.ts`).
- *
- * Identity selection: `/authorize` reads `e2e_identity`/`e2e_email`/`e2e_name` cookies scoped to this
- * origin, not query params. Nothing in the real BFF sends these — `e2e/fixtures.ts` sets them via
- * `page.context().addCookies(...)` before triggering login. A cookie is used rather than
- * `page.route()` query-injection because Playwright's route interception does not see the *target*
- * of an HTTP redirect (only the request that produced it), and `/authorize` is exactly that target
- * (github.com/microsoft/playwright/issues/34994) -- a cookie scoped to this origin, by contrast,
- * rides the redirect navigation automatically, the same way a real browser would carry one.
- *
- * Transport: this module builds a plain Express app; oidc-server.ts serves it over real HTTPS with
- * a self-signed cert (see oidc-tls-paths.ts) so the real BFF's unmodified, always-HTTPS discovery
- * (src/bff/oidc.ts) can complete against it without any insecure-transport allowance in that file.
- */
 
 import express, { type Express, type Request, type Response } from 'express';
 import { generateKeyPair, exportJWK, SignJWT, type JWK } from 'jose';
@@ -85,11 +60,11 @@ export async function createOidcApp(issuer: string): Promise<Express> {
   });
 
   app.get('/authorize', (req: Request, res: Response) => {
-    const redirectUri = String(req.query['redirect_uri'] ?? '');
-    const state = String(req.query['state'] ?? '');
+    const redirectUri = req.query['redirect_uri'];
+    const state = req.query['state'];
     const sub = readCookie(req, 'e2e_identity');
-    if (!sub) {
-      res.status(400).json({ error: 'missing e2e_identity cookie' });
+    if (!sub || typeof redirectUri !== 'string' || typeof state !== 'string') {
+      res.status(400).json({ error: 'missing e2e_identity cookie, redirect_uri or state' });
       return;
     }
     const email = readCookie(req, 'e2e_email') ?? `${sub}@test.invalid`;
@@ -107,14 +82,15 @@ export async function createOidcApp(issuer: string): Promise<Express> {
 
   app.post('/token', async (req: Request, res: Response) => {
     const body = req.body as Record<string, string>;
-    const record = codes.get(body['code'] ?? '');
-    if (!record) {
+    const grantCode = body['code'];
+    const record = grantCode === undefined ? undefined : codes.get(grantCode);
+    if (record === undefined || grantCode === undefined) {
       res.status(400).json({ error: 'invalid_grant' });
       return;
     }
-    codes.delete(body['code']);
+    codes.delete(grantCode);
 
-    const clientId = body['client_id'] ?? '';
+    const clientId = body['client_id'] ?? null;
     const now = Math.floor(Date.now() / 1000);
     const accessToken = `mock-access-${record.sub}-${Math.random().toString(36).slice(2)}`;
     sessions.set(accessToken, record);
@@ -142,9 +118,10 @@ export async function createOidcApp(issuer: string): Promise<Express> {
   });
 
   app.get('/userinfo', (req: Request, res: Response) => {
-    const token = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
-    const record = sessions.get(token);
-    if (!record) {
+    const authorization = req.headers.authorization;
+    const record =
+      authorization === undefined ? undefined : sessions.get(authorization.replace(/^Bearer\s+/i, ''));
+    if (record === undefined) {
       res.status(401).end();
       return;
     }

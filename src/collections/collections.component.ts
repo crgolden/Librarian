@@ -93,7 +93,7 @@ export class CollectionsComponent implements OnInit {
 
   protected readonly editingMeta = signal(false);
   protected readonly editName = signal('');
-  protected readonly editDescription = signal('');
+  protected readonly editDescription = signal<string | null>(null);
   protected readonly savingMeta = signal(false);
   protected readonly metaError = signal<string | null>(null);
 
@@ -205,7 +205,7 @@ export class CollectionsComponent implements OnInit {
         this.view.set('detail');
         this.applyDefinition(resolved.definition);
         this.editName.set(resolved.definition.name);
-        this.editDescription.set(resolved.definition.description ?? '');
+        this.editDescription.set(resolved.definition.description);
         if (resolved.definition.kind === 'capacity_fill' && resolved.definition.console_id) {
           this.hydrateInstalls(resolved.definition.console_id);
           this.hydrateDeviceInstalls(resolved.definition.console_id);
@@ -489,7 +489,7 @@ export class CollectionsComponent implements OnInit {
         this.detailLoading.set(false);
         this.applyDefinition(definition);
         this.editName.set(definition.name);
-        this.editDescription.set(definition.description ?? '');
+        this.editDescription.set(definition.description);
         if (definition.kind === 'capacity_fill' && definition.console_id) {
           this.hydrateInstalls(definition.console_id);
           this.hydrateDeviceInstalls(definition.console_id);
@@ -619,7 +619,7 @@ export class CollectionsComponent implements OnInit {
       return;
     }
     this.editName.set(definition.name);
-    this.editDescription.set(definition.description ?? '');
+    this.editDescription.set(definition.description);
     this.metaError.set(null);
     this.editingMeta.set(true);
   }
@@ -641,8 +641,10 @@ export class CollectionsComponent implements OnInit {
 
     this.savingMeta.set(true);
     this.metaError.set(null);
+    const trimmedDescription = this.editDescription()?.trim();
+    const description = trimmedDescription === undefined || trimmedDescription.length === 0 ? null : trimmedDescription;
     this.curator
-      .updateDefinition(definition.definition_id, { name: trimmedName, description: this.editDescription().trim() || null })
+      .updateDefinition(definition.definition_id, { name: trimmedName, description })
       .subscribe({
         next: (updated) => {
           this.savingMeta.set(false);

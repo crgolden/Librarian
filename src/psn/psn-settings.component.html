@@ -1,13 +1,13 @@
 <app-loading-overlay [visible]="overlayVisible()" />
 
 <section class="page-section psn-settings">
-  <h1>PlayStation Network</h1>
+  <h1 id="page-title">PlayStation Network</h1>
   <p class="text-muted">Link your PSN account so Librarian can read your game library.</p>
 
   @if (loadingStatus()) {
     <p class="text-muted">Loading link status...</p>
   } @else if (linked()) {
-    <div class="card status-card">
+    <div class="card p-6 flex flex-col items-start gap-4">
       <span class="psn-badge">PSN account linked</span>
       <p>
         @if (refreshTokenExpiresAt()) {
@@ -35,7 +35,7 @@
     </div>
 
     @if (preferences(); as prefs) {
-      <div class="card status-card psn-preferences">
+      <div class="card p-6 flex flex-col items-start gap-4 psn-preferences">
         <h2>Data sharing</h2>
         <p class="text-muted">Choose what Librarian reads from your PlayStation Network account.</p>
         <p class="text-muted">
@@ -104,7 +104,7 @@
         </div>
       </div>
 
-      <div class="card status-card psn-preferences">
+      <div class="card p-6 flex flex-col items-start gap-4 psn-preferences">
         <h2>Scheduled refreshes</h2>
         <p class="text-muted">
           Rebuild your library automatically on a schedule, instead of pressing Refresh yourself.
@@ -179,7 +179,7 @@
         }
       </div>
 
-      <div class="card status-card psn-preferences">
+      <div class="card p-6 flex flex-col items-start gap-4 psn-preferences">
         <h2>Account changes</h2>
         <p class="text-muted">
           Everything above only reads your PlayStation Network account. These two let Curator write to it
@@ -224,7 +224,7 @@
       </div>
 
       @if (enrichmentKeyStatus(); as keys) {
-        <div class="card status-card psn-preferences">
+        <div class="card p-6 flex flex-col items-start gap-4 psn-preferences">
           <h2>Enrichment API keys (optional)</h2>
           <p class="text-muted">
             Bring your own RAWG and/or OpenCritic API keys to enrich your library with genre, score, and
@@ -387,7 +387,7 @@
       }
 
       @if (prefs.harvest_trophies && trophySummary(); as summary) {
-        <div id="psn-card-trophies" class="card status-card psn-category-card">
+        <div id="psn-card-trophies" class="card p-6 flex flex-col items-start gap-4 psn-category-card">
           <h3>Trophies</h3>
           <p>Level {{ summary.level }} &middot; Tier {{ summary.tier }} &middot; {{ summary.progress }}% to next level</p>
           <p class="catalog-meta">{{ trophiesEarnedTotal(summary) }} trophies earned</p>
@@ -401,7 +401,7 @@
       }
 
       @if (prefs.harvest_identity && identity(); as id) {
-        <div id="psn-card-identity" class="card status-card psn-category-card">
+        <div id="psn-card-identity" class="card p-6 flex flex-col items-start gap-4 psn-category-card">
           <h3>PSN Identity</h3>
           <p>{{ id.online_id }}</p>
         </div>
@@ -410,7 +410,7 @@
       }
 
       @if (prefs.harvest_presence && presence(); as live) {
-        <div id="psn-card-presence" class="card status-card psn-category-card">
+        <div id="psn-card-presence" class="card p-6 flex flex-col items-start gap-4 psn-category-card">
           <h3>Online Presence <span class="text-muted">(live)</span></h3>
           <p>{{ live.online_status }}</p>
           @if (live.game_title) {
@@ -425,7 +425,7 @@
       }
 
       @if (prefs.harvest_devices && devices(); as deviceList) {
-        <div id="psn-card-devices" class="card status-card psn-category-card">
+        <div id="psn-card-devices" class="card p-6 flex flex-col items-start gap-4 psn-category-card">
           <h3>Registered Devices</h3>
           <ul class="psn-device-list">
             @for (device of deviceList.devices; track $index) {
@@ -471,7 +471,7 @@
       }
     }
   } @else {
-    <form class="card status-card" (submit)="$event.preventDefault(); link()">
+    <form class="card p-6 flex flex-col items-start gap-4" (submit)="$event.preventDefault(); link()">
       <label for="npsso">NPSSO token</label>
       <input id="npsso" name="npsso" type="password" [ngModel]="npsso()" (ngModelChange)="npsso.set($event)" autocomplete="off" />
       <span class="text-muted"
@@ -490,7 +490,7 @@
     </form>
   }
 
-  <div class="card status-card">
+  <div class="card p-6 flex flex-col items-start gap-4">
     <h2>Your action history</h2>
     <p class="text-muted">
       Every high-level action Curator has taken on your behalf — linking attempts, unlinks, library
@@ -524,11 +524,11 @@
   </div>
 
   @if (deleted()) {
-    <div class="card status-card">
+    <div class="card p-6 flex flex-col items-start gap-4">
       <p class="text-success">Your account and all associated data have been deleted.</p>
     </div>
   } @else {
-    <div class="card status-card">
+    <div class="card p-6 flex flex-col items-start gap-4">
       <h2>Delete my data</h2>
       <p class="text-muted">
         Permanently deletes your account: your PSN link, library, consoles, collections, and preferences.

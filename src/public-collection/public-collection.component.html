@@ -1,11 +1,11 @@
-<section class="page-section public-collection">
+<section class="page-section flex flex-col gap-4">
   @if (notFound()) {
-    <h1>Collection not found</h1>
+    <h1 id="page-title">Collection not found</h1>
     <p class="text-muted">This link is invalid, or the collection it pointed to is no longer shared.</p>
   } @else if (error()) {
     <p class="text-error">{{ error() }}</p>
   } @else if (collection(); as collection) {
-    <h1>{{ collection.name }}</h1>
+    <h1 id="page-title">{{ collection.name }}</h1>
     @if (collection.description) {
       <p class="text-muted">{{ collection.description }}</p>
     }
@@ -29,9 +29,9 @@
     } @else {
       <ul class="catalog-list">
         @for (item of collection.items; track item.game_id) {
-          <li class="card catalog-card" [class.item-unavailable]="!item.owner_has_access">
+          <li class="card p-6 flex flex-col gap-2 items-start" [class.item-unavailable]="!item.owner_has_access">
             @if (item.cover_image_url) {
-              <img class="cover-art" [src]="item.cover_image_url" [alt]="item.title" loading="lazy" />
+              <img class="cover-art max-w-[180px]" [src]="item.cover_image_url" [alt]="item.title" loading="lazy" />
             }
             <span class="catalog-title">{{ item.title }}</span>
             @if (item.genre) {

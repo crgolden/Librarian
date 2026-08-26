@@ -10,9 +10,6 @@ import { ConsolesPageData } from './consoles.resolver';
 type ConsolePlatform = 'PS5' | 'PS4';
 type StorageKind = 'm2' | 'usb';
 
-/** `/consoles` — CRUD for the caller's own consoles and swappable storage devices (WP3). Feeds the
- * console picker on the collections "capacity fill" form and hydrates/edits the per-console and
- * per-device install worklists that `capacity_fill` collections size against. */
 @Component({
   selector: 'app-consoles',
   imports: [FormsModule, LoadingOverlayComponent],

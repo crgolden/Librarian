@@ -21,9 +21,6 @@ function slugify(text: string): string {
     .replace(/(^-|-$)/g, '');
 }
 
-/** Client-side-only in-page table of contents + back-to-top link, generated from the headings
- * matched by `headingSelector` — no manual duplication of heading text needed. Used on the long,
- * static /faq and /privacy pages where there's otherwise no way to jump around or get back up. */
 @Component({
   selector: 'app-page-toc',
   templateUrl: './page-toc.component.html',
@@ -31,7 +28,7 @@ function slugify(text: string): string {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PageTocComponent {
-  @Input({ required: true }) headingSelector = '';
+  @Input({ required: true }) headingSelector: string | null = null;
 
   protected readonly items = signal<TocItem[]>([]);
 
@@ -41,25 +38,19 @@ export class PageTocComponent {
     }
   }
 
-  /** Angular apps always render `<base href="/">`, and per the URL spec a `<base>` tag changes
-   * the resolution baseline for EVERY relative URL on the page — including fragment-only ones. A
-   * plain `href="#id"` anchor therefore silently navigates to `/#id` instead of staying on the
-   * current page (e.g. `/faq#id`). Scrolling manually on click sidesteps that entirely.
-   *
-   * Left at the default (instant) behavior on purpose — `behavior: 'smooth'` is driven by
-   * animation frames, and where frames aren't running the scroll is dropped outright. On these
-   * pages the TOC and its back-to-top link are the only way to move around, so they have to land
-   * every time. */
   protected scrollToId(id: string, event: MouseEvent): void {
     event.preventDefault();
     document.getElementById(id)?.scrollIntoView({ block: 'start' });
   }
 
   private buildToc(): void {
+    if (this.headingSelector === null) {
+      return;
+    }
     const headings = Array.from(document.querySelectorAll<HTMLElement>(this.headingSelector));
     const seen = new Set<string>();
     const items: TocItem[] = headings.map((heading) => {
-      const label = heading.textContent?.trim() ?? '';
+      const label = heading.textContent?.trim() ?? 'Section';
       const base = heading.id || slugify(label) || 'section';
       let id = base;
       let suffix = 1;

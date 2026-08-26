@@ -9,7 +9,6 @@ export interface ConsolesPageData {
   devices: StorageDeviceResponse[];
 }
 
-/** Resolves the caller's consoles and storage devices together, or `null` if either could not be loaded. */
 export const consolesResolver: ResolveFn<ConsolesPageData | null> = () => {
   const curator = inject(CuratorService);
 

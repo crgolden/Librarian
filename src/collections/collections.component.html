@@ -1,10 +1,10 @@
-<section class="page-section collections">
+<section class="page-section flex flex-col gap-4">
   <app-loading-overlay [visible]="loading()" />
 
   @if (viewerMode()) {
     <app-breadcrumb [items]="breadcrumbItems()" />
   }
-  <h1>Collections</h1>
+  <h1 id="page-title">Collections</h1>
 
   @if (viewerMode()) {
     @if (viewerForbidden()) {
@@ -18,7 +18,7 @@
       } @else {
         <ul class="catalog-list">
           @for (definition of viewerDefinitions(); track definition.definition_id) {
-            <li class="card definition-card">
+            <li class="card p-6 flex flex-col gap-2 items-start">
               <span class="catalog-title">{{ definition.name }}</span>
               <span class="spine-label">{{ kindLabel(definition.kind) }}</span>
               <span class="catalog-meta">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
@@ -55,11 +55,11 @@
     } @else {
       <ul class="catalog-list">
         @for (definition of definitions(); track definition.definition_id) {
-          <li class="card definition-card">
+          <li class="card p-6 flex flex-col gap-2 items-start">
             <span class="catalog-title">{{ definition.name }}</span>
             <span class="spine-label">{{ kindLabel(definition.kind) }}</span>
             <span class="catalog-meta">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
-            <span class="stamp-label" [class.visibility-shared]="definition.visibility !== 'private'">
+            <span class="stamp-label" [class.text-accent]="definition.visibility !== 'private'">
               {{ definition.visibility }}
             </span>
             <a
@@ -86,7 +86,7 @@
     } @else {
       <ul class="catalog-list">
         @for (definition of followedDefinitions(); track definition.definition_id) {
-          <li class="card definition-card">
+          <li class="card p-6 flex flex-col gap-2 items-start">
             <span class="catalog-title">{{ definition.name }}</span>
             <span class="catalog-meta">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
             @if (definition.share_slug && definition.visibility !== 'private') {
@@ -173,7 +173,7 @@
         (ngModelChange)="minPercentCompleted.set($event)"
       />
 
-      <label class="checkbox-label">
+      <label class="flex items-center gap-2 font-normal">
         <input
           type="checkbox"
           name="includeInactive"
@@ -196,7 +196,7 @@
     </form>
 
     @if (previewResult(); as preview) {
-      <div class="card preview-results">
+      <div class="card p-6 flex flex-col gap-3 max-w-reading">
         <h2>Preview</h2>
         @if (preview.used_gb !== null) {
           <p class="catalog-meta">Estimated size: {{ preview.used_gb }} GB</p>
@@ -205,7 +205,7 @@
         <h3>Included ({{ preview.included_total }})</h3>
         <ul class="catalog-list">
           @for (game of preview.included; track game.game_id) {
-            <li class="card catalog-card">
+            <li class="card p-6 flex flex-col gap-2 items-start">
               <span class="catalog-title">{{ game.title }}</span>
               <span class="spine-label">{{ game.genre }}</span>
               <span class="catalog-meta">
@@ -227,7 +227,7 @@
           <p class="text-muted">These did not meet the filters and are not part of the collection.</p>
           <ul class="catalog-list">
             @for (game of preview.excluded; track game.game_id) {
-              <li class="card catalog-card item-unavailable">
+              <li class="card p-6 flex flex-col gap-2 items-start item-unavailable">
                 <span class="catalog-title">{{ game.title }}</span>
                 <span class="spine-label">{{ game.genre }}</span>
                 <span class="catalog-meta">
@@ -272,7 +272,7 @@
       </div>
     }
 
-    <form class="card save-form" (submit)="$event.preventDefault(); saveDefinition()">
+    <form class="card p-6 flex flex-col gap-2 items-start" (submit)="$event.preventDefault(); saveDefinition()">
       <label for="name">Name this collection</label>
       <input id="name" name="name" type="text" [ngModel]="name()" (ngModelChange)="name.set($event)" />
       <label for="description">Description (optional)</label>
@@ -300,9 +300,9 @@
     }
 
     @if (selectedDefinition(); as definition) {
-      <div class="card definition-detail">
+      <div class="card p-6 flex flex-col gap-3 max-w-reading">
         @if (editingMeta()) {
-          <form class="meta-edit-form" (submit)="$event.preventDefault(); saveMeta()">
+          <form class="flex flex-col gap-2 items-start w-full" (submit)="$event.preventDefault(); saveMeta()">
             <label for="editName">Name</label>
             <input id="editName" name="editName" type="text" [ngModel]="editName()" (ngModelChange)="editName.set($event)" />
             <label for="editDescription">Description</label>
@@ -324,7 +324,7 @@
             </div>
           </form>
         } @else {
-          <h2 class="catalog-title">{{ definition.name }}</h2>
+          <h2 id="collection-detail-title" class="catalog-title">{{ definition.name }}</h2>
           @if (definition.description) {
             <p class="catalog-meta">{{ definition.description }}</p>
           }
@@ -339,7 +339,7 @@
           <p class="catalog-meta">Genres: {{ definition.genre_filter.join(', ') }}</p>
         }
 
-        <div class="visibility-control">
+        <div class="flex flex-col items-start gap-2">
           <label for="visibility">Visibility</label>
           <select
             id="visibility"
@@ -356,7 +356,7 @@
             <button type="button" class="btn-ghost" (click)="copyShareLink()">
               {{ shareLinkCopied() ? 'Copied!' : 'Copy share link' }}
             </button>
-            <p class="catalog-meta share-url">{{ shareUrlFor(definition.share_slug) }}</p>
+            <p id="collection-share-url" class="catalog-meta break-all">{{ shareUrlFor(definition.share_slug) }}</p>
           }
           @if (visibilityError()) {
             <p class="text-error">{{ visibilityError() }}</p>
@@ -364,7 +364,7 @@
         </div>
 
         <h3>Games ({{ itemsTotal() }})</h3>
-        <div class="collection-item-controls">
+        <div class="flex flex-wrap items-center gap-3 mb-3">
           <label class="sr-only" for="collection-item-search">Search titles in this collection</label>
           <input
             id="collection-item-search"
@@ -374,7 +374,7 @@
             (input)="searchItems($any($event.target).value)"
           />
           <span id="collection-sort-label" class="stamp-label">Sort by</span>
-          <div class="collection-item-sort" role="group" aria-labelledby="collection-sort-label">
+          <div class="flex flex-wrap gap-2" role="group" aria-labelledby="collection-sort-label">
             @for (option of itemSortOptions; track option.field) {
               <button
                 [attr.id]="'collection-sort-' + option.id"
@@ -401,9 +401,9 @@
         } @else {
           <ul class="catalog-list">
             @for (item of items(); track item.game_id) {
-              <li class="card catalog-card" [class.item-unavailable]="!item.owner_has_access">
+              <li class="card p-6 flex flex-col gap-2 items-start" [class.item-unavailable]="!item.owner_has_access">
                 @if (item.cover_image_url) {
-                  <img class="cover-art" [src]="item.cover_image_url" [alt]="item.title" loading="lazy" />
+                  <img class="cover-art max-w-[180px]" [src]="item.cover_image_url" [alt]="item.title" loading="lazy" />
                 }
                 <span class="catalog-title">{{ item.title }}</span>
                 @if (item.genre) {
@@ -444,7 +444,7 @@
                     {{ expandedSizeGameId() === item.game_id ? 'Hide measured size' : 'Measured size' }}
                   </button>
                   @if (expandedSizeGameId() === item.game_id) {
-                    <div class="measured-size-panel">
+                    <div class="flex flex-col gap-2 items-start w-full">
                       @if (!measuredSizesLoading()) {
                         @if (measuredSizesFor(item.game_id).length === 0) {
                           <p class="text-muted">Nobody has reported an install size for this game yet.</p>
@@ -538,7 +538,7 @@
         </button>
 
         @if (runResult(); as result) {
-          <div class="run-results">
+          <div class="flex flex-col gap-3 w-full">
             @if (result.used_gb !== null) {
               <p class="catalog-meta">Estimated size: {{ result.used_gb }} GB</p>
             }
@@ -546,7 +546,7 @@
             <h3>Proposed ({{ result.included_total }})</h3>
             <ul class="catalog-list">
               @for (game of result.included; track game.game_id) {
-                <li class="card catalog-card">
+                <li class="card p-6 flex flex-col gap-2 items-start">
                   <span class="catalog-title">{{ game.title }}</span>
                   <span class="spine-label">{{ game.genre }}</span>
                   <span class="catalog-meta">
@@ -568,7 +568,7 @@
               <p class="text-muted">These did not meet the filters and are not part of the proposal.</p>
               <ul class="catalog-list">
                 @for (game of result.excluded; track game.game_id) {
-                  <li class="card catalog-card item-unavailable">
+                  <li class="card p-6 flex flex-col gap-2 items-start item-unavailable">
                     <span class="catalog-title">{{ game.title }}</span>
                     <span class="spine-label">{{ game.genre }}</span>
                     <span class="catalog-meta">
@@ -602,7 +602,7 @@
         }
 
         @if (confirmingDelete()) {
-          <div class="danger-zone">
+          <div class="flex flex-col gap-2 items-start border-t border-line pt-3">
             <p class="text-error">Delete "{{ definition.name }}"? This can't be undone.</p>
             @if (deleteError()) {
               <p class="text-error">{{ deleteError() }}</p>

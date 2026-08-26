@@ -1,9 +1,3 @@
-/**
- * Post-deploy smoke tests — exercises the deployed Librarian app.
- *
- * All tests in this file are skipped unless SmokeBaseUrl is set.
- * Run via: npm run e2e:smoke (sets SmokeBaseUrl from environment).
- */
 
 import { test, expect } from '@playwright/test';
 

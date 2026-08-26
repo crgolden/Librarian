@@ -9,8 +9,16 @@ with a **Node.js Express** Backend-for-Frontend (BFF), served by a single Node p
 the OIDC session and proxies every data call to the standalone [Curator](https://github.com/crgolden/Curator)
 API; the browser never sees an access token directly.
 
-The visual design language — the two color moods, the type scale, the catalog-card component
-vocabulary, and the layout measures each page uses — is documented in [DESIGN.md](DESIGN.md).
+The visual design language — a dark-first OKLCH palette with a single accent, the type scale, the
+catalog-card component vocabulary, and the layout measures each page uses — is documented in
+[DESIGN.md](DESIGN.md). Styling is **Tailwind CSS v4**: the design tokens live in a `@theme` block in
+`src/styles.css`, the light scheme re-binds them under `prefers-color-scheme`, and the three variable
+webfonts are self-hosted rather than fetched from a CDN. There is no theme toggle by design; the browser's
+own appearance setting decides.
+
+Navigation adapts rather than reflows: a persistent icon-and-label rail on desktop, and on small screens a
+four-item bottom tab bar with a **More** sheet — a native `<dialog>`, so its focus trap, Escape handling
+and backdrop come from the platform rather than a component library.
 
 ## Sibling Applications
 

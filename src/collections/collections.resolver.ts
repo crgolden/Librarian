@@ -32,10 +32,6 @@ function consolesBestEffort(curator: CuratorService): Observable<ConsoleResponse
   return curator.listConsoles().pipe(catchError(() => of<ConsoleResponse[]>([])));
 }
 
-/**
- * Resolves `/collections` (the saved-definition list) or `/collections/d/:definitionId` (a deep-linked
- * definition), whichever the URL names. `consoles` is best-effort: a failure yields an empty list.
- */
 export const ownerCollectionsResolver: ResolveFn<ResolvedCollections> = (route: ActivatedRouteSnapshot) => {
   const curator = inject(CuratorService);
   const definitionId = route.paramMap.get('definitionId');
@@ -61,7 +57,6 @@ export const ownerCollectionsResolver: ResolveFn<ResolvedCollections> = (route: 
   );
 };
 
-/** Resolves `/collections/:sub` — another user's public collections. */
 export const viewerCollectionsResolver: ResolveFn<ResolvedCollections> = (route: ActivatedRouteSnapshot) => {
   const curator = inject(CuratorService);
   const sub = route.paramMap.get('sub');

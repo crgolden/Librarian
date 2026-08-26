@@ -1,6 +1,3 @@
-/**
- * Privacy Policy page E2E — SSR assertion (public trust/SEO content) + anonymous browsing.
- */
 
 import { test, expect } from './fixtures.js';
 
@@ -29,10 +26,10 @@ test.describe('PrivacyPage', () => {
     await store.reset();
 
     await page.goto('/privacy');
-    await expect(page.locator('h1')).toContainText('Privacy Policy');
-    await expect(page.getByRole('heading', { name: 'What we never collect' })).toBeVisible();
+    await expect(page.locator('#top')).toContainText('Privacy Policy');
+    await expect(page.locator('#privacy-not-collected')).toBeVisible();
 
-    await page.getByRole('main').getByRole('link', { name: 'FAQ' }).click();
+    await page.locator('#privacy-faq-link').click();
     await expect(page).toHaveURL(/\/faq$/);
   });
 });

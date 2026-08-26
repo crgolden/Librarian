@@ -1,6 +1,3 @@
-/**
- * Home page E2E — anonymous browsing + SSR assertions, and authenticated state.
- */
 
 import { test, expect, DEFAULT_E2E_SUB } from './fixtures.js';
 
@@ -30,7 +27,7 @@ test.describe('HomePage', () => {
     await store.reset();
 
     await page.goto('/');
-    await expect(page.locator('h1')).toContainText('Welcome to Librarian');
+    await expect(page.locator('#page-title')).toContainText('Welcome to Librarian');
     await expect(page.getByRole('link', { name: 'Sign in' }).first()).toBeVisible();
   });
 
@@ -83,16 +80,16 @@ test.describe('HomePage — resolved collection summary', () => {
     await page.goto('/');
     await expect(page.getByText(UNLINKED_NOTICE)).toBeVisible();
 
-    await page.locator('#site-nav-desktop').getByRole('link', { name: 'PSN Settings', exact: true }).click();
+    await page.locator('#nav-rail-5').click();
     await page.waitForURL('**/psn', { timeout: 10_000 });
     await page.getByLabel('NPSSO token').fill(VALID_NPSSO);
     await page.getByRole('button', { name: 'Link account' }).click();
     await expect(page.getByRole('button', { name: 'Unlink' })).toBeVisible({ timeout: 10_000 });
 
-    await page.locator('#site-nav-desktop').getByRole('link', { name: 'Home', exact: true }).click();
+    await page.locator('#nav-rail-0').click();
     await page.waitForURL((url) => url.pathname === '/', { timeout: 10_000 });
 
-    await expect(page.locator('#home-totals dd').first()).toBeVisible();
+    await expect(page.locator('#home-total-library')).toBeVisible();
     await expect(page.getByText(UNLINKED_NOTICE)).toHaveCount(0);
   });
 });

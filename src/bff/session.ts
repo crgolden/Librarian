@@ -12,21 +12,13 @@ export interface SessionDependencies {
 
 declare module 'express-session' {
   interface SessionData {
-    /** PKCE code verifier — present only during the login flow. */
     pkceCodeVerifier?: string;
-    /** OAuth state — present only during the login flow. */
     oauthState?: string;
-    /** Same-origin path to redirect back to after login — present only during the login flow. */
     returnTo?: string;
-    /** OAuth 2.0 access token for the Curator API. */
     accessToken?: string;
-    /** OAuth 2.0 refresh token. */
     refreshToken?: string;
-    /** OIDC ID token (used as id_token_hint for RP-initiated logout). */
     idToken?: string;
-    /** Unix ms at which the access token expires (undefined = unknown). */
     tokenExpiresAt?: number;
-    /** Claims returned by the userinfo endpoint, formatted for /bff/user. */
     claims?: { type: string; value: string }[];
   }
 }
@@ -38,9 +30,6 @@ function reconnectStrategy(retries: number): number {
   return Math.min(retries * 100, 3_000) + randomInt(200);
 }
 
-/**
- * Call this before any BFF routes are registered.
- */
 export function applySession(app: Express, { isProduction, logger }: SessionDependencies): void {
   const useMemory =
     !process.env['RedisHost'] || process.env['SessionStore'] === 'memory';

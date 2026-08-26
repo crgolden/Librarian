@@ -100,7 +100,7 @@ describe('CatalogComponent', () => {
       total: 1,
     });
 
-    const ratings = (fixture.nativeElement as HTMLElement).querySelector('#catalog-ratings-0')?.textContent ?? '';
+    const ratings = (fixture.nativeElement as HTMLElement).querySelector('#catalog-ratings-0')?.textContent;
     expect(ratings).toContain('RAWG 92');
     expect(ratings).toContain('OpenCritic 91');
     expect(ratings).toContain('PS Store —');

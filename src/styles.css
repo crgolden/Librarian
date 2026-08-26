@@ -1,27 +1,91 @@
-@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import 'tailwindcss';
+@import './fonts.css';
 
-/*
- * Design language: see DESIGN.md ("Reading Room" / "After Hours").
- * Librarian is a personal archivist for a PlayStation collection, not a PlayStation-branded
- * storefront or a generic SaaS dashboard — the palette is deliberately warm/paper-toned (library),
- * not PlayStation blue or neutral gray. --color-psn exists ONLY for PSN-linked-account indicators,
- * never as a general UI color — see DESIGN.md's "Usage rules".
- */
+@theme {
+  --font-heading: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --color-canvas: oklch(0.18 0.012 265);
+  --color-surface: oklch(0.22 0.014 265);
+  --color-surface-2: oklch(0.26 0.016 265);
+  --color-line: oklch(0.32 0.016 265);
+  --color-line-strong: oklch(0.56 0.02 265);
+  --color-text: oklch(0.95 0.005 265);
+  --color-text-muted: oklch(0.72 0.012 265);
+  --color-accent: oklch(0.72 0.17 155);
+  --color-accent-hover: oklch(0.8 0.15 155);
+  --color-on-fill: oklch(0.18 0.012 265);
+  --color-danger: oklch(0.65 0.19 25);
+  --color-danger-hover: oklch(0.73 0.17 25);
+  --color-warn: oklch(0.78 0.15 75);
+  --color-ok: oklch(0.72 0.17 155);
+  --color-psn: oklch(0.62 0.15 265);
+  --color-focus: oklch(0.85 0.12 155);
+
+  --text-display: 2.25rem;
+  --text-section: 1.5rem;
+  --text-subsection: 1.25rem;
+  --text-minor: 1.125rem;
+  --text-body: 1rem;
+  --text-meta: 0.85rem;
+  --text-small: 0.8rem;
+  --text-label: 0.7rem;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+
+  --shadow-overlay: 0 -8px 40px oklch(0 0 0 / 0.55);
+
+  --container-reading: 720px;
+  --container-data: 960px;
+  --container-narrow: 480px;
+
+  --breakpoint-sm: 480px;
+
+  --rail-width: 15rem;
+  --tabbar-height: 3.75rem;
+  --header-height: 3.5rem;
+
+  --z-header: 10;
+  --z-back-to-top: 15;
+  --z-tabbar: 20;
+  --z-loading-overlay: 1100;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-canvas: oklch(0.97 0.004 265);
+    --color-surface: oklch(1 0 0);
+    --color-surface-2: oklch(0.945 0.006 265);
+    --color-line: oklch(0.89 0.008 265);
+    --color-line-strong: oklch(0.58 0.014 265);
+    --color-text: oklch(0.24 0.012 265);
+    --color-text-muted: oklch(0.48 0.014 265);
+    --color-accent: oklch(0.52 0.15 155);
+    --color-accent-hover: oklch(0.44 0.14 155);
+    --color-on-fill: oklch(0.99 0.002 265);
+    --color-danger: oklch(0.52 0.2 25);
+    --color-danger-hover: oklch(0.44 0.19 25);
+    --color-warn: oklch(0.55 0.13 75);
+    --color-ok: oklch(0.52 0.15 155);
+    --color-psn: oklch(0.48 0.16 265);
+    --color-focus: oklch(0.44 0.14 155);
+  }
+}
+
 :root {
-  --font-heading: 'Lora', Georgia, serif;
-  --font-body: 'Inter', system-ui, sans-serif;
-  --font-meta: 'IBM Plex Mono', ui-monospace, monospace;
+  color-scheme: dark light;
 
-  /* Type scale — named by role, not by value. See DESIGN.md's Typography table. */
-  --font-size-display: 2.25rem;
-  --font-size-section: 1.5rem;
-  --font-size-subsection: 1.25rem;
-  --font-size-minor: 1.125rem;
-  --font-size-body: 1rem;
-  --font-size-meta: 0.85rem;
-  --font-size-small: 0.8rem;
-  --font-size-label: 0.7rem;
-  /* Relative on purpose: inline code tracks whatever text it sits inside. */
+  --font-size-display: var(--text-display);
+  --font-size-section: var(--text-section);
+  --font-size-subsection: var(--text-subsection);
+  --font-size-minor: var(--text-minor);
+  --font-size-body: var(--text-body);
+  --font-size-meta: var(--text-meta);
+  --font-size-small: var(--text-small);
+  --font-size-label: var(--text-label);
   --font-size-inline-code: 0.9em;
 
   --font-weight-normal: 400;
@@ -31,36 +95,6 @@
 
   --letter-spacing-label: 0.06em;
 
-  /* Reading Room (light) */
-  --color-bg: #F6F1E7;
-  --color-surface: #FFFDF8;
-  --color-surface-alt: #EFE7D8;
-  --color-text: #241C15;
-  --color-text-muted: #7A6F5E;
-  --color-border: #E4D9C5;
-
-  --color-primary: #1F4D3D;
-  --color-primary-dark: #163B2E;
-  --color-primary-rgb: 31, 77, 61;
-
-  --color-accent: #B4790A;
-  --color-accent-rgb: 180, 121, 10;
-
-  /* PSN-linked-account indicator only — see DESIGN.md usage rules. Never use as general UI color. */
-  --color-psn: #2C4A7C;
-  --color-psn-rgb: 44, 74, 124;
-
-  --color-error: #A3342A;
-  --color-error-rgb: 163, 52, 42;
-  --color-error-hover: #82291F;
-  --color-error-contrast: #FFFDF8;
-  --color-success: #3E6B4F;
-  --color-warning: #B8752E;
-
-  --radius-sm: 4px;
-  --radius-md: 6px;
-
-  /* Spacing scale — keep paddings/margins on these steps for a cohesive rhythm. */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -70,47 +104,28 @@
   --space-7: 3rem;
   --space-8: 4rem;
 
-  /* Standard inner padding for .card surfaces. */
   --card-pad: 1.5rem;
 
-  --shadow-sm: 0 1px 2px rgba(36, 28, 21, .10), 0 1px 1px rgba(36, 28, 21, .06);
-  --shadow-md: 0 6px 16px rgba(36, 28, 21, .12), 0 2px 4px rgba(36, 28, 21, .08);
-  --shadow-lg: 0 10px 30px rgba(36, 28, 21, .14), 0 4px 8px rgba(36, 28, 21, .08);
+  --font-meta: var(--font-mono);
+  --color-bg: var(--color-canvas);
+  --color-surface-alt: var(--color-surface-2);
+  --color-border: var(--color-line);
+  --color-primary: var(--color-accent);
+  --color-primary-dark: var(--color-accent-hover);
+  --color-on-primary: var(--color-on-fill);
+  --color-error: var(--color-danger);
+  --color-error-hover: var(--color-danger-hover);
+  --color-error-contrast: var(--color-on-fill);
+  --color-error-tint: color-mix(in oklab, var(--color-danger) 8%, transparent);
+  --color-success: var(--color-ok);
+  --color-warning: var(--color-warn);
 
-  --nav-height: 60px;
-}
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.3);
+  --shadow-md: 0 8px 20px oklch(0 0 0 / 0.4);
+  --shadow-lg: var(--shadow-overlay);
+  --shadow-focus: 0 0 0 3px color-mix(in oklab, var(--color-focus) 40%, transparent);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* After Hours (dark) */
-    --color-bg: #19140F;
-    --color-surface: #241C15;
-    --color-surface-alt: #2E251C;
-    --color-text: #EDE3D3;
-    --color-text-muted: #A6957D;
-    --color-border: #3A2E22;
-
-    --color-primary: #3E7A5C;
-    --color-primary-dark: #316148;
-    --color-primary-rgb: 62, 122, 92;
-
-    --color-accent: #D4A017;
-    --color-accent-rgb: 212, 160, 23;
-
-    --color-psn: #4C6FA5;
-    --color-psn-rgb: 76, 111, 165;
-
-    --color-error: #CB7367;
-    --color-error-rgb: 203, 115, 103;
-    --color-error-hover: #D1847A;
-    --color-error-contrast: #19140F;
-    --color-success: #5FA57E;
-    --color-warning: #D99A4E;
-
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .30), 0 1px 1px rgba(0, 0, 0, .20);
-    --shadow-md: 0 8px 20px rgba(0, 0, 0, .40), 0 3px 6px rgba(0, 0, 0, .24);
-    --shadow-lg: 0 14px 34px rgba(0, 0, 0, .48), 0 4px 10px rgba(0, 0, 0, .28);
-  }
+  --nav-height: var(--tabbar-height);
 }
 
 *,
@@ -129,12 +144,6 @@
   }
 }
 
-/* Deliberately no `html { scroll-behavior: smooth }`. Smooth scrolling is driven by animation
- * frames, so anywhere frames aren't running — a throttled background tab, a stalled GPU process,
- * a scroll-hijacking extension — the scroll is dropped entirely rather than degrading to a jump.
- * Anchor navigation and programmatic scrolls must land unconditionally; the animation is not
- * worth making them fail closed. */
-
 body {
   margin: 0;
   font-family: var(--font-body);
@@ -143,6 +152,7 @@ body {
   color: var(--color-text);
   background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
+  overflow-wrap: break-word;
 }
 
 h1,
@@ -169,20 +179,20 @@ p:last-child {
 }
 
 a {
-  color: var(--color-primary);
-  text-decoration: none;
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
 }
 
 a:hover {
-  text-decoration: underline;
+  color: var(--color-accent-hover);
 }
 
-/* Layout */
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
 
-/* Breakpoint scale (documented here since CSS custom properties can't be read inside @media
-   conditions — the pixel values below are what every @media query in this app should use):
-   sm: 480px (large phone), md: 768px (tablet / nav pattern switch point — desktop header nav
-   above, bottom tab bar below), lg: 1024px, xl: 1280px. */
 .page-container {
   max-width: 1100px;
   margin: 0 auto;
@@ -195,21 +205,17 @@ a:hover {
   }
 }
 
-/* Cards — styled as catalog cards: a colored top tab like a card-catalog drawer divider,
-   rather than relying on shadow alone to read as a distinct surface. */
 .card {
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-top: 3px solid var(--color-primary);
+  border: 1px solid var(--color-line);
+  border-top: 3px solid var(--color-line);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
 }
 
 .card-accent {
   border-top-color: var(--color-accent);
 }
 
-/* Form elements */
 input[type='text'],
 input[type='email'],
 input[type='password'],
@@ -224,7 +230,7 @@ textarea {
   font-size: var(--font-size-body);
   color: var(--color-text);
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-line-strong);
   border-radius: var(--radius-sm);
   transition: border-color 200ms ease-out, box-shadow 200ms ease-out;
   appearance: none;
@@ -240,10 +246,9 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), .15);
+  box-shadow: var(--shadow-focus);
 }
 
-/* Buttons */
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -253,7 +258,7 @@ textarea:focus {
   font-family: var(--font-body);
   font-size: var(--font-size-body);
   font-weight: var(--font-weight-semibold);
-  color: #fff;
+  color: var(--color-on-primary);
   background: var(--color-primary);
   border: none;
   border-radius: var(--radius-sm);
@@ -266,7 +271,7 @@ textarea:focus {
 .btn-primary:hover:not(:disabled) {
   background: var(--color-primary-dark);
   text-decoration: none;
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .btn-primary:active:not(:disabled) {
@@ -289,7 +294,7 @@ textarea:focus {
   font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
   background: transparent;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-line-strong);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 200ms ease-out, border-color 200ms ease-out;
@@ -308,11 +313,10 @@ textarea:focus {
 }
 
 .btn-ghost-danger:hover:not(:disabled) {
-  background: rgba(var(--color-error-rgb), .06);
+  background: var(--color-error-tint);
   border-color: var(--color-error);
 }
 
-/* Solid destructive action — the confirm step, never the one that opens it. */
 .btn-danger {
   display: inline-flex;
   align-items: center;
@@ -365,7 +369,6 @@ ng-icon {
   opacity: 0.6;
 }
 
-/* Visually hide while keeping the element available to screen readers. */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -378,7 +381,50 @@ ng-icon {
   border: 0;
 }
 
-/* Layout utilities */
+code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-inline-code);
+  background: var(--color-surface-2);
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius-sm);
+}
+
+.quiet-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.quiet-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-loading-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  pointer-events: all;
+}
+
+.loading-overlay-spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  border: 3px solid var(--color-line);
+  border-top: 3px solid var(--color-accent);
+  animation: loading-overlay-spin 0.8s linear infinite;
+}
+
+@keyframes loading-overlay-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .page-section {
   padding-top: var(--space-6);
   padding-bottom: var(--space-7);
@@ -415,7 +461,6 @@ ng-icon {
   margin-left: auto;
 }
 
-/* State utilities */
 .text-muted {
   color: var(--color-text-muted);
   font-size: var(--font-size-meta);
@@ -435,23 +480,18 @@ ng-icon {
   color: var(--color-warning);
 }
 
-/* Catalog vocabulary — see DESIGN.md. Used across the Catalog, Collections, and Library pages. */
-
-/* A cataloged work's title — italicized the way a library card catalog italicizes a title. */
 .catalog-title {
   font-family: var(--font-heading);
   font-style: italic;
   font-weight: var(--font-weight-semibold);
 }
 
-/* Stamped index-card metadata: acquisition dates, PSN identifiers, completion percentages. */
 .catalog-meta {
   font-family: var(--font-meta);
   font-size: var(--font-size-meta);
   color: var(--color-text-muted);
 }
 
-/* Box art on a catalogued entry — square; each surface sets only its own size and placement. */
 .cover-art {
   display: block;
   width: 100%;
@@ -460,7 +500,6 @@ ng-icon {
   border-radius: var(--radius-sm);
 }
 
-/* Genre/platform classification — a book-spine label, not a filled badge/pill. */
 .spine-label {
   display: inline-block;
   font-family: var(--font-body);
@@ -473,8 +512,6 @@ ng-icon {
   border-bottom: 2px solid var(--color-border);
 }
 
-/* Typed caption in the metadata family — a heading over a block, or a state stamped on a record.
-   Distinct from .spine-label: monospace and unruled, because it labels rather than classifies. */
 .stamp-label {
   font-family: var(--font-meta);
   font-size: var(--font-size-small);
@@ -484,7 +521,6 @@ ng-icon {
   color: var(--color-text-muted);
 }
 
-/* PSN-linked-account indicator ONLY (see DESIGN.md usage rules) — never a general UI accent. */
 .psn-badge {
   display: inline-flex;
   align-items: center;
@@ -502,7 +538,6 @@ ng-icon {
   background: var(--color-psn);
 }
 
-/* Previous / position / Next row under a paged list — see DESIGN.md. */
 .pager {
   display: flex;
   align-items: center;
@@ -510,7 +545,6 @@ ng-icon {
   margin-top: var(--space-3);
 }
 
-/* A divided grid of label + figure stats — see DESIGN.md. */
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

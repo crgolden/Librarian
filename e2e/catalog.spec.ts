@@ -1,6 +1,3 @@
-/**
- * Catalog page E2E — anonymous access, filtering, and pagination against the mock Curator API.
- */
 
 import { test, expect } from './fixtures.js';
 
@@ -24,19 +21,9 @@ test.describe('Catalog — anonymous', () => {
 
     await page.goto('/catalog');
 
-    await expect(page.locator('h1')).toContainText('Catalog');
+    await expect(page.locator('#page-title')).toContainText('Catalog');
     await expect(page.locator('text=Bloodborne')).toBeVisible();
     expect(page.url()).not.toContain('/bff/login');
-  });
-
-  test('the catalog is reachable from the footer without an account', async ({ anonymousPage: page, store }) => {
-    await store.reset();
-
-    await page.goto('/');
-    await page.locator('.footer-nav').getByRole('link', { name: 'Catalog', exact: true }).click();
-
-    await page.waitForURL('**/catalog', { timeout: 10_000 });
-    await expect(page.locator('h1')).toContainText('Catalog');
   });
 
   test('shows each rating, and a dash where a score is missing', async ({ anonymousPage: page, store }) => {
@@ -72,7 +59,7 @@ test.describe('Catalog — anonymous', () => {
     await page.getByRole('link', { name: 'Bloodborne' }).click();
 
     await page.waitForURL('**/catalog/g1', { timeout: 10_000 });
-    await expect(page.locator('h1')).toContainText('Bloodborne');
+    await expect(page.locator('#page-title')).toContainText('Bloodborne');
   });
 
   test('an unknown game id renders a not-found page rather than an error', async ({
@@ -156,7 +143,7 @@ test.describe('Catalog — authenticated', () => {
     ]);
 
     await page.goto('/catalog');
-    await expect(page.locator('h1')).toContainText('Catalog');
+    await expect(page.locator('#page-title')).toContainText('Catalog');
     await expect(page.locator('text=Bloodborne')).toBeVisible();
   });
 

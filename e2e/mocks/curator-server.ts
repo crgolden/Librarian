@@ -1,7 +1,3 @@
-/**
- * Standalone entry point for the mock Curator API.
- * Launched by Playwright's webServer config via: npx tsx e2e/mocks/curator-server.ts
- */
 
 import { createCuratorApp } from './curator.js';
 

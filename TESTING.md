@@ -44,9 +44,45 @@ error is a failed test under `Type Errors`, while a source error is reported as 
 (`Type Errors  no errors` / `Errors  1 error`) with every suite still green. Both exit non-zero. That is
 deliberate, so do not flip the flag to get a red run green.
 
-**Playwright's specs are still not type-checked.** `tsconfig.spec.json` includes only `src/**`, and
-Playwright transpiles `e2e/**/*.spec.ts` with esbuild the same way vitest used to, so a type error there
-still reaches `main`. Covering it needs a tsconfig of its own and is a separate piece of work.
+**The palette has two specs of its own, and they are the only place its numbers live.**
+`e2e/contrast.spec.ts` resolves every colour token through a 1×1 canvas in **both** schemes and checks 15
+documented pairs against their WCAG bar — 4.5:1 for text, 3:1 for a control edge or icon under 1.4.11.
+It earned its place immediately: the first run failed on `line-strong` against both raised surfaces
+(2.65 / 2.38 dark, 2.89 / 2.47 light) while `DESIGN.md` documented those same pairs as 3.57:1 and 3.11:1.
+**A ratio written in a doc is a claim that rots; this one was wrong before it was ever true.** The canvas
+is pre-set to a magenta sentinel before each fill because **Canvas2D ignores an invalid colour silently**
+— without it, a token that failed to parse would inherit the previous pixel and pass.
+
+**The hover fills are measured too, and that is not padding.** `--color-error-hover` was at one point
+aliased straight to `--color-danger`, so a destructive button had no hover state at all — it compiled,
+it resolved, and nothing failed. A hover fill also carries ink, so it needs its own ratio; the spec now
+checks `on-fill` against both `--color-danger-hover` and `--color-accent-hover`. **When you add a token
+that expresses a *relationship* — a hover that must differ, an edge that must clear a bar — add the pair
+here in the same change**, or the relationship is an assumption rather than a fact.
+
+`e2e/theme.spec.ts` covers the structure rather than the ratios: that the surface ladder ascends
+(`canvas` < `surface` < `surface-2`), that no ground token spends chroma above `0.02`, that light inverts
+the ladder rather than introducing a second design, and that the same element genuinely paints a
+different background in the two schemes — the last one catches a light re-binding that has silently
+stopped applying, which no per-token assertion would.
+
+**`playwright.config.ts` sets `colorScheme: 'dark'` globally.** Playwright's default is `'light'`, so
+until that landed the whole suite was measuring the light *variant* of a dark-first design. The two
+palette specs override it per `describe`, so they still cover both.
+
+**Playwright's specs are type-checked too, by their own tsconfig.** `tsconfig.spec.json` includes only
+`src/**`, and Playwright transpiles `e2e/**` with esbuild, so for a long time a type error there reached
+`main` unchallenged. `tsconfig.e2e.json` (`include: ["e2e/**/*.ts"]`, `noEmit: true`) plus
+`npm run typecheck:e2e` closes that; CI runs it immediately after `Lint`, where it is fast and needs no
+build.
+
+**Its first run found 53 errors, which is the argument for the step.** One was a genuine drift —
+`library.spec.ts` seeds `platforms` and asserts all three render, but `LibraryGameFixture` never declared
+the property, so the fixture type and the mock had quietly diverged. The other 50-odd were
+`req.params[x]`, which Express 5 types as `string | string[]`; `e2e/mocks/curator.ts` now narrows once
+through `pathParam(req, name)`, which throws rather than letting an array reach code expecting a value.
+**Watch for `const { id } = req.params` destructuring** — it evades a text search for `req.params[`, so
+those sites surface only on a re-run of `tsc`.
 
 **`isolate: true` is load-bearing; `fileParallelism` was not.** Isolation gives each file its own jsdom,
 which this suite depends on because `document.title` and `<meta>` tags persist between tests within a
@@ -117,6 +153,14 @@ against the mock authority on first use:
    was sliced through horizontally. Both rows still counted as rows. Pair every row-count assertion
    with `min(top) >= 0` across the links.
 
+   **The horizontal header is gone; the same two rules transfer to a vertical rail, rotated.** The
+   desktop nav is now a sticky left rail, so the failure it can have is not a wrapped row but a
+   destination below the fold. The specs therefore assert a **column** count of 1 (the rail must not
+   wrap into two columns), keep `min(top) >= 0` verbatim, and add `max(bottom) <= innerHeight` — and the
+   loop varies **height** (900, 700) rather than width, because height is the axis a rail runs out of.
+   A rail is also structurally immune to the original bug: appending a ninth destination moves nothing
+   sideways, so the admin/non-admin shapes cannot diverge the way the header's did.
+
    **A layout measurement taken in fallback metrics is not a measurement of the shipped layout, and
    `document.fonts.ready` is not enough to prevent one.** `src/styles.css` pulls Lora, Inter and IBM
    Plex Mono from `fonts.googleapis.com` with `display=swap`, so the row is laid out in fallback
@@ -126,21 +170,51 @@ against the mock authority on first use:
    fits in the measurement. `fonts.ready` does not close this: when the requests fail, the faces
    settle to `error` and it resolves *immediately* on fallback metrics, giving byte-identical numbers.
    That is the same "cannot fail on the configuration it polices" defect one level up, and it fires on
-   any runner that cannot reach Google Fonts. `e2e/nav.spec.ts`'s `settleWebfonts()` therefore awaits
-   `document.fonts.ready` **and** asserts `document.fonts.check()` for all three families, so a
+   any runner that cannot reach Google Fonts. `e2e/layout.ts`'s `settleWebfonts()` therefore awaits
+   `document.fonts.ready` **and** asserts `document.fonts.check()` for the measured family, so a
    font-starved runner fails loudly instead of publishing a different layout's numbers.
+
+   **`document.fonts.check()` alone has its own version of the same hole, and it opens the moment the
+   fonts are self-hosted.** `check()` answers "can I render this text now?", and a family that is not
+   declared *at all* is satisfied by the fallback — so it returns `true`. Delete the `@font-face` block,
+   or break the step that copies the font files, and the helper goes green on exactly the fallback layout
+   it exists to reject. `settleWebfonts()` therefore checks **membership and status first**: it builds a
+   map of `document.fonts` by family, fails with `no @font-face declared for "X"` when the family is
+   absent, fails with `"X" status=unloaded|error` when it is declared but did not load, and only then
+   calls `check()`. Verified by planting each failure, not by reading the code.
 
    **A broken image is not a missing image — it renders its `alt` text, at whatever width that text
    needs.** `app-avatar` sets explicit `width`/`height`, and that still does not contain a failed load:
    the browser lays out the alt string instead. This wrapped the non-admin header at 1281px the moment
    the nav's initial-letter fallback became an `<img>`, because the alt is the user's email address —
-   the chip measured **294px against an expected ~110px**, 35px past the row's capacity. Two things
-   follow. The component pins its own box (`:host` carries the width/height with `overflow: hidden`),
-   so a failed load can never resize a layout — this is a production property, not a test convenience,
-   since the avatar endpoint can fail in production too. And the **mock OIDC server serves
-   `/avatar/:sub`** (a 1×1 GIF): without it the redirect 404s and every avatar in the suite is a broken
-   image, so the measured layout is not the shipped one. Same class of defect as measuring in fallback
-   font metrics.
+   the chip measured **294px against an expected ~110px**, 35px past the row's capacity. Three things
+   follow.
+
+   The component pins its own box, so a failed load can never resize a layout — a production property,
+   not a test convenience, since the avatar endpoint can fail in production too. **The declaration that
+   does the pinning is `AvatarComponent`'s `@HostBinding('style.width.px')`, not the stylesheet's
+   `overflow: hidden`**, and that was measured rather than assumed: with a genuinely broken image
+   (`error` fired, `naturalWidth === 0`) and a 60-character alt, the box stayed 28px with `overflow`
+   forced to `visible` **and** with the `<img>`'s own width/height stripped, and only reached **514px**
+   when the host's inline dimensions were cleared. `overflow: hidden` earns its place with
+   `border-radius: 50%`; it is not the overflow guard. An earlier version of this section named it as
+   the guard, which would have sent a future reader to defend the wrong line.
+
+   The **mock OIDC server serves `/avatar/:sub`** (a 1×1 GIF): without it the redirect 404s and every
+   avatar in the suite is a broken image, so the measured layout is not the shipped one. Same class of
+   defect as measuring in fallback font metrics.
+
+   And a test that breaks the image on purpose must **assert that it broke** — `outcome === 'error'`,
+   `naturalWidth === 0`, and an `alt` long enough to overflow if unconstrained. Without those three the
+   width assertion passes on a *working* image, which is indistinguishable from not running at all. The
+   first version of `nav.spec.ts`'s avatar test did exactly that: the interception returned a decodable
+   1×1 and the check went green having tested nothing.
+
+   **axe's `incomplete` array is not a pass.** `e2e/a11y.spec.ts` asserts it is empty alongside
+   `violations`, because axe reporting that it *could not evaluate* a rule looks identical to a clean
+   scan in every summary that counts only violations — which is how a scan goes green while checking
+   nothing. The sheet is scanned **while open** for the same reason: a closed `<dialog>` is
+   `display: none`, so axe skips it and reports success.
 
    **Make layout failures self-diagnosing.** Asserting a bare row count tells you it broke, not why.
    Return the per-child widths, the container width and the content total, and pass them as the
@@ -170,6 +244,13 @@ against the mock authority on first use:
 
 Every `/bff/**` and `/curator/api/**` call is either handled by a mock server or intercepted by
 Playwright route mocks — no real Identity or Curator is contacted.
+
+**Curator is mocked as a real HTTP server rather than with `page.route()`, and it has to be.**
+`page.route()` intercepts *browser* requests only; the calls to Curator are outbound `fetch` calls made
+by the Node SSR/BFF process, which Playwright never sees. So `e2e/mocks/curator.ts` serves the real
+route shapes over HTTP and tests drive its state through the control API at `/_test/*`. It mounts those
+routes with **no path prefix**, because `curatorProxy` has already stripped `/curator/api` before
+forwarding (see `AGENTS/Librarian.md`).
 
 The `e2e` project runs single-worker, non-parallel (`fullyParallel: false`, `workers: 1`, matching the
 C# suites' xUnit `Collection` behavior): every spec file shares the same mock server's in-memory state,

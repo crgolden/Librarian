@@ -1,10 +1,3 @@
-/**
- * Standalone entry point for the mock OIDC provider.
- * Launched by Playwright's webServer config via: npx tsx e2e/mocks/oidc-server.ts
- *
- * Serves over real HTTPS with the self-signed cert generate-oidc-cert.ts produces (see
- * oidc-tls-paths.ts) -- that script must have already run before this starts.
- */
 
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:https';

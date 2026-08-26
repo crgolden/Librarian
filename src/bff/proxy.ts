@@ -24,10 +24,6 @@ const DROP_RESPONSE_HEADERS = new Set([
   'content-length',
 ]);
 
-/**
- * Rejects mutating proxy requests that lack the static `X-CSRF` header.
- * GET/HEAD are read-only and are passed through without checking.
- */
 export function csrfForMutating(
   req: Request,
   res: ExpressResponse,
@@ -66,20 +62,6 @@ async function refreshAndSave(
   );
 }
 
-/**
- * Fetch-based proxy that forwards `/curator/api/**` to `CuratorApiAddress`.
- *
- * Behaviour (mirrors .NET `MapRemoteBffApiEndpoint` with `UserOrNone`):
- *  - Attaches `Authorization: Bearer <access_token>` when the session holds a
- *    valid token (user is authenticated).
- *  - Proxies anonymously when no session / no token (anonymous browsing).
- *  - Proactively refreshes the access token when it is within 60 s of expiry.
- *  - On a 401 response from the API, attempts one token refresh and retries.
- *
- * The request body is buffered before the first upstream call so that it can
- * be replayed on a 401 retry.  The body is collected as Uint8Array throughout
- * to remain compatible with the DOM-typed `fetch` BodyInit.
- */
 export function createCuratorProxy(
   deps: CuratorProxyDependencies,
 ): (req: Request, res: ExpressResponse, next: NextFunction) => Promise<void> {
@@ -92,12 +74,14 @@ async function curatorProxy(
   _next: NextFunction,
   { getOidcConfig, logger }: CuratorProxyDependencies,
 ): Promise<void> {
-  const base = (process.env['CuratorApiAddress'] ?? '').replace(/\/$/, '');
+  const configuredApiAddress = process.env['CuratorApiAddress']?.trim();
 
-  if (!base) {
+  if (configuredApiAddress === undefined || configuredApiAddress.length === 0) {
     res.status(502).json({ error: 'CuratorApiAddress is not configured' });
     return;
   }
+
+  const base = configuredApiAddress.replace(/\/$/, '');
 
   const relativePath = req.url.replace(/^\/+/, '');
   const targetUrl = new URL(relativePath, `${base}/`);

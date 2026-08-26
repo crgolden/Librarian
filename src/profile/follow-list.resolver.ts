@@ -10,11 +10,6 @@ export type ResolvedFollowList =
   | { status: 'no-user' }
   | { status: 'error' };
 
-/**
- * Resolves a followers or following list for the `:sub` param when present, otherwise the signed-in user.
- *
- * @param kind Which list to fetch.
- */
 export function followListResolver(kind: 'followers' | 'following'): ResolveFn<ResolvedFollowList> {
   return (route: ActivatedRouteSnapshot) => {
     const curator = inject(CuratorService);

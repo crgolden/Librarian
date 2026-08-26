@@ -1,7 +1,3 @@
-/**
- * Consoles & Storage page E2E — console/storage-device CRUD, attach/detach, and the auto-assigned
- * default-capacity flag, against the mock Curator API.
- */
 
 import { test, expect } from './fixtures.js';
 

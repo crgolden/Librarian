@@ -1,14 +1,14 @@
-<section class="page-section faq">
+<section id="faq-content" class="page-section flex flex-col gap-6 max-w-reading mx-auto">
   <h1 id="top">Frequently Asked Questions</h1>
   <p class="text-muted">
     Linking your PlayStation account means giving Librarian a token called an NPSSO. That's a reasonable
     thing to be cautious about, so here's exactly what happens when you do it.
   </p>
 
-  <app-page-toc headingSelector=".faq .faq-item h2" />
+  <app-page-toc headingSelector="#faq-content h2" />
 
-  <div class="card faq-item">
-    <h2>Who is Librarian for?</h2>
+  <div class="card p-6">
+    <h2 id="faq-who-for">Who is Librarian for?</h2>
     <p>
       Anyone with a PSN account that's been around for a while. Between everything you've bought over the
       years and any free-to-play games you've downloaded, that's usually more than people expect on its
@@ -24,8 +24,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>What is an NPSSO token?</h2>
+  <div class="card p-6">
+    <h2 id="faq-npsso-token">What is an NPSSO token?</h2>
     <p>
       It's a session token Sony issues after you sign in at playstation.com. It works like a password —
       anyone who has it can act as you on PlayStation Network until it expires (about 60 days). Treat it
@@ -33,8 +33,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>Why do you need this, when some other PlayStation trophy sites don't ask for anything?</h2>
+  <div class="card p-6">
+    <h2 id="faq-why-npsso">Why do you need this, when some other PlayStation trophy sites don't ask for anything?</h2>
     <p>
       Sites like that use one shared PlayStation account to look things up for everyone. That means they
       never see anything of yours — but it also means everyone is sharing that one account's speed limit,
@@ -47,8 +47,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>How do I get mine?</h2>
+  <div class="card p-6">
+    <h2 id="faq-get-npsso">How do I get mine?</h2>
     <p>
       Sign in at <a href="https://playstation.com" target="_blank" rel="noopener">playstation.com</a>, then
       in that same browser (not a different one, not incognito) visit
@@ -58,8 +58,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>What does Librarian do with it?</h2>
+  <div class="card p-6">
+    <h2 id="faq-npsso-handling">What does Librarian do with it?</h2>
     <p>
       Librarian passes your NPSSO to Curator, the API that actually talks to PlayStation. Curator uses it
       once, immediately, to ask Sony for an access token and a refresh token — then discards the NPSSO. It
@@ -67,8 +67,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>Why does linking need my email at all?</h2>
+  <div class="card p-6">
+    <h2 id="faq-email-check">Why does linking need my email at all?</h2>
     <p>
       Before Curator keeps anything, it checks that the email PlayStation has on file for your account —
       and confirms is verified — matches the email your sign-in already established. That comparison
@@ -78,16 +78,16 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>What happens to the access and refresh tokens?</h2>
+  <div class="card p-6">
+    <h2 id="faq-token-storage">What happens to the access and refresh tokens?</h2>
     <p>
       They're encrypted before they're stored, and only Curator holds the key. You can see when they
       expire on your <a routerLink="/psn">PSN settings</a> page.
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>How do I revoke access?</h2>
+  <div class="card p-6">
+    <h2 id="faq-revoke">How do I revoke access?</h2>
     <p>
       Two options, and you can use either or both. <strong>Unlink</strong> on your PSN settings page
       deletes Curator's copy of your tokens right away. Sony doesn't give third parties a way to revoke a
@@ -96,17 +96,17 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>Can I see everything Curator has done with my account?</h2>
+  <div class="card p-6">
+    <h2 id="faq-action-log">Can I see everything Curator has done with my account?</h2>
     <p>
       Yes. Every linking attempt, unlink, library refresh, and trophy fetch Curator performs on your behalf
       is recorded in an action log you can view and download yourself — see the
-      <a routerLink="/privacy">privacy policy</a> for what's in it and how long it's kept.
+      <a id="faq-privacy-link" routerLink="/privacy">privacy policy</a> for what's in it and how long it's kept.
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>What are the RAWG/OpenCritic keys on my PSN settings page for?</h2>
+  <div class="card p-6">
+    <h2 id="faq-provider-keys">What are the RAWG/OpenCritic keys on my PSN settings page for?</h2>
     <p>
       They're entirely optional. Curator can enrich your library with genre and critic-score data from RAWG
       and OpenCritic, but it doesn't provision a shared key for every user — that wouldn't scale. If you
@@ -115,8 +115,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>How does Curator know my key is valid?</h2>
+  <div class="card p-6">
+    <h2 id="faq-key-validation">How does Curator know my key is valid?</h2>
     <p>
       When you save a key, Curator makes one small request to that provider to confirm it's accepted before
       storing anything. If the provider rejects it, you'll see that immediately and the key is never saved —
@@ -125,8 +125,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>Is my RAWG/OpenCritic key ever shown to me again, or logged anywhere?</h2>
+  <div class="card p-6">
+    <h2 id="faq-key-secrecy">Is my RAWG/OpenCritic key ever shown to me again, or logged anywhere?</h2>
     <p>
       No. It's encrypted the moment you save it, the same way your PlayStation tokens are. Your PSN settings
       page only ever shows whether a key is configured and when it was added — never the value, before or
@@ -134,8 +134,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>What happens to the data my key retrieves?</h2>
+  <div class="card p-6">
+    <h2 id="faq-key-data">What happens to the data my key retrieves?</h2>
     <p>
       Only the game metadata it retrieves (title, genre, critic score) — never your key. That metadata is
       added to Curator's shared game catalog so future lookups for that same game, by any user, don't need
@@ -145,16 +145,16 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>How do I remove a RAWG/OpenCritic key?</h2>
+  <div class="card p-6">
+    <h2 id="faq-key-removal">How do I remove a RAWG/OpenCritic key?</h2>
     <p>
       From your <a routerLink="/psn">PSN settings</a> page — each key has its own "Remove" button,
       independent of the other. Removing one doesn't affect the other or anything else in your account.
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>Why doesn't my whole library get enriched right away?</h2>
+  <div class="card p-6">
+    <h2 id="faq-enrichment-pace">Why doesn't my whole library get enriched right away?</h2>
     <p>
       RAWG is fast, but OpenCritic's free tier is limited, so OpenCritic data for a very large or brand-new
       library fills in gradually across a few refreshes rather than all at once — contributed cooperatively,
@@ -164,8 +164,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>What do AAA, AA, and Indie mean next to a game?</h2>
+  <div class="card p-6">
+    <h2 id="faq-tiers">What do AAA, AA, and Indie mean next to a game?</h2>
     <p>
       That label is Curator's own, not PlayStation's and not a review site's, so here's exactly how it's
       decided. It comes from the game's publisher — or its developer, when we don't have a publisher —
@@ -182,8 +182,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>Where does the "Minimum score" number in a collection come from?</h2>
+  <div class="card p-6">
+    <h2 id="faq-minimum-score">Where does the "Minimum score" number in a collection come from?</h2>
     <p>
       It's an average of the ratings we have for a game: RAWG's critic score, OpenCritic's top-critic
       score, and the PlayStation Store's own star rating. Whichever of those exist are averaged, and the
@@ -198,8 +198,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>How do games get into the public catalog?</h2>
+  <div class="card p-6">
+    <h2 id="faq-catalog-sources">How do games get into the public catalog?</h2>
     <p>
       Two ways. Curator walks the PlayStation Store's own public category listings directly, so most of the
       catalog exists before anyone's library ever touches it — no PSN account is needed to browse it. The
@@ -225,8 +225,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>Why does my library include PS3, Vita and PSP games?</h2>
+  <div class="card p-6">
+    <h2 id="faq-legacy-platforms">Why does my library include PS3, Vita and PSP games?</h2>
     <p>
       Because you own them. PlayStation reports a platform for PS4 and PS5 entitlements and reports nothing
       at all for the older ones, so Curator reads the platform from the title's own id when that happens.
@@ -242,8 +242,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>Does every catalog game have its own page?</h2>
+  <div class="card p-6">
+    <h2 id="faq-game-pages">Does every catalog game have its own page?</h2>
     <p>
       Yes. Each game has a permanent address of its own, so you can link to a specific title rather than to
       a search you'd have to repeat. Those pages need no account — signed out you'll see the game's cover
@@ -258,8 +258,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>Where do a catalog game's franchise, genre, and tier come from?</h2>
+  <div class="card p-6">
+    <h2 id="faq-game-metadata">Where do a catalog game's franchise, genre, and tier come from?</h2>
     <p>
       Franchise comes from checking the title against an ordered list of name patterns Curator maintains —
       the first pattern that matches wins, and a title that matches nothing just shows no franchise. It's
@@ -279,8 +279,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>Why does a catalog listing show three separate scores?</h2>
+  <div class="card p-6">
+    <h2 id="faq-three-scores">Why does a catalog listing show three separate scores?</h2>
     <p>
       RAWG, OpenCritic, and the PlayStation Store's own star rating, shown side by side exactly as each
       source reports them — a dash means Curator hasn't resolved that source for this title yet, not that
@@ -291,8 +291,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>Can I keep PS5 games on an external drive?</h2>
+  <div class="card p-6">
+    <h2 id="faq-external-storage">Can I keep PS5 games on an external drive?</h2>
     <p>
       Yes, and from the <a routerLink="/consoles">consoles &amp; storage</a> page Librarian tracks them there
       — you just can't play them from it. Parking games you've finished on a USB drive is what extended
@@ -314,8 +314,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>What's on my public profile?</h2>
+  <div class="card p-6">
+    <h2 id="faq-public-profile">What's on my public profile?</h2>
     <p>
       Your profile is private until you turn it on yourself, on your <a routerLink="/profile/settings"
         >profile settings</a
@@ -339,8 +339,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>How does Librarian show someone else's trophies without their password?</h2>
+  <div class="card p-6">
+    <h2 id="faq-others-trophies">How does Librarian show someone else's trophies without their password?</h2>
     <p>
       It doesn't need their password, or their PSN session at all. When you view someone's public profile
       and they've chosen to show their trophies, Librarian looks them up using <em>your own</em> linked
@@ -350,8 +350,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>How does follow/unfollow work?</h2>
+  <div class="card p-6">
+    <h2 id="faq-following">How does follow/unfollow work?</h2>
     <p>
       You can follow anyone, whether or not their profile is public — following doesn't require the other
       person to show you anything. Follower and following lists are always visible on every profile, so
@@ -367,8 +367,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>Do you show ads, or track me for advertisers?</h2>
+  <div class="card p-6">
+    <h2 id="faq-ads">Do you show ads, or track me for advertisers?</h2>
     <p>
       No, and we never will. There's no ad network on this site, no ad-tracking or retargeting cookies, and
       your account, your library, and your PSN data are never shared with an advertiser or sold to anyone.
@@ -377,8 +377,8 @@
     </p>
   </div>
 
-  <div class="card faq-item">
-    <h2>Is this actually safe, or am I just supposed to trust you?</h2>
+  <div class="card p-6">
+    <h2 id="faq-open-source">Is this actually safe, or am I just supposed to trust you?</h2>
     <p>
       Don't take our word for it — both apps are open source. Librarian (this site, including the BFF that
       proxies your requests) is at

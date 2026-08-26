@@ -7,6 +7,24 @@ import { ANONYMOUS_NAV_LINKS, PRIMARY_NAV_LINKS, SiteNavComponent } from './site
 import { AuthService } from '../../auth/auth.service';
 import { AdminService } from '../../admin/admin.service';
 
+const signedInSession = () => {
+  const signedInSub = crypto.randomUUID();
+  return {
+    sub: signal(signedInSub),
+    isAuthenticated: signal(true),
+    email: signal(`${signedInSub}@example.invalid`),
+    username: signal(null),
+    picture: signal(null),
+    logoutUrl: signal(`/bff/logout?sid=${crypto.randomUUID()}`),
+  };
+};
+
+const anonymousSession = () => ({
+  sub: signal(null),
+  isAuthenticated: signal(false),
+  loginUrl: '/bff/login',
+});
+
 function configure(
   auth: Partial<AuthService>,
   admin: Partial<AdminService> = { isAdmin: signal(false) },
@@ -17,15 +35,8 @@ function configure(
     providers: [
       provideHttpClient(withXhr()),
       provideHttpClientTesting(),
-      provideRouter([
-        { path: '', children: [] },
-        { path: 'catalog', children: [] },
-        { path: 'collections', children: [] },
-        { path: 'library', children: [] },
-        { path: 'profile', children: [] },
-        { path: 'admin/enrichment', children: [] },
-      ]),
-      { provide: AuthService, useValue: { sub: signal('e2e-user-id'), ...auth } },
+      provideRouter(PRIMARY_NAV_LINKS.map((link) => ({ path: link.path.replace(/^\//, ''), children: [] }))),
+      { provide: AuthService, useValue: auth },
       { provide: AdminService, useValue: admin },
     ],
   });
@@ -34,228 +45,172 @@ function configure(
   return fixture;
 }
 
-describe('SiteNavComponent', () => {
-  it('offers an anonymous visitor the destinations that need no account, plus Sign in', () => {
-    const fixture = configure({ isAuthenticated: signal(false), loginUrl: '/bff/login' });
-    const compiled: HTMLElement = fixture.nativeElement;
+const textOf = (fixture: ComponentFixture<SiteNavComponent>, selector: string): string =>
+  (fixture.nativeElement as HTMLElement).querySelector(selector)?.textContent ?? 'no such element';
 
-    expect(compiled.querySelector('a.btn-primary')?.textContent).toContain('Sign in');
-    for (const label of ANONYMOUS_NAV_LINKS.map((link) => link.label)) {
-      expect(compiled.textContent).toContain(label);
-    }
+const labelsIn = (fixture: ComponentFixture<SiteNavComponent>, selector: string): string[] =>
+  [...(fixture.nativeElement as HTMLElement).querySelectorAll(selector)].map(
+    (element) => element.textContent?.trim() ?? 'no text',
+  );
+
+const guardedLinks = PRIMARY_NAV_LINKS.filter((link) => link.reachableWithoutSigningIn !== true);
+
+describe('SiteNavComponent — anonymous', () => {
+  it('offers Sign in', () => {
+    const fixture = configure(anonymousSession());
+
+    expect(textOf(fixture, '#nav-link-signin')).toContain('Sign in');
   });
 
-  it('offers an anonymous visitor no destination that sits behind the auth guard', () => {
-    const fixture = configure({ isAuthenticated: signal(false), loginUrl: '/bff/login' });
-    const desktop = (fixture.nativeElement as HTMLElement).querySelector('.site-nav-desktop');
+  it.each(ANONYMOUS_NAV_LINKS.map((link) => link.label))('offers %s, which needs no account', (label) => {
+    const fixture = configure(anonymousSession());
 
-    const guarded = PRIMARY_NAV_LINKS.filter((link) => link.reachableWithoutSigningIn !== true);
-    for (const link of guarded) {
-      expect(desktop?.textContent).not.toContain(link.label);
-    }
+    expect(textOf(fixture, '#site-nav-rail')).toContain(label);
   });
 
-  it('advertises the same destinations to an anonymous visitor in the desktop nav and the mobile tab bar', () => {
-    const fixture = configure({ isAuthenticated: signal(false), loginUrl: '/bff/login' });
-    const compiled: HTMLElement = fixture.nativeElement;
+  it.each(guardedLinks.map((link) => link.label))('withholds %s, which sits behind the auth guard', (label) => {
+    const fixture = configure(anonymousSession());
 
-    const desktop = [...compiled.querySelectorAll('.site-nav-desktop a.nav-link')].map((a) => a.textContent?.trim());
-    const tabbar = [...compiled.querySelectorAll('.site-nav-tabbar a.tab-link')].map((a) => a.textContent?.trim());
-
-    expect(desktop).toEqual(tabbar);
-    expect(desktop.length).toBe(ANONYMOUS_NAV_LINKS.length);
+    expect(textOf(fixture, '#site-nav-rail')).not.toContain(label);
   });
 
   it('sends the page the visitor is on as returnTo, so signing in does not dump them at home', async () => {
-    const fixture = configure({ isAuthenticated: signal(false), loginUrl: '/bff/login' });
+    const fixture = configure(anonymousSession());
     await TestBed.inject(Router).navigateByUrl('/catalog');
     fixture.detectChanges();
 
-    const href = (fixture.nativeElement as HTMLElement).querySelector('a.btn-primary')?.getAttribute('href');
-    expect(href).toBe('/bff/login?returnTo=%2Fcatalog');
+    const signInHref = (fixture.nativeElement as HTMLElement)
+      .querySelector('#nav-link-signin')
+      ?.getAttribute('href');
+
+    expect(signInHref).toBe('/bff/login?returnTo=%2Fcatalog');
   });
 
   it('omits returnTo when the visitor is already on the home page', () => {
-    const fixture = configure({ isAuthenticated: signal(false), loginUrl: '/bff/login' });
+    const fixture = configure(anonymousSession());
 
-    const href = (fixture.nativeElement as HTMLElement).querySelector('a.btn-primary')?.getAttribute('href');
-    expect(href).toBe('/bff/login');
+    const signInHref = (fixture.nativeElement as HTMLElement)
+      .querySelector('#nav-link-signin')
+      ?.getAttribute('href');
+
+    expect(signInHref).toBe('/bff/login');
   });
 
-  it('renders all 5 primary destinations plus PSN Settings and Sign out when authenticated, in both desktop and mobile markup', () => {
-    const fixture = configure({
-      isAuthenticated: signal(true),
-      email: signal('chris@example.com'),
-      username: signal(null),
-      picture: signal(null),
-      logoutUrl: signal('/bff/logout?sid=abc'),
-    });
-    const compiled: HTMLElement = fixture.nativeElement;
+  it('shows no user chip, because there is no session to describe', () => {
+    const fixture = configure(anonymousSession());
 
-    for (const label of ['Home', 'Catalog', 'Collections', 'Library', 'Profile']) {
-      expect(compiled.textContent).toContain(label);
-    }
-    expect(compiled.querySelector('.site-nav-desktop')?.textContent).toContain('PSN Settings');
-    expect(compiled.querySelector('.site-nav-desktop a.btn-ghost')?.textContent).toContain('Sign out');
-    expect(compiled.querySelectorAll('.site-nav-tabbar a.tab-link')).toHaveLength(6);
-    expect(compiled.querySelector('.site-nav-tabbar')?.textContent).toContain('PSN');
+    expect((fixture.nativeElement as HTMLElement).querySelector('#user-chip')).toBeNull();
   });
 
-  it('does not show the Enrichment Runs link for a non-admin authenticated user', () => {
-    const fixture = configure(
-      {
-        isAuthenticated: signal(true),
-        email: signal('chris@example.com'),
-        username: signal(null),
-        picture: signal(null),
-        logoutUrl: signal(null),
-      },
-      { isAdmin: signal(false) },
-    );
+  it('offers no sign-out, because there is no session to end', () => {
+    const fixture = configure(anonymousSession());
 
-    expect(fixture.nativeElement.textContent).not.toContain('Enrichment Runs');
+    expect((fixture.nativeElement as HTMLElement).querySelector('#nav-rail-signout')).toBeNull();
+  });
+});
+
+describe('SiteNavComponent — signed in', () => {
+  it('puts exactly the four tab destinations in the tab bar', () => {
+    const fixture = configure(signedInSession());
+
+    expect(labelsIn(fixture, '#site-nav-tabbar [id^="nav-tab-label-"]:not(#nav-tab-label-more)')).toEqual([
+      'Home',
+      'Catalog',
+      'Library',
+      'Collections',
+    ]);
   });
 
-  it('shows the Enrichment Runs link, desktop-only, for an admin authenticated user', () => {
-    const fixture = configure(
-      {
-        isAuthenticated: signal(true),
-        email: signal('chris@example.com'),
-        username: signal(null),
-        picture: signal(null),
-        logoutUrl: signal(null),
-      },
-      { isAdmin: signal(true) },
-    );
-    const compiled: HTMLElement = fixture.nativeElement;
+  it('offers More alongside the tabs', () => {
+    const fixture = configure(signedInSession());
 
-    expect(compiled.querySelector('.site-nav-desktop')?.textContent).toContain('Enrichment Runs');
-    expect(compiled.querySelector('.site-nav-tabbar')?.textContent).not.toContain('Enrichment Runs');
+    expect(textOf(fixture, '#nav-tab-label-more')).toBe('More');
   });
 
-  it('renders one header shape across an isAdmin false -> true transition', () => {
+  it('loses no destination to the sheet — tabs and sheet together are the whole rail', () => {
+    const fixture = configure(signedInSession(), { isAdmin: signal(true) });
+
+    const railLabels = labelsIn(fixture, '#site-nav-rail [id^="nav-rail-label-"]');
+    const tabLabels = labelsIn(fixture, '#site-nav-tabbar [id^="nav-tab-label-"]:not(#nav-tab-label-more)');
+    const sheetLabels = labelsIn(fixture, '#nav-sheet [id^="nav-sheet-link-"]');
+
+    expect([...tabLabels, ...sheetLabels].sort()).toEqual([...railLabels].sort());
+  });
+
+  it('reaches Consoles & Storage, which no nav offered before', () => {
+    const fixture = configure(signedInSession());
+
+    expect(textOf(fixture, '#nav-sheet')).toContain('Consoles & Storage');
+  });
+
+  it('does not show Enrichment Runs to a non-admin', () => {
+    const fixture = configure(signedInSession(), { isAdmin: signal(false) });
+
+    expect(textOf(fixture, '#site-nav-rail')).not.toContain('Enrichment Runs');
+  });
+
+  it('shows Enrichment Runs to an admin', () => {
+    const fixture = configure(signedInSession(), { isAdmin: signal(true) });
+
+    expect(textOf(fixture, '#nav-sheet')).toContain('Enrichment Runs');
+  });
+
+  it('keeps Enrichment Runs out of the tab bar, which is reserved for the four everyone has', () => {
+    const fixture = configure(signedInSession(), { isAdmin: signal(true) });
+
+    expect(textOf(fixture, '#site-nav-tabbar')).not.toContain('Enrichment Runs');
+  });
+
+  it('keeps the tab bar the same width across an isAdmin false -> true transition', () => {
     const isAdmin = signal(false);
-    const fixture = configure(
-      {
-        isAuthenticated: signal(true),
-        email: signal('chris@example.com'),
-        username: signal(null),
-        picture: signal(null),
-        logoutUrl: signal(null),
-      },
-      { isAdmin },
-    );
-    const compiled: HTMLElement = fixture.nativeElement;
-    const chipBefore = !!compiled.querySelector('.user-chip');
-    const labelsBefore = compiled.querySelectorAll('.site-nav-desktop .nav-label').length;
+    const fixture = configure(signedInSession(), { isAdmin });
+    const tabsBeforePromotion = labelsIn(fixture, '#site-nav-tabbar [id^="nav-tab-label-"]').length;
 
     isAdmin.set(true);
     fixture.detectChanges();
 
-    expect(compiled.querySelector('.nav-crowded')).toBeNull();
-    expect(!!compiled.querySelector('.user-chip')).toBe(chipBefore);
-    expect(compiled.querySelectorAll('.site-nav-desktop .nav-label').length).toBe(labelsBefore + 1);
+    expect(labelsIn(fixture, '#site-nav-tabbar [id^="nav-tab-label-"]').length).toBe(tabsBeforePromotion);
   });
 
   it('marks the active route with routerLinkActive', async () => {
-    const fixture = configure({
-      isAuthenticated: signal(true),
-      email: signal('chris@example.com'),
-      username: signal(null),
-      picture: signal(null),
-      logoutUrl: signal(null),
-    });
-    const router = TestBed.inject(Router);
-    await router.navigateByUrl('/catalog');
+    const fixture = configure(signedInSession());
+    await TestBed.inject(Router).navigateByUrl('/catalog');
     fixture.detectChanges();
 
-    const compiled: HTMLElement = fixture.nativeElement;
-    const catalogLink = compiled.querySelector('.site-nav-desktop a[aria-label="Catalog"]');
+    const catalogIndex = PRIMARY_NAV_LINKS.findIndex((link) => link.path === '/catalog');
+    const catalogLink = (fixture.nativeElement as HTMLElement).querySelector(`#nav-rail-${catalogIndex}`);
+
     expect(catalogLink?.classList.contains('nav-active')).toBe(true);
   });
 
-  it('keeps an accessible name on every desktop link, since the labels are hidden below lg', () => {
-    const fixture = configure(
-      {
-        isAuthenticated: signal(true),
-        email: signal('chris@example.com'),
-        username: signal(null),
-        picture: signal(null),
-        logoutUrl: signal(null),
-      },
-      { isAdmin: signal(true) },
-    );
-    const compiled: HTMLElement = fixture.nativeElement;
+  it.each(PRIMARY_NAV_LINKS.map((link, index) => [link.label, index] as const))(
+    '%s keeps an accessible name on its rail link',
+    (label, index) => {
+      const fixture = configure(signedInSession(), { isAdmin: signal(true) });
 
-    for (const label of ['Home', 'Catalog', 'Collections', 'Library', 'Profile', 'PSN Settings', 'Enrichment Runs', 'Sign out']) {
-      expect(compiled.querySelector(`.site-nav-desktop a[aria-label="${label}"]`)).not.toBeNull();
-    }
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector(`#nav-rail-${index}`)?.getAttribute('aria-label'),
+      ).toBe(label);
+    },
+  );
+
+  it('ships the sheet closed, so it is inert until the visitor asks for it', () => {
+    const fixture = configure(signedInSession());
+    const sheet = (fixture.nativeElement as HTMLElement).querySelector<HTMLDialogElement>('#nav-sheet');
+
+    expect(sheet?.open).toBe(false);
   });
 
-  it('gives an admin and a non-admin the same header shape, so there is no second layout to flash between', () => {
-    const session = {
-      isAuthenticated: signal(true),
-      email: signal('chris@example.com'),
-      username: signal(null),
-      picture: signal(null),
-      logoutUrl: signal(null),
-    };
-    const linkCount = (fixture: ComponentFixture<SiteNavComponent>): number =>
-      (fixture.nativeElement as HTMLElement).querySelectorAll('.site-nav-desktop a').length;
+  it('reports the sheet as collapsed on the trigger until it is opened', () => {
+    const fixture = configure(signedInSession());
 
-    const asAdmin = configure(session, { isAdmin: signal(true) });
-    const adminLinks = linkCount(asAdmin);
-    const adminChip = (asAdmin.nativeElement as HTMLElement).querySelector('.user-chip');
-    const adminCrowded = (asAdmin.nativeElement as HTMLElement).querySelector('.nav-crowded');
-
-    const asUser = configure(session, { isAdmin: signal(false) });
-
-    expect(adminCrowded).toBeNull();
-    expect((asUser.nativeElement as HTMLElement).querySelector('.nav-crowded')).toBeNull();
-    expect(adminChip).not.toBeNull();
-    expect((asUser.nativeElement as HTMLElement).querySelector('.user-chip')).not.toBeNull();
-    expect(adminLinks).toBe(linkCount(asUser) + 1);
-  });
-
-  it('keeps every link label in the markup, since the label is the tooltip text', () => {
-    const fixture = configure(
-      {
-        isAuthenticated: signal(true),
-        email: signal('chris@example.com'),
-        username: signal(null),
-        picture: signal(null),
-        logoutUrl: signal(null),
-      },
-      { isAdmin: signal(true) },
-    );
-    const compiled: HTMLElement = fixture.nativeElement;
-
-    const labels = [...compiled.querySelectorAll('.site-nav-desktop .nav-label')].map((el) => el.textContent?.trim());
-    expect(labels).toEqual([
-      'Home',
-      'Catalog',
-      'Collections',
-      'Library',
-      'Profile',
-      'PSN Settings',
-      'Enrichment Runs',
-      'Sign out',
-    ]);
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('#nav-tab-more')?.getAttribute('aria-expanded'),
+    ).toBe('false');
   });
 
   it('issues no request of its own — admin status comes from the session, not a round trip', () => {
-    const fixture = configure(
-      {
-        isAuthenticated: signal(true),
-        email: signal('chris@example.com'),
-        username: signal(null),
-        picture: signal(null),
-        logoutUrl: signal(null),
-      },
-      { isAdmin: signal(true) },
-    );
-
-    expect((fixture.nativeElement as HTMLElement).querySelector('a[aria-label="Enrichment Runs"]')).not.toBeNull();
+    configure(signedInSession(), { isAdmin: signal(true) });
 
     const httpMock = TestBed.inject(HttpTestingController);
     httpMock.expectNone(() => true);
@@ -263,18 +218,19 @@ describe('SiteNavComponent', () => {
   });
 
   it('hides every icon from assistive technology, leaving the name to the link', () => {
-    const fixture = configure({
-      isAuthenticated: signal(true),
-      email: signal('chris@example.com'),
-      username: signal(null),
-      picture: signal(null),
-      logoutUrl: signal(null),
-    });
-    const icons = (fixture.nativeElement as HTMLElement).querySelectorAll('ng-icon');
+    const fixture = configure(signedInSession());
+    const iconsWithoutAriaHidden = [
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll('ng-icon'),
+    ].filter((icon) => icon.getAttribute('aria-hidden') !== 'true');
 
-    expect(icons.length).toBeGreaterThan(0);
-    for (const icon of icons) {
-      expect(icon.getAttribute('aria-hidden')).toBe('true');
-    }
+    expect(iconsWithoutAriaHidden).toEqual([]);
+  });
+
+  it('renders an icon for every destination, so the tab bar is not text-only', () => {
+    const fixture = configure(signedInSession());
+
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('ng-icon').length,
+    ).toBeGreaterThan(PRIMARY_NAV_LINKS.length);
   });
 });

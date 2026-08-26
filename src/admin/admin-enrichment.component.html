@@ -1,5 +1,5 @@
 <section class="page-section">
-  <h1>Enrichment Runs</h1>
+  <h1 id="page-title">Enrichment Runs</h1>
   <p class="text-muted">
     Runs a global catalog-wide re-enrichment pass: refreshes the OpenCritic cache, reclassifies franchise
     and AAA tier for the whole catalog against the current curation rules, and best-effort enriches any
@@ -11,7 +11,7 @@
       <p class="text-error">{{ loadError() }}</p>
     }
 
-    <div class="card status-card">
+    <div class="card p-6 mt-4">
       <h2>Start a run</h2>
       @if (startError()) {
         <p class="text-error">{{ startError() }}</p>
@@ -30,7 +30,7 @@
     </div>
 
     @if (run(); as current) {
-      <div class="card status-card">
+      <div class="card p-6 mt-4">
         <h2>Latest run</h2>
         <p class="catalog-meta">Run id: {{ current.run_id }}</p>
         <p class="catalog-meta">Status: {{ current.status }}</p>
@@ -39,28 +39,28 @@
         }
 
         @if (current.result_summary; as summary) {
-          <div class="admin-pass-summaries">
+          <div class="flex flex-col gap-3 mt-3">
             @if (summary.opencritic_cache_refresh; as pass) {
-              <div class="admin-pass">
-                <h3>OpenCritic cache refresh</h3>
+              <div class="pt-2 border-t border-line">
+                <h3 class="mt-0 mb-1">OpenCritic cache refresh</h3>
                 <p class="catalog-meta">Status: {{ pass.status }}</p>
               </div>
             }
             @if (summary.franchise_reclassification; as pass) {
-              <div class="admin-pass">
-                <h3>Franchise reclassification</h3>
+              <div class="pt-2 border-t border-line">
+                <h3 class="mt-0 mb-1">Franchise reclassification</h3>
                 <p class="catalog-meta">Status: {{ pass.status }}</p>
               </div>
             }
             @if (summary.tier_reclassification; as pass) {
-              <div class="admin-pass">
-                <h3>Tier reclassification</h3>
+              <div class="pt-2 border-t border-line">
+                <h3 class="mt-0 mb-1">Tier reclassification</h3>
                 <p class="catalog-meta">Status: {{ pass.status }}</p>
               </div>
             }
             @if (summary.enrichment; as pass) {
-              <div class="admin-pass">
-                <h3>Enrichment</h3>
+              <div class="pt-2 border-t border-line">
+                <h3 class="mt-0 mb-1">Enrichment</h3>
                 @if (pass['remaining_count'] !== undefined) {
                   <p class="catalog-meta">
                     {{ pass['enriched_count'] }} enriched, {{ pass['remaining_count'] }} remaining

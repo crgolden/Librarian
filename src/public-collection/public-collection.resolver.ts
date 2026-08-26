@@ -10,7 +10,6 @@ export type ResolvedPublicCollection =
   | { status: 'not-found' }
   | { status: 'error' };
 
-/** Resolves the shared collection named by `:slug`. */
 export const publicCollectionResolver: ResolveFn<ResolvedPublicCollection> = (route: ActivatedRouteSnapshot) => {
   const curator = inject(CuratorService);
   const slug = route.paramMap.get('slug');

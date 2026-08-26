@@ -1,7 +1,3 @@
-/**
- * Collections page E2E — auth guard redirect, and the create -> preview -> save -> run -> install
- * toggle flow against the mock Curator API.
- */
 
 import { test, expect } from './fixtures.js';
 
@@ -19,7 +15,7 @@ test.describe('Collections — authenticated', () => {
     await store.reset();
 
     await page.goto('/collections');
-    await expect(page.locator('h1')).toContainText('Collections');
+    await expect(page.locator('#page-title')).toContainText('Collections');
     await expect(page.locator("text=haven't saved any collections")).toBeVisible();
   });
 
@@ -72,7 +68,7 @@ test.describe('Collections — authenticated', () => {
     await page.goto('/collections');
     await page.getByRole('button', { name: 'New collection' }).click();
     await page.getByLabel('Kind').selectOption('capacity_fill');
-    await page.getByLabel('Console').selectOption('console-1');
+    await page.locator('#consoleId').selectOption('console-1');
     await page.getByRole('button', { name: 'Preview' }).click();
     await expect(page.getByText('Bloodborne', { exact: true })).toBeVisible({ timeout: 10_000 });
 
@@ -102,7 +98,7 @@ test.describe('Collections — authenticated', () => {
     await page.goto('/collections');
     await page.getByRole('button', { name: 'New collection' }).click();
     await page.getByLabel('Kind').selectOption('capacity_fill');
-    await page.getByLabel('Console').selectOption('console-1');
+    await page.locator('#consoleId').selectOption('console-1');
     await page.getByRole('button', { name: 'Preview' }).click();
     await expect(page.getByText('Bloodborne', { exact: true })).toBeVisible({ timeout: 10_000 });
 
@@ -141,11 +137,11 @@ test.describe('Collections — authenticated', () => {
     await page.getByRole('button', { name: 'Rename / edit description' }).click();
     await page.getByLabel('Name').fill('RPG favorites');
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.locator('h2.catalog-title')).toContainText('RPG favorites');
+    await expect(page.locator('#collection-detail-title')).toContainText('RPG favorites');
 
     await page.getByLabel('Visibility').selectOption('unlisted');
     await expect(page.getByRole('button', { name: 'Copy share link' })).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('.share-url')).toContainText('/c/');
+    await expect(page.locator('#collection-share-url')).toContainText('/c/');
 
     await page.getByRole('button', { name: 'Delete collection' }).click();
     await page.getByRole('button', { name: 'Confirm delete' }).click();

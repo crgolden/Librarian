@@ -102,14 +102,14 @@ describe('ConsolesComponent', () => {
 
   it('shows empty states for consoles and storage devices', () => {
     const fixture = createAndLoad([], []);
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    const text = (fixture.nativeElement as HTMLElement).textContent;
     expect(text).toContain('No consoles yet.');
     expect(text).toContain('No storage devices yet.');
   });
 
   it('lists consoles and storage devices with derived usable capacity', () => {
     const fixture = createAndLoad([console_()], [device({ console_id: 'c1' })]);
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    const text = (fixture.nativeElement as HTMLElement).textContent;
     expect(text).toContain('Living room PS5');
     expect(text).toContain('825 GB usable of 825 GB');
     expect(text).toContain('Samsung T7');
@@ -132,7 +132,7 @@ describe('ConsolesComponent', () => {
     req.flush(console_({ console_id: 'c2', name: 'New PS5', capacity_is_default: true }));
     fixture.detectChanges();
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    const text = (fixture.nativeElement as HTMLElement).textContent;
     expect(text).toContain('New PS5');
     expect(text).toContain('We guessed');
   });

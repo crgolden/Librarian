@@ -45,7 +45,7 @@ describe('AdminEnrichmentComponent', () => {
   it('shows "no run yet" (not an error) when no run has ever been started', () => {
     const fixture = create({ status: 'none' });
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    const text = (fixture.nativeElement as HTMLElement).textContent;
     expect(text).toContain('No enrichment run has been started yet.');
     expect(text).not.toContain('Unable to load');
   });
@@ -72,7 +72,7 @@ describe('AdminEnrichmentComponent', () => {
       },
     });
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    const text = (fixture.nativeElement as HTMLElement).textContent;
     expect(text).toContain('run-1');
     expect(text).toContain('succeeded');
     expect(text).toContain('OpenCritic cache refresh');

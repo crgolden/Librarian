@@ -1,7 +1,9 @@
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { AuthService } from '../auth/auth.service';
 import { ProfileViewComponent } from './profile-view.component';
 import { ResolvedProfile } from './profile.resolver';
 import { PublicProfileResponse } from '../curator/curator.models';
@@ -44,7 +46,11 @@ function statValue(compiled: HTMLElement, stat: string): string | undefined {
 describe('ProfileViewComponent', () => {
   let httpMock: HttpTestingController;
 
-  function configure(routeSub: string | null, resolved: ResolvedProfile): void {
+  function configure(
+    routeSub: string | null,
+    resolved: ResolvedProfile,
+    picture: string | null = null,
+  ): void {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [ProfileViewComponent],
@@ -53,6 +59,7 @@ describe('ProfileViewComponent', () => {
         provideHttpClientTesting(),
         provideRouter([]),
         { provide: ActivatedRoute, useValue: activatedRoute(routeSub, resolved) },
+        { provide: AuthService, useValue: { picture: signal(picture) } },
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);
@@ -87,6 +94,53 @@ describe('ProfileViewComponent', () => {
 
     const image = (fixture.nativeElement as HTMLElement).querySelector('#profile-avatar img');
     expect(image?.getAttribute('src')).toBe('/bff/avatar/other-sub');
+  });
+
+  function createWithPictureClaim(
+    routeSub: string | null,
+    response: PublicProfileResponse,
+    picture: string | null,
+  ): ComponentFixture<ProfileViewComponent> {
+    configure(routeSub, { status: 'ok', profile: response }, picture);
+    const fixture = TestBed.createComponent(ProfileViewComponent);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  const ownPicture = 'https://gravatar.example/avatar/own-hash';
+
+  it('reuses the picture claim on your own profile, so the nav avatar is already cached', () => {
+    const fixture = createWithPictureClaim(
+      null,
+      profile({ sub: 'own-sub', viewer_is_owner: true }),
+      ownPicture,
+    );
+
+    const image = (fixture.nativeElement as HTMLElement).querySelector('#profile-avatar img');
+
+    expect(
+      image?.getAttribute('src'),
+      'the owner avatar must be the same URL the nav requests, or the browser refetches it via a 3-hop redirect',
+    ).toBe(ownPicture);
+  });
+
+  it("never lends the viewer's own picture claim to another user's profile", () => {
+    const fixture = createWithPictureClaim('other-sub', profile({ sub: 'other-sub' }), ownPicture);
+
+    const image = (fixture.nativeElement as HTMLElement).querySelector('#profile-avatar img');
+
+    expect(
+      image?.getAttribute('src'),
+      'a viewer holding a picture claim must not have it painted onto someone else’s profile',
+    ).toBe('/bff/avatar/other-sub');
+  });
+
+  it('falls back to the BFF on your own profile when the account carries no picture claim', () => {
+    const fixture = createWithPictureClaim(null, profile({ sub: 'own-sub', viewer_is_owner: true }), null);
+
+    const image = (fixture.nativeElement as HTMLElement).querySelector('#profile-avatar img');
+
+    expect(image?.getAttribute('src')).toBe('/bff/avatar/own-sub');
   });
 
   it('shows "Unlinked user" when psn_account_id is null', () => {

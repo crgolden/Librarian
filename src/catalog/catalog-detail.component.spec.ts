@@ -59,7 +59,7 @@ describe('CatalogDetailComponent', () => {
   it('shows a dash for each rating the catalog has no value for', () => {
     const fixture = render({ status: 'ok', game: game() });
 
-    const ratings = (fixture.nativeElement as HTMLElement).querySelector('#catalog-detail-ratings')?.textContent ?? '';
+    const ratings = (fixture.nativeElement as HTMLElement).querySelector('#catalog-detail-ratings')?.textContent;
     expect(ratings).toContain('RAWG —');
     expect(ratings).toContain('OpenCritic —');
     expect(ratings).toContain('PS Store —');
