@@ -407,6 +407,25 @@ body, which is also the branch a crawler actually takes. Verified by moving
 `CatalogDetailComponent`'s title call back into the constructor: the unit spec stayed green and
 `e2e/catalog.spec.ts`'s SSR assertion went red, with the served body carrying `<title>Game</title>`.
 
+### Adding an FAQ or privacy section: append it, or retarget `#toc-link-3`
+
+`app-page-toc` builds its links from `headingSelector` in document order and ids them
+`toc-link-{{$index}}`, so **the index is positional, not stable**. `e2e/faq.spec.ts` clicks
+`#toc-link-3` and asserts `#faq-get-npsso` scrolls into view — insert a new `<h2>` anywhere above that
+heading and the click silently retargets a different section, which is a *green* test asserting the
+wrong thing until someone reads it. Appending at the end of the page leaves every existing index
+untouched; that is why the Sony non-affiliation cards were appended rather than grouped with the
+related trust questions. Privacy has no such coupling — `e2e/privacy.spec.ts` selects only authored
+ids — but the same rule applies to it by symmetry.
+
+Give every new heading an authored `id`. `page-toc.component.ts:54` reads
+`const base = heading.id || slugify(label) || 'section'` and then **writes it back** at line 61
+(`heading.id = id`). Two consequences: without an authored id the anchor is derived from the copy and
+moves whenever the wording is edited, and it does not exist in the server-rendered HTML at all — the
+component assigns it inside `afterNextRender`, so `/faq#some-anchor` shared from anywhere lands at the
+top of the page until hydration runs. That is the defect the authored ids on every FAQ and privacy
+heading were added to fix; a new section without one silently reintroduces it.
+
 ---
 
 ## Smoke tests (post-deploy)
