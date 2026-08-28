@@ -48,7 +48,7 @@
     "@opentelemetry/sdk-trace-node": "^2.10.0",
     "@opentelemetry/semantic-conventions": "^1.41.1",
     "@tailwindcss/postcss": "^4.3.3",
-    "@tanstack/angular-table": "^8.21.4",
+    "@tanstack/angular-table": "^9.2.2",
     "connect-redis": "^10.0.0",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
