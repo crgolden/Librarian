@@ -3,6 +3,11 @@ import { test, expect } from './fixtures.js';
 
 const CATALOG_GRID_MINIMUM_TRACK_PX = 220;
 
+const CATALOG_TILES = '[id^="catalog-title-"]';
+
+const CATALOG_DEFAULT_PAGE_SIZE = 50;
+const CATALOG_CHOSEN_PAGE_SIZE = 20;
+
 const MANY_GAMES = Array.from({ length: 60 }, (_, i) => ({
   game_id: `g${i}`,
   canonical_title: `Game ${String(i).padStart(2, '0')}`,
@@ -218,5 +223,44 @@ test.describe('Catalog — authenticated', () => {
 
     await page.locator('#catalog-next').click();
     await expect(page.locator('#catalog-prev')).toBeEnabled();
+  });
+
+  test('the per-page choice resizes the page and outlives a reload', async ({ authedPage: page, store }) => {
+    await store.reset();
+    await store.seedCatalogGames(MANY_GAMES);
+
+    await page.goto('/catalog');
+    await expect(page.locator(CATALOG_TILES)).toHaveCount(CATALOG_DEFAULT_PAGE_SIZE);
+
+    await page.locator('#catalog-page-size').selectOption(String(CATALOG_CHOSEN_PAGE_SIZE));
+    await expect(page.locator(CATALOG_TILES)).toHaveCount(CATALOG_CHOSEN_PAGE_SIZE);
+
+    await page.reload();
+
+    await expect(
+      page.locator(CATALOG_TILES),
+      'the catalog stores its choice under its own key, so a reload that falls back to 50 means the catalog is reading the library preference or none at all',
+    ).toHaveCount(CATALOG_CHOSEN_PAGE_SIZE);
+    await expect(page.locator('#catalog-page-size')).toHaveValue(String(CATALOG_CHOSEN_PAGE_SIZE));
+  });
+
+  test('resizing the page returns to the first one rather than holding a stale offset', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedCatalogGames(MANY_GAMES);
+
+    await page.goto('/catalog');
+    await page.locator('#catalog-next').click();
+    await expect(page.locator('#catalog-prev')).toBeEnabled();
+
+    await page.locator('#catalog-page-size').selectOption(String(CATALOG_CHOSEN_PAGE_SIZE));
+
+    await expect(
+      page.locator('#catalog-prev'),
+      'keeping the old offset after a resize can land past the end of the result set, which renders an empty page the pager still reports as valid',
+    ).toBeDisabled();
+    await expect(page.locator(CATALOG_TILES)).toHaveCount(CATALOG_CHOSEN_PAGE_SIZE);
   });
 });

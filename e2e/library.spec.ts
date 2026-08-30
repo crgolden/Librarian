@@ -3,6 +3,19 @@ import { test, expect } from './fixtures.js';
 const LIBRARY_ROWS = '[id^="library-row-"]';
 const LIBRARY_PLATFORM_TAGS = '[id^="library-platform-"]';
 
+const LIBRARY_DEFAULT_PAGE_SIZE = 20;
+const LIBRARY_CHOSEN_PAGE_SIZE = 50;
+const PAGED_LIBRARY_TITLES = LIBRARY_CHOSEN_PAGE_SIZE + LIBRARY_DEFAULT_PAGE_SIZE;
+
+function pagedLibraryTitles() {
+  return Array.from({ length: PAGED_LIBRARY_TITLES }, (_, index) => ({
+    game_id: `g${index}`,
+    title: `Game ${String(index).padStart(2, '0')}`,
+    rawg_enriched: false,
+    opencritic_enriched: false,
+  }));
+}
+
 test.describe('Library — auth guard', () => {
   test('unauthenticated visitor is redirected to login', async ({ anonymousPage: page, store }) => {
     await store.reset();
@@ -258,6 +271,45 @@ test.describe('Library — authenticated', () => {
 
     await page.locator('#library-prev').click();
     await expect(page.locator(LIBRARY_ROWS)).toHaveCount(20);
+  });
+
+  test('the per-page choice resizes the page and outlives a reload', async ({ authedPage: page, store }) => {
+    await store.reset();
+    await store.seedLibraryGames(pagedLibraryTitles());
+
+    await page.goto('/library');
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(LIBRARY_DEFAULT_PAGE_SIZE);
+
+    await page.locator('#library-page-size').selectOption(String(LIBRARY_CHOSEN_PAGE_SIZE));
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(LIBRARY_CHOSEN_PAGE_SIZE);
+
+    await page.reload();
+
+    await expect(
+      page.locator(LIBRARY_ROWS),
+      'the choice is stored per browser, so falling back to the default here means the control is wired to the request but not to writePageSize/readPageSize — which the mocked unit test cannot see, because it never reloads',
+    ).toHaveCount(LIBRARY_CHOSEN_PAGE_SIZE);
+    await expect(page.locator('#library-page-size')).toHaveValue(String(LIBRARY_CHOSEN_PAGE_SIZE));
+  });
+
+  test('resizing the page returns to the first one rather than holding a stale offset', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedLibraryGames(pagedLibraryTitles());
+
+    await page.goto('/library');
+    await page.locator('#library-next').click();
+    await expect(page.locator('#library-prev')).toBeEnabled();
+
+    await page.locator('#library-page-size').selectOption(String(LIBRARY_CHOSEN_PAGE_SIZE));
+
+    await expect(
+      page.locator('#library-prev'),
+      'keeping the old offset after a resize can land past the end of the result set, which renders an empty page the pager still reports as valid',
+    ).toBeDisabled();
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(LIBRARY_CHOSEN_PAGE_SIZE);
   });
 
   test('combined search, sort, and page interaction stays internally consistent', async ({
