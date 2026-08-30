@@ -161,7 +161,7 @@ const reachabilityFailures = ({ usedClasses, strippedStylesheets, allowedUndecla
   const failures = [];
   const allowedScopedSeen = [];
 
-  for (const [className, usages] of [...usedClasses].sort()) {
+  for (const [className, usages] of [...usedClasses].sort(([a], [b]) => a.localeCompare(b))) {
     if (allowedUndeclared.has(className)) continue;
 
     const found = strippedStylesheets.map(({ css }) => selectorPartsFor(css, className));
@@ -284,7 +284,7 @@ export function analyze({
     }
   }
 
-  for (const [className, files] of [...declaringComponents].sort()) {
+  for (const [className, files] of [...declaringComponents].sort(([a], [b]) => a.localeCompare(b))) {
     if (files.length < 2) continue;
     if (knownForks.has(className)) {
       knownForksSeen.push(`${className} (${files.length} files)`);

@@ -54,7 +54,7 @@
       in that same browser (not a different one, not incognito) visit
       <code>https://ca.account.sony.com/api/v1/ssocookie</code>. The page returns a short block of JSON with
       an <code>npsso</code> field — that value is your token. Paste it into the PSN link form on your
-      <a routerLink="/psn">PSN settings</a> page.
+      <a routerLink="/account">Account</a> page.
     </p>
   </div>
 
@@ -82,14 +82,14 @@
     <h2 id="faq-token-storage">What happens to the access and refresh tokens?</h2>
     <p>
       They're encrypted before they're stored, and only Curator holds the key. You can see when they
-      expire on your <a routerLink="/psn">PSN settings</a> page.
+      expire on your <a routerLink="/account">Account</a> page.
     </p>
   </div>
 
   <div class="card p-6">
     <h2 id="faq-revoke">How do I revoke access?</h2>
     <p>
-      Two options, and you can use either or both. <strong>Unlink</strong> on your PSN settings page
+      Two options, and you can use either or both. <strong>Unlink</strong> on your Account page
       deletes Curator's copy of your tokens right away. Sony doesn't give third parties a way to revoke a
       token remotely, so if you want to be certain the NPSSO itself can't be used by anyone, sign out of
       all devices at playstation.com — that invalidates it at the source.
@@ -106,7 +106,7 @@
   </div>
 
   <div class="card p-6">
-    <h2 id="faq-provider-keys">What are the RAWG/OpenCritic keys on my PSN settings page for?</h2>
+    <h2 id="faq-provider-keys">What are the RAWG/OpenCritic keys on my Account page for?</h2>
     <p>
       They're entirely optional. Curator can enrich your library with genre and critic-score data from RAWG
       and OpenCritic, but it doesn't provision a shared key for every user — that wouldn't scale. If you
@@ -128,7 +128,7 @@
   <div class="card p-6">
     <h2 id="faq-key-secrecy">Is my RAWG/OpenCritic key ever shown to me again, or logged anywhere?</h2>
     <p>
-      No. It's encrypted the moment you save it, the same way your PlayStation tokens are. Your PSN settings
+      No. It's encrypted the moment you save it, the same way your PlayStation tokens are. Your Account
       page only ever shows whether a key is configured and when it was added — never the value, before or
       after saving.
     </p>
@@ -148,7 +148,7 @@
   <div class="card p-6">
     <h2 id="faq-key-removal">How do I remove a RAWG/OpenCritic key?</h2>
     <p>
-      From your <a routerLink="/psn">PSN settings</a> page — each key has its own "Remove" button,
+      From your <a routerLink="/account">Account</a> page — each key has its own "Remove" button,
       independent of the other. Removing one doesn't affect the other or anything else in your account.
     </p>
   </div>
@@ -254,7 +254,7 @@
       Signed in, one extra line appears on a game you own: your own trophy progress for it. That's the only
       part of the page that differs between visitors, and it's only ever shown to you — see the
       <a routerLink="/privacy">privacy policy</a> for exactly how that works. If you've never turned trophy
-      harvesting on in PSN Settings, there's no progress to show and the line is simply absent.
+      harvesting on from your Account page, there's no progress to show and the line is simply absent.
     </p>
   </div>
 

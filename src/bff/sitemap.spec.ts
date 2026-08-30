@@ -162,7 +162,7 @@ describe('sitemapHandler', () => {
 
     await sitemapHandler(fakeRequest(), res);
 
-    for (const prefix of ['/psn', '/collections', '/consoles', '/library', '/profile', '/admin']) {
+    for (const prefix of ['/account', '/collections', '/consoles', '/library', '/profile', '/admin']) {
       expect(captured.body).not.toContain(`<loc>https://librarian.test${prefix}</loc>`);
     }
   });
@@ -190,8 +190,16 @@ describe('robotsHandler', () => {
 
     expect(captured.status).toBe(200);
     expect(captured.body).toContain('Sitemap: https://librarian.test/sitemap.xml');
-    for (const prefix of ['/psn', '/collections', '/consoles', '/library', '/profile', '/u/', '/admin', '/c/']) {
+    for (const prefix of ['/account', '/collections', '/consoles', '/library', '/profile', '/u/', '/admin', '/c/']) {
       expect(captured.body).toContain(`Disallow: ${prefix}`);
     }
+  });
+
+  it('keeps disallowing the retired /psn path, which still resolves through a redirect', () => {
+    const { res, captured } = fakeResponse();
+
+    robotsHandler(fakeRequest(), res);
+
+    expect(captured.body).toContain('Disallow: /psn');
   });
 });

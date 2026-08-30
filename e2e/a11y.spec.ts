@@ -1,8 +1,20 @@
 import AxeBuilder from '@axe-core/playwright';
-import { test, expect } from './fixtures.js';
+import { test, expect, signInAsAdmin } from './fixtures.js';
 
-const AUTHED_ROUTES = ['/', '/catalog', '/library', '/collections', '/profile', '/psn', '/consoles'] as const;
+const AUTHED_ROUTES = [
+  '/',
+  '/catalog',
+  '/library',
+  '/collections',
+  '/profile',
+  '/account',
+  '/consoles',
+  '/admin/enrichment',
+] as const;
 const ANONYMOUS_ROUTES = ['/', '/catalog', '/faq', '/privacy'] as const;
+
+const ADMIN_ROUTE_LANDMARK = new Map<string, string>([['/admin/enrichment', '#enrichment-no-run']]);
+const LANDMARK_TIMEOUT_MS = 15_000;
 
 const DESKTOP = { width: 1440, height: 900 };
 const MOBILE = { width: 390, height: 844 };
@@ -37,7 +49,22 @@ test.describe('Accessibility — signed in, desktop rail', () => {
   for (const route of AUTHED_ROUTES) {
     test(`${route} has no WCAG A/AA violations`, async ({ authedPage: page, store }) => {
       await store.reset();
+
+      const landmark = ADMIN_ROUTE_LANDMARK.get(route);
+      if (landmark !== undefined) {
+        await store.seedAdmin();
+        await signInAsAdmin(page);
+      }
+
       await page.goto(route);
+
+      if (landmark !== undefined) {
+        await expect(
+          page.locator(landmark),
+          `${route} never rendered — an error paragraph or a redirect scans just as clean as the page`,
+        ).toBeVisible({ timeout: LANDMARK_TIMEOUT_MS });
+      }
+
       expectNoViolationsAndNothingUnevaluated(await scan(page), `signed in, desktop, ${route}`);
     });
   }

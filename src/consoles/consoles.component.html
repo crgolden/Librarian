@@ -81,7 +81,7 @@
               </div>
             </form>
           } @else {
-            <span class="catalog-title">{{ console.name }}</span>
+            <span class="catalog-title" [attr.id]="'console-name-' + $index">{{ console.name }}</span>
             <span class="spine-label">{{ console.platform }}</span>
             @if (console.model) {
               <span class="catalog-meta">{{ console.model }}</span>
@@ -180,13 +180,15 @@
 
       <div class="form-actions">
         <button type="button" class="btn-ghost" (click)="cancelCreatingConsole()">Cancel</button>
-        <button type="submit" class="btn-primary" [disabled]="creatingConsole()">
+        <button id="console-create-submit" type="submit" class="btn-primary" [disabled]="creatingConsole()">
           {{ creatingConsole() ? 'Adding...' : 'Add console' }}
         </button>
       </div>
     </form>
   } @else {
-    <button type="button" class="btn-primary" (click)="startCreatingConsole()">Add console</button>
+    <button id="consoles-add-console" type="button" class="btn-primary" (click)="startCreatingConsole()">
+      Add console
+    </button>
   }
 
   <h2>Storage devices</h2>
@@ -263,7 +265,14 @@
               }
               <div class="form-actions">
                 <button type="button" class="btn-ghost" (click)="cancelAttaching()">Cancel</button>
-                <button type="button" class="btn-primary" (click)="attachDevice(device.device_id)">Attach</button>
+                <button
+                  [attr.id]="'device-attach-confirm-' + $index"
+                  type="button"
+                  class="btn-primary"
+                  (click)="attachDevice(device.device_id)"
+                >
+                  Attach
+                </button>
               </div>
             }
 
@@ -284,9 +293,23 @@
               <div class="form-actions">
                 <button type="button" class="btn-ghost" (click)="startEditingDevice(device)">Edit</button>
                 @if (device.console_id) {
-                  <button type="button" class="btn-ghost" (click)="detachDevice(device.device_id)">Detach</button>
+                  <button
+                    [attr.id]="'device-detach-' + $index"
+                    type="button"
+                    class="btn-ghost"
+                    (click)="detachDevice(device.device_id)"
+                  >
+                    Detach
+                  </button>
                 } @else {
-                  <button type="button" class="btn-ghost" (click)="startAttaching(device.device_id)">Attach</button>
+                  <button
+                    [attr.id]="'device-attach-' + $index"
+                    type="button"
+                    class="btn-ghost"
+                    (click)="startAttaching(device.device_id)"
+                  >
+                    Attach
+                  </button>
                 }
                 <button type="button" class="btn-ghost btn-ghost-danger" (click)="confirmDeleteDevice(device.device_id)">Delete</button>
               </div>
@@ -331,12 +354,14 @@
 
       <div class="form-actions">
         <button type="button" class="btn-ghost" (click)="cancelCreatingDevice()">Cancel</button>
-        <button type="submit" class="btn-primary" [disabled]="creatingDevice()">
+        <button id="device-create-submit" type="submit" class="btn-primary" [disabled]="creatingDevice()">
           {{ creatingDevice() ? 'Adding...' : 'Add storage device' }}
         </button>
       </div>
     </form>
   } @else {
-    <button type="button" class="btn-primary" (click)="startCreatingDevice()">Add storage device</button>
+    <button id="consoles-add-device" type="button" class="btn-primary" (click)="startCreatingDevice()">
+      Add storage device
+    </button>
   }
 </section>

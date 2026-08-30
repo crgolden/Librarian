@@ -21,7 +21,7 @@ describe('authGuard', () => {
     });
   }
 
-  function run(url = '/psn'): boolean {
+  function run(url = '/account'): boolean {
     return TestBed.runInInjectionContext(() =>
       authGuard({} as ActivatedRouteSnapshot, { url } as RouterStateSnapshot),
     ) as boolean;
@@ -38,8 +38,8 @@ describe('authGuard', () => {
     const location = { href: '' };
     vi.stubGlobal('location', location);
 
-    expect(run('/psn')).toBe(false);
-    expect(location.href).toBe('/bff/login?returnTo=%2Fpsn');
+    expect(run('/account')).toBe(false);
+    expect(location.href).toBe('/bff/login?returnTo=%2Faccount');
   });
 
   it('blocks navigation without touching globalThis.location on the server (defensive — guarded routes are always Client-rendered)', () => {
@@ -47,7 +47,7 @@ describe('authGuard', () => {
     const location = { href: '' };
     vi.stubGlobal('location', location);
 
-    expect(run('/psn')).toBe(false);
+    expect(run('/account')).toBe(false);
     expect(location.href).toBe('');
   });
 });

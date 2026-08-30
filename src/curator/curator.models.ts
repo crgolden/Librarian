@@ -38,7 +38,10 @@ export interface CollectionSpecRequest {
   min_percent_completed?: number | null;
   sort_order?: string | null;
   exclude_installed_on?: string[];
+  install_target_console_id?: string | null;
 }
+
+export type SizeSource = 'measured' | 'estimated' | 'default';
 
 export interface CollectionGameResponse {
   game_id: string;
@@ -50,6 +53,13 @@ export interface CollectionGameResponse {
   composite_score: number | null;
   rank_score: number;
   size_gb: number;
+  /**
+   * Which rung produced `size_gb`: a contributed `game_measured_sizes` row, a per-platform estimate
+   * band, or the flat fallback that applies when neither exists. `default` is the rung to prompt on —
+   * nothing knows that title's size — and it is the common case rather than an edge one, because
+   * Curator seeds estimate bands for PS5 and PS4 only.
+   */
+  size_source: SizeSource;
   percent_completed: number | null;
 }
 
@@ -101,6 +111,7 @@ export interface DefinitionResponse {
   min_percent_completed: number | null;
   sort_order: string | null;
   exclude_installed_on: string[];
+  install_target_console_id: string | null;
   visibility: CollectionVisibility;
   share_slug: string | null;
   item_count: number;
@@ -120,6 +131,8 @@ export interface CollectionItemResponse {
   /** The collection owner's own access — identical for every viewer. A title the owner has since
    * lost stays listed and renders as unavailable rather than disappearing. */
   owner_has_access: boolean;
+  /** Installed on the collection's `install_target_console_id`; `null` when it targets no console. */
+  installed_on_target: boolean | null;
 }
 
 export interface DefinitionDetailResponse extends DefinitionResponse {
@@ -183,7 +196,7 @@ export interface LibraryRefreshStatusResponse {
 export interface LibraryGameResponse {
   game_id: string;
   title: string;
-  category: string | null;
+  genre: string | null;
   rawg_rating: number | null;
   opencritic_rating: number | null;
   psn_rating: number | null;
@@ -210,8 +223,8 @@ export interface ManualGameRequest {
   owned_edition?: string | null;
 }
 
-export interface LibraryCategoriesResponse {
-  categories: string[];
+export interface LibraryGenresResponse {
+  genres: string[];
 }
 
 export interface PsnSummary {
@@ -233,7 +246,13 @@ export interface EnrichmentRunResponse {
 
 /** Loosely typed: each of the four passes (opencritic_cache_refresh/franchise_reclassification/
  * tier_reclassification/enrichment) has its own inner shape that varies by its own nested `status`
- * string -- see curator._enrichment_run_handler in app.py for the four passes' exact Python shapes. */
+ * string. Curator does not build this object -- it stores and echoes it verbatim
+ * (`enrichment_routes.get_enrichment_run_status` passes `run.result_summary` straight through), so the
+ * authoritative shape is the Functions record `Functions/Curator/Enrichment/EnrichmentRunSummary.cs`.
+ * On the `enrichment` pass, `enriched_count` counts games whose enrichment row was written without
+ * raising, NOT games that gained data; `rawg_enriched_count`/`opencritic_enriched_count` are the
+ * per-provider counts of games that actually gained data. Those two overlap -- a game enriched by both
+ * providers is counted in both -- so their sum is not a count of games. */
 export interface EnrichmentPassSummary {
   status?: string;
   [key: string]: unknown;
@@ -428,7 +447,7 @@ export interface FollowListResponse {
 export interface ProfileLibraryGameResponse {
   game_id: string;
   title: string;
-  category: string | null;
+  genre: string | null;
   rawg_rating: number | null;
   opencritic_rating: number | null;
   psn_rating: number | null;

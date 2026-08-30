@@ -59,7 +59,7 @@ export const PRIMARY_NAV_LINKS: NavLink[] = [
   { path: '/library', label: 'Library', icon: 'lucideLibraryBig', tab: true },
   { path: '/collections', label: 'Collections', icon: 'lucideFolderOpen', tab: true },
   { path: '/profile', label: 'Profile', icon: 'lucideCircleUser' },
-  { path: '/psn', label: 'PSN Settings', icon: 'lucideSettings' },
+  { path: '/account', label: 'Account', icon: 'lucideSettings' },
   { path: '/consoles', label: 'Consoles & Storage', icon: 'lucideHardDrive' },
   { path: '/admin/enrichment', label: 'Enrichment Runs', icon: 'lucideSparkles', adminOnly: true },
   { path: '/faq', label: 'FAQ', icon: 'lucideCircleHelp', reachableWithoutSigningIn: true },

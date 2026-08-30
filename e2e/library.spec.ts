@@ -18,7 +18,7 @@ test.describe('Library — authenticated', () => {
 
     await page.goto('/library');
     await expect(page.locator('#page-title')).toContainText('My Library');
-    await page.getByRole('button', { name: 'Refresh library' }).click();
+    await page.locator('#library-refresh').click();
 
     await expect(page.locator('text=Library catalogued.')).toBeVisible({ timeout: 10_000 });
   });
@@ -28,7 +28,7 @@ test.describe('Library — authenticated', () => {
     await store.setLibraryRefreshOutcome('failed', 'PSN entitlement fetch failed.');
 
     await page.goto('/library');
-    await page.getByRole('button', { name: 'Refresh library' }).click();
+    await page.locator('#library-refresh').click();
 
     await expect(page.locator('text=PSN entitlement fetch failed.')).toBeVisible({ timeout: 10_000 });
   });
@@ -37,10 +37,10 @@ test.describe('Library — authenticated', () => {
     await store.reset();
 
     await page.goto('/library');
-    await expect(page.getByText('No games yet — run a refresh to build your library.')).toBeVisible();
+    await expect(page.locator('#library-empty')).toHaveText('No games yet — run a refresh to build your library.');
   });
 
-  test('renders ratings, category, and a catalog link, with a dash for unresolved values', async ({
+  test('renders ratings, genre, and a catalog link, with a dash for unresolved values', async ({
     authedPage: page,
     store,
   }) => {
@@ -49,7 +49,7 @@ test.describe('Library — authenticated', () => {
       {
         game_id: 'g1',
         title: 'Elden Ring',
-        category: 'Action RPG',
+        genre: 'Action RPG',
         rawg_rating: 96,
         opencritic_rating: 94,
         psn_rating: 4.8,
@@ -69,11 +69,11 @@ test.describe('Library — authenticated', () => {
     await expect(eldenRow).toContainText('96');
     await expect(eldenRow).toContainText('94');
     await expect(eldenRow).toContainText('4.8');
-    await expect(eldenRow.getByRole('link', { name: 'Details' })).toHaveAttribute('href', '/catalog/g1');
+    await expect(eldenRow.locator('[id^="library-details-"]')).toHaveAttribute('href', '/catalog/g1');
 
     const unmatchedRow = rows.filter({ hasText: 'Unmatched Game' });
     await expect(unmatchedRow).toContainText('—');
-    await expect(unmatchedRow.getByRole('link', { name: 'Details' })).toHaveAttribute('href', '/catalog/g2');
+    await expect(unmatchedRow.locator('[id^="library-details-"]')).toHaveAttribute('href', '/catalog/g2');
   });
 
   test('renders every platform an entry is owned on, and a dash for none', async ({
@@ -135,24 +135,82 @@ test.describe('Library — authenticated', () => {
     await page.goto('/library');
     await expect(page.locator(LIBRARY_ROWS)).toHaveCount(2);
 
-    await page.getByPlaceholder('Search titles...').fill('elden');
+    await page.locator('#library-search').fill('elden');
     await expect(page.locator(LIBRARY_ROWS)).toHaveCount(1, { timeout: 5_000 });
     await expect(page.locator(LIBRARY_ROWS)).toContainText('Elden Ring');
   });
 
-  test('filters by category', async ({ authedPage: page, store }) => {
+  test('filters by genre', async ({ authedPage: page, store }) => {
     await store.reset();
     await store.seedLibraryGames([
-      { game_id: 'g1', title: 'Elden Ring', category: 'Action RPG', rawg_enriched: false, opencritic_enriched: false },
-      { game_id: 'g2', title: 'Tetris Effect', category: 'Puzzle', rawg_enriched: false, opencritic_enriched: false },
+      { game_id: 'g1', title: 'Elden Ring', genre: 'Action RPG', rawg_enriched: false, opencritic_enriched: false },
+      { game_id: 'g2', title: 'Tetris Effect', genre: 'Puzzle', rawg_enriched: false, opencritic_enriched: false },
     ]);
 
     await page.goto('/library');
     await expect(page.locator(LIBRARY_ROWS)).toHaveCount(2);
 
-    await page.getByLabel('Filter by category').selectOption('Puzzle');
+    await page.locator('#library-genre-filter').selectOption('Puzzle');
     await expect(page.locator(LIBRARY_ROWS)).toHaveCount(1);
     await expect(page.locator(LIBRARY_ROWS)).toContainText('Tetris Effect');
+  });
+
+  test('a raw genre token is ellipsised in the Genre column while the cell keeps the whole token', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedLibraryGames([
+      {
+        game_id: 'g1',
+        title: 'A Raw Token Entry',
+        genre: 'ROLE_PLAYING_GAMES',
+        rawg_enriched: false,
+        opencritic_enriched: false,
+      },
+      {
+        game_id: 'g2',
+        title: 'B Ordinary Genre Entry',
+        genre: 'Action RPG',
+        rawg_enriched: false,
+        opencritic_enriched: false,
+      },
+    ]);
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/library');
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(2);
+
+    const rawToken = page.locator('#library-genre-0');
+    const ordinaryGenre = page.locator('#library-genre-1');
+
+    await expect(rawToken).toHaveText('ROLE_PLAYING_GAMES');
+    await expect(rawToken).toHaveAttribute('title', 'ROLE_PLAYING_GAMES');
+
+    expect(
+      await rawToken.evaluate((cell) => cell.scrollWidth - cell.clientWidth),
+      'the raw token is not clipped, so the Genre column is sized by the widest vocabulary token again',
+    ).toBeGreaterThan(0);
+    expect(
+      await ordinaryGenre.evaluate((cell) => cell.scrollWidth - cell.clientWidth),
+      'the cap also clips an ordinary genre, which is a regression in the common case rather than a fix for the long one',
+    ).toBe(0);
+
+    const columnWidth = async (): Promise<number> =>
+      (await page.locator('#library-header-genre').boundingBox())?.width ?? Number.NaN;
+    const capped = await columnWidth();
+
+    await page.evaluate(() => {
+      for (const cell of document.querySelectorAll<HTMLElement>('[id^="library-genre-"]')) {
+        cell.style.maxWidth = 'none';
+      }
+    });
+    const uncapped = await columnWidth();
+
+    expect(
+      capped,
+      'clearing max-width at runtime left the column the same width, so the cap is measuring nothing',
+    ).toBeLessThan(uncapped);
   });
 
   test('sorts by clicking a column header, toggling direction on a second click', async ({
@@ -169,7 +227,7 @@ test.describe('Library — authenticated', () => {
     const titles = page.locator('[id^="library-title-"]');
     await expect(titles).toHaveText(['Bloodborne', 'Elden Ring']);
 
-    const titleHeader = page.getByRole('columnheader', { name: 'Title' });
+    const titleHeader = page.locator('#library-header-title');
     await titleHeader.click();
     await expect(titles).toHaveText(['Elden Ring', 'Bloodborne']);
 
@@ -190,15 +248,15 @@ test.describe('Library — authenticated', () => {
 
     await page.goto('/library');
     await expect(page.locator(LIBRARY_ROWS)).toHaveCount(20);
-    await expect(page.getByRole('button', { name: 'Previous' })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Next' })).toBeEnabled();
+    await expect(page.locator('#library-prev')).toBeDisabled();
+    await expect(page.locator('#library-next')).toBeEnabled();
 
-    await page.getByRole('button', { name: 'Next' }).click();
+    await page.locator('#library-next').click();
     await expect(page.locator(LIBRARY_ROWS)).toHaveCount(5);
-    await expect(page.getByRole('button', { name: 'Previous' })).toBeEnabled();
-    await expect(page.getByRole('button', { name: 'Next' })).toBeDisabled();
+    await expect(page.locator('#library-prev')).toBeEnabled();
+    await expect(page.locator('#library-next')).toBeDisabled();
 
-    await page.getByRole('button', { name: 'Previous' }).click();
+    await page.locator('#library-prev').click();
     await expect(page.locator(LIBRARY_ROWS)).toHaveCount(20);
   });
 
@@ -223,22 +281,22 @@ test.describe('Library — authenticated', () => {
 
     await expect(page.locator(LIBRARY_ROWS)).toHaveCount(20);
 
-    await page.getByPlaceholder('Search titles...').fill('ring');
+    await page.locator('#library-search').fill('ring');
     await expect(page.locator(LIBRARY_ROWS)).toHaveCount(20, { timeout: 5_000 });
 
-    const titleHeader = page.getByRole('columnheader', { name: 'Title' });
+    const titleHeader = page.locator('#library-header-title');
     await titleHeader.click();
     const titles = page.locator('[id^="library-title-"]');
     await expect(titles).toHaveText(Array.from({ length: 20 }, (_, i) => `Ring Game ${String(24 - i).padStart(2, '0')}`));
 
-    await page.getByRole('button', { name: 'Next' }).click();
+    await page.locator('#library-next').click();
     await expect(titles).toHaveText(Array.from({ length: 5 }, (_, i) => `Ring Game ${String(4 - i).padStart(2, '0')}`));
-    await expect(page.getByRole('button', { name: 'Next' })).toBeDisabled();
+    await expect(page.locator('#library-next')).toBeDisabled();
 
-    await page.getByPlaceholder('Search titles...').fill('ring game 01');
+    await page.locator('#library-search').fill('ring game 01');
     await expect(page.locator(LIBRARY_ROWS)).toHaveCount(1, { timeout: 5_000 });
     await expect(page.locator(LIBRARY_ROWS)).toContainText('Ring Game 01');
-    await expect(page.getByRole('button', { name: 'Previous' })).toBeDisabled();
+    await expect(page.locator('#library-prev')).toBeDisabled();
   });
 
   test('shows the post-refresh summary, capping the inline title list, and the OpenCritic top-up message', async ({
@@ -254,13 +312,13 @@ test.describe('Library — authenticated', () => {
     });
 
     await page.goto('/library');
-    await page.getByRole('button', { name: 'Refresh library' }).click();
+    await page.locator('#library-refresh').click();
 
-    await expect(page.locator('text=Library catalogued.')).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText('+2 more')).toBeVisible();
-    await expect(page.getByText('Elden Ring')).toBeVisible();
-    await expect(
-      page.getByText('OpenCritic still has more of your library to check'),
-    ).toBeVisible();
+    await expect(page.locator('#library-refresh-succeeded')).toHaveText('Library catalogued.', { timeout: 10_000 });
+    await expect(page.locator('#library-summary-rawg')).toContainText('+2 more');
+    await expect(page.locator('#library-summary-opencritic')).toContainText('Elden Ring');
+    await expect(page.locator('#library-summary-opencritic-topup')).toContainText(
+      'OpenCritic still has more of your library to check',
+    );
   });
 });

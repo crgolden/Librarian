@@ -1,0 +1,17 @@
+/* `:host` — a component cannot class its own host, and both callers drop this into a flex pager row. */
+:host {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Cancels the body font size `styles.css`'s bare `select` rule imposes, which no utility can beat: that
+   rule is authored outside any cascade layer while Tailwind emits utilities inside `@layer utilities`,
+   and un-layered CSS outranks every layer whatever the specificity. Remove the font-size and the control
+   renders at 16px beside a 13.6px page count — measured, not reasoned. Its `width: 100%` needs no
+   cancelling: the select is a flex item of the `:host` box above, so the percentage already resolves to
+   content width (49px either way, measured both ways). See DESIGN.md's cascade note. */
+select {
+  padding: 0.5rem 0.75rem;
+  font-size: var(--font-size-meta);
+}

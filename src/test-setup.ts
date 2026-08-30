@@ -6,28 +6,32 @@ import { join, resolve } from 'node:path';
 
 const srcDir = resolve(process.cwd(), 'src');
 
-function buildResourceMap(dir: string, map = new Map<string, string>()): Map<string, string> {
+function buildResourcePathMap(dir: string, map = new Map<string, string>()): Map<string, string> {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const fullPath = join(dir, entry.name);
     if (entry.isDirectory()) {
-      buildResourceMap(fullPath, map);
+      buildResourcePathMap(fullPath, map);
     } else if (entry.name.endsWith('.html') || entry.name.endsWith('.css')) {
       if (!map.has(entry.name)) {
-        map.set(entry.name, readFileSync(fullPath, { encoding: 'utf-8' }));
+        map.set(entry.name, fullPath);
       }
     }
   }
   return map;
 }
 
-const resourceMap = buildResourceMap(srcDir);
+const resourcePaths = buildResourcePathMap(srcDir);
+const resourceContents = new Map<string, string>();
 
 const resourceResolver = (url: string): Promise<{ text(): Promise<string> }> => {
   const filename = url.split('/').pop()?.split('\\').pop() ?? url;
-  const content = resourceMap.get(filename);
-  if (content === undefined) {
+  const fullPath = resourcePaths.get(filename);
+  if (fullPath === undefined) {
     throw new Error(`No component resource found for "${filename}" (requested as "${url}")`);
   }
+  const cached = resourceContents.get(filename);
+  const content = cached ?? readFileSync(fullPath, { encoding: 'utf-8' });
+  resourceContents.set(filename, content);
   return Promise.resolve({ text: () => Promise.resolve(content) });
 };
 

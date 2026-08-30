@@ -108,7 +108,7 @@ describe('ProfileSettingsComponent', () => {
     const compiled: HTMLElement = fixture.nativeElement;
 
     expect(compiled.textContent).toContain("you've also enabled harvesting them");
-    const link = compiled.querySelector('a[routerLink="/psn"]');
+    const link = compiled.querySelector('a[routerLink="/account"]');
     expect(link).not.toBeNull();
   });
 

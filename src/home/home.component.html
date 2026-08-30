@@ -17,7 +17,7 @@
           <dd id="home-total-collection-entries" class="catalog-meta m-0 sm:row-start-2">{{ totals.collectionEntries }}</dd>
         </dl>
         @if (totals.linked === false) {
-          <p class="text-muted">
+          <p id="home-unlinked-notice" class="text-muted">
             No PlayStation Network account is linked, so nothing has been catalogued yet.
           </p>
         }
@@ -80,7 +80,7 @@
 
     <div class="card p-6 flex flex-col items-start gap-4">
       <p>Sign in to link your PlayStation Network account and manage your library.</p>
-      <a [href]="auth.loginUrl" class="btn-primary">Sign in</a>
+      <a id="home-sign-in" [href]="auth.loginUrl" class="btn-primary">Sign in</a>
     </div>
   }
 </section>

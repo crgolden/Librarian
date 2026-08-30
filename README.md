@@ -45,7 +45,7 @@ carry a status) under `RenderMode.Client`. Every other route, including the anon
 share link, renders `RenderMode.Client`: `authGuard` only works in the browser (it reads
 `AuthService`'s client-fetched session state and needs the DOM `location` global for its anonymous
 redirect), and none of the per-entity pages have an SEO/link-unfurl payoff that would justify paying
-for SSR. The app surface covers a home page, a `/psn` settings page
+for SSR. The app surface covers a home page, an `/account` settings page
 (link/unlink a PlayStation Network account via NPSSO token, backed by Curator's `/me` and
 `/psn/link` routes, plus per-category data-harvest preferences and bring-your-own-key RAWG/OpenCritic
 enrichment key management), `/catalog` (browse the shared game catalog), `/collections` (create, save, and
@@ -53,7 +53,7 @@ run curated collections — filterable by genre, minimum score, AAA tier, and mi
 plus a detail view for renaming, editing membership, deleting, and setting a collection's visibility to
 private, unlisted, or public with a copyable share link), `/consoles` (manage consoles and swappable
 storage devices, attach/detach a device between consoles, and track install state), and `/library`
-(trigger a refresh and browse the caller's own library — server-side search, category filtering, sortable
+(trigger a refresh and browse the caller's own library — server-side search, genre filtering, sortable
 columns, and paging; see "The library page" below) — all backed by real Curator endpoints. A public
 social-profile feature adds `/profile` and its sub-keyed counterpart `/u/:sub`: a viewable, followable
 profile with opt-in display toggles for library, collections, PSN trophies, and PSN identity, plus
@@ -74,8 +74,8 @@ OTLP traces/metrics → Grafana Alloy; structured logs → Elasticsearch (`pino-
 library) render the same table component (`src/library/`), backed by `GET /curator/api/library` and
 `GET /curator/api/users/{sub}/library` respectively. Both endpoints are fully server-driven — the
 Angular page never fetches the whole library into the browser and sorts/filters it client-side; every
-search keystroke (debounced), category selection, column-header click, and page change issues a
-fresh request with `q`/`category`/`sort`/`sortDir`/`limit`/`offset` query parameters, and the
+search keystroke (debounced), genre selection, column-header click, and page change issues a
+fresh request with `q`/`genre`/`sort`/`sortDir`/`limit`/`offset` query parameters, and the
 response carries only that page's rows plus a `total` count.
 
 Columns:
@@ -83,7 +83,7 @@ Columns:
 | Column | Source |
 |---|---|
 | Title | The game's canonical title |
-| Category | The resolved genre Curator's enrichment pipeline assigned (same resolution `/catalog` uses) — not PSN's raw per-title genre tags |
+| Genre | The resolved genre Curator's enrichment pipeline assigned (same resolution `/catalog` uses) — not PSN's raw per-title genre tags |
 | RAWG | RAWG's critic score, 0–100 |
 | OpenCritic | OpenCritic's top-critic score, 0–100 |
 | PS Store | PlayStation Store's own star rating (1–5), from Sony's official catalog API |

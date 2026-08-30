@@ -4,15 +4,18 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CuratorService } from '../curator/curator.service';
 import { CatalogGamesResponse, GameSummaryResponse } from '../curator/curator.models';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
+import { PageSizeComponent } from '../shared/page-size/page-size.component';
+import { pageSizeChoicesUpTo, readPageSize, writePageSize } from '../shared/page-size/page-size.preference';
 import { CATALOG_PAGE_SIZE } from './catalog.resolver';
 
 const PS_STORE_PRODUCT_BASE = 'https://store.playstation.com/product/';
 
-const PAGE_SIZE = CATALOG_PAGE_SIZE;
+export const CATALOG_PAGE_SIZE_CEILING = 200;
+export const CATALOG_PAGE_SIZE_KEY = 'catalog';
 
 @Component({
   selector: 'app-catalog',
-  imports: [FormsModule, LoadingOverlayComponent, RouterLink],
+  imports: [FormsModule, LoadingOverlayComponent, PageSizeComponent, RouterLink],
   templateUrl: './catalog.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -31,7 +34,8 @@ export class CatalogComponent {
   protected readonly genreOptions = signal<string[]>([]);
   protected readonly offset = signal(0);
   protected readonly total = signal(0);
-  protected readonly pageSize = PAGE_SIZE;
+  protected readonly pageSize = signal(CATALOG_PAGE_SIZE);
+  protected readonly pageSizeChoices = pageSizeChoicesUpTo(CATALOG_PAGE_SIZE_CEILING, CATALOG_PAGE_SIZE);
 
   protected metaLine(game: GameSummaryResponse): string {
     return [game.franchise, game.aaa_tier].filter((part) => !!part).join(' · ');
@@ -53,6 +57,19 @@ export class CatalogComponent {
       return;
     }
     this.applyPage(resolved);
+
+    const preferred = readPageSize(CATALOG_PAGE_SIZE_KEY, this.pageSizeChoices, CATALOG_PAGE_SIZE);
+    if (preferred !== CATALOG_PAGE_SIZE) {
+      this.pageSize.set(preferred);
+      this.load();
+    }
+  }
+
+  protected setPageSize(size: number): void {
+    this.pageSize.set(size);
+    writePageSize(CATALOG_PAGE_SIZE_KEY, size);
+    this.offset.set(0);
+    this.load();
   }
 
   private applyPage(response: CatalogGamesResponse): void {
@@ -68,12 +85,12 @@ export class CatalogComponent {
   }
 
   protected nextPage(): void {
-    this.offset.update((value) => value + PAGE_SIZE);
+    this.offset.update((value) => value + this.pageSize());
     this.load();
   }
 
   protected prevPage(): void {
-    this.offset.update((value) => Math.max(0, value - PAGE_SIZE));
+    this.offset.update((value) => Math.max(0, value - this.pageSize()));
     this.load();
   }
 
@@ -87,7 +104,7 @@ export class CatalogComponent {
         franchise: this.franchise().trim() || undefined,
         genre: this.genre().trim() || undefined,
         aaaTier: this.aaaTier() || undefined,
-        limit: PAGE_SIZE,
+        limit: this.pageSize(),
         offset: this.offset(),
       })
       .subscribe({

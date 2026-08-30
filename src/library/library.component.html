@@ -7,13 +7,16 @@
   <h1 id="page-title">{{ viewerMode() ? 'Library' : 'My Library' }}</h1>
 
   @if (viewerForbidden()) {
-    <p class="text-muted">This section isn't available.</p>
+    <p id="library-forbidden" class="text-muted">
+      This user keeps their library private. Only they can change that, in their own profile settings —
+      following them does not grant access.
+    </p>
   } @else {
     @if (!viewerMode()) {
       <p class="text-muted">Refresh rebuilds your catalog entries from your linked PlayStation Network entitlements.</p>
 
       <div class="card p-6 flex flex-col items-start gap-3">
-        <button type="button" class="btn-primary" [disabled]="refreshing()" (click)="refresh()">
+        <button id="library-refresh" type="button" class="btn-primary" [disabled]="refreshing()" (click)="refresh()">
           {{ refreshing() ? 'Refreshing...' : 'Refresh library' }}
         </button>
 
@@ -75,12 +78,12 @@
         }
 
         @if (status(); as current) {
-          <p class="catalog-meta">Status: {{ current.status }}</p>
+          <p id="library-refresh-status" class="catalog-meta">Status: {{ current.status }}</p>
           @if (current.status === 'succeeded') {
-            <p class="text-success">Library catalogued.</p>
+            <p id="library-refresh-succeeded" class="text-success">Library catalogued.</p>
             @if (current.result_summary; as summary) {
               @if (summary.rawg_enriched_titles.length > 0) {
-                <p class="catalog-meta">
+                <p id="library-summary-rawg" class="catalog-meta">
                   RAWG enriched: {{ summaryTitles(summary.rawg_enriched_titles).shown.join(', ') }}
                   @if (summaryTitles(summary.rawg_enriched_titles).more > 0) {
                     (+{{ summaryTitles(summary.rawg_enriched_titles).more }} more)
@@ -88,7 +91,7 @@
                 </p>
               }
               @if (summary.opencritic_enriched_titles.length > 0) {
-                <p class="catalog-meta">
+                <p id="library-summary-opencritic" class="catalog-meta">
                   OpenCritic enriched: {{ summaryTitles(summary.opencritic_enriched_titles).shown.join(', ') }}
                   @if (summaryTitles(summary.opencritic_enriched_titles).more > 0) {
                     (+{{ summaryTitles(summary.opencritic_enriched_titles).more }} more)
@@ -96,7 +99,7 @@
                 </p>
               }
               @if (summary.opencritic_topup_incomplete) {
-                <p class="text-muted">
+                <p id="library-summary-opencritic-topup" class="text-muted">
                   OpenCritic still has more of your library to check — this continues automatically on a future
                   refresh.
                 </p>
@@ -104,7 +107,13 @@
             }
           }
           @if (current.status === 'failed') {
-            <p class="text-error">{{ current.error ?? 'Refresh failed.' }}</p>
+            <p id="library-refresh-failed" class="text-error">{{ current.error ?? 'Refresh failed.' }}</p>
+          }
+          @if (current.status === 'cancelled') {
+            <p id="library-refresh-cancelled" class="catalog-meta">
+              This refresh was cancelled before it finished. Nothing it had already catalogued was undone —
+              start another refresh whenever you want the rest.
+            </p>
           }
           @if (current.status === 'rate_limited') {
             <p id="library-refresh-paused" class="catalog-meta">
@@ -129,8 +138,8 @@
 
       @if (gamesError()) {
         <p class="text-error">{{ gamesError() }}</p>
-      } @else if (total() === 0 && !committedSearch() && !categoryFilter()) {
-        <p class="text-muted">
+      } @else if (total() === 0 && !committedSearch() && !genreFilter()) {
+        <p id="library-empty" class="text-muted">
           {{ viewerMode() ? 'No games in this library yet.' : 'No games yet — run a refresh to build your library.' }}
         </p>
       } @else {
@@ -145,15 +154,15 @@
             aria-label="Search this library"
           />
           <select
-            id="library-category-filter"
-            class="library-category-filter"
-            [ngModel]="categoryFilter()"
-            (ngModelChange)="onCategoryFilterChange($event)"
-            aria-label="Filter by category"
+            id="library-genre-filter"
+            class="library-genre-filter"
+            [ngModel]="genreFilter()"
+            (ngModelChange)="onGenreFilterChange($event)"
+            aria-label="Filter by genre"
           >
-            <option value="">All categories</option>
-            @for (category of categoryOptions(); track category) {
-              <option [value]="category">{{ category }}</option>
+            <option value="">All genres</option>
+            @for (genre of genreOptions(); track genre) {
+              <option [value]="genre">{{ genre }}</option>
             }
           </select>
           <select
@@ -164,7 +173,7 @@
           >
             <option value="title:asc">Title (A–Z)</option>
             <option value="title:desc">Title (Z–A)</option>
-            <option value="category:asc">Category (A–Z)</option>
+            <option value="genre:asc">Genre (A–Z)</option>
             <option value="rawg_rating:desc">RAWG rating (high to low)</option>
             <option value="opencritic_rating:desc">OpenCritic rating (high to low)</option>
             <option value="psn_rating:desc">PS Store rating (high to low)</option>
@@ -178,11 +187,11 @@
           <div class="library-table-scroll">
             <table class="library-table">
               <thead>
-                @for (headerGroup of table().getHeaderGroups(); track headerGroup.id) {
+                @for (headerGroup of table.getHeaderGroups(); track headerGroup.id) {
                   <tr>
-                    @for (header of headerGroup.headers; track header.id; let headerIndex = $index) {
+                    @for (header of headerGroup.headers; track header.id) {
                       <th
-                        [attr.id]="'library-header-' + headerIndex"
+                        [attr.id]="'library-header-' + header.column.id"
                         [class.library-sortable]="header.column.getCanSort()"
                         [attr.aria-sort]="
                           header.column.getIsSorted() === 'asc'
@@ -208,7 +217,7 @@
                 }
               </thead>
               <tbody>
-                @for (row of table().getRowModel().rows; track row.original.game_id; let rowIndex = $index) {
+                @for (row of table.getRowModel().rows; track row.original.game_id; let rowIndex = $index) {
                   <tr [attr.id]="'library-row-' + rowIndex">
                     <td class="library-cover-cell">
                       @if (row.original.cover_image_url) {
@@ -245,7 +254,14 @@
                         —
                       }
                     </td>
-                    <td data-label="Category">{{ row.original.category ?? '—' }}</td>
+                    <td data-label="Genre">
+                      <span
+                        class="library-genre"
+                        [attr.id]="'library-genre-' + rowIndex"
+                        [attr.title]="row.original.genre"
+                        >{{ row.original.genre ?? '—' }}</span
+                      >
+                    </td>
                     <td data-label="RAWG">{{ row.original.rawg_rating ?? '—' }}</td>
                     <td data-label="OpenCritic">{{ row.original.opencritic_rating ?? '—' }}</td>
                     <td data-label="PS Store">{{ row.original.psn_rating ?? '—' }}</td>
@@ -253,7 +269,9 @@
                       {{ percentCompletedDisplay(row.original.percent_completed) }}
                     </td>
                     <td data-label="Catalog">
-                      <a [routerLink]="['/catalog', row.original.game_id]">Details</a>
+                      <a [attr.id]="'library-details-' + rowIndex" [routerLink]="['/catalog', row.original.game_id]"
+                        >Details</a
+                      >
                     </td>
                   </tr>
                 }
@@ -271,6 +289,12 @@
             <button id="library-next" type="button" class="btn-ghost" [disabled]="!hasNextPage()" (click)="nextPage()">
               Next
             </button>
+            <app-page-size
+              controlId="library-page-size"
+              [choices]="pageSizeChoices"
+              [value]="pagination().pageSize"
+              (valueChange)="setPageSize($event)"
+            />
           </div>
         }
       }

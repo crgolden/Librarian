@@ -1,5 +1,6 @@
 
 import { test as base, type Page } from '@playwright/test';
+import type { SizeSource } from './mocks/curator.js';
 
 const MOCK_BASE = 'http://localhost:4101';
 const MOCK_OIDC_BASE = 'http://localhost:4102';
@@ -16,6 +17,7 @@ export interface CatalogGameFixture {
   critical_score?: number | null;
   oc_score?: number | null;
   psn_rating?: number | null;
+  size_source?: SizeSource;
 }
 
 export interface PsnPreferencesFixture {
@@ -39,7 +41,7 @@ export interface EnrichmentKeyStatusFixture {
 export interface LibraryGameFixture {
   game_id: string;
   title: string;
-  category?: string | null;
+  genre?: string | null;
   rawg_rating?: number | null;
   opencritic_rating?: number | null;
   psn_rating?: number | null;
@@ -56,6 +58,15 @@ export interface LibraryRefreshResultSummaryFixture {
   opencritic_topup_incomplete: boolean;
 }
 
+export interface EnrichmentRunFixture {
+  run_id?: string;
+  status: string;
+  error?: string | null;
+  result_summary?: Record<string, unknown> | null;
+}
+
+export type EnrichmentRunTerminalStatusFixture = 'succeeded' | 'failed' | 'cancelled';
+
 export interface ProfileSettingsFixture {
   is_public?: boolean;
   show_library?: boolean;
@@ -70,6 +81,7 @@ export interface DefinitionFixture {
   kind: string;
   console_id?: string | null;
   visibility?: 'private' | 'unlisted' | 'public';
+  install_target_console_id?: string | null;
   game_ids?: string[];
 }
 
@@ -89,6 +101,12 @@ export interface TestStore {
     outcome: 'succeeded' | 'failed',
     error?: string,
     resultSummary?: LibraryRefreshResultSummaryFixture,
+  ): Promise<void>;
+  seedEnrichmentRun(run: EnrichmentRunFixture): Promise<void>;
+  setEnrichmentRunOutcome(
+    outcome: EnrichmentRunTerminalStatusFixture,
+    error?: string | null,
+    resultSummary?: Record<string, unknown> | null,
   ): Promise<void>;
 
   seedUser(sub: string): Promise<void>;
@@ -196,6 +214,16 @@ export const test = base.extend<LibrarianFixtures>({
       },
       async setLibraryRefreshOutcome(outcome, error, resultSummary) {
         await fetchControl('/_test/library-refresh-outcome', {
+          status: outcome,
+          error,
+          result_summary: resultSummary,
+        });
+      },
+      async seedEnrichmentRun(run) {
+        await fetchControl('/_test/enrichment-run', run);
+      },
+      async setEnrichmentRunOutcome(outcome, error, resultSummary) {
+        await fetchControl('/_test/enrichment-run-outcome', {
           status: outcome,
           error,
           result_summary: resultSummary,

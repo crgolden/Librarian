@@ -10,7 +10,7 @@ export const LIBRARY_PAGE_SIZE = 20;
 export type ResolvedLibraryGame = LibraryGameResponse | ProfileLibraryGameResponse;
 
 export type ResolvedLibrary =
-  | { status: 'ok'; games: ResolvedLibraryGame[]; total: number; categories: string[] }
+  | { status: 'ok'; games: ResolvedLibraryGame[]; total: number; genres: string[] }
   | { status: 'forbidden' }
   | { status: 'error' };
 
@@ -27,17 +27,17 @@ export const libraryResolver: ResolveFn<ResolvedLibrary> = (route: ActivatedRout
 
   const games =
     sub !== null ? curator.getUserLibrary(sub, initialLibraryQuery) : curator.getLibrary(initialLibraryQuery);
-  const categories = (sub !== null ? curator.getUserLibraryCategories(sub) : curator.getLibraryCategories()).pipe(
-    catchError(() => of({ categories: [] })),
+  const genres = (sub !== null ? curator.getUserLibraryGenres(sub) : curator.getLibraryGenres()).pipe(
+    catchError(() => of({ genres: [] })),
   );
 
-  return forkJoin({ games, categories }).pipe(
+  return forkJoin({ games, genres }).pipe(
     map(
       (data): ResolvedLibrary => ({
         status: 'ok',
         games: data.games.games,
         total: data.games.total,
-        categories: data.categories.categories,
+        genres: data.genres.genres,
       }),
     ),
     catchError((err: HttpErrorResponse) =>

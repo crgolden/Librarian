@@ -55,8 +55,8 @@ if (failures.length > 0) {
 
 if (knownForksSeen.length > 0) {
   console.log(
-    `\nKnown forks, baselined against AGENTS/PARKING_LOT.md §8a (${knownForksSeen.length}): ` +
-      `${knownForksSeen.join(', ')}`,
+    `\nKnown forks, baselined (${knownForksSeen.length}): ${knownForksSeen.join(', ')}. ` +
+      'Each entry is a deliberate exception with a recorded reason — never add one to silence a failure.',
   );
 }
 

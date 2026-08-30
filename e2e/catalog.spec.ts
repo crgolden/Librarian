@@ -1,6 +1,8 @@
 
 import { test, expect } from './fixtures.js';
 
+const CATALOG_GRID_MINIMUM_TRACK_PX = 220;
+
 const MANY_GAMES = Array.from({ length: 60 }, (_, i) => ({
   game_id: `g${i}`,
   canonical_title: `Game ${String(i).padStart(2, '0')}`,
@@ -56,7 +58,7 @@ test.describe('Catalog — anonymous', () => {
     ]);
 
     await page.goto('/catalog');
-    await page.getByRole('link', { name: 'Bloodborne' }).click();
+    await page.locator('#catalog-title-0').click();
 
     await page.waitForURL('**/catalog/g1', { timeout: 10_000 });
     await expect(page.locator('#page-title')).toContainText('Bloodborne');
@@ -156,11 +158,54 @@ test.describe('Catalog — authenticated', () => {
 
     await page.goto('/catalog');
     await expect(page.locator('text=Bloodborne')).toBeVisible();
-    await page.getByLabel('Genre').selectOption('Roguelike');
-    await page.getByRole('button', { name: 'Apply' }).click();
+    await page.locator('#genre').selectOption('Roguelike');
+    await page.locator('#catalog-apply').click();
 
     await expect(page.locator('text=Hades')).toBeVisible();
     await expect(page.locator('text=Bloodborne')).toHaveCount(0);
+  });
+
+  test('a raw genre token filters on the whole token and fits the narrowest card the grid can produce', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedCatalogGames([
+      { game_id: 'g1', canonical_title: 'Bloodborne', franchise: null, genre: 'ROLE_PLAYING_GAMES', aaa_tier: 'AAA' },
+      { game_id: 'g2', canonical_title: 'Thumper', franchise: null, genre: 'MUSIC/RHYTHM', aaa_tier: 'Indie' },
+    ]);
+
+    await page.goto('/catalog');
+    await expect(page.locator('#catalog-genre-0')).toHaveText('ROLE_PLAYING_GAMES');
+
+    const fit = await page.locator('#catalog-genre-0').evaluate((label, minimumTrack) => {
+      const card = label.closest('li');
+      if (card === null) return { renderedTokenWidth: Number.NaN, narrowestCardContent: Number.NaN };
+      const cardStyle = getComputedStyle(card);
+      const range = document.createRange();
+      range.selectNodeContents(label);
+      return {
+        renderedTokenWidth: range.getBoundingClientRect().width,
+        narrowestCardContent:
+          minimumTrack - parseFloat(cardStyle.paddingLeft) - parseFloat(cardStyle.paddingRight),
+      };
+    }, CATALOG_GRID_MINIMUM_TRACK_PX);
+
+    expect(
+      fit.renderedTokenWidth,
+      'the token measured zero width, so the fit assertion below would pass against nothing — the label box stretches to its flex line, so scrollWidth measures the box rather than the text',
+    ).toBeGreaterThan(0);
+    expect(
+      fit.renderedTokenWidth,
+      `the raw token renders at ${fit.renderedTokenWidth}px, wider than the ${fit.narrowestCardContent}px a card has at the grid floor, so it spills out of its tile on a narrow viewport`,
+    ).toBeLessThanOrEqual(fit.narrowestCardContent);
+
+    await page.locator('#genre').selectOption('ROLE_PLAYING_GAMES');
+    await expect(page.locator('#genre')).toHaveValue('ROLE_PLAYING_GAMES');
+    await page.locator('#catalog-apply').click();
+
+    await expect(page.locator('[id^="catalog-title-"]')).toHaveCount(1);
+    await expect(page.locator('#catalog-title-0')).toHaveText('Bloodborne');
   });
 
   test('pager enables Next on a full page and Previous after advancing', async ({ authedPage: page, store }) => {
@@ -168,10 +213,10 @@ test.describe('Catalog — authenticated', () => {
     await store.seedCatalogGames(MANY_GAMES);
 
     await page.goto('/catalog');
-    await expect(page.getByRole('button', { name: 'Previous' })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Next' })).toBeEnabled();
+    await expect(page.locator('#catalog-prev')).toBeDisabled();
+    await expect(page.locator('#catalog-next')).toBeEnabled();
 
-    await page.getByRole('button', { name: 'Next' }).click();
-    await expect(page.getByRole('button', { name: 'Previous' })).toBeEnabled();
+    await page.locator('#catalog-next').click();
+    await expect(page.locator('#catalog-prev')).toBeEnabled();
   });
 });

@@ -16,7 +16,29 @@ test.describe('PSN settings — auth guard', () => {
   test('unauthenticated visitor is redirected to login', async ({ anonymousPage: page, store }) => {
     await store.reset();
 
+    await page.goto('/account');
+    await page.waitForURL('**/bff/login**', { timeout: 10_000 });
+  });
+});
+
+test.describe('PSN settings — legacy /psn bookmarks', () => {
+  test('an existing /psn bookmark lands on /account', async ({ authedPage: page, store }) => {
+    await store.reset();
+
     await page.goto('/psn');
+
+    await page.waitForURL('**/account', { timeout: 10_000 });
+    await expect(page.locator('#page-title')).toContainText('Account');
+  });
+
+  test('an anonymous /psn bookmark still reaches login rather than a dead route', async ({
+    anonymousPage: page,
+    store,
+  }) => {
+    await store.reset();
+
+    await page.goto('/psn');
+
     await page.waitForURL('**/bff/login**', { timeout: 10_000 });
   });
 });
@@ -25,10 +47,43 @@ test.describe('PSN settings — authenticated', () => {
   test('shows the link form when no PSN account is linked', async ({ authedPage: page, store }) => {
     await store.reset();
 
-    await page.goto('/psn');
-    await expect(page.locator('#page-title')).toContainText('PlayStation Network');
-    await expect(page.getByLabel('NPSSO token')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Link account' })).toBeVisible();
+    await page.goto('/account');
+    await expect(page.locator('#page-title')).toContainText('Account');
+    await expect(page.locator('#npsso')).toBeVisible();
+    await expect(page.locator('#psn-link-submit')).toHaveText('Link account');
+  });
+
+  test('offers enrichment keys and scheduling with no PSN account linked', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+
+    await page.goto('/account');
+    await expect(page.locator('#psn-link-submit')).toBeVisible();
+    await expect(page.locator('#psn-enrichment-keys-card')).toBeVisible();
+    await expect(page.locator('#psn-schedule-card')).toBeVisible();
+    await expect(page.locator('#pref-trophies')).toHaveCount(0);
+  });
+
+  test('keeps enrichment keys and scheduling visible after unlinking and reloading', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedPsnLink();
+
+    await page.goto('/account');
+    await expect(page.locator('#psn-enrichment-keys-card')).toBeVisible();
+    await page.locator('#psn-unlink').click();
+    await expect(page.locator('#psn-link-submit')).toBeVisible({ timeout: 10_000 });
+
+    await page.reload();
+
+    await expect(page.locator('#psn-link-submit')).toBeVisible();
+    await expect(page.locator('#psn-enrichment-keys-card')).toBeVisible();
+    await expect(page.locator('#psn-schedule-card')).toBeVisible();
+    await expect(page.locator('#pref-trophies')).toHaveCount(0);
   });
 
   test('shows linked status and an unlink button when a PSN account is linked', async ({
@@ -38,9 +93,9 @@ test.describe('PSN settings — authenticated', () => {
     await store.reset();
     await store.seedPsnLink();
 
-    await page.goto('/psn');
+    await page.goto('/account');
     await expect(page.locator('text=PSN account linked')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Unlink' })).toBeVisible();
+    await expect(page.locator('#psn-unlink')).toHaveText('Unlink');
   });
 
   test('linking submits the NPSSO token and shows the linked state', async ({
@@ -49,10 +104,10 @@ test.describe('PSN settings — authenticated', () => {
   }) => {
     await store.reset();
 
-    await page.goto('/psn');
-    await page.getByLabel('NPSSO token').fill(VALID_NPSSO);
-    await page.getByRole('button', { name: 'Link account' }).click();
-    await expect(page.getByRole('button', { name: 'Unlink' })).toBeVisible({ timeout: 10_000 });
+    await page.goto('/account');
+    await page.locator('#npsso').fill(VALID_NPSSO);
+    await page.locator('#psn-link-submit').click();
+    await expect(page.locator('#psn-unlink')).toBeVisible({ timeout: 10_000 });
   });
 
   test('shows a no-refresh-token warning when PSN issued no refresh token', async ({
@@ -62,9 +117,9 @@ test.describe('PSN settings — authenticated', () => {
     await store.reset();
     await store.seedPsnLink({ refresh_token_expires_at: null });
 
-    await page.goto('/psn');
+    await page.goto('/account');
     await expect(page.locator('text=PSN account linked')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Unlink' })).toBeVisible();
+    await expect(page.locator('#psn-unlink')).toBeVisible();
     await expect(page.locator('#psn-no-refresh-token-warning')).toContainText(
       "PSN didn't issue a renewable session",
     );
@@ -77,9 +132,9 @@ test.describe('PSN settings — authenticated', () => {
     await store.reset();
     await store.seedPsnLink();
 
-    await page.goto('/psn');
-    await page.getByRole('button', { name: 'Unlink' }).click();
-    await expect(page.getByRole('button', { name: 'Link account' })).toBeVisible({ timeout: 10_000 });
+    await page.goto('/account');
+    await page.locator('#psn-unlink').click();
+    await expect(page.locator('#psn-link-submit')).toBeVisible({ timeout: 10_000 });
   });
 });
 
@@ -87,9 +142,9 @@ test.describe('PSN settings — action history', () => {
   test('shows a message when there is no history yet', async ({ authedPage: page, store }) => {
     await store.reset();
 
-    await page.goto('/psn');
-    await page.getByRole('button', { name: 'View my action history' }).click();
-    await expect(page.getByText('No actions recorded yet.')).toBeVisible();
+    await page.goto('/account');
+    await page.locator('#psn-action-history-load').click();
+    await expect(page.locator('#psn-action-history-empty')).toHaveText('No actions recorded yet.');
   });
 
   test('shows recorded actions after linking and unlinking, and offers a download button', async ({
@@ -98,22 +153,22 @@ test.describe('PSN settings — action history', () => {
   }) => {
     await store.reset();
 
-    await page.goto('/psn');
-    await page.getByLabel('NPSSO token').fill(VALID_NPSSO);
-    await page.getByRole('button', { name: 'Link account' }).click();
-    await expect(page.getByRole('button', { name: 'Unlink' })).toBeVisible({ timeout: 10_000 });
+    await page.goto('/account');
+    await page.locator('#npsso').fill(VALID_NPSSO);
+    await page.locator('#psn-link-submit').click();
+    await expect(page.locator('#psn-unlink')).toBeVisible({ timeout: 10_000 });
 
-    await page.getByRole('button', { name: 'Unlink' }).click();
-    await expect(page.getByRole('button', { name: 'Link account' })).toBeVisible({ timeout: 10_000 });
+    await page.locator('#psn-unlink').click();
+    await expect(page.locator('#psn-link-submit')).toBeVisible({ timeout: 10_000 });
 
-    await page.getByRole('button', { name: 'View my action history' }).click();
+    await page.locator('#psn-action-history-load').click();
     const historyList = page.locator('#psn-action-history-list');
-    await expect(historyList.getByText(/link_succeeded/)).toBeVisible();
-    await expect(historyList.getByText(/unlinked/)).toBeVisible();
+    await expect(historyList).toContainText('link_succeeded');
+    await expect(historyList).toContainText('unlinked');
 
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByRole('button', { name: 'Download as JSON' }).click(),
+      page.locator('#psn-action-history-download').click(),
     ]);
     expect(download.suggestedFilename()).toBe('librarian-account-history.json');
   });
@@ -127,14 +182,15 @@ test.describe('PSN settings — delete my data', () => {
     await store.reset();
     await store.seedPsnLink();
 
-    await page.goto('/psn');
-    await page.getByRole('button', { name: 'Delete my data' }).click();
-    await expect(page.getByText('Are you sure?')).toBeVisible();
+    await page.goto('/account');
+    await page.locator('#psn-delete-request').click();
+    await expect(page.locator('#psn-delete-confirm-prompt')).toContainText('Are you sure?');
 
-    await page.getByRole('button', { name: 'Yes, delete everything' }).click();
-    await expect(
-      page.getByText('Your account and all associated data have been deleted.'),
-    ).toBeVisible({ timeout: 10_000 });
+    await page.locator('#psn-delete-confirm').click();
+    await expect(page.locator('#psn-deleted-notice')).toContainText(
+      'Your account and all associated data have been deleted.',
+      { timeout: 10_000 },
+    );
   });
 
   test('cancelling the confirmation makes no request and leaves the account intact', async ({
@@ -144,11 +200,11 @@ test.describe('PSN settings — delete my data', () => {
     await store.reset();
     await store.seedPsnLink();
 
-    await page.goto('/psn');
-    await page.getByRole('button', { name: 'Delete my data' }).click();
-    await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.goto('/account');
+    await page.locator('#psn-delete-request').click();
+    await page.locator('#psn-delete-cancel').click();
 
-    await expect(page.getByText('Are you sure?')).not.toBeVisible();
+    await expect(page.locator('#psn-delete-confirm-prompt')).toHaveCount(0);
     await expect(page.locator('text=PSN account linked')).toBeVisible();
   });
 });
@@ -161,12 +217,12 @@ test.describe('PSN settings — data-sharing preferences', () => {
     await store.reset();
     await store.seedPsnLink();
 
-    await page.goto('/psn');
+    await page.goto('/account');
     await expect(page.locator('text=PSN account linked')).toBeVisible();
-    await expect(page.getByLabel('Trophies')).not.toBeChecked();
-    await expect(page.getByLabel('PSN Identity')).not.toBeChecked();
-    await expect(page.getByLabel('Online Presence')).not.toBeChecked();
-    await expect(page.getByLabel('Registered Devices')).not.toBeChecked();
+    await expect(page.locator('#pref-trophies')).not.toBeChecked();
+    await expect(page.locator('#pref-identity')).not.toBeChecked();
+    await expect(page.locator('#pref-presence')).not.toBeChecked();
+    await expect(page.locator('#pref-devices')).not.toBeChecked();
 
     await expectNoCategoryCards(page);
   });
@@ -178,8 +234,8 @@ test.describe('PSN settings — data-sharing preferences', () => {
     await store.reset();
     await store.seedPsnLink();
 
-    await page.goto('/psn');
-    await page.getByLabel('Trophies').check();
+    await page.goto('/account');
+    await page.locator('#pref-trophies').check();
 
     const card = page.locator('#psn-card-trophies');
     await expect(card).toBeVisible();
@@ -187,7 +243,7 @@ test.describe('PSN settings — data-sharing preferences', () => {
     await expect(card).toContainText('3 platinum');
 
     await page.reload();
-    await expect(page.getByLabel('Trophies')).toBeChecked();
+    await expect(page.locator('#pref-trophies')).toBeChecked();
     await expect(page.locator('#psn-card-trophies')).toBeVisible();
   });
 
@@ -198,15 +254,15 @@ test.describe('PSN settings — data-sharing preferences', () => {
     await store.reset();
     await store.seedPsnLink();
 
-    await page.goto('/psn');
-    await expect(page.getByLabel('Friend requests')).not.toBeChecked();
-    await expect(page.getByLabel('Chat groups')).not.toBeChecked();
+    await page.goto('/account');
+    await expect(page.locator('#pref-friend-writes')).not.toBeChecked();
+    await expect(page.locator('#pref-chat-writes')).not.toBeChecked();
 
-    await page.getByLabel('Friend requests').check();
+    await page.locator('#pref-friend-writes').check();
     await page.reload();
 
-    await expect(page.getByLabel('Friend requests')).toBeChecked();
-    await expect(page.getByLabel('Chat groups')).not.toBeChecked();
+    await expect(page.locator('#pref-friend-writes')).toBeChecked();
+    await expect(page.locator('#pref-chat-writes')).not.toBeChecked();
   });
 
   test('granting a write consent renders no category card, unlike the read preferences', async ({
@@ -216,10 +272,10 @@ test.describe('PSN settings — data-sharing preferences', () => {
     await store.reset();
     await store.seedPsnLink();
 
-    await page.goto('/psn');
-    await page.getByLabel('Chat groups').check();
+    await page.goto('/account');
+    await page.locator('#pref-chat-writes').check();
 
-    await expect(page.getByLabel('Chat groups')).toBeChecked();
+    await expect(page.locator('#pref-chat-writes')).toBeChecked();
     await expectNoCategoryCards(page);
   });
 
@@ -228,16 +284,16 @@ test.describe('PSN settings — data-sharing preferences', () => {
     await store.seedPsnLink();
     await store.seedPsnPreferences({ harvest_identity: true });
 
-    await page.goto('/psn');
+    await page.goto('/account');
     const card = page.locator('#psn-card-identity');
     await expect(card).toBeVisible();
     await expect(card).toContainText('e2e_gamer');
 
-    await page.getByLabel('PSN Identity').uncheck();
+    await page.locator('#pref-identity').uncheck();
     await expect(card).not.toBeVisible();
 
     await page.reload();
-    await expect(page.getByLabel('PSN Identity')).not.toBeChecked();
+    await expect(page.locator('#pref-identity')).not.toBeChecked();
     await expect(page.locator('#psn-card-identity')).toHaveCount(0);
   });
 });
@@ -250,11 +306,11 @@ test.describe('PSN settings — enrichment API keys', () => {
     await store.reset();
     await store.seedPsnLink();
 
-    await page.goto('/psn');
+    await page.goto('/account');
     await expect(page.locator('#rawg-key')).toBeVisible();
     await expect(page.locator('#opencritic-key')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Save RAWG key' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Save OpenCritic key' })).toBeVisible();
+    await expect(page.locator('#psn-rawg-key-save')).toHaveText('Save RAWG key');
+    await expect(page.locator('#psn-opencritic-key-save')).toHaveText('Save OpenCritic key');
   });
 
   test('saving a RAWG key shows the configured state and persists across reload, independent of OpenCritic', async ({
@@ -264,15 +320,15 @@ test.describe('PSN settings — enrichment API keys', () => {
     await store.reset();
     await store.seedPsnLink();
 
-    await page.goto('/psn');
+    await page.goto('/account');
     await page.locator('#rawg-key').fill('fake-rawg-key');
-    await page.getByRole('button', { name: 'Save RAWG key' }).click();
+    await page.locator('#psn-rawg-key-save').click();
 
-    await expect(page.getByRole('button', { name: 'Remove RAWG key' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#psn-rawg-key-remove')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('#opencritic-key')).toBeVisible();
 
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Remove RAWG key' })).toBeVisible();
+    await expect(page.locator('#psn-rawg-key-remove')).toBeVisible();
     await expect(page.locator('#opencritic-key')).toBeVisible();
   });
 
@@ -280,10 +336,10 @@ test.describe('PSN settings — enrichment API keys', () => {
     await store.reset();
     await store.seedPsnLink();
 
-    await page.goto('/psn');
+    await page.goto('/account');
     await page.locator('#rawg-key').fill('super-secret-key-value');
-    await page.getByRole('button', { name: 'Save RAWG key' }).click();
-    await expect(page.getByRole('button', { name: 'Remove RAWG key' })).toBeVisible({ timeout: 10_000 });
+    await page.locator('#psn-rawg-key-save').click();
+    await expect(page.locator('#psn-rawg-key-remove')).toBeVisible({ timeout: 10_000 });
 
     await expect(page.locator('body')).not.toContainText('super-secret-key-value');
   });
@@ -293,10 +349,10 @@ test.describe('PSN settings — enrichment API keys', () => {
     await store.seedPsnLink();
     await store.seedEnrichmentKeys({ opencritic_configured: true });
 
-    await page.goto('/psn');
-    await expect(page.getByRole('button', { name: 'Remove OpenCritic key' })).toBeVisible();
+    await page.goto('/account');
+    await expect(page.locator('#psn-opencritic-key-remove')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Remove OpenCritic key' }).click();
+    await page.locator('#psn-opencritic-key-remove').click();
     await expect(page.locator('#opencritic-key')).toBeVisible({ timeout: 10_000 });
   });
 
@@ -307,8 +363,8 @@ test.describe('PSN settings — enrichment API keys', () => {
     await store.reset();
     await store.seedPsnLink();
 
-    await page.goto('/psn');
-    await page.getByRole('button', { name: 'Save RAWG key' }).click();
-    await expect(page.getByText('Enter a RAWG API key.')).toBeVisible();
+    await page.goto('/account');
+    await page.locator('#psn-rawg-key-save').click();
+    await expect(page.locator('#psn-rawg-key-error')).toHaveText('Enter a RAWG API key.');
   });
 });

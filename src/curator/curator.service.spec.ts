@@ -129,11 +129,11 @@ describe('CuratorService', () => {
   });
 
   it('getLibrary sends only the provided query params', () => {
-    service.getLibrary({ q: 'ring', category: 'RPG', sort: 'psn_rating', sortDir: 'desc', limit: 10, offset: 20 }).subscribe();
+    service.getLibrary({ q: 'ring', genre: 'RPG', sort: 'psn_rating', sortDir: 'desc', limit: 10, offset: 20 }).subscribe();
 
     const req = httpMock.expectOne((r) => r.url === '/curator/api/library');
     expect(req.request.params.get('q')).toBe('ring');
-    expect(req.request.params.get('category')).toBe('RPG');
+    expect(req.request.params.get('genre')).toBe('RPG');
     expect(req.request.params.get('sort')).toBe('psn_rating');
     expect(req.request.params.get('sortDir')).toBe('desc');
     expect(req.request.params.get('limit')).toBe('10');
@@ -141,12 +141,12 @@ describe('CuratorService', () => {
     req.flush({ games: [], total: 0 });
   });
 
-  it('getLibraryCategories gets the caller\'s own category list', () => {
-    service.getLibraryCategories().subscribe();
+  it('getLibraryGenres gets the caller\'s own genre list', () => {
+    service.getLibraryGenres().subscribe();
 
-    const req = httpMock.expectOne('/curator/api/library/categories');
+    const req = httpMock.expectOne('/curator/api/library/genres');
     expect(req.request.method).toBe('GET');
-    req.flush({ categories: [] });
+    req.flush({ genres: [] });
   });
 
   it('getEnrichmentKeyStatus gets the key status', () => {
@@ -349,12 +349,12 @@ describe('CuratorService', () => {
     req.flush({ games: [], total: 0 });
   });
 
-  it('getUserLibraryCategories gets the sub-scoped category list', () => {
-    service.getUserLibraryCategories('other-sub').subscribe();
+  it('getUserLibraryGenres gets the sub-scoped genre list', () => {
+    service.getUserLibraryGenres('other-sub').subscribe();
 
-    const req = httpMock.expectOne('/curator/api/users/other-sub/library/categories');
+    const req = httpMock.expectOne('/curator/api/users/other-sub/library/genres');
     expect(req.request.method).toBe('GET');
-    req.flush({ categories: [] });
+    req.flush({ genres: [] });
   });
 
   it('getUserCollections gets the sub-scoped read-only collections', () => {

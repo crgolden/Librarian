@@ -300,7 +300,7 @@ describe('ProfileViewComponent', () => {
     const tile = compiled.querySelector('[data-stat="trophies-off"]');
     expect(tile).not.toBeNull();
     expect(tile?.textContent).toContain('switched off');
-    expect(tile?.querySelector('a[href="/psn"]')).not.toBeNull();
+    expect(tile?.querySelector('a[href="/account"]')).not.toBeNull();
   });
 
   it('says nothing about why trophies are blank when the flag is false', () => {

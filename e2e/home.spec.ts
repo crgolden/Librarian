@@ -28,14 +28,14 @@ test.describe('HomePage', () => {
 
     await page.goto('/');
     await expect(page.locator('#page-title')).toContainText('Welcome to Librarian');
-    await expect(page.getByRole('link', { name: 'Sign in' }).first()).toBeVisible();
+    await expect(page.locator('#home-sign-in')).toHaveText('Sign in');
   });
 
   test('authenticated visitor sees a link to PSN settings', async ({ authedPage: page, store }) => {
     await store.reset();
 
     await page.goto('/');
-    await expect(page.getByRole('link', { name: 'Manage PSN Link' })).toBeVisible();
+    await expect(page.locator('#home-action-0')).toHaveText('Manage PSN Link');
   });
 });
 
@@ -60,7 +60,7 @@ test.describe('HomePage — resolved collection summary', () => {
       'Collections',
       'Collection entries',
     ]);
-    await expect(page.getByText(UNLINKED_NOTICE)).toHaveCount(0);
+    await expect(page.locator('#home-unlinked-notice')).toHaveCount(0);
   });
 
   test('tells an unlinked account nothing has been catalogued yet', async ({ authedPage: page, store }) => {
@@ -68,7 +68,7 @@ test.describe('HomePage — resolved collection summary', () => {
 
     await page.goto('/');
 
-    await expect(page.getByText(UNLINKED_NOTICE)).toBeVisible();
+    await expect(page.locator('#home-unlinked-notice')).toContainText(UNLINKED_NOTICE);
   });
 
   test('drops the unlinked notice after linking, without a page reload', async ({
@@ -78,18 +78,18 @@ test.describe('HomePage — resolved collection summary', () => {
     await store.reset();
 
     await page.goto('/');
-    await expect(page.getByText(UNLINKED_NOTICE)).toBeVisible();
+    await expect(page.locator('#home-unlinked-notice')).toContainText(UNLINKED_NOTICE);
 
     await page.locator('#nav-rail-5').click();
-    await page.waitForURL('**/psn', { timeout: 10_000 });
-    await page.getByLabel('NPSSO token').fill(VALID_NPSSO);
-    await page.getByRole('button', { name: 'Link account' }).click();
-    await expect(page.getByRole('button', { name: 'Unlink' })).toBeVisible({ timeout: 10_000 });
+    await page.waitForURL('**/account', { timeout: 10_000 });
+    await page.locator('#npsso').fill(VALID_NPSSO);
+    await page.locator('#psn-link-submit').click();
+    await expect(page.locator('#psn-unlink')).toBeVisible({ timeout: 10_000 });
 
     await page.locator('#nav-rail-0').click();
     await page.waitForURL((url) => url.pathname === '/', { timeout: 10_000 });
 
     await expect(page.locator('#home-total-library')).toBeVisible();
-    await expect(page.getByText(UNLINKED_NOTICE)).toHaveCount(0);
+    await expect(page.locator('#home-unlinked-notice')).toHaveCount(0);
   });
 });

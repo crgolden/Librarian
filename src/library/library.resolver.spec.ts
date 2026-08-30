@@ -24,16 +24,16 @@ function run(curator: Partial<CuratorService>, sub: string | null): Promise<Reso
 const fails = (status: number) => () => throwError(() => new HttpErrorResponse({ status }));
 
 describe('libraryResolver', () => {
-  it('resolves the caller’s own library and its categories', async () => {
+  it('resolves the caller’s own library and its genres', async () => {
     const result = await run(
       {
         getLibrary: () => of({ games: GAMES, total: 42 }),
-        getLibraryCategories: () => of({ categories: ['RPG'] }),
+        getLibraryGenres: () => of({ genres: ['RPG'] }),
       },
       null,
     );
 
-    expect(result).toEqual({ status: 'ok', games: GAMES, total: 42, categories: ['RPG'] });
+    expect(result).toEqual({ status: 'ok', games: GAMES, total: 42, genres: ['RPG'] });
   });
 
   it('asks for another user’s library when the route names a sub', async () => {
@@ -44,13 +44,13 @@ describe('libraryResolver', () => {
           asked.push(sub);
           return of({ games: GAMES, total: 1 });
         },
-        getUserLibraryCategories: () => of({ categories: [] }),
+        getUserLibraryGenres: () => of({ genres: [] }),
       },
       'u1',
     );
 
     expect(asked).toEqual(['u1']);
-    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, categories: [] });
+    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [] });
   });
 
   it('starts on title-ascending, first page, with no filters applied', async () => {
@@ -61,7 +61,7 @@ describe('libraryResolver', () => {
           queries.push(query);
           return of({ games: GAMES, total: 1 });
         },
-        getLibraryCategories: () => of({ categories: [] }),
+        getLibraryGenres: () => of({ genres: [] }),
       },
       null,
     );
@@ -71,22 +71,22 @@ describe('libraryResolver', () => {
     expect(initialLibraryQuery.sortDir).toBe('asc');
   });
 
-  it('treats categories as best-effort, still resolving the games', async () => {
+  it('treats genres as best-effort, still resolving the games', async () => {
     const result = await run(
-      { getLibrary: () => of({ games: GAMES, total: 1 }), getLibraryCategories: fails(500) },
+      { getLibrary: () => of({ games: GAMES, total: 1 }), getLibraryGenres: fails(500) },
       null,
     );
 
-    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, categories: [] });
+    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [] });
   });
 
   it('distinguishes a private library from a failed load', async () => {
     const forbidden = await run(
-      { getUserLibrary: fails(403), getUserLibraryCategories: () => of({ categories: [] }) },
+      { getUserLibrary: fails(403), getUserLibraryGenres: () => of({ genres: [] }) },
       'u1',
     );
     const failed = await run(
-      { getUserLibrary: fails(500), getUserLibraryCategories: () => of({ categories: [] }) },
+      { getUserLibrary: fails(500), getUserLibraryGenres: () => of({ genres: [] }) },
       'u1',
     );
 

@@ -1,10 +1,11 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Location, isPlatformBrowser } from '@angular/common';
+import { isPlatformBrowser } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CuratorService } from '../curator/curator.service';
 import {
+  CollectionGameResponse,
   CollectionItemResponse,
   CollectionItemSortField,
   CollectionPreviewResponse,
@@ -16,6 +17,7 @@ import {
   DefinitionResponse,
   MeasuredSizeResponse,
   ProfileDefinitionResponse,
+  SizeSource,
   StorageDeviceResponse,
 } from '../curator/curator.models';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
@@ -29,6 +31,14 @@ const ITEMS_PAGE_SIZE = 50;
 
 export const RESULT_PAGE_SIZE = 50;
 
+export const UNMEASURED_SIZE_SOURCE: SizeSource = 'default';
+
+export const SIZE_SOURCE_LABELS: Record<SizeSource, string> = {
+  measured: 'measured',
+  estimated: 'estimated',
+  default: 'not measured',
+};
+
 @Component({
   selector: 'app-collections',
   imports: [FormsModule, RouterLink, BreadcrumbComponent, LoadingOverlayComponent],
@@ -38,7 +48,7 @@ export const RESULT_PAGE_SIZE = 50;
 })
 export class CollectionsComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
-  private readonly location = inject(Location);
+  private readonly router = inject(Router);
   private readonly curator = inject(CuratorService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
@@ -82,13 +92,13 @@ export class CollectionsComponent implements OnInit {
   protected readonly previewPageEnd = computed(() =>
     Math.min(this.previewOffset() + RESULT_PAGE_SIZE, this.previewPageableTotal()),
   );
+  protected readonly sizeSourceLabels = SIZE_SOURCE_LABELS;
   protected readonly name = signal('');
   protected readonly description = signal('');
   protected readonly saving = signal(false);
   protected readonly saveError = signal<string | null>(null);
 
   protected readonly selectedDefinition = signal<DefinitionDetailResponse | null>(null);
-  protected readonly detailLoading = signal(false);
   protected readonly detailError = signal<string | null>(null);
 
   protected readonly editingMeta = signal(false);
@@ -163,7 +173,6 @@ export class CollectionsComponent implements OnInit {
     () =>
       this.reloadingDefinitions() ||
       this.loadingFollowed() ||
-      this.detailLoading() ||
       this.itemsLoading() ||
       this.installsLoading() ||
       this.measuredSizesLoading(),
@@ -200,17 +209,19 @@ export class CollectionsComponent implements OnInit {
         this.consoles.set(resolved.consoles);
         this.definitionsError.set('Unable to load your saved collections.');
         return;
-      case 'detail':
+      case 'detail': {
         this.consoles.set(resolved.consoles);
         this.view.set('detail');
         this.applyDefinition(resolved.definition);
         this.editName.set(resolved.definition.name);
         this.editDescription.set(resolved.definition.description);
-        if (resolved.definition.kind === 'capacity_fill' && resolved.definition.console_id) {
-          this.hydrateInstalls(resolved.definition.console_id);
-          this.hydrateDeviceInstalls(resolved.definition.console_id);
+        const installConsoleId = this.installConsoleId(resolved.definition);
+        if (installConsoleId !== null) {
+          this.hydrateInstalls(installConsoleId);
+          this.hydrateDeviceInstalls(installConsoleId);
         }
         return;
+      }
       case 'detail-error':
         this.consoles.set(resolved.consoles);
         this.view.set('detail');
@@ -441,67 +452,6 @@ export class CollectionsComponent implements OnInit {
       });
   }
 
-  protected onDefinitionClick(event: MouseEvent, definitionId: string): void {
-    if (CollectionsComponent.opensInNewTab(event)) {
-      return;
-    }
-    event.preventDefault();
-    this.openDefinition(definitionId);
-  }
-
-  private static opensInNewTab(event: MouseEvent): boolean {
-    return event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey;
-  }
-
-  protected openDefinition(definitionId: string): void {
-    this.location.go(`/collections/d/${definitionId}`);
-    this.view.set('detail');
-    this.detailLoading.set(true);
-    this.detailError.set(null);
-    this.selectedDefinition.set(null);
-    this.editingMeta.set(false);
-    this.metaError.set(null);
-    this.visibilityError.set(null);
-    this.shareLinkCopied.set(false);
-    this.itemsError.set(null);
-    this.confirmingDelete.set(false);
-    this.deleteError.set(null);
-    this.runResult.set(null);
-    this.runError.set(null);
-    this.adoptError.set(null);
-    this.installedGameIds.set(new Set());
-    this.installErrors.set(new Map());
-    this.attachedDevices.set([]);
-    this.deviceInstalledKeys.set(new Set());
-    this.deviceInstallErrors.set(new Map());
-    this.expandedSizeGameId.set(null);
-    this.measuredSizesByGame.set(new Map());
-    this.measuredSizeError.set(null);
-    this.items.set([]);
-    this.itemsTotal.set(0);
-    this.itemSearch.set('');
-    this.itemSort.set('rank');
-    this.itemSortDir.set('asc');
-    this.itemOffset.set(0);
-
-    this.curator.getDefinition(definitionId).subscribe({
-      next: (definition) => {
-        this.detailLoading.set(false);
-        this.applyDefinition(definition);
-        this.editName.set(definition.name);
-        this.editDescription.set(definition.description);
-        if (definition.kind === 'capacity_fill' && definition.console_id) {
-          this.hydrateInstalls(definition.console_id);
-          this.hydrateDeviceInstalls(definition.console_id);
-        }
-      },
-      error: () => {
-        this.detailLoading.set(false);
-        this.detailError.set('Unable to load this collection.');
-      },
-    });
-  }
-
   private applyDefinition(definition: DefinitionDetailResponse): void {
     this.selectedDefinition.set(definition);
     this.items.set(definition.items);
@@ -565,6 +515,17 @@ export class CollectionsComponent implements OnInit {
     }
   }
 
+  private installConsoleId(definition: DefinitionDetailResponse | null): string | null {
+    if (definition === null) {
+      return null;
+    }
+    const target = definition.install_target_console_id ?? null;
+    if (target !== null) {
+      return target;
+    }
+    return definition.kind === 'capacity_fill' ? (definition.console_id ?? null) : null;
+  }
+
   private hydrateInstalls(consoleId: string): void {
     this.installsLoading.set(true);
     this.curator.getConsoleInstalls(consoleId).subscribe({
@@ -604,13 +565,6 @@ export class CollectionsComponent implements OnInit {
 
   private deviceInstallKey(deviceId: string, gameId: string): string {
     return `${deviceId} ${gameId}`;
-  }
-
-  protected backToList(): void {
-    this.location.go('/collections');
-    this.selectedDefinition.set(null);
-    this.view.set('list');
-    this.loadDefinitions();
   }
 
   protected startEditingMeta(): void {
@@ -743,7 +697,7 @@ export class CollectionsComponent implements OnInit {
       next: () => {
         this.deleting.set(false);
         this.confirmingDelete.set(false);
-        this.backToList();
+        void this.router.navigate(['/collections']);
       },
       error: () => {
         this.deleting.set(false);
@@ -803,17 +757,15 @@ export class CollectionsComponent implements OnInit {
   }
 
   protected canToggleInstall(): boolean {
-    const definition = this.selectedDefinition();
-    return definition?.kind === 'capacity_fill' && !!definition.console_id;
+    return this.installConsoleId(this.selectedDefinition()) !== null;
   }
 
   protected toggleInstall(gameId: string): void {
-    const definition = this.selectedDefinition();
-    if (!definition?.console_id) {
+    const consoleId = this.installConsoleId(this.selectedDefinition());
+    if (consoleId === null) {
       return;
     }
 
-    const consoleId = definition.console_id;
     const nextInstalled = !this.installedGameIds().has(gameId);
 
     this.installingGameIds.update((ids) => new Set(ids).add(gameId));
@@ -912,6 +864,10 @@ export class CollectionsComponent implements OnInit {
 
   protected measuredSizesFor(gameId: string): MeasuredSizeResponse[] {
     return this.measuredSizesByGame().get(gameId) ?? [];
+  }
+
+  protected unmeasuredSizeCount(games: readonly CollectionGameResponse[]): number {
+    return games.filter((game) => game.size_source === UNMEASURED_SIZE_SOURCE).length;
   }
 
   protected toggleMeasuredSizePanel(gameId: string): void {

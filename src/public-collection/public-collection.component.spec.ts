@@ -96,6 +96,7 @@ describe('PublicCollectionComponent', () => {
             psn_rating: 4.5,
             cover_image_url: 'https://img.example/g1.jpg',
             owner_has_access: true,
+            installed_on_target: null,
           },
         ],
       }),

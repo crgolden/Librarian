@@ -7,11 +7,20 @@ const ROOT_ROUTE = '/';
 
 export function routeTemplateFor(req: Request): string {
   const matched = req.route as { path?: string } | undefined;
+  const matchedPath = matched?.path;
 
-  if (matched?.path) {
-    const base = req.baseUrl ?? '';
-    const path = matched.path === ROOT_ROUTE ? '' : matched.path;
-    return `${base}${path}` || ROOT_ROUTE;
+  if (matchedPath) {
+    const templateSegments: string[] = [];
+
+    if (req.baseUrl) {
+      templateSegments.push(req.baseUrl);
+    }
+
+    if (matchedPath !== ROOT_ROUTE) {
+      templateSegments.push(matchedPath);
+    }
+
+    return templateSegments.join('') || ROOT_ROUTE;
   }
 
   if (req.baseUrl) {

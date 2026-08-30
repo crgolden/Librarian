@@ -383,7 +383,7 @@ element would need the same treatment, and no test emulates a safe area, so this
 
   | Token | Value | Used by | Why |
   |---|---|---|---|
-  | `max-w-narrow` | `480px` | `/psn`, `/profile/settings`, `/profile/followers`, `/profile/following`, and the `/u/:sub` equivalents | Form and settings pages, and single-column lists — one column of labelled controls or rows |
+  | `max-w-narrow` | `480px` | `/account`, `/profile/settings`, `/profile/followers`, `/profile/following`, and the `/u/:sub` equivalents | Form and settings pages, and single-column lists — one column of labelled controls or rows |
   | `max-w-reading` | `720px` | `/faq`, `/privacy`, 404, the two `collections` explainer cards | Long-form reading text |
   | `max-w-data` | `960px` | `/library`, `/profile`, `/u/:sub` | The data table, and the profile's stat grid — both need four columns to read as a grid rather than a list |
 
@@ -538,6 +538,15 @@ that genuinely floats over the page rather than sitting in it.
   heading and the Collections visibility state. It exists because both had reimplemented the treatment
   by hand, at two different sizes and two different letter-spacings, without ever naming a class the
   primitive check could see.
+- **`.size-source`** — the provenance tag on a packed size: which rung produced the `size_gb` it sits
+  beside. `measured` takes `--color-ok`, `estimated` takes `--color-warn`, and the unmeasured rung takes
+  the base rule's `--color-text-muted` with no modifier of its own. That base is the load-bearing part.
+  Curator seeds estimate bands for PS5 and PS4 only, so every PS3, Vita, PSP, PS2 and PS1 title falls to
+  the unmeasured rung — it is the **majority** case, not an edge one, and painting it `--color-danger`
+  would render most of a catalogue as broken. It is ordinary metadata: the two known rungs are marked,
+  and the unknown one is simply not. The label reads `not measured` rather than the raw `default` the
+  wire carries, and the rung is mirrored onto a `data-size-source` attribute, which is what the two
+  colour variants select on — the class carries the treatment, the attribute carries the value.
 - **`.catalog-title` / `.catalog-meta`** — game title and stamped-metadata treatments (see
   Typography). Live in production on the Catalog grid, Collections list, and Library table.
 - **`.catalog-list`** — a list of catalogued entries as a responsive card grid
@@ -816,13 +825,118 @@ Two consequences worth stating plainly:
   between a 48px table thumbnail and a 320px detail image; shape, radius, fit and color do not.
   Express the difference as a modifier class or a local width, and leave the primitive alone.
 
+### Curator's vocabulary tokens are rendered verbatim; only the column is capped
+
+Curator's `genre` values are raw vocabulary tokens — `ROLE_PLAYING_GAMES`,
+`MUSIC/RHYTHM` — and **every surface renders the token exactly as it arrives.** There are six of them:
+the Catalog card's `.spine-label`, the Catalog Genre filter's options, the Library table's Genre
+cell, the Library genre filter's options, the collection builder's genre listbox, and the two
+routing-genre listboxes on `/consoles`. **Do not add a display-name lookup on the Librarian side.** The
+token is simultaneously the label and the value the filter posts back: `<option [value]="option">{{
+option }}</option>` submits that same string as the `genre` parameter, so a prettified label needs a
+parallel key-to-label table, which is a second source of truth for a vocabulary that is deliberately
+data. The token is the fact; a nicer spelling of it is a claim.
+
+**What the raw token costs is layout, and only in the Library table.** Under `table-layout: auto` a
+column is sized from its widest cell's max-content width, so one `ROLE_PLAYING_GAMES` anywhere in the
+page sets the Genre column for every row and takes space the header row needs. That is the one place
+the presentation layer pushes back, and it does so **in CSS, on the displayed text only**:
+
+- **`.library-genre` caps the cell content at `12ch` and ellipsises it.** `12ch` is the measure a
+  readable label (`Role-playing`) would have needed, so the column keeps the budget the rejected mapping
+  would have spent and the token clips inside it.
+- **The cap sits on a `<span>` inside the `<td>`, never on the `<td>`.** CSS 2.1 §17.5.2 leaves the
+  effect of `max-width` on a table cell **undefined**, and the automatic table layout algorithm is free
+  to ignore it. An ordinary inline-block inside the cell has no such exemption, and the column then
+  sizes to the capped span.
+- **CSS truncates; TypeScript must not.** A sliced string loses the token from the DOM, and with it the
+  accessible name, in-page find, and copy-paste. An ellipsis keeps the whole value where every consumer
+  of the page can still reach it. The span also carries a `title`, on the `.user-email` precedent — a
+  sighted user has no other way to read what was clipped.
+- **The cap is two-sided and the spec proves both sides.** `library.spec.ts` asserts the raw token
+  clips (`scrollWidth > clientWidth`), that an ordinary genre does **not** (a cap tight enough to
+  clip `Action RPG` is a regression, not a fix), and — clearing `max-width` at runtime and re-measuring
+  the header — that the column is genuinely narrower with the cap than without it. Without that control
+  run the first assertion would pass against a cap that does nothing.
+
+**Nothing else is truncatable, and that is a measurement rather than a decision.** A native `<option>`
+renders its text in UA chrome that `text-overflow` cannot reach, so the two `<select>` filters could not
+be capped even if they needed it — and they do not: `styles.css` gives every `select` `width: 100%`, so
+both the single-selects and the two multi-selects take their container's width and no option can widen
+them. The Catalog card's `.spine-label` is measured instead of assumed: `catalog.spec.ts` asserts the
+raw token's rendered width fits a card at the grid's own `minmax(220px, 1fr)` floor, which is the
+narrowest tile the layout can produce.
+
+**Measuring how wide a piece of text renders is not `scrollWidth`, and the first version of that spec got
+it wrong.** `.spine-label` is a flex item stretched to its line, so `scrollWidth` reported the *box* —
+440px on a wide viewport — and the assertion failed against a token that fits comfortably. The text's own
+width comes from a `Range` over the element's contents; the spec pairs it with a `> 0` assertion, because
+a `Range` that selects nothing measures zero and would satisfy any "it fits" bound.
+
+### The nine surviving component stylesheets, one at a time
+
+The Tailwind v4 migration was asked to reach zero custom CSS and did not. Nine component stylesheets
+survive. **A justification written about the group is worth nothing** — "they all need a hand-written
+`@media` query" is true of most of them and false of some, and once written nobody re-reads the files.
+So the reason is recorded per file, and where the reason is weak this says so rather than dressing it up.
+
+Measured over `src/**/*.component.css` **after the `.library-genre` cap above was added**:
+**545 lines across 9 files**, 471 excluding blanks (re-measured 2026-08-29, after the `page-size`
+control run took its dead `width: auto` out and added a line of comment). Re-measure before quoting
+either figure; a count of this shape is a timestamp, not a fact.
+
+**The cascade, not specificity, is what decides whether a utility can replace a rule here — check it
+before proposing a deletion.** `styles.css` authors its element defaults *outside* any cascade layer,
+while `@import 'tailwindcss'` emits utilities inside `@layer utilities`. Un-layered CSS outranks every
+layer regardless of selector specificity, so a `w-auto` class on a `<select>` does **not** beat
+`select { width: 100% }`. Verified in the built bundle: the app rule is un-layered, the first utility is
+in `utilities`. "A template utility out-specifies it" is therefore the wrong test.
+
+**And the rule is bounded, so it does not excuse every stylesheet.** The complete set of bare element
+selectors `styles.css` authors un-layered, read off the built bundle, is:
+
+```
+body   h1 h2 h3 h4   p   a   code
+input[type=text|email|password|number|search], select, textarea   (+ their :focus)
+```
+
+Nothing else — no `label`, no `li`, no bare `input`. A component rule that targets one of *those*
+elements cannot be moved to the template (that is `page-size`, and the two cancellations below). A
+component rule that targets a class, a `label`, an `li`, or a checkbox competes on ordinary specificity
+and **can** be a utility — which is why the bottom three rows below stay "None — a finding" rather than
+being reclassified by this note.
+
+| File | Lines | What Tailwind cannot express here | Strength |
+|---|---|---|---|
+| `shared/avatar/avatar.component.css` | 14 | **`:host`.** A component cannot put a class on its own host element from its own template. The box pinned to `size` with `overflow: hidden` is what makes eager loading safe (see Components → `app-site-nav`), so it has to exist somewhere. | Definitive |
+| `app/nav/site-nav.component.css` | 168 | **`::backdrop`.** The sheet's backdrop is not an element, so no class can reach it; the `<dialog>`'s own rules sit beside it. | Definitive |
+| `library/library.component.css` | 185 | **The responsive table.** Below `md` the whole table is restructured — `thead` hidden, `table`/`tbody` to `block`, `tr` to a two-column grid — and those are bare structural elements the `@for` emits with no class to hang a variant on. `td[data-label]::before { content: attr(data-label) }` is the caption that replaces the hidden header. Ten rules that only mean anything read together. Also holds `.library-genre` (above) and the two cancellations below. | Strong |
+| `shared/page-size/page-size.component.css` | 17 | **A cancellation of an un-layered global, plus `:host`.** `styles.css`'s bare `select` rule (un-layered) sets the **body font size**, and a Tailwind utility in `@layer utilities` cannot outrank it — see the cascade note above. Remove the `font-size` line and the control renders 16px beside the pager's 13.6px count; `e2e/layout.spec.ts` asserts the two match, and that assertion was proven red by deleting the line. **The same rule's `width: 100%` needs no cancelling here, which is measured rather than assumed** — a `width: auto` was carried for it and deleted once the control run showed the select is 49px either way: it is a flex item of the `:host` box, so the percentage already resolves to content width. Contrast `.library-genre-filter` below, where the identical global *does* bite because that select is not a direct flex item. The `:host` block is `avatar`'s argument: a component cannot class its own host, and both callers drop this into a flex pager. `whitespace-nowrap` on the label fights no global and so lives in the template. | Definitive |
+| `app/app.component.css` | 55 | **`z-index: var(--z-header)`.** Everything else in this file is expressible as utilities on elements the template already owns. `lint:css` reads `src/**/*.css` only, so a `z-[var(--z-header)]` utility in a template would leave the stacking-ladder gate entirely. Three of the four rungs are held this way. | Narrow — the z-rung only |
+| `app/shared/toc/page-toc.component.css` | 12 | **`z-index: var(--z-back-to-top)`**, same argument. The `bottom: calc(… env(safe-area-inset-bottom) …)` beside it is the whole rest of the file, and nothing about it needs a stylesheet's reach. | Narrow — the z-rung only |
+| `psn/psn-settings.component.css` | 62 | **Nothing.** Descendant rules over the section's 13 `<label>`s, its `<input>`s and the action-history `<li>`s. Every one has a utility equivalent; the file buys DRY, not reach. | None — kept for DRY |
+| `consoles/consoles.component.css` | 16 | **Nothing.** One rule gives every label inside the page's four `.entity-form`/`.entity-edit-form`s its `flex flex-col gap-1 font-semibold` shape, each one wrapping its own control. Same trade. | None — kept for DRY |
+| `collections/collections.component.css` | 16 | **Nothing.** The form's layout and its labels' weight, plus `.sort-active`'s two colour tokens, which a pair of `[class.…]` bindings could carry. | None — kept for DRY |
+
+**The bottom three are a finding, not a justification.** They can be removed: each rule has a utility
+equivalent, and the only thing lost is a single declaration standing in for a dozen repetitions of the
+same four utilities. That is a real cost and a legitimate reason to defer, but it is not "Tailwind cannot
+do this" and must not be recorded as if it were. Deleting them changes rendering, so it is its own change
+with its own verification pass, not a tidy-up to fold into something else.
+
+**`app.component.css` and `page-toc.component.css` are a narrower finding.** Both would collapse to two
+or three utilities apiece if the z-index rung moved with them — and moving it is what makes it
+unacceptable, because `stylelint`'s `z-index must use a var(--z-*) token` rule cannot see a template. A
+utility-only Librarian therefore needs the ladder enforced somewhere else first. Adding a rung is still
+"add the token to Elevation & Depth, then use it in a `.css` file".
+
 ### Declarations that look removable and are not
 
 A rule in a component stylesheet can exist to *cancel* a global default, so it reads as noise and deletes
 cleanly with no visible failure — until the page is measured. This one was a live defect found by an
 exploratory pass, and it is the reason the global rule is safe to keep.
 
-- **`.library-category-filter { flex: 0 1 14rem; min-width: 10rem }`.** `styles.css` gives every
+- **`.library-genre-filter { flex: 0 1 14rem; min-width: 10rem }`.** `styles.css` gives every
   `select` `width: 100%`. Without its own flex basis this one inherits that, takes a whole line to
   itself inside `.library-controls`, and opens a native dropdown as wide as the card. Its two
   neighbours (`.library-search`, `.library-mobile-sort`) already carry the same pair — this one was

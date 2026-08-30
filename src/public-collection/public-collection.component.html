@@ -12,11 +12,19 @@
 
     <div class="form-actions">
       @if (isAuthenticated()) {
-        <button type="button" class="btn-primary" [disabled]="followPending()" (click)="toggleFollow()">
+        <button
+          id="public-collection-follow"
+          type="button"
+          class="btn-primary"
+          [disabled]="followPending()"
+          (click)="toggleFollow()"
+        >
           {{ following() ? 'Unfollow' : 'Follow this collection' }}
         </button>
       } @else {
-        <a class="btn-primary" [href]="returnToUrl()">Sign in to follow this collection</a>
+        <a id="public-collection-sign-in" class="btn-primary" [href]="returnToUrl()"
+          >Sign in to follow this collection</a
+        >
       }
     </div>
     @if (followError()) {
@@ -33,7 +41,7 @@
             @if (item.cover_image_url) {
               <img class="cover-art max-w-[180px]" [src]="item.cover_image_url" [alt]="item.title" loading="lazy" />
             }
-            <span class="catalog-title">{{ item.title }}</span>
+            <span class="catalog-title" [attr.id]="'public-collection-title-' + $index">{{ item.title }}</span>
             @if (item.genre) {
               <span class="spine-label">{{ item.genre }}</span>
             }

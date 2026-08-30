@@ -23,6 +23,7 @@ function definition(definitionId: string, itemCount: number): DefinitionResponse
     min_percent_completed: null,
     sort_order: null,
     exclude_installed_on: [],
+    install_target_console_id: null,
     visibility: 'private',
     share_slug: null,
     item_count: itemCount,

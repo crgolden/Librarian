@@ -3,14 +3,56 @@ import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, PLATFORM_ID, inj
 import { ActivatedRoute } from '@angular/router';
 import { Subscription, interval, retry, switchMap, takeWhile } from 'rxjs';
 import { CuratorService } from '../curator/curator.service';
-import { EnrichmentRunStatusResponse } from '../curator/curator.models';
+import { EnrichmentPassSummary, EnrichmentRunStatusResponse } from '../curator/curator.models';
 import { ResolvedEnrichmentRun } from './admin-enrichment.resolver';
 
 const POLL_INTERVAL_MS = 2500;
 const POLL_ERROR_RETRY_COUNT = 3;
 const POLL_ERROR_RETRY_DELAY_MS = 2000;
-const TERMINAL_STATUSES = new Set(['succeeded', 'failed']);
-const KNOWN_STATUSES = new Set(['queued', 'running', 'succeeded', 'failed']);
+const TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'cancelled']);
+const KNOWN_STATUSES = new Set(['queued', 'running', 'succeeded', 'failed', 'cancelled']);
+
+const PROCESSED_COUNT_KEY = 'enriched_count';
+const REMAINING_COUNT_KEY = 'remaining_count';
+const PROVIDER_GAIN_KEYS: readonly (readonly [key: string, label: string])[] = [
+  ['rawg_enriched_count', 'RAWG'],
+  ['opencritic_enriched_count', 'OpenCritic'],
+  ['psn_enriched_count', 'PSN'],
+];
+
+export interface EnrichmentPassCounts {
+  processed: number;
+  remaining: number;
+  providerGains: string;
+  hasProviderGains: boolean;
+  gainedAnything: boolean;
+}
+
+function countAt(pass: EnrichmentPassSummary, key: string): number | null {
+  const value = pass[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+export function readEnrichmentPassCounts(pass: EnrichmentPassSummary): EnrichmentPassCounts | null {
+  const processed = countAt(pass, PROCESSED_COUNT_KEY);
+  const remaining = countAt(pass, REMAINING_COUNT_KEY);
+  if (processed === null || remaining === null) {
+    return null;
+  }
+
+  const gains = PROVIDER_GAIN_KEYS.flatMap(([key, label]) => {
+    const count = countAt(pass, key);
+    return count === null ? [] : [{ label, count }];
+  });
+
+  return {
+    processed,
+    remaining,
+    providerGains: gains.map((gain) => `${gain.label} ${gain.count}`).join(', '),
+    hasProviderGains: gains.length > 0,
+    gainedAnything: gains.some((gain) => gain.count > 0),
+  };
+}
 
 @Component({
   selector: 'app-admin-enrichment',
@@ -45,6 +87,10 @@ export class AdminEnrichmentComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.pollSubscription?.unsubscribe();
+  }
+
+  protected passCounts(pass: EnrichmentPassSummary): EnrichmentPassCounts | null {
+    return readEnrichmentPassCounts(pass);
   }
 
   protected requestRun(): void {

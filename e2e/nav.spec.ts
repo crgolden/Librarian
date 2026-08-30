@@ -17,7 +17,7 @@ const RAIL_ORDER = [
   'Library',
   'Collections',
   'Profile',
-  'PSN Settings',
+  'Account',
   'Consoles & Storage',
   'FAQ',
   'Privacy',
@@ -25,7 +25,7 @@ const RAIL_ORDER = [
 const RAIL_ORDER_ADMIN = [...RAIL_ORDER.slice(0, 7), 'Enrichment Runs', ...RAIL_ORDER.slice(7)];
 const RAIL_ORDER_ANONYMOUS = ['Home', 'Catalog', 'FAQ', 'Privacy'];
 const TAB_ORDER = ['Home', 'Catalog', 'Library', 'Collections'];
-const SHEET_ORDER = ['Profile', 'PSN Settings', 'Consoles & Storage', 'FAQ', 'Privacy'];
+const SHEET_ORDER = ['Profile', 'Account', 'Consoles & Storage', 'FAQ', 'Privacy'];
 
 const railId = (label: string, order: string[] = RAIL_ORDER) => `#nav-rail-${order.indexOf(label)}`;
 const tabId = (label: string) => `#nav-tab-${TAB_ORDER.indexOf(label)}`;

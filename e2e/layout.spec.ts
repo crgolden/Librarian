@@ -37,7 +37,7 @@ test.describe('Layout invariants DESIGN.md states and markup cannot prove', () =
     ).toBeLessThan(buttonHeight);
   });
 
-  test('the library search and category filter share one row', async ({ authedPage: page, store }) => {
+  test('the library search and genre filter share one row', async ({ authedPage: page, store }) => {
     await store.reset();
     await store.seedLibraryGames([
       { game_id: 'g0', title: 'Game 00', rawg_enriched: false, opencritic_enriched: false },
@@ -45,15 +45,39 @@ test.describe('Layout invariants DESIGN.md states and markup cannot prove', () =
 
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/library');
-    await expect(page.locator('#library-category-filter')).toBeVisible();
+    await expect(page.locator('#library-genre-filter')).toBeVisible();
 
     const search = await boxOf(page, '#library-search');
-    const filter = await boxOf(page, '#library-category-filter');
+    const filter = await boxOf(page, '#library-genre-filter');
     expect(
       Math.abs(search.top - filter.top),
       'a control whose flex-basis resolves to the global `select`/`input` width: 100% claims the whole line and pushes its neighbour onto the next one',
     ).toBeLessThan(2);
     expect(filter.width).toBeLessThan(search.width);
+  });
+
+  test('the per-page control renders at the pager’s meta size, not the body size', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedLibraryGames(
+      Array.from({ length: SEEDED_LIBRARY_TITLES }, (_, index) => ({
+        game_id: `g${index}`,
+        title: `Game ${String(index).padStart(2, '0')}`,
+        rawg_enriched: false,
+        opencritic_enriched: false,
+      })),
+    );
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/library');
+    await expect(page.locator('#library-page-size')).toBeVisible();
+
+    expect(
+      await computedStyle(page, '#library-page-size', 'font-size'),
+      'styles.css sets a bare `select` font-size outside any cascade layer, so it outranks every Tailwind utility whatever the specificity and no template class can cancel it — only page-size.component.css can. Proven by removing that line: the control renders 16px beside this 13.6px page count',
+    ).toBe(await computedStyle(page, '#library-page-range', 'font-size'));
   });
 
   test('a library column header keeps its sort arrow on the header’s own line', async ({
@@ -69,7 +93,7 @@ test.describe('Layout invariants DESIGN.md states and markup cannot prove', () =
     await page.goto('/library');
     await expect(page.locator('#library-pager')).toBeVisible();
 
-    expect(await computedStyle(page, '#library-header-0', 'white-space')).toBe('nowrap');
+    expect(await computedStyle(page, '#library-header-cover', 'white-space')).toBe('nowrap');
   });
 
   test('the profile page holds the same measure as the library', async ({ authedPage: page, store }) => {

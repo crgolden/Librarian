@@ -8,7 +8,10 @@
 
   @if (viewerMode()) {
     @if (viewerForbidden()) {
-      <p class="text-muted">This section isn't available.</p>
+      <p id="collections-forbidden" class="text-muted">
+        This user keeps their collections private. Only they can change that, in their own profile
+        settings — following them does not grant access.
+      </p>
     } @else {
       @if (viewerDefinitionsError()) {
         <p class="text-error">{{ viewerDefinitionsError() }}</p>
@@ -19,10 +22,11 @@
         <ul class="catalog-list">
           @for (definition of viewerDefinitions(); track definition.definition_id) {
             <li class="card p-6 flex flex-col gap-2 items-start">
-              <span class="catalog-title">{{ definition.name }}</span>
+              <span class="catalog-title" [attr.id]="'collection-viewer-name-' + $index">{{ definition.name }}</span>
               <span class="spine-label">{{ kindLabel(definition.kind) }}</span>
               <span class="catalog-meta">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
               <button
+                [attr.id]="'collection-follow-' + $index"
                 type="button"
                 class="btn-ghost"
                 [disabled]="isFollowPending(definition.definition_id)"
@@ -43,8 +47,10 @@
 
   @if (view() === 'list') {
     <div class="form-actions">
-      <button type="button" class="btn-primary" (click)="showCreate()">New collection</button>
-      <button type="button" class="btn-ghost" (click)="showFollowed()">Collections I follow</button>
+      <button id="collections-new" type="button" class="btn-primary" (click)="showCreate()">New collection</button>
+      <button id="collections-followed" type="button" class="btn-ghost" (click)="showFollowed()">
+        Collections I follow
+      </button>
     </div>
 
     @if (definitionsError()) {
@@ -56,7 +62,7 @@
       <ul class="catalog-list">
         @for (definition of definitions(); track definition.definition_id) {
           <li class="card p-6 flex flex-col gap-2 items-start">
-            <span class="catalog-title">{{ definition.name }}</span>
+            <span class="catalog-title" [attr.id]="'collection-name-' + $index">{{ definition.name }}</span>
             <span class="spine-label">{{ kindLabel(definition.kind) }}</span>
             <span class="catalog-meta">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
             <span class="stamp-label" [class.text-accent]="definition.visibility !== 'private'">
@@ -65,8 +71,7 @@
             <a
               class="btn-ghost"
               [attr.id]="'collection-open-' + $index"
-              [href]="'/collections/d/' + definition.definition_id"
-              (click)="onDefinitionClick($event, definition.definition_id)"
+              [routerLink]="['/collections/d', definition.definition_id]"
               >View / Edit</a
             >
           </li>
@@ -95,6 +100,7 @@
               <span class="catalog-meta">No longer shared.</span>
             }
             <button
+              [attr.id]="'collection-followed-unfollow-' + $index"
               type="button"
               class="btn-ghost"
               [disabled]="unfollowingIds().has(definition.definition_id)"
@@ -188,8 +194,10 @@
       }
 
       <div class="form-actions">
-        <button type="button" class="btn-ghost" (click)="view.set('list')">Cancel</button>
-        <button type="submit" class="btn-primary" [disabled]="previewing()">
+        <button id="collection-create-cancel" type="button" class="btn-ghost" (click)="view.set('list')">
+          Cancel
+        </button>
+        <button id="collection-preview" type="submit" class="btn-primary" [disabled]="previewing()">
           {{ previewing() ? 'Previewing...' : 'Preview' }}
         </button>
       </div>
@@ -201,12 +209,19 @@
         @if (preview.used_gb !== null) {
           <p class="catalog-meta">Estimated size: {{ preview.used_gb }} GB</p>
         }
+        @if (unmeasuredSizeCount(preview.included); as unmeasured) {
+          <p id="preview-unmeasured-sizes" class="text-muted">
+            {{ unmeasured }} of the {{ preview.included.length }} titles shown pack at a placeholder size
+            because nobody has reported a real one. Save this collection, then use "Measured size" on a
+            title in its detail view — the figure is shared, so it improves every owner's fit.
+          </p>
+        }
 
         <h3>Included ({{ preview.included_total }})</h3>
         <ul class="catalog-list">
           @for (game of preview.included; track game.game_id) {
             <li class="card p-6 flex flex-col gap-2 items-start">
-              <span class="catalog-title">{{ game.title }}</span>
+              <span class="catalog-title" [attr.id]="'preview-included-title-' + $index">{{ game.title }}</span>
               <span class="spine-label">{{ game.genre }}</span>
               <span class="catalog-meta">
                 {{ game.franchise }}
@@ -214,6 +229,12 @@
                   &middot; {{ game.aaa_tier }}
                 }
                 &middot; {{ game.size_gb }} GB
+                <span
+                  class="size-source"
+                  [attr.id]="'preview-included-size-source-' + $index"
+                  [attr.data-size-source]="game.size_source"
+                  >{{ sizeSourceLabels[game.size_source] }}</span
+                >
               </span>
               @if (game.percent_completed !== null) {
                 <span class="catalog-meta">{{ game.percent_completed }}% complete</span>
@@ -286,14 +307,14 @@
       @if (saveError()) {
         <p class="text-error">{{ saveError() }}</p>
       }
-      <button type="submit" class="btn-primary" [disabled]="saving()">
+      <button id="collection-save" type="submit" class="btn-primary" [disabled]="saving()">
         {{ saving() ? 'Saving...' : previewResult() ? 'Save this collection' : 'Save empty collection' }}
       </button>
     </form>
   }
 
   @if (view() === 'detail') {
-    <button type="button" class="btn-ghost" (click)="backToList()">&larr; Back to collections</button>
+    <a id="collections-back" class="btn-ghost" routerLink="/collections">&larr; Back to collections</a>
 
     @if (detailError()) {
       <p class="text-error">{{ detailError() }}</p>
@@ -317,8 +338,10 @@
               <p class="text-error">{{ metaError() }}</p>
             }
             <div class="form-actions">
-              <button type="button" class="btn-ghost" (click)="cancelEditingMeta()">Cancel</button>
-              <button type="submit" class="btn-primary" [disabled]="savingMeta()">
+              <button id="collection-meta-cancel" type="button" class="btn-ghost" (click)="cancelEditingMeta()">
+                Cancel
+              </button>
+              <button id="collection-meta-save" type="submit" class="btn-primary" [disabled]="savingMeta()">
                 {{ savingMeta() ? 'Saving...' : 'Save' }}
               </button>
             </div>
@@ -328,7 +351,9 @@
           @if (definition.description) {
             <p class="catalog-meta">{{ definition.description }}</p>
           }
-          <button type="button" class="btn-ghost" (click)="startEditingMeta()">Rename / edit description</button>
+          <button id="collection-edit-meta" type="button" class="btn-ghost" (click)="startEditingMeta()">
+            Rename / edit description
+          </button>
         }
 
         <span class="spine-label">{{ kindLabel(definition.kind) }}</span>
@@ -353,7 +378,7 @@
             <option value="public">Public — anyone with the link, listed on your profile</option>
           </select>
           @if (definition.visibility !== 'private' && definition.share_slug) {
-            <button type="button" class="btn-ghost" (click)="copyShareLink()">
+            <button id="collection-copy-share-link" type="button" class="btn-ghost" (click)="copyShareLink()">
               {{ shareLinkCopied() ? 'Copied!' : 'Copy share link' }}
             </button>
             <p id="collection-share-url" class="catalog-meta break-all">{{ shareUrlFor(definition.share_slug) }}</p>
@@ -416,6 +441,7 @@
 
                 @if (canToggleInstall()) {
                   <button
+                    [attr.id]="'collection-item-install-' + $index"
                     type="button"
                     class="btn-ghost"
                     [disabled]="installingGameIds().has(item.game_id)"
@@ -543,6 +569,14 @@
               <p class="catalog-meta">Estimated size: {{ result.used_gb }} GB</p>
             }
 
+            @if (unmeasuredSizeCount(result.included); as unmeasured) {
+              <p id="run-unmeasured-sizes" class="text-muted">
+                {{ unmeasured }} of the {{ result.included.length }} titles shown pack at a placeholder size
+                because nobody has reported a real one. Use "Measured size" on a title in this collection to
+                report one — the figure is shared, so it improves every owner's fit.
+              </p>
+            }
+
             <h3>Proposed ({{ result.included_total }})</h3>
             <ul class="catalog-list">
               @for (game of result.included; track game.game_id) {
@@ -555,6 +589,12 @@
                       &middot; {{ game.aaa_tier }}
                     }
                     &middot; {{ game.size_gb }} GB
+                    <span
+                      class="size-source"
+                      [attr.id]="'run-included-size-source-' + $index"
+                      [attr.data-size-source]="game.size_source"
+                      >{{ sizeSourceLabels[game.size_source] }}</span
+                    >
                   </span>
                   @if (game.percent_completed !== null) {
                     <span class="catalog-meta">{{ game.percent_completed }}% complete</span>
@@ -608,14 +648,24 @@
               <p class="text-error">{{ deleteError() }}</p>
             }
             <div class="form-actions">
-              <button type="button" class="btn-ghost" (click)="cancelDelete()">Cancel</button>
-              <button type="button" class="btn-danger" [disabled]="deleting()" (click)="deleteDefinition()">
+              <button id="collection-delete-cancel" type="button" class="btn-ghost" (click)="cancelDelete()">
+                Cancel
+              </button>
+              <button
+                id="collection-delete-confirm"
+                type="button"
+                class="btn-danger"
+                [disabled]="deleting()"
+                (click)="deleteDefinition()"
+              >
                 {{ deleting() ? 'Deleting...' : 'Confirm delete' }}
               </button>
             </div>
           </div>
         } @else {
-          <button type="button" class="btn-ghost btn-ghost-danger" (click)="confirmDelete()">Delete collection</button>
+          <button id="collection-delete" type="button" class="btn-ghost btn-ghost-danger" (click)="confirmDelete()">
+            Delete collection
+          </button>
         }
       </div>
     }

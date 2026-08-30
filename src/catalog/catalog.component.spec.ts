@@ -2,8 +2,21 @@ import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
-import { CatalogComponent } from './catalog.component';
+import { CATALOG_PAGE_SIZE_CEILING, CATALOG_PAGE_SIZE_KEY, CatalogComponent } from './catalog.component';
+import { CATALOG_PAGE_SIZE } from './catalog.resolver';
+import { readPageSize, writePageSize } from '../shared/page-size/page-size.preference';
 import { CatalogGamesResponse, GameSummaryResponse } from '../curator/curator.models';
+
+const CURATOR_CATALOG_LIMIT_MAX = 200;
+
+function chooseSize(root: HTMLElement, selector: string, value: string): void {
+  const select = root.querySelector<HTMLSelectElement>(selector);
+  if (select === null) {
+    throw new Error(`No page-size control matched "${selector}"`);
+  }
+  select.value = value;
+  select.dispatchEvent(new Event('change'));
+}
 
 function game(id: string, title: string, overrides: Partial<GameSummaryResponse> = {}): GameSummaryResponse {
   return {
@@ -52,6 +65,7 @@ describe('CatalogComponent', () => {
   }
 
   beforeEach(() => {
+    localStorage.clear();
     routeData.catalog = { games: [], total: 0 };
     routeData.genres = [];
     TestBed.configureTestingModule({
@@ -229,5 +243,48 @@ describe('CatalogComponent', () => {
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load the catalog.');
+  });
+
+  it('offers no page size above the ceiling /catalog/games enforces', () => {
+    const fixture = render({ games: [], total: 0 });
+
+    const offered = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLOptionElement>('#catalog-page-size option'),
+    ).map((option) => Number(option.value));
+
+    expect(offered.length).toBeGreaterThan(0);
+    expect(Math.max(...offered)).toBeLessThanOrEqual(CURATOR_CATALOG_LIMIT_MAX);
+  });
+
+  it('re-requests the first page at the chosen size, and remembers the choice', () => {
+    const fixture = render(fullPage(CATALOG_PAGE_SIZE * 4));
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    harness(fixture).nextPage();
+    httpMock.expectOne((r) => r.url === '/curator/api/catalog/games').flush(fullPage(CATALOG_PAGE_SIZE * 4));
+    fixture.detectChanges();
+
+    const larger = String(CATALOG_PAGE_SIZE_CEILING);
+    chooseSize(compiled, '#catalog-page-size', larger);
+    fixture.detectChanges();
+
+    const resized = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
+    expect(resized.request.params.get('limit')).toBe(larger);
+    expect(resized.request.params.get('offset')).toBe('0');
+    resized.flush({ games: [], total: 0 });
+
+    expect(readPageSize(CATALOG_PAGE_SIZE_KEY, [CATALOG_PAGE_SIZE_CEILING], CATALOG_PAGE_SIZE)).toBe(
+      CATALOG_PAGE_SIZE_CEILING,
+    );
+  });
+
+  it('loads at the remembered size rather than the size the resolver used', () => {
+    writePageSize(CATALOG_PAGE_SIZE_KEY, CATALOG_PAGE_SIZE_CEILING);
+
+    render(fullPage(CATALOG_PAGE_SIZE * 4));
+
+    const reload = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
+    expect(reload.request.params.get('limit')).toBe(String(CATALOG_PAGE_SIZE_CEILING));
+    reload.flush({ games: [], total: 0 });
   });
 });

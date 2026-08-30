@@ -26,7 +26,7 @@ import {
   FollowListResponse,
   GameSummaryResponse,
   IdentityResponse,
-  LibraryCategoriesResponse,
+  LibraryGenresResponse,
   LibraryPageResponse,
   LibraryRefreshResponse,
   LibraryRefreshStatusResponse,
@@ -67,7 +67,7 @@ export interface CatalogGamesQuery {
 
 export type LibrarySortField =
   | 'title'
-  | 'category'
+  | 'genre'
   | 'rawg_rating'
   | 'opencritic_rating'
   | 'psn_rating'
@@ -75,7 +75,7 @@ export type LibrarySortField =
 
 export interface LibraryQuery {
   q?: string;
-  category?: string;
+  genre?: string;
   sort?: LibrarySortField;
   sortDir?: 'asc' | 'desc';
   limit?: number;
@@ -119,8 +119,8 @@ function libraryQueryParams(query: LibraryQuery): HttpParams {
   if (query.q) {
     params = params.set('q', query.q);
   }
-  if (query.category) {
-    params = params.set('category', query.category);
+  if (query.genre) {
+    params = params.set('genre', query.genre);
   }
   if (query.sort) {
     params = params.set('sort', query.sort);
@@ -362,8 +362,8 @@ export class CuratorService {
     return this.http.delete<void>(`/curator/api/library/manual/${gameId}`);
   }
 
-  getLibraryCategories(): Observable<LibraryCategoriesResponse> {
-    return this.http.get<LibraryCategoriesResponse>('/curator/api/library/categories');
+  getLibraryGenres(): Observable<LibraryGenresResponse> {
+    return this.http.get<LibraryGenresResponse>('/curator/api/library/genres');
   }
 
   getEnrichmentKeyStatus(): Observable<EnrichmentKeyStatusResponse> {
@@ -478,8 +478,8 @@ export class CuratorService {
     });
   }
 
-  getUserLibraryCategories(sub: string): Observable<LibraryCategoriesResponse> {
-    return this.http.get<LibraryCategoriesResponse>(`/curator/api/users/${sub}/library/categories`);
+  getUserLibraryGenres(sub: string): Observable<LibraryGenresResponse> {
+    return this.http.get<LibraryGenresResponse>(`/curator/api/users/${sub}/library/genres`);
   }
 
   getUserCollections(sub: string): Observable<ProfileDefinitionResponse[]> {

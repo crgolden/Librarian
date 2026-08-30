@@ -1,9 +1,8 @@
-import { Location } from '@angular/common';
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { CollectionsComponent, RESULT_PAGE_SIZE } from './collections.component';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
+import { CollectionsComponent, RESULT_PAGE_SIZE, SIZE_SOURCE_LABELS } from './collections.component';
 import { ResolvedCollections } from './collections.resolver';
 import {
   CollectionGameResponse,
@@ -13,6 +12,7 @@ import {
   DefinitionDetailResponse,
   DefinitionResponse,
   ProfileDefinitionResponse,
+  SizeSource,
 } from '../curator/curator.models';
 
 function definition(overrides: Partial<DefinitionResponse> = {}): DefinitionResponse {
@@ -29,6 +29,7 @@ function definition(overrides: Partial<DefinitionResponse> = {}): DefinitionResp
     min_percent_completed: null,
     sort_order: null,
     exclude_installed_on: [],
+    install_target_console_id: null,
     visibility: 'private',
     share_slug: 'abc123xyz',
     item_count: 0,
@@ -49,6 +50,7 @@ function item(id: string, overrides: Partial<CollectionItemResponse> = {}): Coll
     psn_rating: 4.5,
     cover_image_url: null,
     owner_has_access: true,
+    installed_on_target: null,
     ...overrides,
   };
 }
@@ -60,7 +62,11 @@ function definitionDetail(
   return { ...definition(overrides), items };
 }
 
-function game(id: string, percentCompleted: number | null = null): CollectionGameResponse {
+function game(
+  id: string,
+  percentCompleted: number | null = null,
+  sizeSource: SizeSource = 'estimated',
+): CollectionGameResponse {
   return {
     game_id: id,
     title: `Game ${id}`,
@@ -71,6 +77,7 @@ function game(id: string, percentCompleted: number | null = null): CollectionGam
     rank_score: 1,
     size_gb: 40,
     percent_completed: percentCompleted,
+    size_source: sizeSource,
   };
 }
 
@@ -93,8 +100,6 @@ interface CollectionsHarness {
   preview(): void;
   pagePreview(delta: number): void;
   saveDefinition(): void;
-  openDefinition(definitionId: string): void;
-  backToList(): void;
   startEditingMeta(): void;
   saveMeta(): void;
   removeItem(gameId: string): void;
@@ -149,7 +154,9 @@ describe('CollectionsComponent', () => {
       providers: [
         provideHttpClient(withXhr()),
         provideHttpClientTesting(),
-        provideRouter([]),
+        // A route that matches and activates nothing: enough for a real navigation to resolve, without
+        // pulling a component into a fixture that has no RouterOutlet to host it.
+        provideRouter([{ path: 'collections', children: [] }]),
         { provide: ActivatedRoute, useValue: activatedRouteStub(params, resolved, genres) },
       ],
     });
@@ -170,6 +177,21 @@ describe('CollectionsComponent', () => {
     genres: string[] = [],
   ): ComponentFixture<CollectionsComponent> {
     configure({}, { mode: 'list', definitions, consoles }, genres);
+    const fixture = TestBed.createComponent(CollectionsComponent);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  // Opening a collection is a real router navigation onto a separate route entry, so the component is
+  // destroyed and rebuilt with the definition already resolved. Building it that way here is what the
+  // detail view actually receives in the browser; there is no RouterOutlet in a unit fixture, so driving
+  // the navigation itself belongs to the Playwright suite.
+  function createDetail(
+    detail: DefinitionDetailResponse,
+    consoles: ConsoleResponse[] = [],
+    genres: string[] = [],
+  ): ComponentFixture<CollectionsComponent> {
+    configure({ definitionId: detail.definition_id }, { mode: 'detail', definition: detail, consoles }, genres);
     const fixture = TestBed.createComponent(CollectionsComponent);
     fixture.detectChanges();
     return fixture;
@@ -216,6 +238,113 @@ describe('CollectionsComponent', () => {
     });
   });
 
+  describe('size provenance', () => {
+    function previewWith(included: CollectionGameResponse[]): ComponentFixture<CollectionsComponent> {
+      const fixture = createAndLoad([]);
+      const h = harness(fixture);
+      h.showCreate();
+      fixture.detectChanges();
+
+      h.preview();
+      httpMock.expectOne(previewUrl).flush({
+        included,
+        excluded: [],
+        included_total: included.length,
+        excluded_total: 0,
+        included_game_ids: included.map((g) => g.game_id),
+        used_gb: included.length * 40,
+      });
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    const rungs: SizeSource[] = ['measured', 'estimated', 'default'];
+
+    it('labels every included title with the rung its size came from, addressable by id', () => {
+      const fixture = previewWith(rungs.map((rung, index) => game(`g${index}`, null, rung)));
+      const compiled: HTMLElement = fixture.nativeElement;
+
+      rungs.forEach((rung, index) => {
+        const badge = compiled.querySelector(`#preview-included-size-source-${index}`);
+        expect(badge).not.toBeNull();
+        expect(badge?.getAttribute('data-size-source')).toBe(rung);
+        expect(badge?.textContent?.trim()).toBe(SIZE_SOURCE_LABELS[rung]);
+      });
+    });
+
+    it('calls an unmeasured size "not measured" rather than showing the raw enum value', () => {
+      const fixture = previewWith([game('g0', null, 'default')]);
+      const badge = (fixture.nativeElement as HTMLElement).querySelector('#preview-included-size-source-0');
+
+      expect(badge?.textContent?.trim()).toBe('not measured');
+      expect(badge?.textContent).not.toContain('default');
+    });
+
+    it('prompts to contribute a real size, counting only the titles packing at a placeholder', () => {
+      const included = [
+        game('g0', null, 'default'),
+        game('g1', null, 'measured'),
+        game('g2', null, 'default'),
+        game('g3', null, 'estimated'),
+      ];
+      const unmeasured = included.filter((g) => g.size_source === 'default').length;
+      const fixture = previewWith(included);
+
+      const prompt = (fixture.nativeElement as HTMLElement).querySelector('#preview-unmeasured-sizes');
+      expect(prompt?.textContent).toContain(`${unmeasured} of the ${included.length} titles`);
+    });
+
+    it('stays silent when every included title already has a real size', () => {
+      const fixture = previewWith([game('g0', null, 'measured'), game('g1', null, 'estimated')]);
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('#preview-unmeasured-sizes')).toBeNull();
+    });
+
+    function runWith(included: CollectionGameResponse[]): ComponentFixture<CollectionsComponent> {
+      const fixture = createDetail(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g0')]));
+      const h = harness(fixture);
+      httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: [] });
+      httpMock.expectOne('/curator/api/storage-devices').flush([]);
+      fixture.detectChanges();
+
+      h.runSelected();
+      httpMock.expectOne((r) => r.url === '/curator/api/collections/d1/runs').flush({
+        run_id: 'r1',
+        included,
+        excluded: [],
+        included_total: included.length,
+        excluded_total: 0,
+        included_game_ids: included.map((g) => g.game_id),
+        used_gb: included.length * 40,
+      });
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    it('badges a run result with the same rungs as a preview, under the run ids', () => {
+      const fixture = runWith(rungs.map((rung, index) => game(`g${index}`, null, rung)));
+      const compiled: HTMLElement = fixture.nativeElement;
+
+      rungs.forEach((rung, index) => {
+        const badge = compiled.querySelector(`#run-included-size-source-${index}`);
+        expect(badge, `the run view renders no size-source badge at index ${index}`).not.toBeNull();
+        expect(badge?.getAttribute('data-size-source')).toBe(rung);
+        expect(badge?.textContent?.trim()).toBe(SIZE_SOURCE_LABELS[rung]);
+      });
+    });
+
+    it('counts a run result unmeasured titles the way a preview counts them', () => {
+      const fixture = runWith([
+        game('g0', null, 'default'),
+        game('g1', null, 'measured'),
+        game('g2', null, 'default'),
+      ]);
+
+      const prompt = (fixture.nativeElement as HTMLElement).querySelector('#run-unmeasured-sizes');
+      expect(prompt?.textContent).toContain('2 of the 3 titles');
+    });
+  });
+
   it('shows an empty state when there are no saved collections', () => {
     const fixture = createAndLoad([]);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain("haven't saved any collections");
@@ -256,12 +385,7 @@ describe('CollectionsComponent', () => {
         capacity_is_default: false,
       },
     ];
-    const fixture = createAndLoad([definition({ kind: 'capacity_fill', console_id: 'c1' })], consoles);
-    const h = harness(fixture);
-    h.openDefinition('d1');
-    httpMock
-      .expectOne('/curator/api/collections/d1')
-      .flush(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]));
+    const fixture = createDetail(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]), consoles);
     httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: [] });
     httpMock.expectOne('/curator/api/storage-devices').flush([]);
     fixture.detectChanges();
@@ -291,22 +415,17 @@ describe('CollectionsComponent', () => {
     httpMock.expectNone('/curator/api/collections/d1');
   });
 
-  it('opening a definition updates the URL to /collections/d/:definitionId, and going back restores /collections', () => {
-    const fixture = createAndLoad([definition()]);
-    const h = harness(fixture);
-    const location = TestBed.inject(Location);
+  it('leaves both directions to the router, so the address bar and Router state cannot disagree', () => {
+    const listFixture = createAndLoad([definition()]);
+    const open = (listFixture.nativeElement as HTMLElement).querySelector('#collection-open-0');
 
-    h.openDefinition('d1');
-    httpMock.expectOne('/curator/api/collections/d1').flush(definitionDetail());
-    fixture.detectChanges();
+    expect((open as HTMLAnchorElement).getAttribute('href')).toBe('/collections/d/d1');
 
-    expect(location.path()).toBe('/collections/d/d1');
+    const detailFixture = createDetail(definitionDetail());
+    const back = (detailFixture.nativeElement as HTMLElement).querySelector('#collections-back');
 
-    h.backToList();
-    httpMock.expectOne('/curator/api/collections').flush([]);
-    fixture.detectChanges();
-
-    expect(location.path()).toBe('/collections');
+    expect(back).toBeInstanceOf(HTMLAnchorElement);
+    expect((back as HTMLAnchorElement).getAttribute('href')).toBe('/collections');
   });
 
   it('a direct deep link to /collections/d/:definitionId opens the detail view immediately, without loading the list first', () => {
@@ -483,21 +602,13 @@ describe('CollectionsComponent', () => {
     httpMock.expectOne('/curator/api/collections').flush([definition({ name: 'Empty for now' })]);
   });
 
-  it('openDefinition() loads the detail view with items, cover art, and unavailable-title styling', () => {
-    const fixture = createAndLoad([definition()]);
-    const h = harness(fixture);
-    h.openDefinition('d1');
-    fixture.detectChanges();
-
-    httpMock
-      .expectOne('/curator/api/collections/d1')
-      .flush(
-        definitionDetail({}, [
-          item('g1', { cover_image_url: 'https://img.example/g1.jpg' }),
-          item('g2', { owner_has_access: false }),
-        ]),
-      );
-    fixture.detectChanges();
+  it('the detail view renders items, cover art, and unavailable-title styling', () => {
+    const fixture = createDetail(
+      definitionDetail({}, [
+        item('g1', { cover_image_url: 'https://img.example/g1.jpg' }),
+        item('g2', { owner_has_access: false }),
+      ]),
+    );
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.querySelector('img.cover-art')?.getAttribute('src')).toBe('https://img.example/g1.jpg');
@@ -505,11 +616,8 @@ describe('CollectionsComponent', () => {
   });
 
   it('saveMeta() renames a collection via PATCH', () => {
-    const fixture = createAndLoad([definition()]);
+    const fixture = createDetail(definitionDetail());
     const h = harness(fixture);
-    h.openDefinition('d1');
-    httpMock.expectOne('/curator/api/collections/d1').flush(definitionDetail());
-    fixture.detectChanges();
 
     h.startEditingMeta();
     h.editName.set('Renamed');
@@ -526,11 +634,8 @@ describe('CollectionsComponent', () => {
   });
 
   it('removeItem() DELETEs the one title instead of rewriting the membership', () => {
-    const fixture = createAndLoad([definition()]);
+    const fixture = createDetail(definitionDetail({}, [item('g1'), item('g2')]));
     const h = harness(fixture);
-    h.openDefinition('d1');
-    httpMock.expectOne('/curator/api/collections/d1').flush(definitionDetail({}, [item('g1'), item('g2')]));
-    fixture.detectChanges();
 
     h.removeItem('g1');
     const deleteReq = httpMock.expectOne({ url: '/curator/api/collections/d1/items/g1', method: 'DELETE' });
@@ -548,11 +653,8 @@ describe('CollectionsComponent', () => {
   });
 
   it('removeItem() never sends a whole-membership replacement, which would drop other pages', () => {
-    const fixture = createAndLoad([definition()]);
+    const fixture = createDetail(definitionDetail({}, [item('g1'), item('g2')]));
     const h = harness(fixture);
-    h.openDefinition('d1');
-    httpMock.expectOne('/curator/api/collections/d1').flush(definitionDetail({}, [item('g1'), item('g2')]));
-    fixture.detectChanges();
 
     h.removeItem('g1');
 
@@ -562,11 +664,7 @@ describe('CollectionsComponent', () => {
   });
 
   it('exposes which field the item list is sorted by, and its direction, to assistive tech', () => {
-    const fixture = createAndLoad([definition()]);
-    const h = harness(fixture);
-    h.openDefinition('d1');
-    httpMock.expectOne('/curator/api/collections/d1').flush(definitionDetail({}, [item('g1')]));
-    fixture.detectChanges();
+    const fixture = createDetail(definitionDetail({}, [item('g1')]));
 
     const compiled: HTMLElement = fixture.nativeElement;
     const rank = compiled.querySelector('#collection-sort-rank');
@@ -589,11 +687,8 @@ describe('CollectionsComponent', () => {
   });
 
   it('setVisibility() shows a copyable share link once a collection stops being private', () => {
-    const fixture = createAndLoad([definition()]);
+    const fixture = createDetail(definitionDetail({ visibility: 'private', share_slug: 'slug1' }));
     const h = harness(fixture);
-    h.openDefinition('d1');
-    httpMock.expectOne('/curator/api/collections/d1').flush(definitionDetail({ visibility: 'private', share_slug: 'slug1' }));
-    fixture.detectChanges();
 
     h.setVisibility('unlisted');
     const putReq = httpMock.expectOne('/curator/api/collections/d1/visibility');
@@ -605,29 +700,22 @@ describe('CollectionsComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('/c/slug1');
   });
 
-  it('deleteDefinition() removes the collection and returns to the list', () => {
-    const fixture = createAndLoad([definition()]);
+  it('deleteDefinition() removes the collection and navigates back to the list rather than refetching it', async () => {
+    const fixture = createDetail(definitionDetail());
     const h = harness(fixture);
-    h.openDefinition('d1');
-    httpMock.expectOne('/curator/api/collections/d1').flush(definitionDetail());
-    fixture.detectChanges();
 
     h.confirmDelete();
     h.deleteDefinition();
     httpMock.expectOne({ url: '/curator/api/collections/d1', method: 'DELETE' }).flush(null);
-    httpMock.expectOne('/curator/api/collections').flush([]);
-    fixture.detectChanges();
+    await fixture.whenStable();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain("haven't saved any collections");
+    expect(TestBed.inject(Router).url).toBe('/collections');
+    httpMock.expectNone('/curator/api/collections');
   });
 
   it('runSelected() proposes a fresh list and adoptRunResult() PATCHes it as the new membership', () => {
-    const fixture = createAndLoad([definition({ kind: 'capacity_fill', console_id: 'c1' })]);
+    const fixture = createDetail(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g0')]));
     const h = harness(fixture);
-    h.openDefinition('d1');
-    httpMock
-      .expectOne('/curator/api/collections/d1')
-      .flush(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g0')]));
     httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: [] });
     httpMock.expectOne('/curator/api/storage-devices').flush([]);
     fixture.detectChanges();
@@ -655,12 +743,8 @@ describe('CollectionsComponent', () => {
   });
 
   it('a truncated run says so rather than offering a pager that would re-run and re-persist it', () => {
-    const fixture = createAndLoad([definition({ kind: 'capacity_fill', console_id: 'c1' })]);
+    const fixture = createDetail(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g0')]));
     const h = harness(fixture);
-    h.openDefinition('d1');
-    httpMock
-      .expectOne('/curator/api/collections/d1')
-      .flush(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g0')]));
     httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: [] });
     httpMock.expectOne('/curator/api/storage-devices').flush([]);
     fixture.detectChanges();
@@ -692,12 +776,8 @@ describe('CollectionsComponent', () => {
   });
 
   it('install toggle hydrates from GET installs and persists via PUT for capacity_fill', () => {
-    const fixture = createAndLoad([definition({ kind: 'capacity_fill', console_id: 'c1' })]);
+    const fixture = createDetail(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]));
     const h = harness(fixture);
-    h.openDefinition('d1');
-    httpMock
-      .expectOne('/curator/api/collections/d1')
-      .flush(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]));
     httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: ['g0'] });
     httpMock.expectOne('/curator/api/storage-devices').flush([]);
     fixture.detectChanges();
@@ -715,13 +795,9 @@ describe('CollectionsComponent', () => {
     expect(compiled.textContent).toContain('Installed');
   });
 
-  it('device install toggle hydrates from GET storage-devices + installs and persists via PUT', () => {
-    const fixture = createAndLoad([definition({ kind: 'capacity_fill', console_id: 'c1' })]);
+  it('device install toggle hydrates from GET storage-devices + installs and persists via PUT, without auto-carrying to another device or the console', () => {
+    const fixture = createDetail(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]));
     const h = harness(fixture);
-    h.openDefinition('d1');
-    httpMock
-      .expectOne('/curator/api/collections/d1')
-      .flush(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]));
     httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: [] });
     httpMock.expectOne('/curator/api/storage-devices').flush([
       {
@@ -742,13 +818,25 @@ describe('CollectionsComponent', () => {
         buffer_gb: 0,
         effective_capacity_gb: 500,
       },
+      {
+        device_id: 'dev3',
+        console_id: 'c1',
+        name: 'Backup USB',
+        kind: 'usb',
+        capacity_gb: 500,
+        buffer_gb: 0,
+        effective_capacity_gb: 500,
+      },
     ]);
     httpMock.expectOne('/curator/api/storage-devices/dev1/installs').flush({ game_ids: ['g0'] });
+    httpMock.expectOne('/curator/api/storage-devices/dev3/installs').flush({ game_ids: [] });
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.textContent).toContain('Mark on M.2 Expansion');
+    expect(compiled.textContent).toContain('Mark on Backup USB');
     expect(compiled.textContent).not.toContain('Unrelated USB');
+    expect(compiled.textContent).toContain('Mark installed');
 
     h.toggleDeviceInstall('dev1', 'g1');
     const installReq = httpMock.expectOne('/curator/api/storage-devices/dev1/installs/g1');
@@ -758,15 +846,15 @@ describe('CollectionsComponent', () => {
     fixture.detectChanges();
 
     expect(compiled.textContent).toContain('On M.2 Expansion');
+    // Install state is per device by design (no auto-carry): marking g1 installed on dev1 must not
+    // also mark it on dev3 (another device attached to the same console) or on the console itself.
+    expect(compiled.textContent).toContain('Mark on Backup USB');
+    expect(compiled.textContent).toContain('Mark installed');
   });
 
   it('measured-size panel lazily hydrates on first expand and PUTs a new contribution', () => {
-    const fixture = createAndLoad([definition({ kind: 'capacity_fill', console_id: 'c1' })]);
+    const fixture = createDetail(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]));
     const h = harness(fixture);
-    h.openDefinition('d1');
-    httpMock
-      .expectOne('/curator/api/collections/d1')
-      .flush(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]));
     httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: [] });
     httpMock.expectOne('/curator/api/storage-devices').flush([]);
     fixture.detectChanges();
@@ -800,12 +888,8 @@ describe('CollectionsComponent', () => {
   });
 
   it('install toggle surfaces an inline 404 error when the console is unknown', () => {
-    const fixture = createAndLoad([definition({ kind: 'capacity_fill', console_id: 'unknown-console' })]);
+    const fixture = createDetail(definitionDetail({ kind: 'capacity_fill', console_id: 'unknown-console' }, [item('g1')]));
     const h = harness(fixture);
-    h.openDefinition('d1');
-    httpMock
-      .expectOne('/curator/api/collections/d1')
-      .flush(definitionDetail({ kind: 'capacity_fill', console_id: 'unknown-console' }, [item('g1')]));
     httpMock.expectOne('/curator/api/consoles/unknown-console/installs').flush(null, { status: 404, statusText: 'Not Found' });
     httpMock.expectOne('/curator/api/storage-devices').flush([]);
     fixture.detectChanges();
@@ -883,7 +967,9 @@ describe('CollectionsComponent', () => {
       const fixture = TestBed.createComponent(CollectionsComponent);
       fixture.detectChanges();
 
-      expect((fixture.nativeElement as HTMLElement).textContent).toContain("This section isn't available.");
+      const forbidden = (fixture.nativeElement as HTMLElement).querySelector('#collections-forbidden');
+      expect(forbidden?.textContent).toContain('keeps their collections private');
+      expect(forbidden?.textContent).toContain('following them does not grant access');
     });
 
     it('shows a generic error message when the resolver reports a non-403 failure', () => {

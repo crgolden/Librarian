@@ -78,6 +78,10 @@ interface FollowEdge {
   followedAt: string;
 }
 
+export type SizeSource = 'measured' | 'estimated' | 'default';
+
+export const UNMEASURED_SIZE_SOURCE: SizeSource = 'default';
+
 export interface GameSummary {
   game_id: string;
   canonical_title: string;
@@ -87,6 +91,7 @@ export interface GameSummary {
   critical_score?: number | null;
   oc_score?: number | null;
   psn_rating?: number | null;
+  size_source?: SizeSource;
 }
 
 interface CollectionGame {
@@ -98,6 +103,7 @@ interface CollectionGame {
   composite_score: number | null;
   rank_score: number;
   size_gb: number;
+  size_source: SizeSource;
 }
 
 interface DefinitionRecord {
@@ -114,6 +120,7 @@ interface DefinitionRecord {
   min_percent_completed: number | null;
   visibility: 'private' | 'unlisted' | 'public';
   share_slug: string;
+  install_target_console_id: string | null;
   game_ids: string[];
 }
 
@@ -129,6 +136,7 @@ interface CollectionItem {
   psn_rating: number | null;
   cover_image_url: string | null;
   owner_has_access: boolean;
+  installed_on_target: boolean | null;
 }
 
 interface ConsoleRecord {
@@ -156,7 +164,7 @@ interface StorageDeviceRecord {
 export interface LibraryGame {
   game_id: string;
   title: string;
-  category: string | null;
+  genre: string | null;
   rawg_rating: number | null;
   opencritic_rating: number | null;
   psn_rating: number | null;
@@ -167,12 +175,12 @@ export interface LibraryGame {
   platforms: string[];
 }
 
-const LIBRARY_SORT_FIELDS = ['title', 'category', 'rawg_rating', 'opencritic_rating', 'psn_rating'] as const;
+const LIBRARY_SORT_FIELDS = ['title', 'genre', 'rawg_rating', 'opencritic_rating', 'psn_rating'] as const;
 type LibrarySortField = (typeof LIBRARY_SORT_FIELDS)[number];
 
 function queryLibraryGames(games: LibraryGame[], req: Request): { games: LibraryGame[]; total: number } {
   const q = (req.query['q'] as string | undefined)?.toLowerCase();
-  const category = req.query['category'] as string | undefined;
+  const genre = req.query['genre'] as string | undefined;
   const sortParam = req.query['sort'] as string | undefined;
   const sort: LibrarySortField = LIBRARY_SORT_FIELDS.includes(sortParam as LibrarySortField)
     ? (sortParam as LibrarySortField)
@@ -185,8 +193,8 @@ function queryLibraryGames(games: LibraryGame[], req: Request): { games: Library
   if (q) {
     filtered = filtered.filter((g) => g.title.toLowerCase().includes(q));
   }
-  if (category) {
-    filtered = filtered.filter((g) => g.category === category);
+  if (genre) {
+    filtered = filtered.filter((g) => g.genre === genre);
   }
 
   const sorted = [...filtered].sort((a, b) => {
@@ -202,8 +210,8 @@ function queryLibraryGames(games: LibraryGame[], req: Request): { games: Library
   return { games: sorted.slice(offset, offset + limit), total: sorted.length };
 }
 
-function libraryCategories(games: LibraryGame[]): string[] {
-  return Array.from(new Set(games.map((g) => g.category).filter((c): c is string => c !== null))).sort();
+function libraryGenres(games: LibraryGame[]): string[] {
+  return Array.from(new Set(games.map((g) => g.genre).filter((c): c is string => c !== null))).sort();
 }
 
 type SeededLibraryGame = Pick<LibraryGame, 'game_id' | 'title' | 'rawg_enriched' | 'opencritic_enriched'> &
@@ -213,7 +221,7 @@ function normalizeLibraryGames(games: SeededLibraryGame[]): LibraryGame[] {
   return games.map((g) => ({
     game_id: g.game_id,
     title: g.title,
-    category: g.category ?? null,
+    genre: g.genre ?? null,
     rawg_rating: g.rawg_rating ?? null,
     opencritic_rating: g.opencritic_rating ?? null,
     psn_rating: g.psn_rating ?? null,
@@ -244,6 +252,25 @@ interface LibraryRefreshOutcome {
   result_summary?: LibraryRefreshResultSummary;
 }
 
+export type EnrichmentRunTerminalStatus = 'succeeded' | 'failed' | 'cancelled';
+
+export interface EnrichmentRunOutcome {
+  status: EnrichmentRunTerminalStatus;
+  error?: string | null;
+  result_summary?: Record<string, unknown> | null;
+}
+
+interface EnrichmentRun {
+  run_id: string;
+  status: string;
+  error: string | null;
+  result_summary: Record<string, unknown> | null;
+}
+
+const LIBRARIAN_ENRICHMENT_POLL_INTERVAL_MS = 2500;
+const ENRICHMENT_RUN_LEAVES_THE_QUEUE_AFTER_MS = 250;
+const ENRICHMENT_RUN_SETTLES_ONE_LIVE_POLL_LATER_MS = LIBRARIAN_ENRICHMENT_POLL_INTERVAL_MS + 1000;
+
 
 
 interface ActionLogEntry {
@@ -267,6 +294,7 @@ const definitions = new Map<string, DefinitionRecord[]>();
 const collectionFollows: CollectionFollowEdge[] = [];
 const libraryRuns = new Map<string, LibraryRun>();
 const nextLibraryOutcome = new Map<string, LibraryRefreshOutcome>();
+const enrichmentRuns = new Map<string, EnrichmentRun>();
 const actionLog = new Map<string, ActionLogEntry[]>();
 const libraryGames = new Map<string, LibraryGame[]>();
 const profileSettings = new Map<string, ProfileSettings>();
@@ -285,6 +313,9 @@ const DEFAULT_SUB = 'e2e-user-id';
 let nextShareSlug = 1;
 let nextConsoleId = 1;
 let nextDeviceId = 1;
+let nextEnrichmentRunId = 1;
+let latestEnrichmentRunId: string | null = null;
+let nextEnrichmentOutcome: EnrichmentRunOutcome | null = null;
 
 function logAction(sub: string, action: string, detail: string | null = null): void {
   const entries = actionLog.get(sub) ?? [];
@@ -382,6 +413,14 @@ function findUser(sub: string): UserRecord | undefined {
   return users.get(sub);
 }
 
+function refusedForLackingAdmin(req: Request, res: Response): boolean {
+  if (getUser(subFromRequest(req)).isAdmin) {
+    return false;
+  }
+  res.status(403).json({ detail: 'curator.admin claim required.' });
+  return true;
+}
+
 function userConsoles(sub: string): ConsoleRecord[] {
   let list = consoleRecords.get(sub);
   if (!list) {
@@ -445,6 +484,7 @@ function toDefinitionResponse(d: DefinitionRecord): Omit<DefinitionRecord, 'iden
     min_percent_completed: d.min_percent_completed,
     visibility: d.visibility,
     share_slug: d.share_slug,
+    install_target_console_id: d.install_target_console_id,
     item_count: d.game_ids.length,
   };
 }
@@ -463,6 +503,7 @@ function toCollectionItem(gameId: string, rank: number): CollectionItem {
     psn_rating: 4.5,
     cover_image_url: null,
     owner_has_access: game !== undefined,
+    installed_on_target: null,
   };
 }
 
@@ -554,6 +595,7 @@ function toCollectionGame(game: GameSummary): CollectionGame {
     composite_score: 8,
     rank_score: 1,
     size_gb: 40,
+    size_source: game.size_source ?? UNMEASURED_SIZE_SOURCE,
   };
 }
 
@@ -639,6 +681,10 @@ export function createCuratorApp(): Express {
     collectionFollows.length = 0;
     libraryRuns.clear();
     nextLibraryOutcome.clear();
+    enrichmentRuns.clear();
+    latestEnrichmentRunId = null;
+    nextEnrichmentOutcome = null;
+    nextEnrichmentRunId = 1;
     actionLog.clear();
     libraryGames.clear();
     profileSettings.clear();
@@ -684,6 +730,24 @@ export function createCuratorApp(): Express {
   app.post('/_test/library-refresh-outcome', (req: Request, res: Response) => {
     const body = req.body as LibraryRefreshOutcome;
     nextLibraryOutcome.set(DEFAULT_SUB, body);
+    res.status(204).end();
+  });
+
+  app.post('/_test/enrichment-run-outcome', (req: Request, res: Response) => {
+    nextEnrichmentOutcome = req.body as EnrichmentRunOutcome;
+    res.status(204).end();
+  });
+
+  app.post('/_test/enrichment-run', (req: Request, res: Response) => {
+    const body = req.body as Partial<EnrichmentRun>;
+    const runId = body.run_id ?? `enrichment-run-${nextEnrichmentRunId++}`;
+    enrichmentRuns.set(runId, {
+      run_id: runId,
+      status: body.status ?? 'queued',
+      error: body.error ?? null,
+      result_summary: body.result_summary ?? null,
+    });
+    latestEnrichmentRunId = runId;
     res.status(204).end();
   });
 
@@ -787,6 +851,7 @@ export function createCuratorApp(): Express {
         min_percent_completed: null,
         visibility: d.visibility ?? 'private',
         share_slug: `slug-${nextShareSlug++}`,
+        install_target_console_id: d.install_target_console_id ?? null,
         game_ids: d.game_ids ?? [],
       })),
     );
@@ -1098,6 +1163,7 @@ export function createCuratorApp(): Express {
       min_percent_completed: body.min_percent_completed ?? null,
       visibility: 'private',
       share_slug: `slug-${nextShareSlug++}`,
+      install_target_console_id: body.install_target_console_id ?? null,
       game_ids: body.game_ids ?? [],
     };
     userDefinitions(sub).push(definition);
@@ -1454,8 +1520,8 @@ export function createCuratorApp(): Express {
     res.json(queryLibraryGames(libraryGames.get(subFromRequest(req)) ?? [], req));
   });
 
-  app.get('/library/categories', (req: Request, res: Response) => {
-    res.json({ categories: libraryCategories(libraryGames.get(subFromRequest(req)) ?? []) });
+  app.get('/library/genres', (req: Request, res: Response) => {
+    res.json({ genres: libraryGenres(libraryGames.get(subFromRequest(req)) ?? []) });
   });
 
   app.post('/library/refresh', (req: Request, res: Response) => {
@@ -1497,6 +1563,61 @@ export function createCuratorApp(): Express {
       return;
     }
     res.json({ run_id: pathParam(req, 'runId'), status: run.status, error: run.error, result_summary: run.result_summary });
+  });
+
+  app.post('/enrichment/runs', (req: Request, res: Response) => {
+    if (refusedForLackingAdmin(req, res)) {
+      return;
+    }
+
+    const runId = `enrichment-run-${nextEnrichmentRunId++}`;
+    enrichmentRuns.set(runId, { run_id: runId, status: 'queued', error: null, result_summary: null });
+    latestEnrichmentRunId = runId;
+
+    setTimeout(() => {
+      const run = enrichmentRuns.get(runId);
+      if (run) {
+        run.status = 'running';
+      }
+    }, ENRICHMENT_RUN_LEAVES_THE_QUEUE_AFTER_MS);
+
+    setTimeout(() => {
+      const run = enrichmentRuns.get(runId);
+      if (run) {
+        const outcome = nextEnrichmentOutcome ?? { status: 'succeeded' as EnrichmentRunTerminalStatus };
+        run.status = outcome.status;
+        run.error = outcome.error ?? null;
+        run.result_summary = outcome.result_summary ?? null;
+      }
+    }, ENRICHMENT_RUN_SETTLES_ONE_LIVE_POLL_LATER_MS);
+
+    res.status(202).json({ run_id: runId });
+  });
+
+  app.get('/enrichment/runs/latest', (req: Request, res: Response) => {
+    if (refusedForLackingAdmin(req, res)) {
+      return;
+    }
+
+    const run = latestEnrichmentRunId === null ? undefined : enrichmentRuns.get(latestEnrichmentRunId);
+    if (!run) {
+      res.status(404).json({ detail: 'No enrichment run has been queued yet.' });
+      return;
+    }
+    res.json(run);
+  });
+
+  app.get('/enrichment/runs/:runId', (req: Request, res: Response) => {
+    if (refusedForLackingAdmin(req, res)) {
+      return;
+    }
+
+    const run = enrichmentRuns.get(pathParam(req, 'runId'));
+    if (!run) {
+      res.status(404).json({ detail: 'Enrichment run not found.' });
+      return;
+    }
+    res.json(run);
   });
 
   app.get('/me/profile-settings', (req: Request, res: Response) => {
@@ -1713,11 +1834,11 @@ export function createCuratorApp(): Express {
     res.json(queryLibraryGames(libraryGames.get(pathParam(req, 'sub')) ?? [], req));
   });
 
-  app.get('/users/:sub/library/categories', (req: Request, res: Response) => {
+  app.get('/users/:sub/library/genres', (req: Request, res: Response) => {
     if (libraryVisibilityGate(req, res)) {
       return;
     }
-    res.json({ categories: libraryCategories(libraryGames.get(pathParam(req, 'sub')) ?? []) });
+    res.json({ genres: libraryGenres(libraryGames.get(pathParam(req, 'sub')) ?? []) });
   });
 
   app.get('/users/:sub/collections', (req: Request, res: Response) => {

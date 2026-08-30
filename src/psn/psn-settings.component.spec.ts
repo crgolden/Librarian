@@ -77,8 +77,10 @@ describe('PsnSettingsComponent', () => {
     routeSnapshotData.status = response;
     const fixture = TestBed.createComponent(PsnSettingsComponent);
     fixture.detectChanges();
-    if (response?.linked) {
-      httpMock.expectOne('/curator/api/me/psn-preferences').flush(ALL_PREFS_OFF);
+    if (response !== null) {
+      if (response.linked) {
+        httpMock.expectOne('/curator/api/me/psn-preferences').flush(ALL_PREFS_OFF);
+      }
       httpMock.expectOne('/curator/api/me/enrichment-keys').flush(NO_ENRICHMENT_KEYS);
       httpMock
         .expectOne('/curator/api/me/refresh-schedule')
@@ -96,11 +98,19 @@ describe('PsnSettingsComponent', () => {
     expect(compiled.querySelector('#schedule-error')).toBeNull();
   });
 
-  it('offers no schedule control at all until a PSN account is linked', () => {
+  it('offers the schedule and enrichment-key controls with no PSN account linked', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    expect(compiled.querySelector('#schedule-save')).not.toBeNull();
+    expect(compiled.querySelector('#psn-enrichment-keys-card')).not.toBeNull();
+  });
+
+  it('still gates the harvest preferences behind a PSN link', () => {
     const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
 
-    expect((fixture.nativeElement as HTMLElement).querySelector('#schedule-save')).toBeNull();
-    httpMock.expectNone('/curator/api/me/refresh-schedule');
+    expect((fixture.nativeElement as HTMLElement).querySelector('#pref-trophies')).toBeNull();
+    httpMock.expectNone('/curator/api/me/psn-preferences');
   });
 
   it('shows the stored cadence and next run, and offers a cancel, once a schedule exists', () => {
@@ -238,10 +248,8 @@ describe('PsnSettingsComponent', () => {
     fixture.detectChanges();
 
     httpMock.expectOne('/curator/api/me/psn-preferences').flush(ALL_PREFS_OFF);
-    httpMock.expectOne('/curator/api/me/enrichment-keys').flush(NO_ENRICHMENT_KEYS);
-    httpMock
-      .expectOne('/curator/api/me/refresh-schedule')
-      .flush(null, { status: 404, statusText: 'Not Found' });
+    httpMock.expectNone('/curator/api/me/enrichment-keys');
+    httpMock.expectNone('/curator/api/me/refresh-schedule');
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;

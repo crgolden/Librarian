@@ -13,7 +13,7 @@ export interface HomeAction {
 const MY_LIBRARY: HomeAction = { path: '/library', label: 'My Library' };
 const BROWSE_CATALOG: HomeAction = { path: '/catalog', label: 'Browse Catalog' };
 const COLLECTIONS: HomeAction = { path: '/collections', label: 'Collections' };
-const MANAGE_PSN_LINK: HomeAction = { path: '/psn', label: 'Manage PSN Link' };
+const MANAGE_PSN_LINK: HomeAction = { path: '/account', label: 'Manage PSN Link' };
 
 @Component({
   selector: 'app-home',

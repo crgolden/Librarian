@@ -151,6 +151,8 @@ export class PsnSettingsComponent implements OnInit {
       this.error.set('Unable to load PSN link status.');
       return;
     }
+    this.loadEnrichmentKeyStatus();
+    this.loadSchedule();
     this.applyStatus(status);
   }
 
@@ -160,8 +162,6 @@ export class PsnSettingsComponent implements OnInit {
     this.refreshTokenExpiresAt.set(me.psn?.refresh_token_expires_at ?? null);
     if (me.linked) {
       this.loadPreferences();
-      this.loadEnrichmentKeyStatus();
-      this.loadSchedule();
     }
   }
 

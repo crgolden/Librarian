@@ -521,6 +521,24 @@ code {
   color: var(--color-text-muted);
 }
 
+.size-source {
+  display: inline-block;
+  margin-left: var(--space-2);
+  font-family: var(--font-meta);
+  font-size: var(--font-size-label);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.size-source[data-size-source='measured'] {
+  color: var(--color-ok);
+}
+
+.size-source[data-size-source='estimated'] {
+  color: var(--color-warn);
+}
+
 .psn-badge {
   display: inline-flex;
   align-items: center;
@@ -540,7 +558,9 @@ code {
 
 .pager {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: var(--space-3);
   margin-top: var(--space-3);
 }

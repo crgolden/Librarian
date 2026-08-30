@@ -3,16 +3,16 @@ import { test, expect } from './fixtures.js';
 
 async function createAndPublishCollection(page: import('@playwright/test').Page): Promise<string> {
   await page.goto('/collections');
-  await page.getByRole('button', { name: 'New collection' }).click();
-  await page.getByLabel('Genres').selectOption({ label: 'RPG' });
-  await page.getByRole('button', { name: 'Preview' }).click();
-  await expect(page.getByText('Bloodborne', { exact: true })).toBeVisible({ timeout: 10_000 });
-  await page.getByLabel('Name this collection').fill('RPG picks');
-  await page.getByRole('button', { name: 'Save this collection' }).click();
+  await page.locator('#collections-new').click();
+  await page.locator('#genreFilter').selectOption({ label: 'RPG' });
+  await page.locator('#collection-preview').click();
+  await expect(page.locator('#preview-included-title-0')).toHaveText('Bloodborne', { timeout: 10_000 });
+  await page.locator('#name').fill('RPG picks');
+  await page.locator('#collection-save').click();
   await expect(page.locator('text=RPG picks')).toBeVisible({ timeout: 10_000 });
 
   await page.locator('#collection-open-0').click();
-  await page.getByLabel('Visibility').selectOption('unlisted');
+  await page.locator('#visibility').selectOption('unlisted');
   await expect(page.locator('#collection-share-url')).toContainText('/c/', { timeout: 10_000 });
 
   const shareUrl = await page.locator('#collection-share-url').textContent();
@@ -38,8 +38,8 @@ test.describe('Public collection share page', () => {
 
     await visitor.goto(sharePath);
     await expect(visitor.locator('#page-title')).toContainText('RPG picks');
-    await expect(visitor.getByText('Bloodborne', { exact: true })).toBeVisible({ timeout: 10_000 });
-    await expect(visitor.getByRole('link', { name: 'Sign in to follow this collection' })).toBeVisible();
+    await expect(visitor.locator('#public-collection-title-0')).toHaveText('Bloodborne', { timeout: 10_000 });
+    await expect(visitor.locator('#public-collection-sign-in')).toHaveText('Sign in to follow this collection');
   });
 
   test('a second signed-in user can follow a shared collection and see it in "Collections I follow"', async ({
@@ -55,16 +55,16 @@ test.describe('Public collection share page', () => {
     const sharePath = await createAndPublishCollection(owner);
 
     await follower.goto(sharePath);
-    const followButton = follower.getByRole('button', { name: 'Follow this collection' });
-    await expect(followButton).toBeVisible({ timeout: 10_000 });
+    const followButton = follower.locator('#public-collection-follow');
+    await expect(followButton).toHaveText('Follow this collection', { timeout: 10_000 });
     await followButton.click();
-    await expect(follower.getByRole('button', { name: 'Unfollow' })).toBeVisible({ timeout: 10_000 });
+    await expect(followButton).toHaveText('Unfollow', { timeout: 10_000 });
 
     await follower.goto('/collections');
-    await follower.getByRole('button', { name: 'Collections I follow' }).click();
+    await follower.locator('#collections-followed').click();
     await expect(follower.locator('text=RPG picks')).toBeVisible({ timeout: 10_000 });
 
-    await follower.getByRole('button', { name: 'Unfollow' }).click();
+    await follower.locator('#collection-followed-unfollow-0').click();
     await expect(follower.locator("text=aren't following")).toBeVisible({ timeout: 10_000 });
   });
 
@@ -79,8 +79,8 @@ test.describe('Public collection share page', () => {
     ]);
 
     const sharePath = await createAndPublishCollection(owner);
-    await owner.getByLabel('Visibility').selectOption('private');
-    await expect(owner.getByRole('button', { name: 'Copy share link' })).toHaveCount(0);
+    await owner.locator('#visibility').selectOption('private');
+    await expect(owner.locator('#collection-copy-share-link')).toHaveCount(0);
 
     await visitor.goto(sharePath);
     await expect(visitor.locator('#page-title')).toContainText('Collection not found');

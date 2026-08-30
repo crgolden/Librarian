@@ -2,17 +2,18 @@ import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { LibraryComponent } from './library.component';
+import { LIBRARY_PAGE_SIZE_CEILING, LIBRARY_PAGE_SIZE_KEY, LibraryComponent } from './library.component';
 import { LIBRARY_PAGE_SIZE, ResolvedLibrary } from './library.resolver';
+import { pageSizeChoicesUpTo, writePageSize } from '../shared/page-size/page-size.preference';
 import { LibraryGameResponse, LibraryPageResponse, ProfileLibraryGameResponse } from '../curator/curator.models';
 import { AuthService } from '../auth/auth.service';
 
 function okLibrary(
   games: LibraryGameResponse[] | ProfileLibraryGameResponse[] = [],
   total = games.length,
-  categories: string[] = [],
+  genres: string[] = [],
 ): ResolvedLibrary {
-  return { status: 'ok', games, total, categories };
+  return { status: 'ok', games, total, genres };
 }
 
 function activatedRouteWithSub(sub: string | null, resolved: ResolvedLibrary = okLibrary()): ActivatedRoute {
@@ -43,7 +44,7 @@ function page(games: LibraryGameResponse[], total = games.length): LibraryPageRe
 const FULL_GAME: LibraryGameResponse = {
   game_id: 'g1',
   title: 'Elden Ring',
-  category: 'Action RPG',
+  genre: 'Action RPG',
   rawg_rating: 96,
   opencritic_rating: 94,
   psn_rating: 4.8,
@@ -69,6 +70,7 @@ describe('LibraryComponent', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(() => {
+    localStorage.clear();
     vi.useFakeTimers();
     TestBed.configureTestingModule({
       imports: [LibraryComponent],
@@ -90,9 +92,9 @@ describe('LibraryComponent', () => {
   async function createAndLoad(
     games: LibraryGameResponse[] = [],
     total = games.length,
-    categories: string[] = [],
+    genres: string[] = [],
   ): Promise<ComponentFixture<LibraryComponent>> {
-    configureOwner(okLibrary(games, total, categories));
+    configureOwner(okLibrary(games, total, genres));
     const fixture = TestBed.createComponent(LibraryComponent);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -209,7 +211,7 @@ describe('LibraryComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Library catalogued.');
 
     httpMock.expectOne((req) => req.url === '/curator/api/library').flush(page([]));
-    httpMock.expectOne('/curator/api/library/categories').flush({ categories: [] });
+    httpMock.expectOne('/curator/api/library/genres').flush({ genres: [] });
     fixture.detectChanges();
 
     await vi.advanceTimersByTimeAsync(2500);
@@ -229,6 +231,28 @@ describe('LibraryComponent', () => {
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('PSN entitlement fetch failed.');
+
+    await vi.advanceTimersByTimeAsync(2500);
+    httpMock.expectNone('/curator/api/library/refresh/r1');
+  });
+
+  it('explains a cancelled refresh as a terminal state rather than an unexpected status', async () => {
+    const fixture = await createAndLoad();
+
+    fixture.nativeElement.querySelector('button').click();
+    httpMock.expectOne('/curator/api/library/refresh').flush({ run_id: 'r1' });
+
+    await vi.advanceTimersByTimeAsync(2500);
+    httpMock
+      .expectOne('/curator/api/library/refresh/r1')
+      .flush({ run_id: 'r1', status: 'cancelled', error: null, result_summary: null });
+    fixture.detectChanges();
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.querySelector('#library-refresh-cancelled')?.textContent).toContain(
+      'This refresh was cancelled before it finished.',
+    );
+    expect(compiled.textContent).not.toContain('Unexpected status returned');
 
     await vi.advanceTimersByTimeAsync(2500);
     httpMock.expectNone('/curator/api/library/refresh/r1');
@@ -256,7 +280,7 @@ describe('LibraryComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Library catalogued.');
 
     httpMock.expectOne((req) => req.url === '/curator/api/library').flush(page([]));
-    httpMock.expectOne('/curator/api/library/categories').flush({ categories: [] });
+    httpMock.expectOne('/curator/api/library/genres').flush({ genres: [] });
   });
 
   it('gives up and shows "Lost track" only after exhausting the retry budget', async () => {
@@ -309,7 +333,7 @@ describe('LibraryComponent', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     httpMock.expectOne((req) => req.url === '/curator/api/library').flush(page([]));
-    httpMock.expectOne('/curator/api/library/categories').flush({ categories: [] });
+    httpMock.expectOne('/curator/api/library/genres').flush({ genres: [] });
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent;
@@ -337,7 +361,7 @@ describe('LibraryComponent', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     httpMock.expectOne((req) => req.url === '/curator/api/library').flush(page([]));
-    httpMock.expectOne('/curator/api/library/categories').flush({ categories: [] });
+    httpMock.expectOne('/curator/api/library/genres').flush({ genres: [] });
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent;
@@ -350,13 +374,13 @@ describe('LibraryComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('No games yet');
   });
 
-  it('renders numeric ratings, category, and a dash for unresolved values', async () => {
+  it('renders numeric ratings, genre, and a dash for unresolved values', async () => {
     const fixture = await createAndLoad([
       FULL_GAME,
       {
         game_id: 'g2',
         title: 'Unmatched Game',
-        category: null,
+        genre: null,
         rawg_rating: null,
         opencritic_rating: null,
         psn_rating: null,
@@ -420,7 +444,7 @@ describe('LibraryComponent', () => {
       {
         game_id: 'g2',
         title: 'No Product Id',
-        category: null,
+        genre: null,
         rawg_rating: null,
         opencritic_rating: null,
         psn_rating: null,
@@ -456,15 +480,15 @@ describe('LibraryComponent', () => {
     req.flush(page([FULL_GAME]));
   });
 
-  it('filters by category, resetting to the first page', async () => {
+  it('filters by genre, resetting to the first page', async () => {
     const fixture = await createAndLoad([FULL_GAME], 1, ['Action RPG']);
-    const select: HTMLSelectElement = fixture.nativeElement.querySelector('.library-category-filter');
+    const select: HTMLSelectElement = fixture.nativeElement.querySelector('.library-genre-filter');
 
     select.value = 'Action RPG';
     select.dispatchEvent(new Event('change'));
     fixture.detectChanges();
 
-    const req = httpMock.expectOne((r) => r.url === '/curator/api/library' && r.params.get('category') === 'Action RPG');
+    const req = httpMock.expectOne((r) => r.url === '/curator/api/library' && r.params.get('genre') === 'Action RPG');
     expect(req.request.params.get('offset')).toBe('0');
     req.flush(page([FULL_GAME]));
   });
@@ -472,25 +496,41 @@ describe('LibraryComponent', () => {
   it('sorts by clicking a column header, toggling direction on a second click', async () => {
     const fixture = await createAndLoad([FULL_GAME]);
     const compiled: HTMLElement = fixture.nativeElement;
-    const findCategoryHeader = (): HTMLElement | undefined =>
-      Array.from(compiled.querySelectorAll('th')).find((th) => th.textContent?.includes('Category'));
+    const findGenreHeader = (): HTMLElement | undefined =>
+      Array.from(compiled.querySelectorAll('th')).find((th) => th.textContent?.includes('Genre'));
 
-    expect(findCategoryHeader()).toBeDefined();
-    findCategoryHeader()?.dispatchEvent(new MouseEvent('click'));
+    expect(findGenreHeader()).toBeDefined();
+    findGenreHeader()?.dispatchEvent(new MouseEvent('click'));
     fixture.detectChanges();
     const ascReq = httpMock.expectOne(
-      (r) => r.url === '/curator/api/library' && r.params.get('sort') === 'category' && r.params.get('sortDir') === 'asc',
+      (r) => r.url === '/curator/api/library' && r.params.get('sort') === 'genre' && r.params.get('sortDir') === 'asc',
     );
     ascReq.flush(page([FULL_GAME]));
     fixture.detectChanges();
     await fixture.whenStable();
 
-    findCategoryHeader()?.dispatchEvent(new MouseEvent('click'));
+    findGenreHeader()?.dispatchEvent(new MouseEvent('click'));
     fixture.detectChanges();
     const descReq = httpMock.expectOne(
-      (r) => r.url === '/curator/api/library' && r.params.get('sort') === 'category' && r.params.get('sortDir') === 'desc',
+      (r) => r.url === '/curator/api/library' && r.params.get('sort') === 'genre' && r.params.get('sortDir') === 'desc',
     );
     descReq.flush(page([FULL_GAME]));
+  });
+
+  it('sorts genre ascending on the first click even when every row has no genre', async () => {
+    const fixture = await createAndLoad([{ ...FULL_GAME, genre: null }]);
+    const compiled: HTMLElement = fixture.nativeElement;
+    const genreHeader = Array.from(compiled.querySelectorAll('th')).find((th) => th.textContent?.includes('Genre'));
+
+    genreHeader?.dispatchEvent(new MouseEvent('click'));
+    fixture.detectChanges();
+
+    const request = httpMock.expectOne((r) => r.url === '/curator/api/library' && r.params.get('sort') === 'genre');
+    expect(
+      request.request.params.get('sortDir'),
+      'The table infers a column\'s first sort direction by sampling the first ten rows and falls back to "desc" when it finds no non-nullish value, so a library with no genres would open the Genre sort backwards. sortDescFirst:false on the column declares the direction instead of letting the data decide it.',
+    ).toBe('asc');
+    request.flush(page([{ ...FULL_GAME, genre: null }]));
   });
 
   it('pages through results, enabling/disabling Previous/Next based on the real total', async () => {
@@ -610,7 +650,15 @@ describe('LibraryComponent', () => {
       await fixture.whenStable();
       fixture.detectChanges();
 
-      expect((fixture.nativeElement as HTMLElement).textContent).toContain("This section isn't available.");
+      const forbidden = (fixture.nativeElement as HTMLElement).querySelector('#library-forbidden');
+      expect(forbidden?.textContent).toContain('keeps their library private');
+      expect(
+        forbidden?.textContent,
+        'The viewer is offered a working Follow button on the profile immediately after seeing this, and '
+          + 'following can never grant library access: library_visible is (is_public AND show_library) on '
+          + 'the OWNER, with the follow graph absent from it. The message has to say so, or the only '
+          + 'actionable control in reach reads as the remedy.',
+      ).toContain('following them does not grant access');
     });
 
     it('shows a generic error message when the resolver reports a non-403 failure', async () => {
@@ -623,5 +671,35 @@ describe('LibraryComponent', () => {
 
       expect((fixture.nativeElement as HTMLElement).textContent).toContain("Unable to load this user's library.");
     });
+  });
+
+  it('offers no page size above the ceiling /library enforces', async () => {
+    const fixture = await createAndLoad([FULL_GAME]);
+
+    const offered = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLOptionElement>('#library-page-size option'),
+    ).map((option) => Number(option.value));
+    const aboveTheCeiling = pageSizeChoicesUpTo(LIBRARY_PAGE_SIZE_CEILING * 2, LIBRARY_PAGE_SIZE).filter(
+      (choice) => choice > LIBRARY_PAGE_SIZE_CEILING,
+    );
+
+    expect(offered.length).toBeGreaterThan(0);
+    expect(aboveTheCeiling.length).toBeGreaterThan(0);
+    expect(offered).not.toContain(aboveTheCeiling[0]);
+  });
+
+  it('loads at the remembered size rather than the size the resolver used', async () => {
+    writePageSize(LIBRARY_PAGE_SIZE_KEY, LIBRARY_PAGE_SIZE_CEILING);
+    configureOwner(okLibrary([FULL_GAME], 1));
+
+    const fixture = TestBed.createComponent(LibraryComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const reload = httpMock.expectOne((r) => r.url === '/curator/api/library');
+    expect(reload.request.params.get('limit')).toBe(String(LIBRARY_PAGE_SIZE_CEILING));
+    expect(reload.request.params.get('offset')).toBe('0');
+    reload.flush(page([FULL_GAME], 1));
+    fixture.detectChanges();
   });
 });

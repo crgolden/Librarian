@@ -1,8 +1,11 @@
 <app-loading-overlay [visible]="overlayVisible()" />
 
 <section class="page-section psn-settings">
-  <h1 id="page-title">PlayStation Network</h1>
-  <p class="text-muted">Link your PSN account so Librarian can read your game library.</p>
+  <h1 id="page-title">Account</h1>
+  <p class="text-muted">
+    Link a PSN account so Librarian can read your game library, and manage your enrichment keys,
+    refresh schedule and stored data. Everything below the link works with or without a PSN account.
+  </p>
 
   @if (loadingStatus()) {
     <p class="text-muted">Loading link status...</p>
@@ -29,7 +32,13 @@
       @if (success()) {
         <p class="text-success">{{ success() }}</p>
       }
-      <button type="button" class="btn-ghost-danger btn-ghost" (click)="unlink()" [disabled]="unlinking()">
+      <button
+        id="psn-unlink"
+        type="button"
+        class="btn-ghost-danger btn-ghost"
+        (click)="unlink()"
+        [disabled]="unlinking()"
+      >
         {{ unlinking() ? 'Unlinking...' : 'Unlink' }}
       </button>
     </div>
@@ -38,9 +47,9 @@
       <div class="card p-6 flex flex-col items-start gap-4 psn-preferences">
         <h2>Data sharing</h2>
         <p class="text-muted">Choose what Librarian reads from your PlayStation Network account.</p>
-        <p class="text-muted">
+        <p id="psn-public-profile-note" class="text-muted">
           Anything you enable here may also appear on your public profile if you make it public — see
-          <a routerLink="/profile/settings">Profile Settings</a>.
+          <a id="psn-profile-settings-link" routerLink="/profile/settings">Profile Settings</a>.
         </p>
 
         @if (preferencesError()) {
@@ -104,80 +113,6 @@
         </div>
       </div>
 
-      <div class="card p-6 flex flex-col items-start gap-4 psn-preferences">
-        <h2>Scheduled refreshes</h2>
-        <p class="text-muted">
-          Rebuild your library automatically on a schedule, instead of pressing Refresh yourself.
-        </p>
-
-        @if (scheduleError()) {
-          <p class="text-error" id="schedule-error">{{ scheduleError() }}</p>
-        }
-
-        @if (schedule(); as current) {
-          @if (current.paused_reason; as reason) {
-            <p class="text-error" id="schedule-paused">{{ pausedReasonLabel(reason) }}</p>
-          } @else {
-            <p class="catalog-meta" id="schedule-next-run">
-              Next refresh: {{ current.next_run_at | date: 'medium' }}
-            </p>
-          }
-          @if (current.last_run_at; as lastRun) {
-            <p class="catalog-meta" id="schedule-last-run">Last refresh: {{ lastRun | date: 'medium' }}</p>
-          }
-        } @else if (!scheduleLoading()) {
-          <p class="text-muted" id="schedule-none">No schedule yet — your library only refreshes when you ask.</p>
-        }
-
-        <div class="psn-preference-toggle">
-          <label for="schedule-cadence">How often</label>
-          <select
-            id="schedule-cadence"
-            [ngModel]="scheduleCadence()"
-            (ngModelChange)="scheduleCadence.set($event)"
-            [disabled]="scheduleSaving()"
-          >
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
-        </div>
-
-        <div class="psn-preference-toggle">
-          <label for="schedule-ps-plus-watch">
-            <input
-              id="schedule-ps-plus-watch"
-              type="checkbox"
-              [ngModel]="schedulePsPlusWatch()"
-              (ngModelChange)="schedulePsPlusWatch.set($event)"
-              [disabled]="scheduleSaving()"
-            />
-            PS Plus watch
-          </label>
-          <span class="text-muted">Also report which titles entered or left the PS Plus catalog.</span>
-        </div>
-
-        <button
-          id="schedule-save"
-          type="button"
-          class="btn-primary"
-          [disabled]="scheduleSaving()"
-          (click)="saveSchedule()"
-        >
-          {{ schedule() ? 'Update schedule' : 'Start scheduled refreshes' }}
-        </button>
-
-        @if (schedule()) {
-          <button
-            id="schedule-cancel"
-            type="button"
-            class="btn-ghost"
-            [disabled]="scheduleSaving()"
-            (click)="cancelSchedule()"
-          >
-            Cancel schedule
-          </button>
-        }
-      </div>
 
       <div class="card p-6 flex flex-col items-start gap-4 psn-preferences">
         <h2>Account changes</h2>
@@ -223,168 +158,6 @@
         </div>
       </div>
 
-      @if (enrichmentKeyStatus(); as keys) {
-        <div class="card p-6 flex flex-col items-start gap-4 psn-preferences">
-          <h2>Enrichment API keys (optional)</h2>
-          <p class="text-muted">
-            Bring your own RAWG and/or OpenCritic API keys to enrich your library with genre, score, and
-            metadata signals. Entirely optional — Curator never provisions a shared key for this, so
-            enrichment for a provider you haven't configured is simply skipped, not an error. See the
-            <a routerLink="/faq">FAQ</a> for what this does with the data it retrieves.
-          </p>
-          @if (enrichmentKeyStatusError()) {
-            <p class="text-error">{{ enrichmentKeyStatusError() }}</p>
-          }
-
-          <div class="psn-preference-toggle">
-            <h3>RAWG</h3>
-            @if (keys.rawg_key_rejected_at) {
-              <p class="text-error">
-                This key stopped working as of {{ keys.rawg_key_rejected_at | date: 'medium' }} — RAWG
-                rejected it during your last library refresh. Enrichment from RAWG is skipped until you
-                re-enter a working key.
-              </p>
-            }
-            @if (keys.rawg_configured) {
-              <p class="text-muted">
-                Configured
-                @if (keys.rawg_added_at) {
-                  since {{ keys.rawg_added_at | date: 'medium' }}
-                }
-              </p>
-              @if (rawgKeyError()) {
-                <p class="text-error">{{ rawgKeyError() }}</p>
-              }
-              @if (keys.rawg_key_rejected_at) {
-                <label for="rawg-key" class="sr-only">New RAWG API key</label>
-                <input
-                  id="rawg-key"
-                  name="rawg-key"
-                  type="password"
-                  autocomplete="off"
-                  [ngModel]="rawgKeyInput()"
-                  (ngModelChange)="rawgKeyInput.set($event)"
-                  placeholder="New RAWG API key"
-                />
-                <button type="button" class="btn-primary" (click)="setRawgKey()" [disabled]="settingRawgKey()">
-                  {{ settingRawgKey() ? 'Saving...' : 'Re-enter RAWG key' }}
-                </button>
-              }
-              <button
-                type="button"
-                class="btn-ghost-danger btn-ghost"
-                (click)="deleteRawgKey()"
-                [disabled]="deletingRawgKey()"
-              >
-                {{ deletingRawgKey() ? 'Removing...' : 'Remove RAWG key' }}
-              </button>
-            } @else {
-              <span class="text-muted"
-                >Don't have a key? Get one free at <a href="https://rawg.io/apidocs" target="_blank" rel="noopener"
-                  >rawg.io/apidocs</a
-                >.</span
-              >
-              <label for="rawg-key" class="sr-only">RAWG API key</label>
-              <input
-                id="rawg-key"
-                name="rawg-key"
-                type="password"
-                autocomplete="off"
-                [ngModel]="rawgKeyInput()"
-                (ngModelChange)="rawgKeyInput.set($event)"
-                placeholder="RAWG API key"
-              />
-              <span class="text-muted">Encrypted at rest, never displayed again after saving.</span>
-              @if (rawgKeyError()) {
-                <p class="text-error">{{ rawgKeyError() }}</p>
-              }
-              <button type="button" class="btn-primary" (click)="setRawgKey()" [disabled]="settingRawgKey()">
-                {{ settingRawgKey() ? 'Saving...' : 'Save RAWG key' }}
-              </button>
-            }
-          </div>
-
-          <div class="psn-preference-toggle">
-            <h3>OpenCritic</h3>
-            @if (keys.opencritic_key_rejected_at) {
-              <p class="text-error">
-                This key stopped working as of {{ keys.opencritic_key_rejected_at | date: 'medium' }} —
-                OpenCritic rejected it during your last library refresh. Enrichment from OpenCritic is
-                skipped until you re-enter a working key.
-              </p>
-            }
-            @if (keys.opencritic_configured) {
-              <p class="text-muted">
-                Configured
-                @if (keys.opencritic_added_at) {
-                  since {{ keys.opencritic_added_at | date: 'medium' }}
-                }
-              </p>
-              @if (opencriticKeyError()) {
-                <p class="text-error">{{ opencriticKeyError() }}</p>
-              }
-              @if (keys.opencritic_key_rejected_at) {
-                <label for="opencritic-key" class="sr-only">New OpenCritic API key</label>
-                <input
-                  id="opencritic-key"
-                  name="opencritic-key"
-                  type="password"
-                  autocomplete="off"
-                  [ngModel]="opencriticKeyInput()"
-                  (ngModelChange)="opencriticKeyInput.set($event)"
-                  placeholder="New OpenCritic (RapidAPI) key"
-                />
-                <button
-                  type="button"
-                  class="btn-primary"
-                  (click)="setOpenCriticKey()"
-                  [disabled]="settingOpencriticKey()"
-                >
-                  {{ settingOpencriticKey() ? 'Saving...' : 'Re-enter OpenCritic key' }}
-                </button>
-              }
-              <button
-                type="button"
-                class="btn-ghost-danger btn-ghost"
-                (click)="deleteOpenCriticKey()"
-                [disabled]="deletingOpencriticKey()"
-              >
-                {{ deletingOpencriticKey() ? 'Removing...' : 'Remove OpenCritic key' }}
-              </button>
-            } @else {
-              <span class="text-muted"
-                >Don't have a key? OpenCritic is accessed through RapidAPI — see the
-                <a href="https://docs.rapidapi.com/docs/consumer-quick-start-guide" target="_blank" rel="noopener"
-                  >RapidAPI quick-start guide</a
-                >
-                to sign up and subscribe to the OpenCritic API.</span
-              >
-              <label for="opencritic-key" class="sr-only">OpenCritic API key</label>
-              <input
-                id="opencritic-key"
-                name="opencritic-key"
-                type="password"
-                autocomplete="off"
-                [ngModel]="opencriticKeyInput()"
-                (ngModelChange)="opencriticKeyInput.set($event)"
-                placeholder="OpenCritic (RapidAPI) key"
-              />
-              <span class="text-muted">Encrypted at rest, never displayed again after saving.</span>
-              @if (opencriticKeyError()) {
-                <p class="text-error">{{ opencriticKeyError() }}</p>
-              }
-              <button
-                type="button"
-                class="btn-primary"
-                (click)="setOpenCriticKey()"
-                [disabled]="settingOpencriticKey()"
-              >
-                {{ settingOpencriticKey() ? 'Saving...' : 'Save OpenCritic key' }}
-              </button>
-            }
-          </div>
-        </div>
-      }
 
       @if (prefs.harvest_trophies && trophySummary(); as summary) {
         <div id="psn-card-trophies" class="card p-6 flex flex-col items-start gap-4 psn-category-card">
@@ -484,10 +257,264 @@
       @if (success()) {
         <p class="text-success">{{ success() }}</p>
       }
-      <button type="submit" class="btn-primary" [disabled]="linking()">
+      <button id="psn-link-submit" type="submit" class="btn-primary" [disabled]="linking()">
         {{ linking() ? 'Linking...' : 'Link account' }}
       </button>
     </form>
+  }
+
+  <div id="psn-schedule-card" class="card p-6 flex flex-col items-start gap-4 psn-preferences">
+    <h2>Scheduled refreshes</h2>
+    <p class="text-muted">
+      Rebuild your library automatically on a schedule, instead of pressing Refresh yourself.
+    </p>
+
+    @if (scheduleError()) {
+      <p class="text-error" id="schedule-error">{{ scheduleError() }}</p>
+    }
+
+    @if (schedule(); as current) {
+      @if (current.paused_reason; as reason) {
+        <p class="text-error" id="schedule-paused">{{ pausedReasonLabel(reason) }}</p>
+      } @else {
+        <p class="catalog-meta" id="schedule-next-run">
+          Next refresh: {{ current.next_run_at | date: 'medium' }}
+        </p>
+      }
+      @if (current.last_run_at; as lastRun) {
+        <p class="catalog-meta" id="schedule-last-run">Last refresh: {{ lastRun | date: 'medium' }}</p>
+      }
+    } @else if (!scheduleLoading()) {
+      <p class="text-muted" id="schedule-none">No schedule yet — your library only refreshes when you ask.</p>
+    }
+
+    <div class="psn-preference-toggle">
+      <label for="schedule-cadence">How often</label>
+      <select
+        id="schedule-cadence"
+        [ngModel]="scheduleCadence()"
+        (ngModelChange)="scheduleCadence.set($event)"
+        [disabled]="scheduleSaving()"
+      >
+        <option value="weekly">Weekly</option>
+        <option value="monthly">Monthly</option>
+      </select>
+    </div>
+
+    <div class="psn-preference-toggle">
+      <label for="schedule-ps-plus-watch">
+        <input
+          id="schedule-ps-plus-watch"
+          type="checkbox"
+          [ngModel]="schedulePsPlusWatch()"
+          (ngModelChange)="schedulePsPlusWatch.set($event)"
+          [disabled]="scheduleSaving()"
+        />
+        PS Plus watch
+      </label>
+      <span class="text-muted">Also report which titles entered or left the PS Plus catalog.</span>
+    </div>
+
+    <button
+      id="schedule-save"
+      type="button"
+      class="btn-primary"
+      [disabled]="scheduleSaving()"
+      (click)="saveSchedule()"
+    >
+      {{ schedule() ? 'Update schedule' : 'Start scheduled refreshes' }}
+    </button>
+
+    @if (schedule()) {
+      <button
+        id="schedule-cancel"
+        type="button"
+        class="btn-ghost"
+        [disabled]="scheduleSaving()"
+        (click)="cancelSchedule()"
+      >
+        Cancel schedule
+      </button>
+    }
+  </div>
+
+  @if (enrichmentKeyStatus(); as keys) {
+    <div id="psn-enrichment-keys-card" class="card p-6 flex flex-col items-start gap-4 psn-preferences">
+      <h2>Enrichment API keys (optional)</h2>
+      <p class="text-muted">
+        Bring your own RAWG and/or OpenCritic API keys to enrich your library with genre, score, and
+        metadata signals. Entirely optional — Curator never provisions a shared key for this, so
+        enrichment for a provider you haven't configured is simply skipped, not an error. See the
+        <a routerLink="/faq">FAQ</a> for what this does with the data it retrieves.
+      </p>
+      @if (enrichmentKeyStatusError()) {
+        <p class="text-error">{{ enrichmentKeyStatusError() }}</p>
+      }
+
+      <div class="psn-preference-toggle">
+        <h3>RAWG</h3>
+        @if (keys.rawg_key_rejected_at) {
+          <p class="text-error">
+            This key stopped working as of {{ keys.rawg_key_rejected_at | date: 'medium' }} — RAWG
+            rejected it during your last library refresh. Enrichment from RAWG is skipped until you
+            re-enter a working key.
+          </p>
+        }
+        @if (keys.rawg_configured) {
+          <p class="text-muted">
+            Configured
+            @if (keys.rawg_added_at) {
+              since {{ keys.rawg_added_at | date: 'medium' }}
+            }
+          </p>
+          @if (rawgKeyError()) {
+            <p id="psn-rawg-key-error" class="text-error">{{ rawgKeyError() }}</p>
+          }
+          @if (keys.rawg_key_rejected_at) {
+            <label for="rawg-key" class="sr-only">New RAWG API key</label>
+            <input
+              id="rawg-key"
+              name="rawg-key"
+              type="password"
+              autocomplete="off"
+              [ngModel]="rawgKeyInput()"
+              (ngModelChange)="rawgKeyInput.set($event)"
+              placeholder="New RAWG API key"
+            />
+            <button
+              id="psn-rawg-key-reenter"
+              type="button"
+              class="btn-primary"
+              (click)="setRawgKey()"
+              [disabled]="settingRawgKey()"
+            >
+              {{ settingRawgKey() ? 'Saving...' : 'Re-enter RAWG key' }}
+            </button>
+          }
+          <button
+            id="psn-rawg-key-remove"
+            type="button"
+            class="btn-ghost-danger btn-ghost"
+            (click)="deleteRawgKey()"
+            [disabled]="deletingRawgKey()"
+          >
+            {{ deletingRawgKey() ? 'Removing...' : 'Remove RAWG key' }}
+          </button>
+        } @else {
+          <span class="text-muted"
+            >Don't have a key? Get one free at <a href="https://rawg.io/apidocs" target="_blank" rel="noopener"
+              >rawg.io/apidocs</a
+            >.</span
+          >
+          <label for="rawg-key" class="sr-only">RAWG API key</label>
+          <input
+            id="rawg-key"
+            name="rawg-key"
+            type="password"
+            autocomplete="off"
+            [ngModel]="rawgKeyInput()"
+            (ngModelChange)="rawgKeyInput.set($event)"
+            placeholder="RAWG API key"
+          />
+          <span class="text-muted">Encrypted at rest, never displayed again after saving.</span>
+          @if (rawgKeyError()) {
+            <p id="psn-rawg-key-error" class="text-error">{{ rawgKeyError() }}</p>
+          }
+          <button
+            id="psn-rawg-key-save"
+            type="button"
+            class="btn-primary"
+            (click)="setRawgKey()"
+            [disabled]="settingRawgKey()"
+          >
+            {{ settingRawgKey() ? 'Saving...' : 'Save RAWG key' }}
+          </button>
+        }
+      </div>
+
+      <div class="psn-preference-toggle">
+        <h3>OpenCritic</h3>
+        @if (keys.opencritic_key_rejected_at) {
+          <p class="text-error">
+            This key stopped working as of {{ keys.opencritic_key_rejected_at | date: 'medium' }} —
+            OpenCritic rejected it during your last library refresh. Enrichment from OpenCritic is
+            skipped until you re-enter a working key.
+          </p>
+        }
+        @if (keys.opencritic_configured) {
+          <p class="text-muted">
+            Configured
+            @if (keys.opencritic_added_at) {
+              since {{ keys.opencritic_added_at | date: 'medium' }}
+            }
+          </p>
+          @if (opencriticKeyError()) {
+            <p id="psn-opencritic-key-error" class="text-error">{{ opencriticKeyError() }}</p>
+          }
+          @if (keys.opencritic_key_rejected_at) {
+            <label for="opencritic-key" class="sr-only">New OpenCritic API key</label>
+            <input
+              id="opencritic-key"
+              name="opencritic-key"
+              type="password"
+              autocomplete="off"
+              [ngModel]="opencriticKeyInput()"
+              (ngModelChange)="opencriticKeyInput.set($event)"
+              placeholder="New OpenCritic (RapidAPI) key"
+            />
+            <button
+              id="psn-opencritic-key-reenter"
+              type="button"
+              class="btn-primary"
+              (click)="setOpenCriticKey()"
+              [disabled]="settingOpencriticKey()"
+            >
+              {{ settingOpencriticKey() ? 'Saving...' : 'Re-enter OpenCritic key' }}
+            </button>
+          }
+          <button
+            id="psn-opencritic-key-remove"
+            type="button"
+            class="btn-ghost-danger btn-ghost"
+            (click)="deleteOpenCriticKey()"
+            [disabled]="deletingOpencriticKey()"
+          >
+            {{ deletingOpencriticKey() ? 'Removing...' : 'Remove OpenCritic key' }}
+          </button>
+        } @else {
+          <span class="text-muted"
+            >Don't have a key? OpenCritic is accessed through RapidAPI — see the
+            <a href="https://docs.rapidapi.com/docs/consumer-quick-start-guide" target="_blank" rel="noopener"
+              >RapidAPI quick-start guide</a
+            >
+            to sign up and subscribe to the OpenCritic API.</span
+          >
+          <label for="opencritic-key" class="sr-only">OpenCritic API key</label>
+          <input
+            id="opencritic-key"
+            name="opencritic-key"
+            type="password"
+            autocomplete="off"
+            [ngModel]="opencriticKeyInput()"
+            (ngModelChange)="opencriticKeyInput.set($event)"
+            placeholder="OpenCritic (RapidAPI) key"
+          />
+          <span class="text-muted">Encrypted at rest, never displayed again after saving.</span>
+          @if (opencriticKeyError()) {
+            <p id="psn-opencritic-key-error" class="text-error">{{ opencriticKeyError() }}</p>
+          }
+          <button
+            id="psn-opencritic-key-save"
+            type="button"
+            class="btn-primary"
+            (click)="setOpenCriticKey()"
+            [disabled]="settingOpencriticKey()"
+          >
+            {{ settingOpencriticKey() ? 'Saving...' : 'Save OpenCritic key' }}
+          </button>
+        }
+      </div>
+    </div>
   }
 
   <div class="card p-6 flex flex-col items-start gap-4">
@@ -501,12 +528,18 @@
       <p class="text-error">{{ actionsError() }}</p>
     }
     @if (actions() === null) {
-      <button type="button" class="btn-ghost" (click)="loadMyActions()" [disabled]="actionsLoading()">
+      <button
+        id="psn-action-history-load"
+        type="button"
+        class="btn-ghost"
+        (click)="loadMyActions()"
+        [disabled]="actionsLoading()"
+      >
         {{ actionsLoading() ? 'Loading...' : 'View my action history' }}
       </button>
     } @else {
       @if (actions()!.length === 0) {
-        <p class="text-muted">No actions recorded yet.</p>
+        <p id="psn-action-history-empty" class="text-muted">No actions recorded yet.</p>
       } @else {
         <ul id="psn-action-history-list" class="action-history-list">
           @for (entry of actions(); track entry.occurred_at + entry.action) {
@@ -519,13 +552,17 @@
           }
         </ul>
       }
-      <button type="button" class="btn-ghost" (click)="downloadMyActions()">Download as JSON</button>
+      <button id="psn-action-history-download" type="button" class="btn-ghost" (click)="downloadMyActions()">
+        Download as JSON
+      </button>
     }
   </div>
 
   @if (deleted()) {
     <div class="card p-6 flex flex-col items-start gap-4">
-      <p class="text-success">Your account and all associated data have been deleted.</p>
+      <p id="psn-deleted-notice" class="text-success">
+        Your account and all associated data have been deleted.
+      </p>
     </div>
   } @else {
     <div class="card p-6 flex flex-col items-start gap-4">
@@ -539,9 +576,10 @@
         <p class="text-error">{{ deleteError() }}</p>
       }
       @if (confirmingDelete()) {
-        <p>Are you sure? This cannot be undone.</p>
+        <p id="psn-delete-confirm-prompt">Are you sure? This cannot be undone.</p>
         <div class="delete-confirm-actions">
           <button
+            id="psn-delete-confirm"
             type="button"
             class="btn-ghost-danger btn-ghost"
             (click)="confirmDeleteMyData()"
@@ -549,12 +587,23 @@
           >
             {{ deletingAccount() ? 'Deleting...' : 'Yes, delete everything' }}
           </button>
-          <button type="button" class="btn-ghost" (click)="cancelDeleteMyData()" [disabled]="deletingAccount()">
+          <button
+            id="psn-delete-cancel"
+            type="button"
+            class="btn-ghost"
+            (click)="cancelDeleteMyData()"
+            [disabled]="deletingAccount()"
+          >
             Cancel
           </button>
         </div>
       } @else {
-        <button type="button" class="btn-ghost-danger btn-ghost" (click)="requestDeleteMyData()">
+        <button
+          id="psn-delete-request"
+          type="button"
+          class="btn-ghost-danger btn-ghost"
+          (click)="requestDeleteMyData()"
+        >
           Delete my data
         </button>
       }

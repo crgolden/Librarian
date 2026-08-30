@@ -9,7 +9,17 @@ const PAGE_SIZE = 200;
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const STATIC_PATHS = ['/', '/catalog', '/faq', '/privacy'];
 
-const PRIVATE_PREFIXES = ['/psn', '/collections', '/consoles', '/library', '/profile', '/u/', '/admin', '/c/'];
+const PRIVATE_PREFIXES = [
+  '/account',
+  '/psn',
+  '/collections',
+  '/consoles',
+  '/library',
+  '/profile',
+  '/u/',
+  '/admin',
+  '/c/',
+];
 
 interface CatalogGame {
   game_id: string;

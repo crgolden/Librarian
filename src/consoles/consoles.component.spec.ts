@@ -72,12 +72,16 @@ function harness(fixture: ComponentFixture<ConsolesComponent>): ConsolesHarness 
   return fixture.componentInstance as unknown as ConsolesHarness;
 }
 
+let nextGeneratedGenre = 0;
+const aGenre = (): string => `Genre ${(nextGeneratedGenre += 1)}`;
+
 describe('ConsolesComponent', () => {
   let httpMock: HttpTestingController;
-  const routeData: { consoles: ConsolesPageData | null } = { consoles: null };
+  const routeData: { consoles: ConsolesPageData | null; genres: string[] } = { consoles: null, genres: [] };
 
   beforeEach(() => {
     routeData.consoles = { consoles: [], devices: [] };
+    routeData.genres = [aGenre(), aGenre()];
     TestBed.configureTestingModule({
       imports: [ConsolesComponent],
       providers: [
@@ -105,6 +109,17 @@ describe('ConsolesComponent', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent;
     expect(text).toContain('No consoles yet.');
     expect(text).toContain('No storage devices yet.');
+  });
+
+  it('offers the route-resolved genres as routing-genre options', () => {
+    const fixture = createAndLoad([], []);
+    harness(fixture).startCreatingConsole();
+    fixture.detectChanges();
+
+    const select = (fixture.nativeElement as HTMLElement).querySelector('#consoleRoutingGenres');
+    const labels = Array.from(select?.querySelectorAll('option') ?? []).map((option) => option.textContent?.trim());
+
+    expect(labels).toEqual(routeData.genres);
   });
 
   it('lists consoles and storage devices with derived usable capacity', () => {

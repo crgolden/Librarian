@@ -19,12 +19,13 @@ import { latestEnrichmentRunResolver } from '../admin/admin-enrichment.resolver'
 export const routes: Routes = [
   { path: '', component: HomeComponent, resolve: { summary: homeSummaryResolver }, title: 'Librarian' },
   {
-    path: 'psn',
+    path: 'account',
     loadComponent: () => import('../psn/psn-settings.component').then((m) => m.PsnSettingsComponent),
     canActivate: [authGuard],
     resolve: { status: psnStatusResolver },
-    title: 'PlayStation Network',
+    title: 'Account',
   },
+  { path: 'psn', redirectTo: 'account', pathMatch: 'full' },
   {
     path: 'catalog',
     loadComponent: () => import('../catalog/catalog.component').then((m) => m.CatalogComponent),

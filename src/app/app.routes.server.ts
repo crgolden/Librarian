@@ -2,6 +2,7 @@ import { RenderMode, ServerRoute } from '@angular/ssr';
 
 export const serverRoutes: ServerRoute[] = [
   { path: '', renderMode: RenderMode.Server },
+  { path: 'account', renderMode: RenderMode.Client },
   { path: 'psn', renderMode: RenderMode.Client },
   { path: 'catalog', renderMode: RenderMode.Client },
   { path: 'catalog/:gameId', renderMode: RenderMode.Server },

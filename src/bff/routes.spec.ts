@@ -147,12 +147,12 @@ describe('/bff/login', () => {
   });
 
   it('stores a same-origin returnTo path from the query string', async () => {
-    const req = makeReq({ query: { returnTo: '/psn' } });
+    const req = makeReq({ query: { returnTo: '/account' } });
     const res = makeRes();
 
     await handler()(req, res as unknown as Response);
 
-    expect((req.session as unknown as Session).returnTo).toBe('/psn');
+    expect((req.session as unknown as Session).returnTo).toBe('/account');
   });
 
   it('falls back to "/" for an unsafe returnTo (open-redirect guard)', async () => {
@@ -247,13 +247,13 @@ describe('/bff/callback', () => {
     vi.mocked(fetchUserInfo).mockResolvedValueOnce({ sub: 'user-123', name: 'Alice' });
 
     const req = makeReq({
-      session: { pkceCodeVerifier: 'pkce-verifier', oauthState: 'oauth-state', returnTo: '/psn' },
+      session: { pkceCodeVerifier: 'pkce-verifier', oauthState: 'oauth-state', returnTo: '/account' },
     });
     const res = makeRes();
 
     await handler()(req, res as unknown as Response);
 
-    expect(res.redirect).toHaveBeenCalledWith('/psn');
+    expect(res.redirect).toHaveBeenCalledWith('/account');
     expect((req.session as unknown as Session).returnTo).toBeUndefined();
   });
 

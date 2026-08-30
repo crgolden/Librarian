@@ -5,8 +5,10 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   ColumnDef,
-  createAngularTable,
-  getCoreRowModel,
+  injectTable,
+  rowPaginationFeature,
+  rowSortingFeature,
+  tableFeatures,
   type Header,
   type PaginationState,
   type SortingState,
@@ -23,23 +25,30 @@ import {
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
 import { LIBRARY_PAGE_SIZE, ResolvedLibrary } from './library.resolver';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
+import { PageSizeComponent } from '../shared/page-size/page-size.component';
+import { pageSizeChoicesUpTo, readPageSize, writePageSize } from '../shared/page-size/page-size.preference';
+
+export const LIBRARY_PAGE_SIZE_CEILING = 100;
+export const LIBRARY_PAGE_SIZE_KEY = 'library';
 
 const POLL_INTERVAL_MS = 2500;
 const POLL_ERROR_RETRY_COUNT = 3;
 const POLL_ERROR_RETRY_DELAY_MS = 2000;
-const TERMINAL_STATUSES = new Set(['succeeded', 'failed']);
+const TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'cancelled']);
 const PAUSED_STATUSES = new Set(['rate_limited']);
-const KNOWN_STATUSES = new Set(['queued', 'running', 'succeeded', 'failed', 'rate_limited']);
+const KNOWN_STATUSES = new Set(['queued', 'running', 'succeeded', 'failed', 'rate_limited', 'cancelled']);
 const SUMMARY_TITLE_DISPLAY_CAP = 10;
 const SEARCH_DEBOUNCE_MS = 300;
 
 type LibraryGame = LibraryGameResponse | ProfileLibraryGameResponse;
 
-const LIBRARY_COLUMNS: ColumnDef<LibraryGame>[] = [
+const LIBRARY_TABLE_FEATURES = tableFeatures({ rowSortingFeature, rowPaginationFeature });
+
+const LIBRARY_COLUMNS: ColumnDef<typeof LIBRARY_TABLE_FEATURES, LibraryGame>[] = [
   { id: 'cover', header: 'Cover', enableSorting: false },
   { id: 'title', accessorKey: 'title', header: 'Title' },
   { id: 'platforms', accessorKey: 'platforms', header: 'Platforms', enableSorting: false },
-  { id: 'category', accessorKey: 'category', header: 'Category' },
+  { id: 'genre', accessorKey: 'genre', header: 'Genre', sortDescFirst: false },
   { id: 'rawg_rating', accessorKey: 'rawg_rating', header: 'RAWG' },
   { id: 'opencritic_rating', accessorKey: 'opencritic_rating', header: 'OpenCritic' },
   { id: 'psn_rating', accessorKey: 'psn_rating', header: 'PS Store' },
@@ -49,7 +58,7 @@ const LIBRARY_COLUMNS: ColumnDef<LibraryGame>[] = [
 
 @Component({
   selector: 'app-library',
-  imports: [FormsModule, BreadcrumbComponent, LoadingOverlayComponent, RouterLink],
+  imports: [FormsModule, BreadcrumbComponent, LoadingOverlayComponent, PageSizeComponent, RouterLink],
   templateUrl: './library.component.html',
   styleUrl: './library.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -79,8 +88,8 @@ export class LibraryComponent implements OnInit, OnDestroy {
 
   protected readonly searchInput = signal('');
   protected readonly committedSearch = signal('');
-  protected readonly categoryFilter = signal('');
-  protected readonly categoryOptions = signal<string[]>([]);
+  protected readonly genreFilter = signal('');
+  protected readonly genreOptions = signal<string[]>([]);
 
   protected readonly addingManual = signal(false);
   protected readonly manualSearch = signal('');
@@ -91,8 +100,10 @@ export class LibraryComponent implements OnInit, OnDestroy {
 
   protected readonly sorting = signal<SortingState>([{ id: 'title', desc: false }]);
   protected readonly pagination = signal<PaginationState>({ pageIndex: 0, pageSize: LIBRARY_PAGE_SIZE });
+  protected readonly pageSizeChoices = pageSizeChoicesUpTo(LIBRARY_PAGE_SIZE_CEILING, LIBRARY_PAGE_SIZE);
 
-  protected readonly table = createAngularTable<LibraryGame>(() => ({
+  protected readonly table = injectTable(() => ({
+    features: LIBRARY_TABLE_FEATURES,
     data: this.games(),
     columns: LIBRARY_COLUMNS,
     manualSorting: true,
@@ -109,11 +120,10 @@ export class LibraryComponent implements OnInit, OnDestroy {
       this.pagination.update((old) => (typeof updater === 'function' ? updater(old) : updater));
       this.reload();
     },
-    getCoreRowModel: getCoreRowModel(),
   }));
 
-  protected readonly hasNextPage = computed(() => this.table().getCanNextPage());
-  protected readonly hasPrevPage = computed(() => this.table().getCanPreviousPage());
+  protected readonly hasNextPage = computed(() => this.table.getCanNextPage());
+  protected readonly hasPrevPage = computed(() => this.table.getCanPreviousPage());
 
   protected readonly pageStart = computed(() =>
     this.total() === 0 ? 0 : this.pagination().pageIndex * this.pagination().pageSize + 1,
@@ -158,7 +168,19 @@ export class LibraryComponent implements OnInit, OnDestroy {
 
     this.games.set(resolved.games);
     this.total.set(resolved.total);
-    this.categoryOptions.set(resolved.categories);
+    this.genreOptions.set(resolved.genres);
+
+    const preferred = readPageSize(LIBRARY_PAGE_SIZE_KEY, this.pageSizeChoices, LIBRARY_PAGE_SIZE);
+    if (preferred !== LIBRARY_PAGE_SIZE) {
+      this.pagination.set({ pageIndex: 0, pageSize: preferred });
+      this.reload();
+    }
+  }
+
+  protected setPageSize(size: number): void {
+    writePageSize(LIBRARY_PAGE_SIZE_KEY, size);
+    this.pagination.set({ pageIndex: 0, pageSize: size });
+    this.reload();
   }
 
   ngOnDestroy(): void {
@@ -171,7 +193,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
     const pagination = this.pagination();
     return {
       q: this.committedSearch() || undefined,
-      category: this.categoryFilter() || undefined,
+      genre: this.genreFilter() || undefined,
       sort: (sorting[0]?.id as LibrarySortField | undefined) ?? 'title',
       sortDir: sorting[0]?.desc ? 'desc' : 'asc',
       limit: pagination.pageSize,
@@ -183,11 +205,12 @@ export class LibraryComponent implements OnInit, OnDestroy {
     this.load(this.viewerMode(), this.sub(), this.currentQuery());
   }
 
-  private loadCategories(): void {
+  private loadGenres(): void {
     const sub = this.sub();
-    const request = this.viewerMode() && sub !== null ? this.curator.getUserLibraryCategories(sub) : this.curator.getLibraryCategories();
+    const request =
+      this.viewerMode() && sub !== null ? this.curator.getUserLibraryGenres(sub) : this.curator.getLibraryGenres();
     request.subscribe({
-      next: (response) => this.categoryOptions.set(response.categories),
+      next: (response) => this.genreOptions.set(response.genres),
       error: () => undefined,
     });
   }
@@ -296,8 +319,8 @@ export class LibraryComponent implements OnInit, OnDestroy {
     this.searchCommit.next(value.trim());
   }
 
-  protected onCategoryFilterChange(value: string): void {
-    this.categoryFilter.set(value);
+  protected onGenreFilterChange(value: string): void {
+    this.genreFilter.set(value);
     this.pagination.update((old) => ({ ...old, pageIndex: 0 }));
     this.reload();
   }
@@ -310,11 +333,11 @@ export class LibraryComponent implements OnInit, OnDestroy {
   }
 
   protected nextPage(): void {
-    this.table().nextPage();
+    this.table.nextPage();
   }
 
   protected prevPage(): void {
-    this.table().previousPage();
+    this.table.previousPage();
   }
 
   protected percentCompletedDisplay(percentCompleted: number | null): string {
@@ -325,7 +348,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
     return this.viewerMode() ? "Trophy completion isn't shown for other users' libraries yet." : undefined;
   }
 
-  protected headerLabel(header: Header<LibraryGame, unknown>): string | null {
+  protected headerLabel(header: Header<typeof LIBRARY_TABLE_FEATURES, LibraryGame, unknown>): string | null {
     if (header.isPlaceholder) {
       return null;
     }
@@ -333,7 +356,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
     return typeof label === 'string' ? label : null;
   }
 
-  protected onHeaderKeydown(event: Event, header: Header<LibraryGame, unknown>): void {
+  protected onHeaderKeydown(event: Event, header: Header<typeof LIBRARY_TABLE_FEATURES, LibraryGame, unknown>): void {
     event.preventDefault();
     header.column.getToggleSortingHandler()?.(event);
   }
@@ -385,7 +408,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
           if (response.status === 'succeeded') {
             this.pagination.update((old) => ({ ...old, pageIndex: 0 }));
             this.reload();
-            this.loadCategories();
+            this.loadGenres();
           }
         },
         error: () => {

@@ -22,10 +22,9 @@ test.describe('Profile — owner mode', () => {
 
     await expect(page.locator('#page-title')).toContainText('PlayStation account');
     await expect(page.locator('#page-title')).not.toContainText('psn-account-owner');
-    await expect(page.getByRole('button', { name: 'Follow' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Unfollow' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'View library' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'View collections' })).toBeVisible();
+    await expect(page.locator('#profile-follow-toggle')).toHaveCount(0);
+    await expect(page.locator('#profile-library-link')).toHaveText('View library');
+    await expect(page.locator('#profile-collections-link')).toHaveText('View collections');
   });
 
   test('shows "Unlinked user" when the owner has no PSN link', async ({ authedPage: page, store }) => {
@@ -91,8 +90,8 @@ test.describe('Profile — viewing another user', () => {
 
     await expect(viewerPage.locator('#page-title')).toContainText('e2e_gamer');
     await expect(viewerPage.locator('#page-title')).not.toContainText('psn-account-owner');
-    await expect(viewerPage.getByRole('link', { name: 'View library' })).toBeVisible();
-    await expect(viewerPage.getByRole('link', { name: 'View collections' })).toBeVisible();
+    await expect(viewerPage.locator('#profile-library-link')).toHaveText('View library');
+    await expect(viewerPage.locator('#profile-collections-link')).toHaveText('View collections');
     await expect(viewerPage.locator('#profile-stat-trophy-level')).toBeVisible();
     await expect(viewerPage.locator('#profile-stat-trophies-earned')).toBeVisible();
     await expect(viewerPage.locator('#profile-stat-library .stat-value')).toHaveText('1');
@@ -137,15 +136,16 @@ test.describe('Profile — follow / unfollow', () => {
     await viewerPage.goto(`/u/${DEFAULT_E2E_SUB}`);
     const followerCount = viewerPage.locator('#profile-stat-followers .stat-value');
     await expect(followerCount).toHaveText('0');
-    await expect(viewerPage.getByRole('button', { name: 'Follow' })).toBeVisible();
+    const followToggle = viewerPage.locator('#profile-follow-toggle');
+    await expect(followToggle).toHaveText('Follow');
 
-    await viewerPage.getByRole('button', { name: 'Follow' }).click();
-    await expect(viewerPage.getByRole('button', { name: 'Unfollow' })).toBeVisible({ timeout: 10_000 });
+    await followToggle.click();
+    await expect(followToggle).toHaveText('Unfollow', { timeout: 10_000 });
     await expect(followerCount).toHaveText('1');
     await expect(viewerPage.locator('#profile-stat-followers')).toHaveAttribute('aria-label', '1 follower');
 
-    await viewerPage.getByRole('button', { name: 'Unfollow' }).click();
-    await expect(viewerPage.getByRole('button', { name: 'Follow' })).toBeVisible({ timeout: 10_000 });
+    await followToggle.click();
+    await expect(followToggle).toHaveText('Follow', { timeout: 10_000 });
     await expect(followerCount).toHaveText('0');
   });
 
@@ -153,8 +153,7 @@ test.describe('Profile — follow / unfollow', () => {
     await store.reset();
 
     await page.goto('/profile');
-    await expect(page.getByRole('button', { name: 'Follow' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Unfollow' })).toHaveCount(0);
+    await expect(page.locator('#profile-follow-toggle')).toHaveCount(0);
   });
 });
 
@@ -189,7 +188,7 @@ test.describe('Profile — followers / following pages', () => {
     await store.reset();
 
     await page.goto('/profile/followers');
-    await expect(page.getByText('No followers yet.')).toBeVisible();
+    await expect(page.locator('#followers-empty')).toHaveText('No followers yet.');
   });
 });
 
@@ -209,7 +208,7 @@ test.describe('Profile — settings', () => {
     await store.reset();
 
     await page.goto('/profile/settings');
-    await expect(page.getByRole('link', { name: 'PlayStation settings page' })).toBeVisible();
+    await expect(page.locator('#profile-settings-psn-link')).toHaveText('PlayStation settings page');
   });
 
   test('a declared PlayStation profile handle persists and resolves to the site URL', async ({
@@ -298,9 +297,9 @@ test.describe('Profile — /psn cross-reference copy and region removal', () => 
     await store.seedPsnLink();
     await store.seedPsnPreferences({ harvest_identity: true });
 
-    await page.goto('/psn');
-    await expect(page.getByText('may also appear on your public profile')).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Profile Settings' })).toBeVisible();
+    await page.goto('/account');
+    await expect(page.locator('#psn-public-profile-note')).toContainText('may also appear on your public profile');
+    await expect(page.locator('#psn-profile-settings-link')).toHaveText('Profile Settings');
 
     const card = page.locator('#psn-card-identity');
     await expect(card).toBeVisible();
@@ -323,20 +322,20 @@ test.describe('Profile — library / collections sub-keyed routes', () => {
     await store.seedUserCollections(DEFAULT_E2E_SUB, [{ definition_id: 'd1', name: 'Weekend picks', kind: 'filter_list' }]);
 
     await page.goto('/library');
-    await expect(page.getByRole('button', { name: 'Refresh library' })).toBeVisible();
-    await expect(page.getByText('Gran Turismo 7')).toBeVisible();
+    await expect(page.locator('#library-refresh')).toHaveText('Refresh library');
+    await expect(page.locator('#library-title-0')).toHaveText('Gran Turismo 7');
 
     await page.goto('/collections');
-    await expect(page.getByRole('button', { name: 'New collection' })).toBeVisible();
-    await expect(page.getByText('Weekend picks')).toBeVisible();
+    await expect(page.locator('#collections-new')).toHaveText('New collection');
+    await expect(page.locator('#collection-name-0')).toHaveText('Weekend picks');
 
     await viewerPage.goto(`/library/${DEFAULT_E2E_SUB}`);
-    await expect(viewerPage.getByRole('button', { name: 'Refresh library' })).toHaveCount(0);
-    await expect(viewerPage.getByText('Gran Turismo 7')).toBeVisible();
+    await expect(viewerPage.locator('#library-refresh')).toHaveCount(0);
+    await expect(viewerPage.locator('#library-title-0')).toHaveText('Gran Turismo 7');
 
     await viewerPage.goto(`/collections/${DEFAULT_E2E_SUB}`);
-    await expect(viewerPage.getByRole('button', { name: 'New collection' })).toHaveCount(0);
-    await expect(viewerPage.getByText('Weekend picks')).toBeVisible();
+    await expect(viewerPage.locator('#collections-new')).toHaveCount(0);
+    await expect(viewerPage.locator('#collection-viewer-name-0')).toHaveText('Weekend picks');
   });
 
   test('viewer sees an inline message on a 403 (section not public)', async ({
@@ -348,7 +347,10 @@ test.describe('Profile — library / collections sub-keyed routes', () => {
     await page.goto('/profile');
 
     await viewerPage.goto(`/library/${DEFAULT_E2E_SUB}`);
-    await expect(viewerPage.getByText("This section isn't available.")).toBeVisible();
+    await expect(viewerPage.locator('#library-forbidden')).toContainText('keeps their library private');
+    await expect(viewerPage.locator('#library-forbidden')).toContainText(
+      'following them does not grant access',
+    );
   });
 });
 
@@ -398,6 +400,6 @@ test.describe('Profile — own-sub canonicalization redirects', () => {
 
     await page.goto(`/u/${SECOND_E2E_SUB}`);
     await expect(page).toHaveURL(new RegExp(`/u/${SECOND_E2E_SUB}$`));
-    await expect(page.getByRole('button', { name: 'Follow' })).toBeVisible();
+    await expect(page.locator('#profile-follow-toggle')).toHaveText('Follow');
   });
 });

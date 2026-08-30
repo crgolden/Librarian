@@ -20,11 +20,23 @@
           <p id="profile-follow-error" class="text-error">{{ followError() }}</p>
         }
         @if (current.viewer_is_following) {
-          <button type="button" class="btn-ghost" [disabled]="followBusy()" (click)="unfollow()">
+          <button
+            id="profile-follow-toggle"
+            type="button"
+            class="btn-ghost"
+            [disabled]="followBusy()"
+            (click)="unfollow()"
+          >
             {{ followBusy() ? 'Working...' : 'Unfollow' }}
           </button>
         } @else {
-          <button type="button" class="btn-primary" [disabled]="followBusy()" (click)="follow()">
+          <button
+            id="profile-follow-toggle"
+            type="button"
+            class="btn-primary"
+            [disabled]="followBusy()"
+            (click)="follow()"
+          >
             {{ followBusy() ? 'Working...' : 'Follow' }}
           </button>
         }
@@ -89,7 +101,7 @@
             <span class="stamp-label">Trophies</span>
           </span>
           <span class="catalog-meta">Not catalogued — trophy data is switched off for your account.</span>
-          <a routerLink="/psn">Turn it on in PlayStation settings</a>
+          <a routerLink="/account">Turn it on in PlayStation settings</a>
         </div>
       }
 

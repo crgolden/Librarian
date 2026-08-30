@@ -28,10 +28,10 @@ describe('AppComponent', () => {
     expect(signIn?.textContent).toContain('Sign in');
     expect(signIn?.getAttribute('href')).toBe('/bff/login');
     expect(compiled.querySelector('.user-chip')).toBeNull();
-    expect(compiled.textContent).not.toContain('PSN Settings');
+    expect(compiled.textContent).not.toContain('Account');
   });
 
-  it('shows the user chip, PSN Settings, and Sign out when authenticated', () => {
+  it('shows the user chip, Account, and Sign out when authenticated', () => {
     configure({
       isAuthenticated: signal(true),
       email: signal('chris@example.com'),
@@ -49,7 +49,7 @@ describe('AppComponent', () => {
     const img = compiled.querySelector<HTMLImageElement>('img.avatar');
     expect(img?.getAttribute('src')).toBe('https://example.com/avatar.png');
     expect(img?.getAttribute('loading')).toBeNull();
-    expect(compiled.textContent).toContain('PSN Settings');
+    expect(compiled.textContent).toContain('Account');
     const signOut = compiled.querySelector('#nav-rail-signout');
     expect(signOut?.textContent).toContain('Sign out');
     expect(signOut?.getAttribute('href')).toBe('/bff/logout?sid=abc');

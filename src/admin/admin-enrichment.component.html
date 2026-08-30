@@ -8,34 +8,52 @@
   </p>
 
   @if (loadError()) {
-      <p class="text-error">{{ loadError() }}</p>
+      <p id="enrichment-load-error" class="text-error">{{ loadError() }}</p>
     }
 
     <div class="card p-6 mt-4">
       <h2>Start a run</h2>
       @if (startError()) {
-        <p class="text-error">{{ startError() }}</p>
+        <p id="enrichment-start-error" class="text-error">{{ startError() }}</p>
       }
       @if (confirming()) {
-        <p>Are you sure? This spends real provider quota and rewrites catalog data for every user.</p>
+        <p id="enrichment-confirm-prompt">
+          Are you sure? This spends real provider quota and rewrites catalog data for every user.
+        </p>
         <div class="delete-confirm-actions">
-          <button type="button" class="btn-ghost-danger btn-ghost" (click)="confirmRun()" [disabled]="starting()">
+          <button
+            id="enrichment-confirm"
+            type="button"
+            class="btn-ghost-danger btn-ghost"
+            (click)="confirmRun()"
+            [disabled]="starting()"
+          >
             {{ starting() ? 'Starting...' : 'Yes, start a run' }}
           </button>
-          <button type="button" class="btn-ghost" (click)="cancelRun()" [disabled]="starting()">Cancel</button>
+          <button id="enrichment-cancel" type="button" class="btn-ghost" (click)="cancelRun()" [disabled]="starting()">
+            Cancel
+          </button>
         </div>
       } @else {
-        <button type="button" class="btn-ghost-danger btn-ghost" (click)="requestRun()">Start enrichment run</button>
+        <button id="enrichment-start" type="button" class="btn-ghost-danger btn-ghost" (click)="requestRun()">
+          Start enrichment run
+        </button>
       }
     </div>
 
     @if (run(); as current) {
       <div class="card p-6 mt-4">
         <h2>Latest run</h2>
-        <p class="catalog-meta">Run id: {{ current.run_id }}</p>
-        <p class="catalog-meta">Status: {{ current.status }}</p>
+        <p id="enrichment-run-id" class="catalog-meta">Run id: {{ current.run_id }}</p>
+        <p id="enrichment-run-status" class="catalog-meta">Status: {{ current.status }}</p>
         @if (current.error) {
-          <p class="text-error">{{ current.error }}</p>
+          <p id="enrichment-run-error" class="text-error">{{ current.error }}</p>
+        }
+        @if (current.status === 'cancelled') {
+          <p id="enrichment-run-cancelled" class="catalog-meta">
+            This run was cancelled before it finished. Whatever it had already written stays; start another
+            run when you want the rest.
+          </p>
         }
 
         @if (current.result_summary; as summary) {
@@ -61,10 +79,21 @@
             @if (summary.enrichment; as pass) {
               <div class="pt-2 border-t border-line">
                 <h3 class="mt-0 mb-1">Enrichment</h3>
-                @if (pass['remaining_count'] !== undefined) {
-                  <p class="catalog-meta">
-                    {{ pass['enriched_count'] }} enriched, {{ pass['remaining_count'] }} remaining
+                @if (passCounts(pass); as counts) {
+                  <p id="enrichment-processed-count" class="catalog-meta">
+                    {{ counts.processed }} processed, {{ counts.remaining }} remaining
                   </p>
+                  @if (counts.hasProviderGains) {
+                    <p id="enrichment-provider-gains" class="catalog-meta">
+                      Gained new data: {{ counts.providerGains }}
+                    </p>
+                    @if (!counts.gainedAnything) {
+                      <p id="enrichment-no-gain" class="catalog-meta">
+                        Every processed game was left unchanged: no provider returned new data for any of
+                        them, so this run stored nothing.
+                      </p>
+                    }
+                  }
                 }
                 @if (pass['stopped_provider']) {
                   <p class="catalog-meta">Stopped: {{ pass['stopped_provider'] }} ({{ pass['stopped_reason'] }})</p>
@@ -75,6 +104,6 @@
         }
       </div>
   } @else if (!loadError()) {
-    <p class="text-muted">No enrichment run has been started yet.</p>
+    <p id="enrichment-no-run" class="text-muted">No enrichment run has been started yet.</p>
   }
 </section>

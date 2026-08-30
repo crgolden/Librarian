@@ -27,6 +27,13 @@ npx vitest run --coverage  # LCOV → coverage/lcov.info
 Vitest runs with `pool: threads`, `testTimeout: 15000`, and vitest's default `isolate: true`. Angular 22
 is zoneless — always call `fixture.detectChanges()` manually.
 
+**A spec reaches a component's `protected`/`private` members through bracket notation, and
+`eslint.config.js` relaxes `@typescript-eslint/dot-notation` for `**/*.spec.ts` so it can.** Dot notation
+on those members is a TypeScript access-modifier error, so the rule's default would leave a spec no way to
+drive a component at all; `allowPrivateClassPropertyAccess` and `allowProtectedClassPropertyAccess` are
+scoped to the spec override block and nothing else. Do not widen that relaxation to `src/**` — production
+code reaching a protected member by bracket notation is the defect the rule exists to catch.
+
 **`vitest run` type-checks the specs as well as running them, and the explicit `typecheck.tsconfig` is
 what makes that true.** Without a `typecheck` block, esbuild strips the types and a `TS2322` in a spec
 reaches `main` untouched: `ng lint`, `lint:css`, `lint:primitives`, `vitest run --coverage` and the
@@ -36,8 +43,13 @@ include: ['src/**/*.spec.ts'], ignoreSourceErrors: false }`. Naming the tsconfig
 than tidy: vitest otherwise resolves the nearest `tsconfig.json`, and this repo's root one is
 solution-style (`"files": []` plus `references`), which compiles nothing and would report a clean pass
 over a broken spec. Two consequences to expect. **The reported counts roughly double** — each spec file
-is listed once as a runtime suite and once as a typecheck suite (95 files / 986 tests, against 48 / 500
-runtime-only); coverage totals are unaffected, since only the runtime pass is instrumented. And
+is listed once as a runtime suite and once as a typecheck suite (**103 files / 1172 tests measured
+2026-08-28**, against 51 / 576 runtime-only); coverage totals are unaffected, since only the runtime pass
+is instrumented. **Do not diagnose the gap between those two figures as a regression**: `ng test` reports
+the runtime-only half *and* fails ten server-side specs (`bff/oidc`, `telemetry/*`) that `npx vitest run`
+passes, because its pipeline transforms `vi.mock` differently — `TypeError: __spreadValues is not a
+function`. A clean `npm ci` does not change it. Those ten failures are an artefact of the wrong runner,
+not of the code, and chasing them costs an hour. And
 **`ignoreSourceErrors: false` fails the run on a type error anywhere under `src/`, not only one in a
 spec** — but it arrives in a different shape, which matters when reading the tail of a CI log: a spec
 error is a failed test under `Type Errors`, while a source error is reported as an *unhandled* error
@@ -88,8 +100,8 @@ those sites surface only on a re-run of `tsc`.
 which this suite depends on because `document.title` and `<meta>` tags persist between tests within a
 file (the catalog-detail and public-collection specs rely on that). Test files run in parallel — the
 inherited `fileParallelism: false` was scaffold boilerplate with no recorded reason, and removing it kept
-all 469 tests green across three full runs. See `AGENTS/PARKING_LOT.md` §8e for the measurements and for
-what to check first if CI time regresses.
+all 469 tests green across three full runs. **If CI time regresses, check `isolate` before
+`fileParallelism`** — isolation is the expensive setting and the one this suite cannot give up.
 
 **Signal inputs (`input()` / `input.required()`) do not bind under this runner — use the `@Input()`
 decorator in any component a spec renders.** Vitest transpiles TypeScript without Angular's `ngtsc`
@@ -98,6 +110,15 @@ runtime construct and survives, `input()` does not. Converting `AvatarComponent`
 every binding on it silently inert, and the only signal was `NG0303: Can't bind to 'sub' since it isn't
 a known property of 'app-avatar'` on **stderr** — not a failure, and easy to scroll past in a run this
 size. The template compiles, the component renders, and every input reads its declared default.
+
+**A `required` signal input turns that silent failure into a loud one, from the wrong place.** Hit again
+2026-08-27 on a new `app-page-size`: `input.required()` has no declared default to fall back on, so
+reading it throws `NG0950: Input is required but no value is available yet` — raised from inside the
+*child's* template, several frames below the parent whose binding never attached. The two errors read as
+unrelated problems and neither names the cause. Nothing static catches it either: `ng lint`,
+`tsc -p tsconfig.spec.json` and vitest's own type-check pass all stay green, because the defect exists
+only in metadata `ngtsc` would have produced. **The fix is always the same — use the decorator** — so
+treat `NG0303` plus `NG0950` in one run as this bug until proven otherwise.
 
 **A collaborator call that issues no HTTP is invisible to these specs unless you provide a stub for it.**
 Most component specs here assert through `HttpTestingController` and close on `httpMock.verify()`, so
@@ -216,16 +237,43 @@ against the mock authority on first use:
    nothing. The sheet is scanned **while open** for the same reason: a closed `<dialog>` is
    `display: none`, so axe skips it and reports success.
 
+   **Every route in `AUTHED_ROUTES` needs a render landmark asserted before the scan, or it is
+   decorative.** Adding a route to that list is not coverage: axe reports an error paragraph, a redirect,
+   or an empty shell as **perfectly accessible**, because there is nothing inaccessible on them. Proven
+   2026-08-28 while adding `/admin/enrichment` — with the page's data grant deliberately removed so it
+   rendered only "Unable to load…", the scan still passed:
+
+   ```
+   ✓ a11y.spec.ts:50:9 › /admin/enrichment has no WCAG A/AA violations (2.4s)
+   ```
+
+   The same plant with the landmark assertion in place failed immediately on the missing element. **The
+   landmark is the entire test; the scan is the assertion it protects.** This is the same failure shape as
+   the 1×1 viewport and the closed `<dialog>` above — a check that ran, returned green, and was answering a
+   different question than the one asked.
+
    **Make layout failures self-diagnosing.** Asserting a bare row count tells you it broke, not why.
    Return the per-child widths, the container width and the content total, and pass them as the
    `expect` message — that is what identified `.user-email` at 232px against a 131px runner-up, and
    showed the header's width was a function of the user's email length rather than a fixed overflow.
 
-   **`store.seedAdmin()` (`POST /_test/admin`) is what grants admin.** `is_admin` reaches the app only
-   through `GET /me` — `AdminService` ignores the BFF's claims array — so nothing else surfaces
-   `/admin/enrichment` or its nav link. Like every other `/_test/*` seeder, it writes to `DEFAULT_SUB`
-   regardless of the caller's `X-E2E-Sub`, so it cannot make `secondAuthedPage` an admin; granting a
-   second identity would need a sub-aware handler that does not exist yet.
+   **Admin needs TWO independent grants, and they are not interchangeable.** This paragraph previously
+   claimed the opposite of the truth — that `is_admin` reaches the app only through `GET /me` and that
+   `AdminService` ignores the BFF's claims array. **It is the claims array that the app reads:**
+   `admin.service.ts` reads `auth.session()`, which is `/bff/user`'s claims; `curator.admin` is
+   allowlisted in `src/bff/routes.ts` and emitted by the mock OIDC provider. A grep for `.is_admin` across
+   `src/` returns **no matches at all** — nothing consumes `MeResponse.is_admin`.
+
+   So:
+   - **`signInAsAdmin(page)`** supplies the OIDC `curator.admin` claim that `adminGuard` reads. Without
+     it the route does not activate.
+   - **`store.seedAdmin()`** (`POST /_test/admin`) sets the *mock Curator's* own `isAdmin`, which is what
+     the `/enrichment/runs*` routes gate on. Without it the route activates and renders
+     "Unable to load the latest enrichment run" — **a green-looking page that tested nothing.**
+
+   Order: `reset()` → `seedAdmin()` → `signInAsAdmin()`. Like every other `/_test/*` seeder, `seedAdmin`
+   writes to `DEFAULT_SUB` regardless of the caller's `X-E2E-Sub`, so it cannot make `secondAuthedPage` an
+   admin; granting a second identity would need a sub-aware handler that does not exist yet.
 
    The mock has no real bearer-token validation, so it identifies "who is calling" via an `X-E2E-Sub`
    header that each authenticated Playwright fixture injects on every `/curator/api/**` request (see
@@ -301,15 +349,15 @@ CRUD, attach/detach, and the auto-assigned-default-capacity flag), `public-colle
 anonymous route in the app — an owner publishes a collection and shares its link; an anonymous visitor
 opens it with no account; a second signed-in user follows it from the share page and sees it in
 "Collections I follow"; setting visibility back to private immediately breaks the old link),
-`library.spec.ts` (owner mode — ratings/category/PS-Store-link rendering, server-driven title search,
-category filter, column-header sort with direction toggling, paging, and a combined search+sort+page
+`library.spec.ts` (owner mode — ratings/genre/PS-Store-link rendering, server-driven title search,
+genre filter, column-header sort with direction toggling, paging, and a combined search+sort+page
 interaction, all against the mock's real query-param handling, not a client-side array; sub-keyed viewer
 mode covered jointly with `profile.spec.ts` below), and `profile.spec.ts` (owner vs.
 viewer profile rendering; a private-by-default profile shows only account-id-or-"Unlinked user" plus
 follower/following counts; a fully public profile with every `show_*`/`harvest_*` flag on shows every
 gated section; a viewer with no PSN link of their own sees trophies silently omitted, not an error;
 follow/unfollow and the resulting count changes; no Follow button on your own profile; the followers/
-following list pages; `/profile/settings` toggle persistence; the `/psn` cross-reference copy and the
+following list pages; `/profile/settings` toggle persistence; the `/account` cross-reference copy and the
 absence of the removed region field; `/library/:sub` and `/collections/:sub` rendering owner vs.
 read-only viewer mode for two seeded users, including a 403-to-inline-message case; and the
 own-sub-canonicalization redirects — `/u/{own sub}`, `/u/{own sub}/followers`, `/u/{own sub}/following`,
