@@ -493,6 +493,11 @@ that genuinely floats over the page rather than sitting in it.
 
 ## Components
 
+- **`.page-section`** — the standard vertical rhythm between a page's top-level blocks. The most-used
+  class in the app, on 16 components; promoted from *Layout utilities* on 2026-08-30 because leaving the
+  single most-reused class outside Components meant the "declared exactly once" check could not see it.
+- **`.form-actions`** — the trailing row of buttons on a form, used by Collections, Consoles and the
+  public-collection view. Promoted alongside `.page-section` for the same reason.
 - **`.card` / `.card-accent`** — the base surface primitive (see Shapes). Used by every status card,
   the Catalog grid item, and the Library page's mobile card-per-row layout.
 - **`.btn-primary`** — solid `--color-accent` fill, `--color-on-fill` ink, `--radius-sm`. The default
@@ -790,6 +795,19 @@ checked for forking. Four questions before writing any rule, in order:
 
 Appearance that repeats becomes a **new named primitive in `styles.css` with an entry in Components
 above, added in the same change** — never a rule copied into a second component stylesheet.
+
+**`.follow-list` and `.follow-list-entry` stay outside Components deliberately, and that is a decision
+rather than an oversight.** They live in the *Layout utilities* block of `styles.css`, so only the fork
+check guards them — not the stronger "declared exactly once" primitive check, which sees only what
+Components lists. Usage decided it, measured across `src/` templates and `[class.x]` bindings 2026-08-30:
+both are used by exactly two components, `profile-followers` and `profile-following`, which are one
+feature's two faces rather than a shared vocabulary. Promoting a pair used by one feature would have the
+vocabulary claim a generality it does not have.
+
+`.page-section` (16 components, more than `.card`'s 15) and `.form-actions` (3, across unrelated features)
+were promoted out of that block on the same measurement — the cost of promoting, that it constrains future
+overrides, is smallest exactly where reuse is highest, since 16 call sites already treat `.page-section`
+uniformly and a divergence would be a bug today rather than a freedom given up.
 
 **What still justifies a component stylesheet**, since some do survive: an `@keyframes` block, a rule
 that must reach an element the template cannot address (a descendant of projected content), or a
