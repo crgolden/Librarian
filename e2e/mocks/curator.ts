@@ -830,6 +830,7 @@ export function createCuratorApp(): Express {
         name: string;
         kind: string;
         console_id?: string | null;
+        install_target_console_id?: string | null;
         visibility?: 'private' | 'unlisted' | 'public';
         game_ids?: string[];
       }[];
@@ -1132,6 +1133,7 @@ export function createCuratorApp(): Express {
       description?: string | null;
       kind: string;
       console_id?: string | null;
+      install_target_console_id?: string | null;
       genre_filter?: string[];
       min_score?: number | null;
       aaa_tier_filter?: string | null;
