@@ -19,6 +19,7 @@
     "e2e": "npm run build:ci && npx tsx e2e/mocks/generate-oidc-cert.ts && playwright test --project=e2e",
     "e2e:run": "npx tsx e2e/mocks/generate-oidc-cert.ts && playwright test --project=e2e",
     "e2e:smoke": "playwright test --project=smoke",
+    "e2e:synthetic": "playwright test --project=synthetic",
     "playwright:install": "playwright install --with-deps chromium"
   },
   "private": true,
@@ -63,6 +64,7 @@
   },
   "devDependencies": {
     "@angular-eslint/builder": "^22.1.0",
+    "@crgolden/modules": "^0.1.0",
     "@angular-eslint/eslint-plugin": "^22.1.0",
     "@angular-eslint/eslint-plugin-template": "^22.1.0",
     "@angular-eslint/schematics": "^22.1.0",
