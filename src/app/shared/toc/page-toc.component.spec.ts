@@ -6,7 +6,7 @@ import { PageTocComponent } from './page-toc.component';
   selector: 'app-toc-host',
   imports: [PageTocComponent],
   template: `
-    <h1 id="top">Page title</h1>
+    <h1 id="page-title">Page title</h1>
     <div class="items">
       <h3 class="item-heading">First question?</h3>
       <h3 class="item-heading">Second question?</h3>
@@ -33,7 +33,7 @@ describe('PageTocComponent', () => {
     expect(new Set(ids).size).toBe(3);
     expect(ids[0]).not.toBe(ids[2]);
 
-    expect(compiled.querySelector('#back-to-top')?.getAttribute('href')).toBe('#top');
+    expect(compiled.querySelector('#back-to-top')?.getAttribute('href')).toBe('#page-title');
   });
 
   it('renders no TOC nav when the selector matches nothing, but still renders back-to-top', async () => {

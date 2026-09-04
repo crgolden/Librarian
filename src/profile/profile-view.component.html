@@ -1,5 +1,6 @@
 <section id="profile-view" class="page-section flex flex-col gap-6 max-w-data mx-auto">
   @if (loadError()) {
+    <h1 id="page-title">Profile</h1>
     <p id="profile-load-error" class="text-error">{{ loadError() }}</p>
   } @else if (profile(); as current) {
     <header class="flex flex-col items-start gap-3">

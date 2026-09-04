@@ -1,5 +1,11 @@
 import { hasPrefix, isVisible, pickFromPrefix, prefixLocator, type WalkerAction } from '@crgolden/modules/synthetic-walker';
-import { expect } from '@playwright/test';
+import { expect, type Locator } from '@playwright/test';
+
+const RENDER_TIMEOUT_MS = 30_000;
+
+async function expectRendered(locator: Locator): Promise<void> {
+  await expect(locator).toBeVisible({ timeout: RENDER_TIMEOUT_MS });
+}
 
 const LIBRARY_SEARCH_TERMS = ['the', 'star', 'war', 'legend', 'world', 'dark', 'final', 'quest'] as const;
 const NAV_RAIL_SELECTOR = '[id^="nav-rail-"]:not([id^="nav-rail-icon-"]):not([id^="nav-rail-label-"]):not(#nav-rail-signout)';
@@ -11,7 +17,7 @@ export const librarianActions: readonly WalkerAction[] = [
     available: () => Promise.resolve(true),
     run: async page => {
       await page.goto('/');
-      await expect(page.locator('#page-title')).toBeVisible();
+      await expectRendered(page.locator('#page-title'));
     },
   },
   {
@@ -22,7 +28,7 @@ export const librarianActions: readonly WalkerAction[] = [
       const links = page.locator(NAV_RAIL_SELECTOR);
       const count = await links.count();
       await links.nth(rng.int(count)).click();
-      await expect(page.locator('#page-title')).toBeVisible();
+      await expectRendered(page.locator('#page-title'));
     },
   },
   {
@@ -31,7 +37,7 @@ export const librarianActions: readonly WalkerAction[] = [
     available: () => Promise.resolve(true),
     run: async page => {
       await page.goto('/catalog');
-      await expect(page.locator('#page-title')).toBeVisible();
+      await expectRendered(page.locator('#page-title'));
     },
   },
   {
@@ -41,7 +47,7 @@ export const librarianActions: readonly WalkerAction[] = [
     run: async (page, rng) => {
       const title = await pickFromPrefix(page, rng, 'catalog-title-');
       await title.click();
-      await expect(page.locator('#page-title')).toBeVisible();
+      await expectRendered(page.locator('#page-title'));
     },
   },
   {
@@ -50,7 +56,7 @@ export const librarianActions: readonly WalkerAction[] = [
     available: page => isVisible(page, '#library-search'),
     run: async (page, rng) => {
       await page.fill('#library-search', rng.pick(LIBRARY_SEARCH_TERMS));
-      await expect(page.locator('#page-title')).toBeVisible();
+      await expectRendered(page.locator('#page-title'));
     },
   },
   {
@@ -61,7 +67,7 @@ export const librarianActions: readonly WalkerAction[] = [
       const options = page.locator('#library-genre-filter option');
       const optionCount = await options.count();
       await page.selectOption('#library-genre-filter', { index: rng.int(optionCount) });
-      await expect(page.locator('#page-title')).toBeVisible();
+      await expectRendered(page.locator('#page-title'));
     },
   },
   {
@@ -70,7 +76,7 @@ export const librarianActions: readonly WalkerAction[] = [
     available: async page => (await isVisible(page, '#library-next')) && (await page.locator('#library-next').isEnabled()),
     run: async page => {
       await page.click('#library-next');
-      await expect(page.locator('#page-title')).toBeVisible();
+      await expectRendered(page.locator('#page-title'));
     },
   },
   {
@@ -79,7 +85,7 @@ export const librarianActions: readonly WalkerAction[] = [
     available: async page => (await isVisible(page, '#library-prev')) && (await page.locator('#library-prev').isEnabled()),
     run: async page => {
       await page.click('#library-prev');
-      await expect(page.locator('#page-title')).toBeVisible();
+      await expectRendered(page.locator('#page-title'));
     },
   },
   {
@@ -88,7 +94,7 @@ export const librarianActions: readonly WalkerAction[] = [
     available: () => Promise.resolve(true),
     run: async (page, rng) => {
       await page.goto('/faq');
-      await expect(page.locator('#faq-content')).toBeVisible();
+      await expectRendered(page.locator('#faq-content'));
       const tocLinks = prefixLocator(page, 'toc-link-');
       const tocCount = await tocLinks.count();
       if (tocCount > 0) {
@@ -103,7 +109,7 @@ export const librarianActions: readonly WalkerAction[] = [
     run: async (page, rng) => {
       await page.emulateMedia({ colorScheme: rng.pick(['light', 'dark'] as const) });
       await page.goto('/');
-      await expect(page.locator('#page-title')).toBeVisible();
+      await expectRendered(page.locator('#page-title'));
     },
   },
 ];

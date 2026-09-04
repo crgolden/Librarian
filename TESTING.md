@@ -525,6 +525,16 @@ drift is expected — the guarantee is the decision sequence.
 
 - **The seed is a run parameter, not unit-test data.** CODE-STYLE.md rule 11 is scoped to unit
   tests; do not "fix" the walker by making the seed unrepeatable.
+- **A missing locator is an app defect until proven otherwise, and a timeout is not the answer to
+  one.** Seed `1210598324` failed at step 12 asserting `#page-title` after the rail landed on
+  `/privacy`. The reflex reading is a slow render, but the element was not there at all: `/privacy`
+  and `/faq` were the only rail destinations whose `<h1>` carried `id="top"` — the target of
+  `PageTocComponent`'s back-to-top link — rather than the `id="page-title"` every other page uses.
+  Raising the timeout would only have failed slower. Because the walker picks the rail link at
+  **random**, a page missing the id fails on some seeds and not others, which is exactly the class
+  of defect the walker exists to surface and the reason a failure must be diagnosed before it is
+  timed out. See `AGENTS/Librarian.md` § navigation for the resulting invariant: every page's `<h1>`
+  carries `id="page-title"` unconditionally, error branches included.
 - **The engine comes from `@crgolden/modules/synthetic-walker`** (the Modules repo). Installing
   it needs GitHub Packages auth — CI uses the `PACKAGES_READ_TOKEN` secret; locally a
   `read:packages` PAT in your user `~/.npmrc`. A 401 on the `@crgolden` scope during `npm ci`

@@ -26,7 +26,7 @@ test.describe('PrivacyPage', () => {
     await store.reset();
 
     await page.goto('/privacy');
-    await expect(page.locator('#top')).toContainText('Privacy Policy');
+    await expect(page.locator('#page-title')).toContainText('Privacy Policy');
     await expect(page.locator('#privacy-not-collected')).toBeVisible();
 
     await page.locator('#privacy-faq-link').click();

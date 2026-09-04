@@ -25,7 +25,7 @@ test.describe('FaqPage', () => {
     await store.reset();
 
     await page.goto('/faq');
-    await expect(page.locator('#top')).toContainText('Frequently Asked Questions');
+    await expect(page.locator('#page-title')).toContainText('Frequently Asked Questions');
 
     await expect(page.locator('#faq-npsso-token')).toBeVisible();
 
@@ -49,6 +49,6 @@ test.describe('FaqPage', () => {
 
     await page.locator('#back-to-top').click();
     await expect(page).toHaveURL(/\/faq$/);
-    await expect(page.locator('h1#top')).toBeInViewport();
+    await expect(page.locator('h1#page-title')).toBeInViewport();
   });
 });
