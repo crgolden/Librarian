@@ -1,6 +1,6 @@
 # Testing
 
-The Librarian test suite covers **frontend unit tests** (Vitest) and **browser E2E + smoke tests**
+The Librarian test suite covers **frontend unit tests** (Vitest) and **browser E2E + synthetic-walker tests**
 (TypeScript Playwright). This repo tests the Angular SSR + Node BFF stack. The Curator API has its
 own suite in the [Curator](https://github.com/crgolden/Curator) repo.
 
@@ -13,7 +13,6 @@ Unit test coding standards (no control-flow in tests, etc.) are in the workspace
 |------|------|----------|------------------------|------------|
 | Frontend unit | Vitest | `src/**/*.spec.ts` | No | Every push/PR |
 | E2E (regression) | Playwright (`--project=e2e`) | `e2e/` | No — Playwright manages the Node SSR server + mock Curator API | Every push/PR |
-| Smoke (post-deploy) | Playwright (`--project=smoke`) | `e2e/smoke/` | Yes — targets the deployed stack | Post-deploy only |
 | Synthetic walker | Playwright (`--project=synthetic`) | `e2e/synthetic/` | Yes — targets the deployed stack | Scheduled (`synthetic.yml`), never a merge gate |
 
 ---
@@ -477,18 +476,6 @@ heading were added to fix; a new section without one silently reintroduces it.
 
 ---
 
-## Smoke tests (post-deploy)
-
-`e2e/smoke/api.spec.ts` targets a **deployed** stack. Tests are skipped unless `SmokeBaseUrl` is set.
-
-```powershell
-npm run e2e:smoke
-```
-
-Smoke tests exercise `GET /health` (must return `Healthy`) and basic reachability of the deployed app.
-
----
-
 ## Synthetic walker
 
 `e2e/synthetic/walker.spec.ts` performs a **seeded random walk of the deployed app**: one real
@@ -498,7 +485,12 @@ no mutating POSTs; `#library-refresh` is deliberately excluded because it trigge
 enrichment run). It runs on a schedule from `.github/workflows/synthetic.yml` (twice daily, plus
 `workflow_dispatch` with a `seed` input) and is **never a merge gate** — `e2e:synthetic` is
 deliberately absent from the CI gate order in `AGENTS/Librarian.md`; do not "complete" that list
-with it. Tests skip unless `SmokeBaseUrl` is set.
+with it. Tests skip unless `WalkerBaseUrl` is set.
+
+**This replaced the post-deploy smoke tier, which was deleted fleet-wide.** Smoke was a stopgap
+until walkers existed; once they did it was duplicate coverage that also needed its own reCAPTCHA
+exemption to log in. Its two checks (`GET /health` and basic reachability) are subsumed by a walk
+that actually browses the app.
 
 The walker files live under `e2e/`, so `npm run typecheck:e2e` covers them automatically and they
 must pass it on every push even though the walker itself never runs in CI gates. The `synthetic`
@@ -508,16 +500,27 @@ Environment contract:
 
 | Variable | Meaning |
 |---|---|
-| `SmokeBaseUrl` | Deployed app URL (same switch the smoke tier uses; disables `webServer`) |
+| `WalkerBaseUrl` | Deployed app URL; also disables `webServer` |
 | `SYNTHETIC_SEED` | **Required** decimal uint32; the whole walk derives from it |
 | `SYNTHETIC_STEPS` | Optional step budget override (default 40) |
-| `TEST_USERNAME` / `TEST_PASSWORD` | Identity test account; the email must be in Identity's `ReCAPTCHATestEmails` |
-| `SYNTHETIC_MARKER` | Must equal Identity's `ReCAPTCHASyntheticMarkerSecret`; sent as `X-Synthetic-Marker` on Identity-origin requests (redirect hops can carry it to this app's own origin; never to third parties) |
+| `EMAIL1` | Identity account the walker signs in as |
+| `PASSKEY_CREDENTIAL1` | That account's passkey, as the five-field JSON Playwright's virtual authenticator returns |
+
+**The walker signs in with a passkey, not a password.** Identity evaluates the passkey branch
+*before* the CAPTCHA, so this is a first-class production auth path rather than an exemption —
+there is no marker header and no test-only code in Identity's authentication handler. No password
+is stored in CI. Who the accounts are, and how to enroll a passkey, is in `Tools/Identity/AGENTS.md`
+(private repo).
+
+**PSN-dependent actions must read the flags, not assume them.** All three fleet accounts carry a
+`psn_links` row and an OpenCritic key, which is what makes multi-account trophy views walkable —
+but every link currently has `harvest_trophies=false` and `allow_friend_writes=false`. An action
+gated on either must check at run time and skip cleanly.
 
 Replay a failed walk with the seed from the job summary / failure message:
 
 ```powershell
-$env:SYNTHETIC_SEED = '<seed>'; $env:SmokeBaseUrl = '<deployed app URL>'; npm run e2e:synthetic
+$env:SYNTHETIC_SEED = '<seed>'; $env:WalkerBaseUrl = '<deployed app URL>'; npm run e2e:synthetic
 ```
 
 Same seed ⇒ same RNG decisions given the same action availability; divergence caused by live-data
@@ -556,7 +559,8 @@ The GitHub Actions workflow (`.github/workflows/main_crgolden-librarian.yml`) ru
 3. `npm run e2e` (self-builds the `ci` configuration, then runs Playwright E2E; Chromium cached by version)
 4. SonarCloud analysis via `sonarsource/sonarcloud-github-action` (JS LCOV only; no C# paths)
 5. `npm run build` (production configuration) → `npm prune --omit=dev` → deploy to `crgolden-librarian` (Linux)
-6. Post-deploy smoke (`npm run e2e:smoke` against `webapp-url`)
+There is no post-deploy step. The scheduled synthetic walker (`synthetic.yml`) is what exercises the
+deployed app.
 
 There is no SQL dacpac in this pipeline.
 

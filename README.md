@@ -4,6 +4,8 @@
 
 [![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=crgolden_Librarian)](https://sonarcloud.io/summary/new_code?id=crgolden_Librarian)
 
+[![Synthetic walker](https://github.com/crgolden/Librarian/actions/workflows/synthetic.yml/badge.svg)](https://github.com/crgolden/Librarian/actions/workflows/synthetic.yml)
+
 The end-user surface of the PlayStation game-curation project: an **Angular 22 SSR** application
 with a **Node.js Express** Backend-for-Frontend (BFF), served by a single Node process. The BFF holds
 the OIDC session and proxies every data call to the standalone [Curator](https://github.com/crgolden/Curator)
@@ -163,10 +165,10 @@ npm run serve:ssr    # run the full SSR + BFF: node --import ./instrumentation.m
 npm run lint         # ESLint
 npx vitest run       # unit tests (Vitest); add --coverage for LCOV
 npm run e2e          # build:ci + Playwright E2E vs the real Node server + mock Curator/OIDC (self-builds)
-npm run e2e:smoke    # Playwright smoke tests against a deployed stack (SmokeBaseUrl)
+npm run e2e:synthetic # seeded random walk of a deployed stack (WalkerBaseUrl); normally run on a schedule
 ```
 
-See [TESTING.md](TESTING.md) for the full E2E / smoke test guide and CI configuration.
+See [TESTING.md](TESTING.md) for the full E2E / synthetic-walker guide and CI configuration.
 
 ## Project Structure
 
@@ -188,7 +190,7 @@ src/
   shared/             # reusable UI pieces (e.g. loading-overlay, a pointer-blocking async-action overlay)
   environments/       # per-environment config (allowedHosts, etc.)
   telemetry/          # pino → Elasticsearch logging
-e2e/                  # TypeScript Playwright E2E + smoke tests
+e2e/                  # TypeScript Playwright E2E + synthetic walker
 instrumentation.mjs   # OpenTelemetry Node SDK init (loaded via --import)
 ```
 
@@ -196,7 +198,8 @@ instrumentation.mjs   # OpenTelemetry Node SDK init (loaded via --import)
 
 Deployed to Azure App Service (Linux, Node 24) as `crgolden-librarian` via GitHub Actions
 (`.github/workflows/main_crgolden-librarian.yml`) — build, SonarCloud analysis, Vitest + Playwright
-E2E, then deploy and post-deploy smoke test. Secrets are Key Vault-referenced App Service settings
+E2E, then deploy. The deployed app is exercised by the scheduled synthetic walker rather than a
+post-deploy job. Secrets are Key Vault-referenced App Service settings
 (`@Microsoft.KeyVault(SecretUri=...)`), resolved by the platform via the app's system-assigned managed
 identity before the app starts — the app itself never calls the Key Vault SDK. See the workspace-level
 [DEPLOYMENT.md](../AGENTS/DEPLOYMENT.md) for the full hosting fleet and Key Vault reference.

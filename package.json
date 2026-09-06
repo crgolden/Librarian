@@ -18,7 +18,6 @@
     "build:ci": "ng build --configuration=ci",
     "e2e": "npm run build:ci && npx tsx e2e/mocks/generate-oidc-cert.ts && playwright test --project=e2e",
     "e2e:run": "npx tsx e2e/mocks/generate-oidc-cert.ts && playwright test --project=e2e",
-    "e2e:smoke": "playwright test --project=smoke",
     "e2e:synthetic": "playwright test --project=synthetic",
     "playwright:install": "playwright install --with-deps chromium"
   },
