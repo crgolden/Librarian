@@ -3,6 +3,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { catchError, finalize, Observable, of, switchMap } from 'rxjs';
 import { CuratorService } from '../curator/curator.service';
 import { MeService } from '../curator/me.service';
 import {
@@ -69,7 +70,6 @@ export class PsnSettingsComponent implements OnInit {
   protected readonly linked = signal(false);
   protected readonly accessTokenExpiresAt = signal<string | null>(null);
   protected readonly refreshTokenExpiresAt = signal<string | null>(null);
-  protected readonly loadingStatus = signal(false);
   protected readonly linking = signal(false);
   protected readonly unlinking = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -134,7 +134,6 @@ export class PsnSettingsComponent implements OnInit {
 
   protected readonly overlayVisible = computed(
     () =>
-      this.loadingStatus() ||
       this.linking() ||
       this.unlinking() ||
       this.deletingAccount() ||
@@ -239,19 +238,21 @@ export class PsnSettingsComponent implements OnInit {
     });
   }
 
-  private loadStatus(): void {
-    this.loadingStatus.set(true);
-    this.error.set(null);
-    this.http.get<MeResponse>('/curator/api/me').subscribe({
-      next: (me) => {
-        this.applyStatus(me);
-        this.loadingStatus.set(false);
-      },
-      error: () => {
+  private reloadStatus(): Observable<MeResponse | null> {
+    this.me.invalidate();
+    return this.http.get<MeResponse>('/curator/api/me').pipe(
+      catchError(() => {
         this.error.set('Unable to load PSN link status.');
-        this.loadingStatus.set(false);
-      },
-    });
+        return of(null);
+      }),
+    );
+  }
+
+  private applyReloadedStatus(me: MeResponse | null): void {
+    if (me === null) {
+      return;
+    }
+    this.applyStatus(me);
   }
 
   private loadPreferences(): void {
@@ -473,19 +474,20 @@ export class PsnSettingsComponent implements OnInit {
     this.error.set(null);
     this.success.set(null);
 
-    this.http.post('/curator/api/psn/link', { npsso: token }).subscribe({
-      next: () => {
-        this.linking.set(false);
-        this.success.set('PlayStation Network account linked.');
-        this.npsso.set('');
-        this.me.invalidate();
-        this.loadStatus();
-      },
-      error: (err: HttpErrorResponse) => {
-        this.linking.set(false);
-        this.error.set(linkErrorMessage(err));
-      },
-    });
+    this.http
+      .post('/curator/api/psn/link', { npsso: token })
+      .pipe(
+        switchMap(() => this.reloadStatus()),
+        finalize(() => this.linking.set(false)),
+      )
+      .subscribe({
+        next: (me) => {
+          this.success.set('PlayStation Network account linked.');
+          this.npsso.set('');
+          this.applyReloadedStatus(me);
+        },
+        error: (err: HttpErrorResponse) => this.error.set(linkErrorMessage(err)),
+      });
   }
 
   protected unlink(): void {
@@ -493,18 +495,19 @@ export class PsnSettingsComponent implements OnInit {
     this.error.set(null);
     this.success.set(null);
 
-    this.http.delete('/curator/api/psn/link').subscribe({
-      next: () => {
-        this.unlinking.set(false);
-        this.success.set('PlayStation Network account unlinked.');
-        this.me.invalidate();
-        this.loadStatus();
-      },
-      error: () => {
-        this.unlinking.set(false);
-        this.error.set('Failed to unlink PlayStation Network account.');
-      },
-    });
+    this.http
+      .delete('/curator/api/psn/link')
+      .pipe(
+        switchMap(() => this.reloadStatus()),
+        finalize(() => this.unlinking.set(false)),
+      )
+      .subscribe({
+        next: (me) => {
+          this.success.set('PlayStation Network account unlinked.');
+          this.applyReloadedStatus(me);
+        },
+        error: () => this.error.set('Failed to unlink PlayStation Network account.'),
+      });
   }
 
   protected loadMyActions(): void {

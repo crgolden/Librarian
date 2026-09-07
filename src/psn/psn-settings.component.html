@@ -7,9 +7,7 @@
     refresh schedule and stored data. Everything below the link works with or without a PSN account.
   </p>
 
-  @if (loadingStatus()) {
-    <p class="text-muted">Loading link status...</p>
-  } @else if (linked()) {
+  @if (linked()) {
     <div class="card p-6 flex flex-col items-start gap-4">
       <span class="psn-badge">PSN account linked</span>
       <p>
@@ -268,6 +266,14 @@
     <p class="text-muted">
       Rebuild your library automatically on a schedule, instead of pressing Refresh yourself.
     </p>
+    <p id="schedule-cost" class="text-muted">
+      A scheduled refresh runs while you aren't here, using your stored PlayStation Network token and any
+      enrichment keys you've added below. Daily is the shortest interval offered: an OpenCritic key on
+      RapidAPI's free plan gets 200 requests per day, which refills at the start of each day, so a shorter
+      interval would spend an allowance that hasn't come back yet. A RAWG key is metered differently — 20,000
+      requests per month — so a daily schedule draws that monthly pool down about seven times faster than a
+      weekly one.
+    </p>
 
     @if (scheduleError()) {
       <p class="text-error" id="schedule-error">{{ scheduleError() }}</p>
@@ -296,6 +302,7 @@
         (ngModelChange)="scheduleCadence.set($event)"
         [disabled]="scheduleSaving()"
       >
+        <option value="daily">Daily</option>
         <option value="weekly">Weekly</option>
         <option value="monthly">Monthly</option>
       </select>

@@ -29,6 +29,29 @@
   min-width: 0;
 }
 
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Rule 14: the cap is the point of this rule, not the typography — see DESIGN.md's app-site-nav entry. */
+.user-email {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-meta);
+  color: var(--color-text-muted);
+  max-width: 12ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 480px) {
+  .user-email {
+    max-width: 22ch;
+  }
+}
+
 .brand {
   text-decoration: none;
   font-family: var(--font-heading);

@@ -202,19 +202,19 @@ test.describe('SiteNavComponent — desktop rail', () => {
     ).toBe(true);
   });
 
-  test('the rail width does not track the signed-in address', async ({ authedPage: page, store }) => {
+  test('the header row does not track the signed-in address', async ({ authedPage: page, store }) => {
     await store.reset();
 
     await page.goto('/');
     await settleWebfonts(page, ['#user-email']);
 
-    const railWidth = await page.locator(RAIL).evaluate((rail) => rail.getBoundingClientRect().width);
-    const emailWidth = await page.locator('#user-email').evaluate((el) => el.getBoundingClientRect().width);
+    const brandRight = await page.locator('#brand').evaluate((el) => el.getBoundingClientRect().right);
+    const emailLeft = await page.locator('#user-email').evaluate((el) => el.getBoundingClientRect().left);
 
     expect(
-      railWidth,
-      'the rail is sized by its own token, so a longer address must not widen it',
-    ).toBeGreaterThan(emailWidth);
+      emailLeft,
+      'the capped address must not grow leftwards into the brand it shares the header row with',
+    ).toBeGreaterThan(brandRight);
   });
 
   test('a failed avatar load does not render its alt text at full width', async ({
@@ -275,6 +275,43 @@ test.describe('SiteNavComponent — desktop rail', () => {
 
 test.describe('SiteNavComponent — mobile tab bar', () => {
   test.use({ viewport: MOBILE });
+
+  test('keeps the header chip inside the row it shares with the brand, at the narrowest viewport', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+
+    await page.goto('/');
+    await expect(page.locator('#user-chip')).toBeVisible();
+    await settleWebfonts(page, ['#user-email']);
+
+    const row = await page.locator('#header-inner').evaluate((header) => {
+      const headerBox = header.getBoundingClientRect();
+      const chip = header.querySelector('#user-chip');
+      const brand = header.querySelector('#brand');
+      if (chip === null || brand === null) {
+        return null;
+      }
+      const chipBox = chip.getBoundingClientRect();
+      return {
+        chipRight: chipBox.right,
+        headerRight: headerBox.right,
+        chipLeft: chipBox.left,
+        brandRight: brand.getBoundingClientRect().right,
+        documentScrollWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      };
+    });
+
+    expect(row, 'the chip or the brand is missing from the header').not.toBeNull();
+    expect(row?.chipRight, 'the chip overflows the header').toBeLessThanOrEqual((row?.headerRight ?? 0) + 1);
+    expect(row?.chipLeft, 'the chip has collided with the brand').toBeGreaterThan(row?.brandRight ?? 0);
+    expect(
+      row?.documentScrollWidth,
+      'the chip pushed the document wider than the viewport, so the whole page scrolls sideways',
+    ).toBeLessThanOrEqual((row?.viewportWidth ?? 0) + 1);
+  });
 
   test('renders four tabs plus More, and hides the rail', async ({ authedPage: page, store }) => {
     await store.reset();

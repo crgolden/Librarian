@@ -147,22 +147,8 @@
     font-weight: var(--font-weight-semibold);
   }
 
-  .user-chip {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
+  #nav-rail-signout {
     margin-top: auto;
-    padding: var(--space-3);
     border-top: 1px solid var(--color-line);
-  }
-
-  .user-email {
-    font-family: var(--font-mono);
-    font-size: var(--font-size-meta);
-    color: var(--color-text-muted);
-    max-width: 10ch;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 }

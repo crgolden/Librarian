@@ -18,15 +18,12 @@ test.describe('Synthetic walker', () => {
       const steps = resolveStepBudget();
       await loginWithPasskey(page, { slot, returnParam: 'returnTo', returnPath: '/' });
 
-      // Enrichment is the only admin-gated destination, so it is what proves this walk got this
-      // role's experience. The start control is only ever asserted on, never clicked: it spends
-      // real enrichment quota, which is why the action inventory excludes it too.
       await page.goto(ADMIN_PATH);
       const startEnrichment = page.locator('#enrichment-start');
       if (administers) {
-        await expect(startEnrichment).toBeVisible();
+        await expect(startEnrichment, `${role} should be offered the enrichment control`).toBeVisible();
       } else {
-        await expect(startEnrichment).toHaveCount(0);
+        await expect(startEnrichment, `${role} must not be offered the enrichment control`).toHaveCount(0);
       }
       await page.goto('/');
 

@@ -106,6 +106,25 @@ describe('PsnSettingsComponent', () => {
     expect(compiled.querySelector('#psn-enrichment-keys-card')).not.toBeNull();
   });
 
+  it('offers every cadence RefreshCadence declares, in ascending interval order', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+
+    const select = (fixture.nativeElement as HTMLElement).querySelector('#schedule-cadence');
+    const options = Array.from(select?.querySelectorAll('option') ?? []);
+
+    expect(options.map((option) => option.getAttribute('value'))).toEqual(['daily', 'weekly', 'monthly']);
+    expect(options.map((option) => option.textContent?.trim())).toEqual(['Daily', 'Weekly', 'Monthly']);
+  });
+
+  it('states what a scheduled run spends, at the point of scheduling', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+
+    const cost = (fixture.nativeElement as HTMLElement).querySelector('#schedule-cost')?.textContent;
+
+    expect(cost).toContain('stored PlayStation Network token');
+    expect(cost).toContain('enrichment keys');
+  });
+
   it('still gates the harvest preferences behind a PSN link', () => {
     const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
 

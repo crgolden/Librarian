@@ -369,7 +369,7 @@ export interface ProfileSettingsResponse {
 
 export type ProfileSettingsRequest = ProfileSettingsResponse;
 
-export type RefreshCadence = 'weekly' | 'monthly';
+export type RefreshCadence = 'daily' | 'weekly' | 'monthly';
 
 export interface RefreshScheduleResponse {
   cadence: RefreshCadence;

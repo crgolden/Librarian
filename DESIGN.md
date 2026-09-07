@@ -648,15 +648,29 @@ that genuinely floats over the page rather than sitting in it.
   **that box is what makes eager loading safe**. It is also load-bearing for a second reason: a *broken*
   image renders its `alt` text at whatever width that text needs, and the alt is an email address — once
   measured at 294px against an expected 110px.
-  **`.user-email` is capped at `10ch` with an ellipsis, and the cap is load-bearing.** Without it the
-  layout depends on how long the signed-in address is — the one unbounded, data-dependent element in the
-  nav. That used to be proved by deleting the cap and watching the row wrap; a rail has room to spare, so
-  a wrap-based test would now pass against the very bug it exists to catch. **`e2e/nav.spec.ts` therefore
-  asserts the cap directly** — computed `max-width` is not `none`, `overflow` is `hidden`, and the fixture
-  address actually overflows it (`scrollWidth > clientWidth`) — plus a separate assertion that the rail's
-  own width does not track the address. Do not restore a wrap-based assertion, and do not delete the cap
-  on the grounds that nothing fails without it. Note `--font-mono` changed with the redesign, so the `ch`
-  unit no longer resolves to the old hard 82px; re-measure before quoting a pixel figure.
+  **The signed-in chip lives in the header, not in the rail** (`app.component.html`, `app.component.css`).
+  It sat at the bottom of the rail until 2026-09-06, where a `10ch` cap inherited from the pre-rail
+  horizontal header clipped an ordinary address to about nine characters. `.header-inner` was already
+  `display: flex; justify-content: space-between`, so the chip right-aligns against the brand with no new
+  layout rule, and above `lg` that edge is the viewport's own because `.header-inner` drops its
+  `page-container` cap there. **The chip is deliberately not a link**: `/profile` is already a
+  `PRIMARY_NAV_LINKS` destination, and a second affordance for it a few rows away is navigation noise. What
+  the chip is for is saying *which* account is signed in.
+  **The move also made it render at every width.** The rail is `display: none` below `lg`, so the chip used
+  to be desktop-only; in the header it shares a ~350px row with the brand on a phone, which is why the cap
+  is `12ch` below `sm` and `22ch` above it rather than one number.
+  **The cap is load-bearing and must not be deleted.** Without it the layout depends on how long the
+  signed-in address is — the one unbounded, data-dependent element in the header, and an unbounded one there
+  is exactly the pre-rail wrapping failure this layout exists to avoid. That used to be proved by deleting
+  the cap and watching the row wrap; there is room to spare now, so a wrap-based test would pass against the
+  very bug it exists to catch. **`e2e/nav.spec.ts` therefore asserts the cap directly** — computed
+  `max-width` is not `none`, `overflow` is `hidden`, and the fixture address actually overflows it
+  (`scrollWidth > clientWidth`) — plus a desktop assertion that the address never grows leftwards into the
+  brand, and a mobile one that the chip stays inside the header and does not widen the document. **The
+  fixture address is what keeps the first of those honest**: `e2e/fixtures.ts` builds it as
+  `${sub}@test.invalid`, a GUID plus 13 characters, so it still overflows a `22ch` cap by a wide margin. Do
+  not restore a wrap-based assertion, and re-measure rather than quoting a pixel figure — `--font-mono`
+  changed with the redesign, so the `ch` unit no longer resolves to the old hard 82px.
   **The chip renders the whole address and lets the cap clip it**, rather than rendering a shortened form.
   A local-part-only chip reads better but costs the regression test its teeth: the e2e identity's address
   needs 196px uncapped while its local part needs 90px and fits, so nothing would fail if the cap were

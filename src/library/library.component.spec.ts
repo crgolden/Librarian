@@ -5,15 +5,21 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { LIBRARY_PAGE_SIZE_CEILING, LIBRARY_PAGE_SIZE_KEY, LibraryComponent } from './library.component';
 import { LIBRARY_PAGE_SIZE, ResolvedLibrary } from './library.resolver';
 import { pageSizeChoicesUpTo, writePageSize } from '../shared/page-size/page-size.preference';
-import { LibraryGameResponse, LibraryPageResponse, ProfileLibraryGameResponse } from '../curator/curator.models';
+import {
+  LibraryGameResponse,
+  LibraryPageResponse,
+  ProfileLibraryGameResponse,
+  RefreshScheduleResponse,
+} from '../curator/curator.models';
 import { AuthService } from '../auth/auth.service';
 
 function okLibrary(
   games: LibraryGameResponse[] | ProfileLibraryGameResponse[] = [],
   total = games.length,
   genres: string[] = [],
+  schedule: RefreshScheduleResponse | null = null,
 ): ResolvedLibrary {
-  return { status: 'ok', games, total, genres };
+  return { status: 'ok', games, total, genres, schedule };
 }
 
 function activatedRouteWithSub(sub: string | null, resolved: ResolvedLibrary = okLibrary()): ActivatedRoute {
@@ -115,6 +121,60 @@ describe('LibraryComponent', () => {
     });
     httpMock = TestBed.inject(HttpTestingController);
   }
+
+  it('reports the next automatic refresh from the resolved schedule, and links to where it is changed', async () => {
+    configureOwner(
+      okLibrary([FULL_GAME], 1, [], {
+        cadence: 'daily',
+        ps_plus_watch: false,
+        next_run_at: '2026-09-08T12:00:00Z',
+        last_run_at: null,
+        consecutive_failures: 0,
+        paused_reason: null,
+      }),
+    );
+    const fixture = TestBed.createComponent(LibraryComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.querySelector('#library-schedule-next')?.textContent).toContain('Next automatic refresh');
+    expect(compiled.querySelector('#library-schedule-link')?.getAttribute('href')).toBe('/account');
+    expect(compiled.querySelector('#library-schedule-none')).toBeNull();
+  });
+
+  it('says a paused chain is paused, and sends the owner to the page that can resume it', async () => {
+    configureOwner(
+      okLibrary([FULL_GAME], 1, [], {
+        cadence: 'weekly',
+        ps_plus_watch: false,
+        next_run_at: '2026-09-08T12:00:00Z',
+        last_run_at: null,
+        consecutive_failures: 3,
+        paused_reason: 'too-many-consecutive-failures',
+      }),
+    );
+    const fixture = TestBed.createComponent(LibraryComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.querySelector('#library-schedule-paused')?.textContent).toContain('paused');
+    expect(compiled.querySelector('#library-schedule-paused')?.textContent).not.toContain(
+      'too-many-consecutive-failures',
+    );
+    expect(compiled.querySelector('#library-schedule-next')).toBeNull();
+  });
+
+  it('offers to set a schedule up when the resolver found none', async () => {
+    const fixture = await createAndLoad([FULL_GAME]);
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.querySelector('#library-schedule-none')?.textContent).toContain('No automatic refresh');
+    expect(compiled.querySelector('#library-schedule-next')).toBeNull();
+  });
 
   it('searches the shared catalog and adds the chosen game as a manual entry', async () => {
     const fixture = await createAndLoad([FULL_GAME]);
@@ -599,6 +659,20 @@ describe('LibraryComponent', () => {
       });
       httpMock = TestBed.inject(HttpTestingController);
     }
+
+    it('shows no schedule summary at all on another user\'s library', async () => {
+      configureForViewer('other-sub', null, okLibrary([FULL_GAME]));
+
+      const fixture = TestBed.createComponent(LibraryComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const compiled: HTMLElement = fixture.nativeElement;
+      expect(compiled.querySelector('#library-schedule-next')).toBeNull();
+      expect(compiled.querySelector('#library-schedule-none')).toBeNull();
+      expect(compiled.querySelector('#library-schedule-paused')).toBeNull();
+    });
 
     it('renders another user\'s library read-only, with no refresh button', async () => {
       const games: ProfileLibraryGameResponse[] = [FULL_GAME];

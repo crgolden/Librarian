@@ -1,6 +1,21 @@
 <header class="site-header">
-  <div class="page-container header-inner">
+  <div id="header-inner" class="page-container header-inner">
     <a id="brand" routerLink="/" class="brand">Librarian</a>
+    @if (auth.isAuthenticated()) {
+      <div id="user-chip" class="user-chip">
+        @if (auth.sub(); as sub) {
+          <app-avatar
+            id="nav-avatar"
+            [sub]="sub"
+            [pictureUrl]="auth.picture()"
+            [alt]="auth.email() ?? auth.username() ?? 'Signed-in account'"
+          />
+        }
+        <span id="user-email" class="user-email" [title]="auth.email() ?? auth.username() ?? 'you'">{{
+          auth.email() ?? auth.username() ?? 'you'
+        }}</span>
+      </div>
+    }
   </div>
 </header>
 <div class="app-shell">

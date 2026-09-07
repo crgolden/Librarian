@@ -14,19 +14,6 @@
   }
 
   @if (auth.isAuthenticated()) {
-    <div id="user-chip" class="user-chip">
-      @if (auth.sub(); as sub) {
-        <app-avatar
-          id="nav-avatar"
-          [sub]="sub"
-          [pictureUrl]="auth.picture()"
-          [alt]="auth.email() ?? auth.username() ?? 'Signed-in account'"
-        />
-      }
-      <span id="user-email" class="user-email" [title]="auth.email() ?? auth.username() ?? 'you'">{{
-        auth.email() ?? auth.username() ?? 'you'
-      }}</span>
-    </div>
     <a id="nav-rail-signout" [href]="auth.logoutUrl() ?? '#'" aria-label="Sign out" class="rail-link">
       <ng-icon name="lucideLogOut" aria-hidden="true" />
       <span class="rail-label">Sign out</span>

@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { isPlatformBrowser } from '@angular/common';
+import { DatePipe, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -21,6 +21,7 @@ import {
   LibraryRefreshResultSummary,
   LibraryRefreshStatusResponse,
   ProfileLibraryGameResponse,
+  RefreshScheduleResponse,
 } from '../curator/curator.models';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
 import { LIBRARY_PAGE_SIZE, ResolvedLibrary } from './library.resolver';
@@ -58,7 +59,7 @@ const LIBRARY_COLUMNS: ColumnDef<typeof LIBRARY_TABLE_FEATURES, LibraryGame>[] =
 
 @Component({
   selector: 'app-library',
-  imports: [FormsModule, BreadcrumbComponent, LoadingOverlayComponent, PageSizeComponent, RouterLink],
+  imports: [FormsModule, DatePipe, BreadcrumbComponent, LoadingOverlayComponent, PageSizeComponent, RouterLink],
   templateUrl: './library.component.html',
   styleUrl: './library.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -75,6 +76,8 @@ export class LibraryComponent implements OnInit, OnDestroy {
   protected readonly viewerForbidden = signal(false);
   protected readonly sub = signal<string | null>(null);
   protected readonly breadcrumbItems = signal<BreadcrumbItem[]>([]);
+
+  protected readonly schedule = signal<RefreshScheduleResponse | null>(null);
 
   protected readonly refreshing = signal(false);
   protected readonly status = signal<LibraryRefreshStatusResponse | null>(null);
@@ -169,6 +172,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
     this.games.set(resolved.games);
     this.total.set(resolved.total);
     this.genreOptions.set(resolved.genres);
+    this.schedule.set(resolved.schedule);
 
     const preferred = readPageSize(LIBRARY_PAGE_SIZE_KEY, this.pageSizeChoices, LIBRARY_PAGE_SIZE);
     if (preferred !== LIBRARY_PAGE_SIZE) {

@@ -96,12 +96,6 @@ describe('SiteNavComponent — anonymous', () => {
     expect(signInHref).toBe('/bff/login');
   });
 
-  it('shows no user chip, because there is no session to describe', () => {
-    const fixture = configure(anonymousSession());
-
-    expect((fixture.nativeElement as HTMLElement).querySelector('#user-chip')).toBeNull();
-  });
-
   it('offers no sign-out, because there is no session to end', () => {
     const fixture = configure(anonymousSession());
 

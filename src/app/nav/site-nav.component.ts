@@ -29,7 +29,6 @@ import {
 import { filter } from 'rxjs';
 import { AuthService } from '../../auth/auth.service';
 import { AdminService } from '../../admin/admin.service';
-import { AvatarComponent } from '../../shared/avatar/avatar.component';
 
 export type NavIcon =
   | 'lucideCircleHelp'
@@ -72,7 +71,7 @@ export const ANONYMOUS_NAV_LINKS: NavLink[] = PRIMARY_NAV_LINKS.filter(
 
 @Component({
   selector: 'app-site-nav',
-  imports: [RouterLink, RouterLinkActive, NgIcon, AvatarComponent],
+  imports: [RouterLink, RouterLinkActive, NgIcon],
   templateUrl: './site-nav.component.html',
   styleUrl: './site-nav.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

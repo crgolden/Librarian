@@ -4,9 +4,18 @@ import { ActivatedRouteSnapshot } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { libraryResolver, initialLibraryQuery, ResolvedLibrary } from './library.resolver';
 import { CuratorService, LibraryQuery } from '../curator/curator.service';
-import { LibraryGameResponse } from '../curator/curator.models';
+import { LibraryGameResponse, RefreshScheduleResponse } from '../curator/curator.models';
 
 const GAMES = [{ game_id: 'g1', title: 'Bloodborne' }] as unknown as LibraryGameResponse[];
+
+const SCHEDULE = {
+  cadence: 'daily',
+  ps_plus_watch: false,
+  next_run_at: '2026-09-08T12:00:00Z',
+  last_run_at: null,
+  consecutive_failures: 0,
+  paused_reason: null,
+} satisfies RefreshScheduleResponse;
 
 function run(curator: Partial<CuratorService>, sub: string | null): Promise<ResolvedLibrary> {
   TestBed.resetTestingModule();
@@ -29,11 +38,12 @@ describe('libraryResolver', () => {
       {
         getLibrary: () => of({ games: GAMES, total: 42 }),
         getLibraryGenres: () => of({ genres: ['RPG'] }),
+        getRefreshSchedule: () => of(SCHEDULE),
       },
       null,
     );
 
-    expect(result).toEqual({ status: 'ok', games: GAMES, total: 42, genres: ['RPG'] });
+    expect(result).toEqual({ status: 'ok', games: GAMES, total: 42, genres: ['RPG'], schedule: SCHEDULE });
   });
 
   it('asks for another user’s library when the route names a sub', async () => {
@@ -50,7 +60,38 @@ describe('libraryResolver', () => {
     );
 
     expect(asked).toEqual(['u1']);
-    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [] });
+    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null });
+  });
+
+  it('never asks for a schedule in viewer mode, because the schedule belongs to the library’s owner', async () => {
+    let asked = false;
+    const result = await run(
+      {
+        getUserLibrary: () => of({ games: GAMES, total: 1 }),
+        getUserLibraryGenres: () => of({ genres: [] }),
+        getRefreshSchedule: () => {
+          asked = true;
+          return of(SCHEDULE);
+        },
+      },
+      'u1',
+    );
+
+    expect(asked).toBe(false);
+    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null });
+  });
+
+  it('treats a schedule as best-effort, so a 404 for “no schedule yet” still resolves the library', async () => {
+    const result = await run(
+      {
+        getLibrary: () => of({ games: GAMES, total: 1 }),
+        getLibraryGenres: () => of({ genres: [] }),
+        getRefreshSchedule: fails(404),
+      },
+      null,
+    );
+
+    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null });
   });
 
   it('starts on title-ascending, first page, with no filters applied', async () => {
@@ -62,6 +103,7 @@ describe('libraryResolver', () => {
           return of({ games: GAMES, total: 1 });
         },
         getLibraryGenres: () => of({ genres: [] }),
+        getRefreshSchedule: fails(404),
       },
       null,
     );
@@ -73,11 +115,15 @@ describe('libraryResolver', () => {
 
   it('treats genres as best-effort, still resolving the games', async () => {
     const result = await run(
-      { getLibrary: () => of({ games: GAMES, total: 1 }), getLibraryGenres: fails(500) },
+      {
+        getLibrary: () => of({ games: GAMES, total: 1 }),
+        getLibraryGenres: fails(500),
+        getRefreshSchedule: fails(404),
+      },
       null,
     );
 
-    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [] });
+    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null });
   });
 
   it('distinguishes a private library from a failed load', async () => {
