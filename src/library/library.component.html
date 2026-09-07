@@ -20,25 +20,6 @@
           {{ refreshing() ? 'Refreshing...' : 'Refresh library' }}
         </button>
 
-        @if (schedule(); as current) {
-          @if (current.paused_reason) {
-            <p id="library-schedule-paused" class="text-error">
-              Scheduled refreshes are paused.
-              <a id="library-schedule-link" routerLink="/account">Fix it on your account page</a>
-            </p>
-          } @else {
-            <p id="library-schedule-next" class="catalog-meta">
-              Next automatic refresh: {{ current.next_run_at | date: 'medium' }}
-              <a id="library-schedule-link" routerLink="/account">Change schedule</a>
-            </p>
-          }
-        } @else {
-          <p id="library-schedule-none" class="catalog-meta">
-            No automatic refresh is scheduled.
-            <a id="library-schedule-link" routerLink="/account">Set one up</a>
-          </p>
-        }
-
         <button id="library-add-manual-toggle" type="button" class="btn-ghost" (click)="toggleAddManual()">
           {{ addingManual() ? 'Cancel' : 'Add a game manually' }}
         </button>
@@ -90,6 +71,25 @@
               </ul>
             }
           </div>
+        }
+
+        @if (schedule(); as current) {
+          @if (current.paused_reason) {
+            <p id="library-schedule-paused" class="text-error">
+              Scheduled refreshes are paused.
+              <a id="library-schedule-link" routerLink="/account">Fix it on your account page</a>
+            </p>
+          } @else {
+            <p id="library-schedule-next" class="catalog-meta">
+              Next automatic refresh: {{ current.next_run_at | date: 'medium' }} ·
+              <a id="library-schedule-link" routerLink="/account">Change schedule</a>
+            </p>
+          }
+        } @else {
+          <p id="library-schedule-none" class="catalog-meta">
+            No automatic refresh is scheduled.
+            <a id="library-schedule-link" routerLink="/account">Set one up</a>
+          </p>
         }
 
         @if (error()) {

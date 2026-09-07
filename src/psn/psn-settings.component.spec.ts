@@ -121,8 +121,9 @@ describe('PsnSettingsComponent', () => {
 
     const cost = (fixture.nativeElement as HTMLElement).querySelector('#schedule-cost')?.textContent;
 
-    expect(cost).toContain('stored PlayStation Network token');
-    expect(cost).toContain('enrichment keys');
+    expect(cost).toContain('PlayStation Network token');
+    expect(cost).toContain('OpenCritic');
+    expect(cost).toContain('RAWG');
   });
 
   it('still gates the harvest preferences behind a PSN link', () => {

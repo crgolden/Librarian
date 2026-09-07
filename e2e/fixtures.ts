@@ -20,6 +20,15 @@ export interface CatalogGameFixture {
   size_source?: SizeSource;
 }
 
+export interface RefreshScheduleFixture {
+  cadence?: 'daily' | 'weekly' | 'monthly';
+  ps_plus_watch?: boolean;
+  next_run_at?: string;
+  last_run_at?: string | null;
+  consecutive_failures?: number;
+  paused_reason?: string | null;
+}
+
 export interface PsnPreferencesFixture {
   harvest_trophies?: boolean;
   harvest_identity?: boolean;
@@ -119,6 +128,7 @@ export interface TestStore {
     },
   ): Promise<void>;
   seedUserPsnPreferences(sub: string, prefs: PsnPreferencesFixture): Promise<void>;
+  seedUserRefreshSchedule(sub: string, schedule?: RefreshScheduleFixture): Promise<void>;
   seedUserProfileSettings(sub: string, settings: ProfileSettingsFixture): Promise<void>;
   seedUserLibraryGames(sub: string, games: LibraryGameFixture[]): Promise<void>;
   seedUserCollections(sub: string, definitions: DefinitionFixture[]): Promise<void>;
@@ -238,6 +248,9 @@ export const test = base.extend<LibrarianFixtures>({
       },
       async seedUserPsnPreferences(sub, prefs) {
         await fetchControl('/_test/user/psn-preferences', { sub, ...prefs });
+      },
+      async seedUserRefreshSchedule(sub, schedule) {
+        await fetchControl('/_test/user/refresh-schedule', { sub, ...(schedule ?? {}) });
       },
       async seedUserProfileSettings(sub, settings) {
         await fetchControl('/_test/user/profile-settings', { sub, ...settings });

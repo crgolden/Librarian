@@ -17,6 +17,15 @@ export interface PsnPreferences {
   allow_chat_writes: boolean;
 }
 
+export interface RefreshSchedule {
+  cadence: 'daily' | 'weekly' | 'monthly';
+  ps_plus_watch: boolean;
+  next_run_at: string;
+  last_run_at: string | null;
+  consecutive_failures: number;
+  paused_reason: string | null;
+}
+
 export interface EnrichmentKeyStatus {
   rawg_configured: boolean;
   opencritic_configured: boolean;
@@ -42,8 +51,18 @@ export interface UserRecord {
   psnAccountId: string | null;
   psnPreferences: PsnPreferences;
   enrichmentKeys: EnrichmentKeyStatus;
+  refreshSchedule: RefreshSchedule | null;
   isAdmin: boolean;
 }
+
+const DEFAULT_REFRESH_SCHEDULE: RefreshSchedule = {
+  cadence: 'weekly',
+  ps_plus_watch: false,
+  next_run_at: '2026-03-09T07:43:34+00:00',
+  last_run_at: '2026-03-02T07:43:34+00:00',
+  consecutive_failures: 0,
+  paused_reason: null,
+};
 
 const ACCOUNT_CREATED_AT = '2026-01-02T03:04:05+00:00';
 
@@ -402,6 +421,7 @@ function getUser(sub: string): UserRecord {
       psnAccountId: null,
       psnPreferences: { ...DEFAULT_PSN_PREFERENCES },
       enrichmentKeys: { ...DEFAULT_ENRICHMENT_KEY_STATUS },
+      refreshSchedule: null,
       isAdmin: false,
     };
     users.set(sub, user);
@@ -808,6 +828,12 @@ export function createCuratorApp(): Express {
     res.status(204).end();
   });
 
+  app.post('/_test/user/refresh-schedule', (req: Request, res: Response) => {
+    const { sub, ...schedule } = req.body as Partial<RefreshSchedule> & { sub: string };
+    getUser(sub).refreshSchedule = { ...DEFAULT_REFRESH_SCHEDULE, ...schedule };
+    res.status(204).end();
+  });
+
   app.post('/_test/user/profile-settings', (req: Request, res: Response) => {
     const body = req.body as Partial<ProfileSettings> & { sub: string };
     getUser(body.sub);
@@ -943,6 +969,36 @@ export function createCuratorApp(): Express {
     }
     const body = req.body as Partial<PsnPreferences>;
     user.psnPreferences = { ...DEFAULT_PSN_PREFERENCES, ...body };
+    res.status(204).end();
+  });
+
+  app.get('/me/refresh-schedule', (req: Request, res: Response) => {
+    const schedule = getUser(subFromRequest(req)).refreshSchedule;
+    if (!schedule) {
+      res.status(404).json({ detail: 'No refresh schedule is configured.' });
+      return;
+    }
+    res.json(schedule);
+  });
+
+  app.put('/me/refresh-schedule', (req: Request, res: Response) => {
+    const body = req.body as Partial<RefreshSchedule>;
+    const user = getUser(subFromRequest(req));
+    if (body.cadence !== 'daily' && body.cadence !== 'weekly' && body.cadence !== 'monthly') {
+      res.status(422).json({ detail: 'Unknown cadence.' });
+      return;
+    }
+    user.refreshSchedule = {
+      ...DEFAULT_REFRESH_SCHEDULE,
+      ...user.refreshSchedule,
+      cadence: body.cadence,
+      ps_plus_watch: body.ps_plus_watch ?? false,
+    };
+    res.json(user.refreshSchedule);
+  });
+
+  app.delete('/me/refresh-schedule', (req: Request, res: Response) => {
+    getUser(subFromRequest(req)).refreshSchedule = null;
     res.status(204).end();
   });
 

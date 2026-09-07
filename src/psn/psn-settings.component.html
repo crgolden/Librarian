@@ -267,12 +267,9 @@
       Rebuild your library automatically on a schedule, instead of pressing Refresh yourself.
     </p>
     <p id="schedule-cost" class="text-muted">
-      A scheduled refresh runs while you aren't here, using your stored PlayStation Network token and any
-      enrichment keys you've added below. Daily is the shortest interval offered: an OpenCritic key on
-      RapidAPI's free plan gets 200 requests per day, which refills at the start of each day, so a shorter
-      interval would spend an allowance that hasn't come back yet. A RAWG key is metered differently — 20,000
-      requests per month — so a daily schedule draws that monthly pool down about seven times faster than a
-      weekly one.
+      These runs happen while you're away, using your saved PlayStation Network token and any keys below.
+      Daily is the shortest option: OpenCritic's free plan resets 200 requests each day. RAWG's resets 20,000
+      each month, so a daily schedule uses that up about seven times faster than a weekly one.
     </p>
 
     @if (scheduleError()) {

@@ -1,7 +1,14 @@
-import { test, expect } from './fixtures.js';
+import { test, expect, DEFAULT_E2E_SUB } from './fixtures.js';
 
 const LIBRARY_ROWS = '[id^="library-row-"]';
 const LIBRARY_PLATFORM_TAGS = '[id^="library-platform-"]';
+
+// Midday UTC, so every real timezone offset still renders these on the same calendar date.
+const SCHEDULE_NEXT_RUN_AT = '2031-06-15T12:00:00+00:00';
+const SCHEDULE_NEXT_RUN_RENDERED = 'Jun 15, 2031';
+const SCHEDULE_LAST_RUN_AT = '2029-06-15T12:00:00+00:00';
+const SCHEDULE_LAST_RUN_RENDERED = 'Jun 15, 2029';
+const SCHEDULE_PAUSED_REASON = 'psn_token_expired';
 
 const LIBRARY_DEFAULT_PAGE_SIZE = 20;
 const LIBRARY_CHOSEN_PAGE_SIZE = 50;
@@ -372,5 +379,56 @@ test.describe('Library — authenticated', () => {
     await expect(page.locator('#library-summary-opencritic-topup')).toContainText(
       'OpenCritic still has more of your library to check',
     );
+  });
+});
+
+test.describe('Library — the refresh schedule summary', () => {
+  test('reads the next run, not the last one, and offers the account page to change it', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedUserRefreshSchedule(DEFAULT_E2E_SUB, {
+      cadence: 'daily',
+      next_run_at: SCHEDULE_NEXT_RUN_AT,
+      last_run_at: SCHEDULE_LAST_RUN_AT,
+    });
+
+    await page.goto('/library');
+
+    const summary = page.locator('#library-schedule-next');
+    await expect(summary).toContainText(SCHEDULE_NEXT_RUN_RENDERED);
+    await expect(summary).not.toContainText(SCHEDULE_LAST_RUN_RENDERED);
+    await expect(page.locator('#library-schedule-link')).toHaveAttribute('href', '/account');
+    await expect(page.locator('#library-schedule-none')).toHaveCount(0);
+  });
+
+  test('reports a paused schedule as paused rather than as a due date', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedUserRefreshSchedule(DEFAULT_E2E_SUB, {
+      next_run_at: SCHEDULE_NEXT_RUN_AT,
+      paused_reason: SCHEDULE_PAUSED_REASON,
+    });
+
+    await page.goto('/library');
+
+    await expect(page.locator('#library-schedule-paused')).toContainText('paused');
+    await expect(page.locator('#library-schedule-next')).toHaveCount(0);
+    await expect(page.locator('#library-schedule-link')).toHaveAttribute('href', '/account');
+    await expect(page.locator('body')).not.toContainText(SCHEDULE_PAUSED_REASON);
+  });
+
+  test('invites a user with no schedule to set one up', async ({ authedPage: page, store }) => {
+    await store.reset();
+
+    await page.goto('/library');
+
+    await expect(page.locator('#library-schedule-none')).toBeVisible();
+    await expect(page.locator('#library-schedule-next')).toHaveCount(0);
+    await expect(page.locator('#library-schedule-paused')).toHaveCount(0);
+    await expect(page.locator('#library-schedule-link')).toHaveAttribute('href', '/account');
   });
 });

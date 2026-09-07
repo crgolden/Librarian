@@ -658,7 +658,10 @@ that genuinely floats over the page rather than sitting in it.
   the chip is for is saying *which* account is signed in.
   **The move also made it render at every width.** The rail is `display: none` below `lg`, so the chip used
   to be desktop-only; in the header it shares a ~350px row with the brand on a phone, which is why the cap
-  is `12ch` below `sm` and `22ch` above it rather than one number.
+  is `16ch` below `sm` and `22ch` above it rather than one number. **Both are measured, not guessed:** at
+  the narrowest viewport the cap must still render a full address, and the space available to it is whatever
+  the brand leaves in that row. Measure the brand-to-chip gap before narrowing either value — the binding
+  constraint is the brand's width, not the cap.
   **The cap is load-bearing and must not be deleted.** Without it the layout depends on how long the
   signed-in address is — the one unbounded, data-dependent element in the header, and an unbounded one there
   is exactly the pre-rail wrapping failure this layout exists to avoid. That used to be proved by deleting

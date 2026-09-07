@@ -40,7 +40,7 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-meta);
   color: var(--color-text-muted);
-  max-width: 12ch;
+  max-width: 16ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
