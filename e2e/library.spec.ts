@@ -3,12 +3,13 @@ import { test, expect, DEFAULT_E2E_SUB } from './fixtures.js';
 const LIBRARY_ROWS = '[id^="library-row-"]';
 const LIBRARY_PLATFORM_TAGS = '[id^="library-platform-"]';
 
-// Midday UTC, so every real timezone offset still renders these on the same calendar date.
-const SCHEDULE_NEXT_RUN_AT = '2031-06-15T12:00:00+00:00';
+const SCHEDULE_NEXT_RUN_AT_MIDDAY_UTC = '2031-06-15T12:00:00+00:00';
 const SCHEDULE_NEXT_RUN_RENDERED = 'Jun 15, 2031';
-const SCHEDULE_LAST_RUN_AT = '2029-06-15T12:00:00+00:00';
+const SCHEDULE_LAST_RUN_AT_MIDDAY_UTC = '2029-06-15T12:00:00+00:00';
 const SCHEDULE_LAST_RUN_RENDERED = 'Jun 15, 2029';
 const SCHEDULE_PAUSED_REASON = 'psn_token_expired';
+
+const RAWG_HOME = 'https://rawg.io';
 
 const LIBRARY_DEFAULT_PAGE_SIZE = 20;
 const LIBRARY_CHOSEN_PAGE_SIZE = 50;
@@ -41,6 +42,46 @@ test.describe('Library — authenticated', () => {
     await page.locator('#library-refresh').click();
 
     await expect(page.locator('text=Library catalogued.')).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('a RAWG-enriched entry brings the backlink their terms require', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedLibraryGames([
+      {
+        game_id: 'g1',
+        title: 'Elden Ring',
+        genre: 'Action RPG',
+        rawg_rating: 96,
+        rawg_enriched: true,
+        opencritic_enriched: false,
+      },
+    ]);
+
+    await page.goto('/library');
+
+    await expect(page.locator('#rawg-attribution a')).toHaveAttribute('href', RAWG_HOME);
+  });
+
+  test('a library nothing RAWG enriched claims no RAWG data', async ({ authedPage: page, store }) => {
+    await store.reset();
+    await store.seedLibraryGames([
+      {
+        game_id: 'g1',
+        title: 'Elden Ring',
+        genre: 'Action RPG',
+        opencritic_rating: 94,
+        rawg_enriched: false,
+        opencritic_enriched: true,
+      },
+    ]);
+
+    await page.goto('/library');
+
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(1);
+    await expect(page.locator('#rawg-attribution')).toHaveCount(0);
   });
 
   test('refreshing surfaces the job error on a failed run', async ({ authedPage: page, store }) => {
@@ -390,8 +431,8 @@ test.describe('Library — the refresh schedule summary', () => {
     await store.reset();
     await store.seedUserRefreshSchedule(DEFAULT_E2E_SUB, {
       cadence: 'daily',
-      next_run_at: SCHEDULE_NEXT_RUN_AT,
-      last_run_at: SCHEDULE_LAST_RUN_AT,
+      next_run_at: SCHEDULE_NEXT_RUN_AT_MIDDAY_UTC,
+      last_run_at: SCHEDULE_LAST_RUN_AT_MIDDAY_UTC,
     });
 
     await page.goto('/library');
@@ -409,7 +450,7 @@ test.describe('Library — the refresh schedule summary', () => {
   }) => {
     await store.reset();
     await store.seedUserRefreshSchedule(DEFAULT_E2E_SUB, {
-      next_run_at: SCHEDULE_NEXT_RUN_AT,
+      next_run_at: SCHEDULE_NEXT_RUN_AT_MIDDAY_UTC,
       paused_reason: SCHEDULE_PAUSED_REASON,
     });
 

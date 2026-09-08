@@ -147,7 +147,11 @@ sibling of the rail, so its `.page-container` centres against the viewport **min
 as skewed right on every desktop width — the same class of bug as the header brand, which is fixed by
 un-capping instead. Three problems, and removing it solves all three while matching the mobile-app idiom
 the brief asked for: apps have a tab bar, not a footer. Privacy stays reachable from the rail and the
-sheet, which is what actually matters.
+sheet, which is what actually matters. **Provider attribution is the obvious reason to want one back,
+and it is not a good enough one** — RAWG's terms ask for a hyperlink on the pages that render their
+data, which is three of them, not all of them, and only when those three are actually showing it;
+`app-rawg-attribution` puts the line exactly there (see Components). A footer would attribute RAWG on
+`/privacy`, which renders none of their data and makes claims about provenance for a living.
 
 **`:root` also declares the CSS `color-scheme: dark light` property, and it is not the same thing as the
 media query.** `prefers-color-scheme` tells *this stylesheet* what the user prefers; `color-scheme` tells
@@ -691,6 +695,19 @@ that genuinely floats over the page rather than sitting in it.
   flight. It deliberately does not dim the page: it exists to stop input, not to signal progress, and
   the content underneath stays readable. Takes a classic `@Input()`, not a signal input — the Vitest
   harness JIT-compiles without ngtsc, where signal inputs silently fail to bind (`NG0303`).
+- **`app-rawg-attribution`** (`src/app/shared/attribution/rawg-attribution.component.ts`) — one muted
+  line carrying a live hyperlink to RAWG. It is a licence term rather than a design choice: RAWG's API
+  terms require attribution **and** "an active hyperlink from every page where the data of RAWG is
+  used". **"Where the data is used" is the whole rule, so the line is conditional, never unconditional**
+  — a page rendering no RAWG value must not claim RAWG as a source, which would be a false statement of
+  provenance on a page that also states what it collects. Each host owns its own predicate, and they
+  differ because the two APIs do: `/library` (and `/library/:sub`, the same component) asks
+  `rawg_enriched`, the stored per-row flag Curator reads as a column and never reconstructs from the
+  ratings, or a completed refresh listing `rawg_enriched_titles`; `/catalog` and `/catalog/:gameId` have
+  no such flag on `GameSummaryResponse` and ask `critical_score !== null`, which is the value those
+  pages label "RAWG". A component rather than three copies of the markup, because a legal notice that
+  drifts between pages is worse than one that lives in a single file. It declares no class of its own
+  and carries no stylesheet, so it reaches neither the primitive nor the fork gate.
 
 ## Do's and Don'ts
 

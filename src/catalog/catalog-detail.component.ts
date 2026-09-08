@@ -2,13 +2,14 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { GameSummaryResponse } from '../curator/curator.models';
+import { RawgAttributionComponent } from '../app/shared/attribution/rawg-attribution.component';
 import { ResolvedCatalogGame } from './catalog-detail.resolver';
 
 const PS_STORE_PRODUCT_BASE = 'https://store.playstation.com/product/';
 
 @Component({
   selector: 'app-catalog-detail',
-  imports: [RouterLink],
+  imports: [RawgAttributionComponent, RouterLink],
   templateUrl: './catalog-detail.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

@@ -8,6 +8,8 @@ const CATALOG_TILES = '[id^="catalog-title-"]';
 const CATALOG_DEFAULT_PAGE_SIZE = 50;
 const CATALOG_CHOSEN_PAGE_SIZE = 20;
 
+const RAWG_HOME = 'https://rawg.io';
+
 const MANY_GAMES = Array.from({ length: 60 }, (_, i) => ({
   game_id: `g${i}`,
   canonical_title: `Game ${String(i).padStart(2, '0')}`,
@@ -54,6 +56,54 @@ test.describe('Catalog — anonymous', () => {
     await expect(ratings).toContainText('RAWG 92');
     await expect(ratings).toContainText('OpenCritic 91');
     await expect(ratings).toContainText('PS Store —');
+  });
+
+  test('a RAWG score on either catalog page brings the backlink their terms require', async ({
+    anonymousPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedCatalogGames([
+      {
+        game_id: 'g1',
+        canonical_title: 'Bloodborne',
+        franchise: null,
+        genre: 'RPG',
+        aaa_tier: 'AAA',
+        critical_score: 92,
+        oc_score: null,
+        psn_rating: null,
+      },
+    ]);
+
+    await page.goto('/catalog');
+    await expect(page.locator('#rawg-attribution a')).toHaveAttribute('href', RAWG_HOME);
+
+    await page.goto('/catalog/g1');
+    await expect(page.locator('#rawg-attribution a')).toHaveAttribute('href', RAWG_HOME);
+  });
+
+  test('a catalog with no RAWG score claims no RAWG data', async ({ anonymousPage: page, store }) => {
+    await store.reset();
+    await store.seedCatalogGames([
+      {
+        game_id: 'g1',
+        canonical_title: 'Bloodborne',
+        franchise: null,
+        genre: 'RPG',
+        aaa_tier: 'AAA',
+        critical_score: null,
+        oc_score: 91,
+        psn_rating: null,
+      },
+    ]);
+
+    await page.goto('/catalog');
+    await expect(page.locator('#catalog-ratings-0')).toContainText('OpenCritic 91');
+    await expect(page.locator('#rawg-attribution')).toHaveCount(0);
+
+    await page.goto('/catalog/g1');
+    await expect(page.locator('#rawg-attribution')).toHaveCount(0);
   });
 
   test('a catalog title opens that game’s own page', async ({ anonymousPage: page, store }) => {

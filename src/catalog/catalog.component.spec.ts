@@ -9,6 +9,22 @@ import { CatalogGamesResponse, GameSummaryResponse } from '../curator/curator.mo
 
 const CURATOR_CATALOG_LIMIT_MAX = 200;
 
+function buttonById(root: HTMLElement, id: string): HTMLButtonElement {
+  const element = root.querySelector(`#${id}`);
+  if (!(element instanceof HTMLButtonElement)) {
+    throw new Error(`No button with id "${id}" is rendered.`);
+  }
+  return element;
+}
+
+function selectById(root: HTMLElement, id: string): HTMLSelectElement {
+  const element = root.querySelector(`#${id}`);
+  if (!(element instanceof HTMLSelectElement)) {
+    throw new Error(`No select with id "${id}" is rendered.`);
+  }
+  return element;
+}
+
 function chooseSize(root: HTMLElement, selector: string, value: string): void {
   const select = root.querySelector<HTMLSelectElement>(selector);
   if (select === null) {
@@ -120,6 +136,18 @@ describe('CatalogComponent', () => {
     expect(ratings).toContain('PS Store —');
   });
 
+  it('links to RAWG once a rendered game carries their score', () => {
+    const fixture = render({ games: [game('g1', 'Bloodborne', { critical_score: 92 })], total: 1 });
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('#rawg-attribution')).not.toBeNull();
+  });
+
+  it('names RAWG as a source on no page that renders none of their data', () => {
+    const fixture = render({ games: [game('g1', 'Bloodborne', { oc_score: 91 })], total: 1 });
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('#rawg-attribution')).toBeNull();
+  });
+
   it('sends the title search term as q', () => {
     const fixture = render({ games: [], total: 0 });
 
@@ -159,7 +187,7 @@ describe('CatalogComponent', () => {
   it('disables Next on the last page even when the page came back full', () => {
     const fixture = render(fullPage(50));
 
-    const next = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('#catalog-next')!;
+    const next = buttonById(fixture.nativeElement, 'catalog-next');
     expect(next.disabled).toBe(true);
   });
 
@@ -208,8 +236,7 @@ describe('CatalogComponent', () => {
   it('offers the resolved genres as options under an Any default, in the order resolved', () => {
     const fixture = render({ games: [], total: 0 }, ['Shooter', 'RPG', 'Adventure']);
 
-    const select = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>('#genre')!;
-    expect(select.tagName).toBe('SELECT');
+    const select = selectById(fixture.nativeElement, 'genre');
     expect(Array.from(select.options).map((option) => option.value)).toEqual(['', 'Shooter', 'RPG', 'Adventure']);
     expect(select.options[0].textContent).toContain('Any');
   });
@@ -217,7 +244,7 @@ describe('CatalogComponent', () => {
   it('still renders a usable genre filter when no genres resolved', () => {
     const fixture = render({ games: [], total: 0 }, []);
 
-    const select = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>('#genre')!;
+    const select = selectById(fixture.nativeElement, 'genre');
     expect(Array.from(select.options).map((option) => option.value)).toEqual(['']);
   });
 

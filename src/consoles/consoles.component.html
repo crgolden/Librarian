@@ -24,13 +24,20 @@
         <li class="card p-6 flex flex-col gap-2 items-start">
           @if (editingConsoleId() === console.console_id) {
             <form class="entity-edit-form" (submit)="$event.preventDefault(); saveConsole(console.console_id)">
-              <label>
+              <label for="editConsoleName">
                 Name
-                <input type="text" [ngModel]="editConsoleName()" (ngModelChange)="editConsoleName.set($event)" name="editConsoleName" />
+                <input
+                  id="editConsoleName"
+                  type="text"
+                  [ngModel]="editConsoleName()"
+                  (ngModelChange)="editConsoleName.set($event)"
+                  name="editConsoleName"
+                />
               </label>
-              <label>
+              <label for="editConsoleCapacityGb">
                 Capacity (GB)
                 <input
+                  id="editConsoleCapacityGb"
                   type="number"
                   min="1"
                   [ngModel]="editConsoleCapacityGb()"
@@ -38,9 +45,10 @@
                   name="editConsoleCapacityGb"
                 />
               </label>
-              <label>
+              <label for="editConsoleUpdateBufferGb">
                 Update buffer (GB)
                 <input
+                  id="editConsoleUpdateBufferGb"
                   type="number"
                   min="0"
                   [ngModel]="editConsoleUpdateBufferGb()"
@@ -48,9 +56,10 @@
                   name="editConsoleUpdateBufferGb"
                 />
               </label>
-              <label>
+              <label for="editConsoleRoutingGenres">
                 Routing genres
                 <select
+                  id="editConsoleRoutingGenres"
                   multiple
                   [ngModel]="editConsoleRoutingGenres()"
                   (ngModelChange)="editConsoleRoutingGenres.set($event)"
@@ -61,9 +70,10 @@
                   }
                 </select>
               </label>
-              <label>
+              <label for="editConsoleFillOrder">
                 Fill order
                 <input
+                  id="editConsoleFillOrder"
                   type="number"
                   [ngModel]="editConsoleFillOrder()"
                   (ngModelChange)="editConsoleFillOrder.set($event)"
@@ -203,13 +213,20 @@
         <li class="card p-6 flex flex-col gap-2 items-start">
           @if (editingDeviceId() === device.device_id) {
             <form class="entity-edit-form" (submit)="$event.preventDefault(); saveDevice(device.device_id)">
-              <label>
+              <label for="editDeviceName">
                 Name
-                <input type="text" [ngModel]="editDeviceName()" (ngModelChange)="editDeviceName.set($event)" name="editDeviceName" />
+                <input
+                  id="editDeviceName"
+                  type="text"
+                  [ngModel]="editDeviceName()"
+                  (ngModelChange)="editDeviceName.set($event)"
+                  name="editDeviceName"
+                />
               </label>
-              <label>
+              <label for="editDeviceCapacityGb">
                 Capacity (GB)
                 <input
+                  id="editDeviceCapacityGb"
                   type="number"
                   min="1"
                   [ngModel]="editDeviceCapacityGb()"
@@ -217,9 +234,10 @@
                   name="editDeviceCapacityGb"
                 />
               </label>
-              <label>
+              <label for="editDeviceBufferGb">
                 Buffer (GB)
                 <input
+                  id="editDeviceBufferGb"
                   type="number"
                   min="0"
                   [ngModel]="editDeviceBufferGb()"

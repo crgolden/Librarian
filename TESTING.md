@@ -385,6 +385,20 @@ That is deliberate: an adopted server is either running the *previous build's bu
 `serve:ssr` — loading `.env.local` and pointing `OidcAuthority` at the **real** Identity instead of the
 mock on 4102. **You can no longer keep a manual `serve:ssr` on 4100 while running E2E**; stop it first.
 
+**`Error: Timed out waiting 30000ms from config.webServer` is the two MOCK servers, not the app.** The
+three entries carry different budgets — 30s each for `curator-server.ts` and `oidc-server.ts`, 60s for the
+SSR bundle — so a bare "30000ms" narrows it to a mock before you read anything else, and the app is not
+implicated. Both mocks boot through `npx tsx`, which is fast on an idle box and **measured at 25.4s on
+2026-09-07** after an evening of builds and suites, leaving under five seconds of headroom. **Measure the
+bind time before concluding anything**: start `npx tsx e2e/mocks/curator-server.ts` with
+`MOCK_CURATOR_PORT` set and poll `Get-NetTCPConnection -LocalPort 4101 -State Listen` in a loop. If it is
+seconds, the timeout was a genuine anomaly worth chasing; if it is twenty-plus, the box is saturated and
+the fix is to run the suite when it is not — **do not raise the budget to make this go green**, because
+the number is currently the only thing that reports a machine too loaded to trust a timing-sensitive
+suite. A related tell in the same conditions: the whole suite ran **28.0m against 17.4m** for identical
+tests, and `nav.spec.ts`'s More-sheet test failed on its own *"a click landing before hydration is inert"*
+message — the same load, one layer up.
+
 **Teardown is not instant — back-to-back runs collide.** Starting a second run the moment the first
 exits reproducibly hits either the "already used" error above or, when the check races the release,
 `Error: Timed out waiting 30000ms from config.webServer`. The ports do free themselves; wait a few
@@ -454,6 +468,14 @@ discriminating assertion is an anonymous `request.get('/catalog/g1')` reading `<
 body, which is also the branch a crawler actually takes. Verified by moving
 `CatalogDetailComponent`'s title call back into the constructor: the unit spec stayed green and
 `e2e/catalog.spec.ts`'s SSR assertion went red, with the served body carrying `<title>Game</title>`.
+
+**A date fixture asserted as a rendered calendar date must sit at midday UTC.** `e2e/library.spec.ts`
+seeds `next_run_at`/`last_run_at` and then asserts the `date: 'medium'` output (`Jun 15, 2031`), which the
+browser formats in *its own* timezone. A midnight-UTC timestamp lands on the previous day for every
+negative offset and the assertion fails by one day on a US runner while passing locally in Europe; midday
+leaves twelve hours of slack in both directions, which covers every real offset. The constants carry
+`_MIDDAY_UTC` in their names so the choice is visible at the value rather than in a comment above it, and
+the two years are deliberately far apart so binding the summary to the wrong field fails the test.
 
 ### Adding an FAQ or privacy section: append it, or retarget `#toc-link-3`
 

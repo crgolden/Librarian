@@ -179,8 +179,9 @@
         (ngModelChange)="minPercentCompleted.set($event)"
       />
 
-      <label class="flex items-center gap-2 font-normal">
+      <label class="flex items-center gap-2 font-normal" for="includeInactive">
         <input
+          id="includeInactive"
           type="checkbox"
           name="includeInactive"
           [ngModel]="includeInactive()"

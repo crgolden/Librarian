@@ -180,6 +180,8 @@ export interface LibraryRefreshResultSummary {
   rawg_enriched_titles: string[];
   opencritic_enriched_titles: string[];
   opencritic_topup_incomplete: boolean;
+  rejected_providers?: string[];
+  unavailable_providers?: string[];
   stopped_reason?: string;
   rate_limited_provider?: string;
   retry_after_seconds?: number;

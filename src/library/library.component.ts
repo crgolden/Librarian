@@ -23,6 +23,7 @@ import {
   ProfileLibraryGameResponse,
   RefreshScheduleResponse,
 } from '../curator/curator.models';
+import { RawgAttributionComponent } from '../app/shared/attribution/rawg-attribution.component';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
 import { LIBRARY_PAGE_SIZE, ResolvedLibrary } from './library.resolver';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
@@ -59,7 +60,15 @@ const LIBRARY_COLUMNS: ColumnDef<typeof LIBRARY_TABLE_FEATURES, LibraryGame>[] =
 
 @Component({
   selector: 'app-library',
-  imports: [FormsModule, DatePipe, BreadcrumbComponent, LoadingOverlayComponent, PageSizeComponent, RouterLink],
+  imports: [
+    FormsModule,
+    DatePipe,
+    BreadcrumbComponent,
+    LoadingOverlayComponent,
+    PageSizeComponent,
+    RawgAttributionComponent,
+    RouterLink,
+  ],
   templateUrl: './library.component.html',
   styleUrl: './library.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -85,6 +94,11 @@ export class LibraryComponent implements OnInit, OnDestroy {
   protected readonly unexpectedStatus = signal(false);
 
   protected readonly games = signal<LibraryGame[]>([]);
+  protected readonly showsRawgData = computed(
+    () =>
+      this.games().some((game) => game.rawg_enriched) ||
+      (this.status()?.result_summary?.rawg_enriched_titles.length ?? 0) > 0,
+  );
   protected readonly total = signal(0);
   protected readonly gamesLoading = signal(false);
   protected readonly gamesError = signal<string | null>(null);

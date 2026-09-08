@@ -43,6 +43,14 @@ function clickById(root: HTMLElement, id: string): void {
   element.click();
 }
 
+function buttonById(root: HTMLElement, id: string): HTMLButtonElement {
+  const element = root.querySelector(`#${id}`);
+  if (!(element instanceof HTMLButtonElement)) {
+    throw new Error(`No button with id "${id}" is rendered.`);
+  }
+  return element;
+}
+
 function page(games: LibraryGameResponse[], total = games.length): LibraryPageResponse {
   return { games, total };
 }
@@ -180,12 +188,12 @@ describe('LibraryComponent', () => {
     const fixture = await createAndLoad([FULL_GAME]);
     const compiled: HTMLElement = fixture.nativeElement;
 
-    compiled.querySelector<HTMLButtonElement>('#library-add-manual-toggle')!.click();
+    clickById(compiled, 'library-add-manual-toggle');
     fixture.detectChanges();
 
     (fixture.componentInstance as unknown as { manualSearch: { set(v: string): void } }).manualSearch.set('disc');
     fixture.detectChanges();
-    compiled.querySelector<HTMLButtonElement>('#library-manual-search-submit')!.click();
+    clickById(compiled, 'library-manual-search-submit');
 
     const searchReq = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
     expect(searchReq.request.params.get('q')).toBe('disc');
@@ -208,7 +216,7 @@ describe('LibraryComponent', () => {
     });
     fixture.detectChanges();
 
-    compiled.querySelector<HTMLButtonElement>('#library-manual-add-0')!.click();
+    clickById(compiled, 'library-manual-add-0');
 
     const addReq = httpMock.expectOne('/curator/api/library/manual');
     expect(addReq.request.method).toBe('POST');
@@ -228,7 +236,7 @@ describe('LibraryComponent', () => {
 
     expect(compiled.querySelector('#library-manual-badge-0')?.textContent).toContain('Added by hand');
 
-    compiled.querySelector<HTMLButtonElement>('#library-manual-remove-0')!.click();
+    clickById(compiled, 'library-manual-remove-0');
 
     const removeReq = httpMock.expectOne('/curator/api/library/manual/g-manual');
     expect(removeReq.request.method).toBe('DELETE');
@@ -372,6 +380,18 @@ describe('LibraryComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to start a library refresh.');
   });
 
+  it('links to RAWG when a listed entry carries their enrichment', async () => {
+    const fixture = await createAndLoad([FULL_GAME]);
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('#rawg-attribution')).not.toBeNull();
+  });
+
+  it('reads the stored flag rather than the rating, so an unenriched row claims nothing', async () => {
+    const fixture = await createAndLoad([{ ...FULL_GAME, rawg_enriched: false }]);
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('#rawg-attribution')).toBeNull();
+  });
+
   it('renders the post-refresh summary, capping the inline title list', async () => {
     const fixture = await createAndLoad();
 
@@ -403,6 +423,7 @@ describe('LibraryComponent', () => {
     expect(text).toContain('+2 more');
     expect(text).toContain('Elden Ring');
     expect(text).toContain('OpenCritic still has more of your library to check');
+    expect((fixture.nativeElement as HTMLElement).querySelector('#rawg-attribution')).not.toBeNull();
   });
 
   it('does not render a topup-incomplete message when the top-up finished', async () => {
@@ -426,6 +447,7 @@ describe('LibraryComponent', () => {
 
     const text = (fixture.nativeElement as HTMLElement).textContent;
     expect(text).not.toContain('OpenCritic still has more of your library to check');
+    expect((fixture.nativeElement as HTMLElement).querySelector('#rawg-attribution')).toBeNull();
   });
 
   it('shows a message when the library is empty', async () => {
@@ -597,9 +619,8 @@ describe('LibraryComponent', () => {
     const fixture = await createAndLoad([FULL_GAME], 25);
     const compiled: HTMLElement = fixture.nativeElement;
 
-    const buttons = Array.from(compiled.querySelectorAll('button'));
-    const nextButton = buttons.find((b) => b.textContent?.trim() === 'Next')!;
-    const prevButton = buttons.find((b) => b.textContent?.trim() === 'Previous')!;
+    const nextButton = buttonById(compiled, 'library-next');
+    const prevButton = buttonById(compiled, 'library-prev');
     expect(prevButton.disabled).toBe(true);
     expect(nextButton.disabled).toBe(false);
 
@@ -609,9 +630,7 @@ describe('LibraryComponent', () => {
     req.flush(page([FULL_GAME], 25));
     fixture.detectChanges();
 
-    const prevButtonAfter = Array.from(compiled.querySelectorAll('button')).find(
-      (b) => b.textContent?.trim() === 'Previous',
-    )!;
+    const prevButtonAfter = buttonById(compiled, 'library-prev');
     expect(prevButtonAfter.disabled).toBe(false);
   });
 

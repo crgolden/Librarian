@@ -75,6 +75,20 @@ describe('CatalogDetailComponent', () => {
     expect((withoutId.nativeElement as HTMLElement).querySelector('#catalog-detail-store-link')).toBeNull();
   });
 
+  it('links to RAWG only when this game carries their score', () => {
+    const scored = render({ status: 'ok', game: game({ critical_score: 92 }) });
+    expect((scored.nativeElement as HTMLElement).querySelector('#rawg-attribution')).not.toBeNull();
+
+    const unscored = render({ status: 'ok', game: game({ critical_score: null, oc_score: 91 }) });
+    expect((unscored.nativeElement as HTMLElement).querySelector('#rawg-attribution')).toBeNull();
+  });
+
+  it('names no source on a game it could not load', () => {
+    const fixture = render({ status: 'not-found' });
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('#rawg-attribution')).toBeNull();
+  });
+
   it('shows a not-found page for an unknown game id', () => {
     const fixture = render({ status: 'not-found' });
 

@@ -1,8 +1,9 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CuratorService } from '../curator/curator.service';
 import { CatalogGamesResponse, GameSummaryResponse } from '../curator/curator.models';
+import { RawgAttributionComponent } from '../app/shared/attribution/rawg-attribution.component';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
 import { PageSizeComponent } from '../shared/page-size/page-size.component';
 import { pageSizeChoicesUpTo, readPageSize, writePageSize } from '../shared/page-size/page-size.preference';
@@ -15,7 +16,7 @@ export const CATALOG_PAGE_SIZE_KEY = 'catalog';
 
 @Component({
   selector: 'app-catalog',
-  imports: [FormsModule, LoadingOverlayComponent, PageSizeComponent, RouterLink],
+  imports: [FormsModule, LoadingOverlayComponent, PageSizeComponent, RawgAttributionComponent, RouterLink],
   templateUrl: './catalog.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -24,6 +25,7 @@ export class CatalogComponent {
   private readonly route = inject(ActivatedRoute);
 
   protected readonly games = signal<GameSummaryResponse[]>([]);
+  protected readonly showsRawgData = computed(() => this.games().some((game) => game.critical_score !== null));
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
 

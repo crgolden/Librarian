@@ -34,6 +34,10 @@
       }
     </div>
 
+    @if (current.critical_score !== null) {
+      <app-rawg-attribution />
+    }
+
     <a routerLink="/catalog" class="inline-block mt-4">Back to the catalog</a>
   }
 </section>
