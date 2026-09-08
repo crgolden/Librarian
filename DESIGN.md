@@ -652,7 +652,9 @@ that genuinely floats over the page rather than sitting in it.
   **that box is what makes eager loading safe**. It is also load-bearing for a second reason: a *broken*
   image renders its `alt` text at whatever width that text needs, and the alt is an email address — once
   measured at 294px against an expected 110px.
-  **The signed-in chip lives in the header, not in the rail** (`app.component.html`, `app.component.css`).
+- **The signed-in chip** (`src/app/app.component.ts`) — it **lives in the header, not in the rail**
+  (`app.component.html`, `app.component.css`), which is why it has its own entry: `app-site-nav` above no
+  longer owns it, and a reader who goes looking for the chip under the nav component will not find it.
   It sat at the bottom of the rail until 2026-09-06, where a `10ch` cap inherited from the pre-rail
   horizontal header clipped an ordinary address to about nine characters. `.header-inner` was already
   `display: flex; justify-content: space-between`, so the chip right-aligns against the brand with no new

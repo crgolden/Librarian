@@ -35,7 +35,13 @@
   gap: var(--space-2);
 }
 
-/* Rule 14: the cap is the point of this rule, not the typography — see DESIGN.md's app-site-nav entry. */
+/* Rule 14: the cap is what this rule licenses, not the typography. The signed-in address is the one
+   unbounded, data-dependent element in the header, so it must be clipped rather than allowed to size the
+   row; the whole address stays in the DOM (accessible name, in-page find, copy-paste) and a `title`
+   carries it for sighted users. Two caps rather than one because the header is brand + chip in ~350px on
+   a phone and full-viewport above lg, and both values were measured against the deployed site. Deleting
+   either the cap or the ellipsis reintroduces the wrapping failure the rail layout exists to avoid.
+   Depth, including the e2e assertions that pin it: DESIGN.md's signed-in chip entry. */
 .user-email {
   font-family: var(--font-mono);
   font-size: var(--font-size-meta);

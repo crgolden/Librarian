@@ -125,14 +125,14 @@ test.describe('Library — authenticated', () => {
     const rows = page.locator(LIBRARY_ROWS);
     await expect(rows).toHaveCount(2);
 
-    const eldenRow = rows.filter({ hasText: 'Elden Ring' });
+    const eldenRow = page.locator('#library-row-g1');
     await expect(eldenRow).toContainText('Action RPG');
     await expect(eldenRow).toContainText('96');
     await expect(eldenRow).toContainText('94');
     await expect(eldenRow).toContainText('4.8');
     await expect(eldenRow.locator('[id^="library-details-"]')).toHaveAttribute('href', '/catalog/g1');
 
-    const unmatchedRow = rows.filter({ hasText: 'Unmatched Game' });
+    const unmatchedRow = page.locator('#library-row-g2');
     await expect(unmatchedRow).toContainText('—');
     await expect(unmatchedRow.locator('[id^="library-details-"]')).toHaveAttribute('href', '/catalog/g2');
   });
@@ -157,10 +157,10 @@ test.describe('Library — authenticated', () => {
     const rows = page.locator(LIBRARY_ROWS);
     await expect(rows).toHaveCount(2);
 
-    const multi = rows.filter({ hasText: '99Vidas' }).locator('td[data-label="Platforms"]');
+    const multi = page.locator('#library-row-g1').locator('td[data-label="Platforms"]');
     await expect(multi.locator(LIBRARY_PLATFORM_TAGS)).toHaveText(['PS4', 'PS3', 'PSVITA']);
 
-    const none = rows.filter({ hasText: 'Unplatformed Game' }).locator('td[data-label="Platforms"]');
+    const none = page.locator('#library-row-g2').locator('td[data-label="Platforms"]');
     await expect(none.locator(LIBRARY_PLATFORM_TAGS)).toHaveCount(0);
     await expect(none).toHaveText('—');
   });
@@ -180,10 +180,10 @@ test.describe('Library — authenticated', () => {
     const rows = page.locator(LIBRARY_ROWS);
     await expect(rows).toHaveCount(3);
 
-    await expect(rows.filter({ hasText: 'Elden Ring' }).locator('td[data-label="% Completed"]')).toHaveText('42%');
+    await expect(page.locator('#library-row-g1').locator('td[data-label="% Completed"]')).toHaveText('42%');
 
-    await expect(rows.filter({ hasText: 'Bloodborne' }).locator('td[data-label="% Completed"]')).toHaveText('0%');
-    await expect(rows.filter({ hasText: 'Unmatched Game' }).locator('td[data-label="% Completed"]')).toHaveText('—');
+    await expect(page.locator('#library-row-g2').locator('td[data-label="% Completed"]')).toHaveText('0%');
+    await expect(page.locator('#library-row-g3').locator('td[data-label="% Completed"]')).toHaveText('—');
   });
 
   test('searches by title', async ({ authedPage: page, store }) => {
