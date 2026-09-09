@@ -1,6 +1,17 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { DatePipe, isPlatformBrowser } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  OnDestroy,
+  OnInit,
+  PLATFORM_ID,
+  ViewChild,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
@@ -22,6 +33,7 @@ import {
   LibraryRefreshStatusResponse,
   ProfileLibraryGameResponse,
   RefreshScheduleResponse,
+  StoreSearchResultResponse,
 } from '../curator/curator.models';
 import { RawgAttributionComponent } from '../app/shared/attribution/rawg-attribution.component';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
@@ -41,6 +53,8 @@ const PAUSED_STATUSES = new Set(['rate_limited']);
 const KNOWN_STATUSES = new Set(['queued', 'running', 'succeeded', 'failed', 'rate_limited', 'cancelled']);
 const SUMMARY_TITLE_DISPLAY_CAP = 10;
 const SEARCH_DEBOUNCE_MS = 300;
+const MANUAL_SEARCH_LIMIT = 10;
+const NO_PSN_LINK_STATUS = 404;
 
 type LibraryGame = LibraryGameResponse | ProfileLibraryGameResponse;
 
@@ -80,6 +94,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
   private pollSubscription: Subscription | null = null;
   private readonly searchCommit = new Subject<string>();
   private searchCommitSubscription: Subscription | null = null;
+  @ViewChild('storeMatchDialog') private storeMatchDialog?: ElementRef<HTMLDialogElement>;
 
   protected readonly viewerMode = signal(false);
   protected readonly viewerForbidden = signal(false);
@@ -114,6 +129,11 @@ export class LibraryComponent implements OnInit, OnDestroy {
   protected readonly manualSearching = signal(false);
   protected readonly manualPending = signal<string | null>(null);
   protected readonly manualError = signal<string | null>(null);
+
+  protected readonly storeCandidates = signal<StoreSearchResultResponse[]>([]);
+  protected readonly storeQuery = signal<string | null>(null);
+  protected readonly storeUnlinked = signal(false);
+  protected readonly storeMatchError = signal<string | null>(null);
 
   protected readonly sorting = signal<SortingState>([{ id: 'title', desc: false }]);
   protected readonly pagination = signal<PaginationState>({ pageIndex: 0, pageSize: LIBRARY_PAGE_SIZE });
@@ -242,6 +262,8 @@ export class LibraryComponent implements OnInit, OnDestroy {
     this.manualSearch.set('');
     this.manualResults.set([]);
     this.manualError.set(null);
+    this.storeUnlinked.set(false);
+    this.closeStoreMatch();
   }
 
   protected searchCatalog(): void {
@@ -252,10 +274,15 @@ export class LibraryComponent implements OnInit, OnDestroy {
     }
     this.manualSearching.set(true);
     this.manualError.set(null);
-    this.curator.listCatalogGames({ q: term, limit: 10 }).subscribe({
+    this.storeUnlinked.set(false);
+    this.curator.listCatalogGames({ q: term, limit: MANUAL_SEARCH_LIMIT }).subscribe({
       next: (response) => {
-        this.manualSearching.set(false);
         this.manualResults.set(response.games);
+        if (response.games.length > 0) {
+          this.manualSearching.set(false);
+          return;
+        }
+        this.crossCheckAgainstTheStore(term);
       },
       error: () => {
         this.manualSearching.set(false);
@@ -264,22 +291,95 @@ export class LibraryComponent implements OnInit, OnDestroy {
     });
   }
 
+  private crossCheckAgainstTheStore(term: string): void {
+    this.curator.searchStoreForManualAdd(term, MANUAL_SEARCH_LIMIT).subscribe({
+      next: (response) => {
+        this.manualSearching.set(false);
+        const named = response.results.filter((result) => result.id !== null && result.name !== null);
+        if (named.length === 0) {
+          this.manualError.set(`Nothing in the catalog or the PlayStation Store matches "${term}".`);
+          return;
+        }
+        this.storeQuery.set(term);
+        this.storeCandidates.set(named);
+        this.storeMatchError.set(null);
+        this.openStoreMatch();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.manualSearching.set(false);
+        if (err.status === NO_PSN_LINK_STATUS) {
+          this.storeUnlinked.set(true);
+          return;
+        }
+        this.manualError.set(`"${term}" is not in the catalog, and the PlayStation Store could not be checked.`);
+      },
+    });
+  }
+
+  private openStoreMatch(): void {
+    if (!this.isBrowser) {
+      return;
+    }
+    const dialog = this.storeMatchDialog?.nativeElement;
+    if (dialog !== undefined && !dialog.open) {
+      dialog.showModal();
+    }
+  }
+
+  protected closeStoreMatch(): void {
+    const dialog = this.storeMatchDialog?.nativeElement;
+    if (dialog?.open === true) {
+      dialog.close();
+    }
+    this.storeCandidates.set([]);
+    this.storeQuery.set(null);
+    this.storeMatchError.set(null);
+  }
+
+  protected dismissStoreMatchOnBackdrop(event: MouseEvent): void {
+    if (event.target === this.storeMatchDialog?.nativeElement) {
+      this.closeStoreMatch();
+    }
+  }
+
   protected addManualGame(game: GameSummaryResponse): void {
     this.manualPending.set(game.game_id);
     this.manualError.set(null);
     this.curator.addManualGame({ game_id: game.game_id }).subscribe({
-      next: () => {
-        this.manualPending.set(null);
-        this.addingManual.set(false);
-        this.manualSearch.set('');
-        this.manualResults.set([]);
-        this.reload();
-      },
+      next: () => this.manualAddSucceeded(),
       error: () => {
         this.manualPending.set(null);
         this.manualError.set(`Unable to add ${game.canonical_title}.`);
       },
     });
+  }
+
+  protected acceptStoreMatch(candidate: StoreSearchResultResponse): void {
+    const query = this.storeQuery();
+    const id = candidate.id;
+    if (query === null || id === null) {
+      return;
+    }
+    this.manualPending.set(id);
+    this.storeMatchError.set(null);
+    this.curator.addManualGame({ store_hit: { query, id } }).subscribe({
+      next: () => {
+        this.closeStoreMatch();
+        this.manualAddSucceeded();
+      },
+      error: () => {
+        this.manualPending.set(null);
+        this.storeMatchError.set(`Unable to add ${candidate.name}.`);
+      },
+    });
+  }
+
+  private manualAddSucceeded(): void {
+    this.manualPending.set(null);
+    this.addingManual.set(false);
+    this.manualSearch.set('');
+    this.manualResults.set([]);
+    this.reload();
   }
 
   protected removeManualGame(game: LibraryGame): void {

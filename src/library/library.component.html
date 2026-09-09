@@ -27,8 +27,9 @@
         @if (addingManual()) {
           <div class="manual-add">
             <p class="text-muted">
-              For a game you own that PlayStation Network has no record of — a disc, typically. Search the shared
-              catalog for it; a refresh will never remove what you add here.
+              For a game you own that PlayStation Network has no record of — a disc, typically. Search by name: if
+              the shared catalog already has it you can add it straight away, and if it does not, we check the
+              PlayStation Store and propose a match. A refresh will never remove what you add here.
             </p>
             <form (submit)="$event.preventDefault(); searchCatalog()">
               <label class="sr-only" for="library-manual-search">Search the shared catalog</label>
@@ -49,6 +50,14 @@
             @if (manualError()) {
               <p class="text-error">{{ manualError() }}</p>
             }
+            @if (storeUnlinked()) {
+              <p id="library-store-unlinked" class="text-muted">
+                That title is not in the shared catalog, and checking the PlayStation Store needs a linked
+                PlayStation Network account. <a routerLink="/account">Link one on your account page</a> to add a game
+                the catalog has never seen.
+              </p>
+            }
+
             @if (manualResults().length > 0) {
               <ul class="manual-add-results">
                 @for (candidate of manualResults(); track $index) {
@@ -323,4 +332,63 @@
   @if (showsRawgData()) {
     <app-rawg-attribution />
   }
+
+  <dialog
+    #storeMatchDialog
+    id="library-store-match"
+    class="store-match card p-6"
+    tabindex="-1"
+    aria-labelledby="library-store-match-heading"
+    (click)="dismissStoreMatchOnBackdrop($event)"
+    (keydown.escape)="closeStoreMatch()"
+    (close)="closeStoreMatch()"
+  >
+    <h2 id="library-store-match-heading">Is this the game?</h2>
+    <p id="library-store-match-query" class="text-muted">
+      Nothing in the shared catalog matches “{{ storeQuery() }}”. The PlayStation Store carries the following.
+      Accepting one adds it to the catalog and to your library; nothing is added if you decline.
+    </p>
+
+    <ul class="list-none m-0 p-0 my-4 flex flex-col gap-3">
+      @for (candidate of storeCandidates(); track $index) {
+        <li class="card p-4 flex items-start gap-4" [attr.id]="'library-store-candidate-' + $index">
+          @if (candidate.cover_image_url) {
+            <img class="cover-art w-16 shrink-0" [src]="candidate.cover_image_url" [alt]="candidate.name" />
+          }
+          <div class="flex flex-col items-start gap-2 grow">
+            <span class="catalog-title" [attr.id]="'library-store-candidate-name-' + $index">{{ candidate.name }}</span>
+            @if (candidate.classification) {
+              <span class="spine-label">{{ candidate.classification }}</span>
+            }
+            @if (candidate.platforms.length > 0) {
+              <span class="library-platforms" [attr.id]="'library-store-candidate-platforms-' + $index">
+                @for (platform of candidate.platforms; track platform) {
+                  <span class="spine-label">{{ platform }}</span>
+                }
+              </span>
+            }
+            <button
+              type="button"
+              class="btn-primary btn-sm"
+              [attr.id]="'library-store-accept-' + $index"
+              [disabled]="manualPending() === candidate.id"
+              (click)="acceptStoreMatch(candidate)"
+            >
+              Yes, add this one
+            </button>
+          </div>
+        </li>
+      }
+    </ul>
+
+    @if (storeMatchError()) {
+      <p id="library-store-match-error" class="text-error">{{ storeMatchError() }}</p>
+    }
+
+    <div class="form-actions">
+      <button id="library-store-match-cancel" type="button" class="btn-ghost" (click)="closeStoreMatch()">
+        None of these
+      </button>
+    </div>
+  </dialog>
 </section>

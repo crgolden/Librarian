@@ -80,6 +80,15 @@ search keystroke (debounced), genre selection, column-header click, and page cha
 fresh request with `q`/`genre`/`sort`/`sortDir`/`limit`/`offset` query parameters, and the
 response carries only that page's rows plus a `total` count.
 
+You can also add a game the PlayStation Network has no record of — a disc, typically. Search by name: if
+the shared catalog already holds it, you add it in one click. If it does not, the page checks the
+PlayStation Store and proposes what it found, and you accept a match or decline it, in the shape an
+address validator uses. Accepting adds the title to the shared catalog and to your library at once; the
+match is verified server-side against the Store rather than taken on the browser's word, so nothing a
+client types reaches a catalog everyone browses. Checking the Store needs a linked PlayStation Network
+account, because the search spends that account's own credentials. Manually added rows are marked, only
+you can remove them, and a library refresh never takes them away.
+
 Columns:
 
 | Column | Source |

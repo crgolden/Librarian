@@ -49,6 +49,7 @@ import {
   SaveDefinitionRequest,
   StorageDeviceInstallResponse,
   StorageDeviceInstallsResponse,
+  StoreSearchResponse,
   StorageDeviceRequest,
   StorageDeviceResponse,
   StorageDeviceUpdateRequest,
@@ -352,6 +353,12 @@ export class CuratorService {
 
   getLibrary(query: LibraryQuery = {}): Observable<LibraryPageResponse> {
     return this.http.get<LibraryPageResponse>('/curator/api/library', { params: libraryQueryParams(query) });
+  }
+
+  searchStoreForManualAdd(q: string, limit: number): Observable<StoreSearchResponse> {
+    return this.http.get<StoreSearchResponse>('/curator/api/library/manual/search', {
+      params: new HttpParams().set('q', q).set('limit', limit),
+    });
   }
 
   addManualGame(body: ManualGameRequest): Observable<void> {

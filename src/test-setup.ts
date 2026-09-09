@@ -35,6 +35,28 @@ const resourceResolver = (url: string): Promise<{ text(): Promise<string> }> => 
   return Promise.resolve({ text: () => Promise.resolve(content) });
 };
 
+function addTheDialogMethodsJsdomDoesNotImplement(): void {
+  const dialogPrototype: Partial<HTMLDialogElement> = HTMLDialogElement.prototype;
+  if (dialogPrototype.showModal !== undefined) {
+    return;
+  }
+  dialogPrototype.show = function (this: HTMLDialogElement): void {
+    this.open = true;
+  };
+  dialogPrototype.showModal = function (this: HTMLDialogElement): void {
+    this.open = true;
+  };
+  dialogPrototype.close = function (this: HTMLDialogElement, returnValue?: string): void {
+    if (returnValue !== undefined) {
+      this.returnValue = returnValue;
+    }
+    this.open = false;
+    this.dispatchEvent(new Event('close'));
+  };
+}
+
+addTheDialogMethodsJsdomDoesNotImplement();
+
 getTestBed().initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
 
 beforeEach(async () => {

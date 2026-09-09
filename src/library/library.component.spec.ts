@@ -55,6 +55,28 @@ function page(games: LibraryGameResponse[], total = games.length): LibraryPageRe
   return { games, total };
 }
 
+function generatedToken(): string {
+  return crypto.randomUUID().replaceAll('-', '');
+}
+
+function setManualSearch(fixture: ComponentFixture<LibraryComponent>, term: string): void {
+  (fixture.componentInstance as unknown as { manualSearch: { set(v: string): void } }).manualSearch.set(term);
+}
+
+function storeMatchDialog(root: HTMLElement): HTMLDialogElement {
+  const element = root.querySelector('#library-store-match');
+  if (!(element instanceof HTMLDialogElement)) {
+    throw new Error('The Store-match dialog is not rendered.');
+  }
+  return element;
+}
+
+function flushCatalogMiss(mock: HttpTestingController, expectedTerm: string): void {
+  const request = mock.expectOne((r) => r.url === '/curator/api/catalog/games');
+  expect(request.request.params.get('q')).toBe(expectedTerm);
+  request.flush({ games: [], total: 0 });
+}
+
 const FULL_GAME: LibraryGameResponse = {
   game_id: 'g1',
   title: 'Elden Ring',
@@ -245,6 +267,175 @@ describe('LibraryComponent', () => {
     httpMock.expectOne((r) => r.url === '/curator/api/library').flush(page([]));
     fixture.detectChanges();
     await fixture.whenStable();
+  });
+
+  it('cross-checks the PlayStation Store when the catalog has no match, and proposes what it found', async () => {
+    const searchedTitle = generatedToken();
+    const proposedTitle = generatedToken();
+    const fixture = await createAndLoad([FULL_GAME]);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    clickById(compiled, 'library-add-manual-toggle');
+    fixture.detectChanges();
+    setManualSearch(fixture, searchedTitle);
+    fixture.detectChanges();
+    clickById(compiled, 'library-manual-search-submit');
+
+    flushCatalogMiss(httpMock, searchedTitle);
+
+    const storeReq = httpMock.expectOne((r) => r.url === '/curator/api/library/manual/search');
+    expect(storeReq.request.params.get('q')).toBe(searchedTitle);
+    storeReq.flush({
+      domain: 'MobileGames',
+      results: [
+        {
+          id: generatedToken(),
+          kind: 'Concept',
+          game_id: null,
+          default_product_id: null,
+          name: proposedTitle,
+          platforms: ['PS3'],
+          cover_image_url: null,
+          classification: 'Full Game',
+          price: null,
+          discounted_price: null,
+          is_free: null,
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    expect(storeMatchDialog(compiled).open).toBe(true);
+    expect(compiled.querySelector('#library-store-candidate-name-0')?.textContent).toContain(proposedTitle);
+  });
+
+  it('sends the search term back with the chosen id, because the server re-runs the search to verify it', async () => {
+    const searchedTitle = generatedToken();
+    const conceptId = generatedToken();
+    const fixture = await createAndLoad([FULL_GAME]);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    clickById(compiled, 'library-add-manual-toggle');
+    fixture.detectChanges();
+    setManualSearch(fixture, searchedTitle);
+    fixture.detectChanges();
+    clickById(compiled, 'library-manual-search-submit');
+
+    flushCatalogMiss(httpMock, searchedTitle);
+    httpMock.expectOne((r) => r.url === '/curator/api/library/manual/search').flush({
+      domain: 'MobileGames',
+      results: [
+        {
+          id: conceptId,
+          kind: 'Concept',
+          game_id: null,
+          default_product_id: null,
+          name: generatedToken(),
+          platforms: [],
+          cover_image_url: null,
+          classification: null,
+          price: null,
+          discounted_price: null,
+          is_free: null,
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    clickById(compiled, 'library-store-accept-0');
+
+    const addReq = httpMock.expectOne('/curator/api/library/manual');
+    expect(addReq.request.method).toBe('POST');
+    expect(addReq.request.body).toEqual({ store_hit: { query: searchedTitle, id: conceptId } });
+    addReq.flush(null);
+
+    httpMock.expectOne((r) => r.url === '/curator/api/library').flush(page([FULL_GAME, MANUAL_GAME]));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(storeMatchDialog(compiled).open).toBe(false);
+  });
+
+  it('adds nothing when the proposed match is declined', async () => {
+    const searchedTitle = generatedToken();
+    const fixture = await createAndLoad([FULL_GAME]);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    clickById(compiled, 'library-add-manual-toggle');
+    fixture.detectChanges();
+    setManualSearch(fixture, searchedTitle);
+    fixture.detectChanges();
+    clickById(compiled, 'library-manual-search-submit');
+
+    flushCatalogMiss(httpMock, searchedTitle);
+    httpMock.expectOne((r) => r.url === '/curator/api/library/manual/search').flush({
+      domain: 'MobileGames',
+      results: [
+        {
+          id: generatedToken(),
+          kind: 'Concept',
+          game_id: null,
+          default_product_id: null,
+          name: generatedToken(),
+          platforms: [],
+          cover_image_url: null,
+          classification: null,
+          price: null,
+          discounted_price: null,
+          is_free: null,
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    clickById(compiled, 'library-store-match-cancel');
+    fixture.detectChanges();
+
+    expect(storeMatchDialog(compiled).open).toBe(false);
+    expect(compiled.querySelector('#library-store-candidate-name-0')).toBeNull();
+    httpMock.expectNone('/curator/api/library/manual');
+  });
+
+  it('reports an unlinked account as a state rather than a failure when the Store cannot be checked', async () => {
+    const searchedTitle = generatedToken();
+    const fixture = await createAndLoad([FULL_GAME]);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    clickById(compiled, 'library-add-manual-toggle');
+    fixture.detectChanges();
+    setManualSearch(fixture, searchedTitle);
+    fixture.detectChanges();
+    clickById(compiled, 'library-manual-search-submit');
+
+    flushCatalogMiss(httpMock, searchedTitle);
+    httpMock
+      .expectOne((r) => r.url === '/curator/api/library/manual/search')
+      .flush({ detail: 'PSN account not linked.' }, { status: 404, statusText: 'Not Found' });
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('#library-store-unlinked')?.textContent).toContain('linked PlayStation Network');
+    expect(storeMatchDialog(compiled).open).toBe(false);
+  });
+
+  it('says so when neither the catalog nor the Store carries the title', async () => {
+    const searchedTitle = generatedToken();
+    const fixture = await createAndLoad([FULL_GAME]);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    clickById(compiled, 'library-add-manual-toggle');
+    fixture.detectChanges();
+    setManualSearch(fixture, searchedTitle);
+    fixture.detectChanges();
+    clickById(compiled, 'library-manual-search-submit');
+
+    flushCatalogMiss(httpMock, searchedTitle);
+    httpMock
+      .expectOne((r) => r.url === '/curator/api/library/manual/search')
+      .flush({ domain: 'MobileGames', results: [] });
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain(searchedTitle);
+    expect(storeMatchDialog(compiled).open).toBe(false);
   });
 
   it('offers no manual controls on a PSN-sourced entry', async () => {

@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import { test, expect, DEFAULT_E2E_SUB } from './fixtures.js';
 
 const LIBRARY_ROWS = '[id^="library-row-"]';
@@ -23,6 +24,63 @@ function pagedLibraryTitles() {
     opencritic_enriched: false,
   }));
 }
+
+const STORE_ONLY_TITLE_FRAGMENT = 'Siren';
+const STORE_MATCH_FIRST_CANDIDATE = 'Siren: Blood Curse';
+
+async function searchTheManualAddPanelFor(page: Page, term: string): Promise<void> {
+  await page.locator('#library-add-manual-toggle').click();
+  await page.locator('#library-manual-search').fill(term);
+  await page.locator('#library-manual-search-submit').click();
+}
+
+test.describe('Library — manual add, Store cross-check', () => {
+  test('a catalog miss proposes a Store match, and accepting it adds the game', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedPsnLink();
+
+    await page.goto('/library');
+    await searchTheManualAddPanelFor(page, STORE_ONLY_TITLE_FRAGMENT);
+
+    const dialog = page.locator('#library-store-match');
+    await expect(dialog).toBeVisible();
+    await expect(page.locator('#library-store-candidate-name-0')).toHaveText(STORE_MATCH_FIRST_CANDIDATE);
+
+    await page.locator('#library-store-accept-0').click();
+
+    await expect(dialog).toBeHidden();
+    await expect(page.locator('#library-title-0')).toHaveText(STORE_MATCH_FIRST_CANDIDATE);
+    await expect(page.locator('#library-manual-badge-0')).toContainText('Added by hand');
+  });
+
+  test('declining the proposal adds nothing', async ({ authedPage: page, store }) => {
+    await store.reset();
+    await store.seedPsnLink();
+
+    await page.goto('/library');
+    await searchTheManualAddPanelFor(page, STORE_ONLY_TITLE_FRAGMENT);
+
+    const dialog = page.locator('#library-store-match');
+    await expect(dialog).toBeVisible();
+    await page.locator('#library-store-match-cancel').click();
+
+    await expect(dialog).toBeHidden();
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(0);
+  });
+
+  test('says the Store cannot be checked without a linked account', async ({ authedPage: page, store }) => {
+    await store.reset();
+
+    await page.goto('/library');
+    await searchTheManualAddPanelFor(page, STORE_ONLY_TITLE_FRAGMENT);
+
+    await expect(page.locator('#library-store-unlinked')).toContainText('linked PlayStation Network account');
+    await expect(page.locator('#library-store-match')).toBeHidden();
+  });
+});
 
 test.describe('Library — auth guard', () => {
   test('unauthenticated visitor is redirected to login', async ({ anonymousPage: page, store }) => {

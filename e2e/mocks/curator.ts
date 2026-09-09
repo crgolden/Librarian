@@ -192,6 +192,7 @@ export interface LibraryGame {
   opencritic_enriched: boolean;
   percent_completed: number | null;
   platforms: string[];
+  source: string;
 }
 
 const LIBRARY_SORT_FIELDS = ['title', 'genre', 'rawg_rating', 'opencritic_rating', 'psn_rating'] as const;
@@ -249,6 +250,7 @@ function normalizeLibraryGames(games: SeededLibraryGame[]): LibraryGame[] {
     opencritic_enriched: g.opencritic_enriched,
     percent_completed: g.percent_completed ?? null,
     platforms: g.platforms ?? [],
+    source: g.source ?? 'psn',
   }));
 }
 
@@ -351,6 +353,46 @@ let CATALOG_GAMES: GameSummary[] = [
   { game_id: 'g-gt7', canonical_title: 'Gran Turismo 7', franchise: 'Gran Turismo', genre: 'Racing', aaa_tier: 'AAA' },
   { game_id: 'g-returnal', canonical_title: 'Returnal', franchise: null, genre: 'Roguelike', aaa_tier: 'AA' },
   { game_id: 'g-stray', canonical_title: 'Stray', franchise: null, genre: 'Adventure', aaa_tier: 'Indie' },
+];
+
+interface StoreSearchHit {
+  id: string;
+  kind: string;
+  default_product_id: string | null;
+  name: string;
+  platforms: string[];
+  cover_image_url: string | null;
+  classification: string | null;
+  price: string | null;
+  discounted_price: string | null;
+  is_free: boolean | null;
+}
+
+const STORE_ONLY_GAMES: StoreSearchHit[] = [
+  {
+    id: 'concept-siren-blood-curse',
+    kind: 'Concept',
+    default_product_id: 'UP9000-NPUA80183_00-SIRENBLOODCURSE0',
+    name: 'Siren: Blood Curse',
+    platforms: ['PS3'],
+    cover_image_url: null,
+    classification: 'Full Game',
+    price: '$19.99',
+    discounted_price: null,
+    is_free: false,
+  },
+  {
+    id: 'concept-siren-new-translation',
+    kind: 'Concept',
+    default_product_id: null,
+    name: 'Siren: New Translation',
+    platforms: ['PS3'],
+    cover_image_url: null,
+    classification: 'Full Game',
+    price: null,
+    discounted_price: null,
+    is_free: null,
+  },
 ];
 
 const TROPHY_SUMMARY = {
@@ -1580,6 +1622,87 @@ export function createCuratorApp(): Express {
 
   app.get('/library/genres', (req: Request, res: Response) => {
     res.json({ genres: libraryGenres(libraryGames.get(subFromRequest(req)) ?? []) });
+  });
+
+  app.get('/library/manual/search', (req: Request, res: Response) => {
+    if (!getUser(subFromRequest(req)).psn) {
+      res.status(404).json({ detail: 'PSN account not linked.' });
+      return;
+    }
+    const q = req.query['q'];
+    if (typeof q !== 'string' || q.trim().length === 0) {
+      res.status(422).json({ detail: 'q is required.' });
+      return;
+    }
+    const term = q.toLowerCase();
+    const limit = req.query['limit'] ? parseInt(req.query['limit'] as string, 10) : 20;
+    const results = STORE_ONLY_GAMES.filter((hit) => hit.name.toLowerCase().includes(term)).slice(0, limit);
+    res.json({ domain: 'MobileGames', results: results.map((hit) => ({ ...hit, game_id: null })) });
+  });
+
+  app.post('/library/manual', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const body = req.body as { game_id?: string; store_hit?: { query: string; id: string } };
+    const storeHit = body.store_hit;
+    if ((body.game_id === undefined) === (storeHit === undefined)) {
+      res.status(422).json({ detail: "Name the game with exactly one of 'game_id' or 'store_hit'." });
+      return;
+    }
+
+    let gameId: string;
+    let title: string;
+    let platforms: string[] = [];
+
+    if (storeHit) {
+      if (!getUser(sub).psn) {
+        res.status(404).json({ detail: 'PSN account not linked.' });
+        return;
+      }
+      const query = storeHit.query.toLowerCase();
+      const hit = STORE_ONLY_GAMES.filter((candidate) => candidate.name.toLowerCase().includes(query)).find(
+        (candidate) => candidate.id === storeHit.id,
+      );
+      if (!hit) {
+        res.status(404).json({ detail: 'That title is not in the PlayStation Store results for this search.' });
+        return;
+      }
+      gameId = `g-admitted-${hit.id}`;
+      title = hit.name;
+      platforms = hit.platforms;
+    } else {
+      const game = CATALOG_GAMES.find((candidate) => candidate.game_id === body.game_id);
+      if (!game) {
+        res.status(404).json({ detail: 'Unknown game.' });
+        return;
+      }
+      gameId = game.game_id;
+      title = game.canonical_title;
+    }
+
+    const owned = libraryGames.get(sub) ?? [];
+    if (!owned.some((game) => game.game_id === gameId)) {
+      owned.push(
+        normalizeLibraryGames([
+          { game_id: gameId, title, rawg_enriched: false, opencritic_enriched: false, source: 'manual', platforms },
+        ])[0],
+      );
+      libraryGames.set(sub, owned);
+    }
+    res.status(204).end();
+  });
+
+  app.delete('/library/manual/:gameId', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const gameId = pathParam(req, 'gameId');
+    const owned = libraryGames.get(sub) ?? [];
+    const index = owned.findIndex((game) => game.game_id === gameId && game.source === 'manual');
+    if (index < 0) {
+      res.status(404).json({ detail: 'No manually-added entry for that game.' });
+      return;
+    }
+    owned.splice(index, 1);
+    libraryGames.set(sub, owned);
+    res.status(204).end();
   });
 
   app.post('/library/refresh', (req: Request, res: Response) => {

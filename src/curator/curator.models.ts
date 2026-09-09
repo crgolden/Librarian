@@ -218,8 +218,39 @@ export interface LibraryPageResponse {
   total: number;
 }
 
+export interface StoreSearchResultResponse {
+  /** For the full-games domain this is a PSN concept id. Null where PSN published none. */
+  id: string | null;
+  /** `'Concept'` or `'Product'`, saying which id space `id` belongs to. */
+  kind: string | null;
+  /** The catalog game this hit already resolves to. Null does not mean the catalog has never seen it. */
+  game_id: string | null;
+  default_product_id: string | null;
+  name: string | null;
+  platforms: string[];
+  cover_image_url: string | null;
+  /** PSN's own display classification, verbatim. Null is not the same as "not a full game". */
+  classification: string | null;
+  price: string | null;
+  discounted_price: string | null;
+  is_free: boolean | null;
+}
+
+export interface StoreSearchResponse {
+  domain: string;
+  results: StoreSearchResultResponse[];
+}
+
+export interface ManualStoreHit {
+  /** The exact `q` that produced the hit; Curator re-runs that search to verify `id` against PSN's answer. */
+  query: string;
+  id: string;
+}
+
+/** Exactly one of `game_id` and `store_hit` may be sent; both, or neither, is a 422. */
 export interface ManualGameRequest {
-  game_id: string;
+  game_id?: string;
+  store_hit?: ManualStoreHit;
   native_ps5?: boolean;
   ps4_eligible?: boolean;
   owned_edition?: string | null;
