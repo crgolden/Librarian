@@ -80,14 +80,19 @@ search keystroke (debounced), genre selection, column-header click, and page cha
 fresh request with `q`/`genre`/`sort`/`sortDir`/`limit`/`offset` query parameters, and the
 response carries only that page's rows plus a `total` count.
 
-You can also add a game the PlayStation Network has no record of — a disc, typically. Search by name: if
-the shared catalog already holds it, you add it in one click. If it does not, the page checks the
-PlayStation Store and proposes what it found, and you accept a match or decline it, in the shape an
-address validator uses. Accepting adds the title to the shared catalog and to your library at once; the
-match is verified server-side against the Store rather than taken on the browser's word, so nothing a
-client types reaches a catalog everyone browses. Checking the Store needs a linked PlayStation Network
-account, because the search spends that account's own credentials. Manually added rows are marked, only
-you can remove them, and a library refresh never takes them away.
+You can also add a game you own that isn't in your digital entitlements — a disc, typically. Search by
+name: anything already in your library is filtered out, so what you are offered is what you can still
+add, and if it comes back empty you are told which of the two reasons applies — nothing by that name, or
+you already own every match. The shared catalog is only part of the PlayStation Store, so a name the
+catalog has never heard of is searched against the Store for you, and when the catalog answers with the
+wrong titles you can send the same search to the Store yourself. Either way it proposes what it found and
+you accept a match or decline it, in the
+shape an address validator uses. Accepting adds the title to the shared catalog and to your library at
+once; the match is verified server-side against the Store rather than taken on the browser's word, so
+nothing a client types reaches a catalog everyone browses. Searching the Store needs a linked PlayStation
+Network account, because it spends that account's own credentials — which is why it happens on a
+deliberate search rather than as you type. Manually added rows are marked, only you can remove them, and
+a library refresh never takes them away.
 
 Columns:
 

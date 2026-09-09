@@ -431,10 +431,10 @@ round trip was measured at **24.3s**, so a tight bound would abort the whole sui
 failure a guard must never have. The goal is a *correct* fast abort (~1 min instead of ~10), not the
 fastest possible one.
 
-This is a **setup project, not `globalSetup`** — Playwright runs `globalSetup` *before* `webServer` is
-ready, so a login attempt there cannot work. Project dependencies run as tests, after the servers are up.
-`--grep` does not filter dependency projects, so the guard still fires during
-`npm run e2e -- --grep "..."`.
+This is a **setup project, not `globalSetup`**: a setup project runs as tests, with fixtures, tracing and a
+per-project count in the report, none of which `globalSetup` gets (Playwright starts `webServer` before
+either). `--grep` selects primary tests only and dependency projects run in full, so the guard still fires
+during `npm run e2e -- --grep "..."`.
 
 Guard 2 is defence in depth, not the fix for the original incident — Guard 1 removes that failure mode
 outright by refusing to adopt the stale server at all. Two things Guard 2 does **not** catch, both

@@ -1,5 +1,5 @@
 <section id="library-page" class="page-section library">
-  <app-loading-overlay [visible]="gamesLoading()" />
+  <app-loading-overlay [visible]="gamesLoading() || manualPending() !== null" />
 
   @if (viewerMode()) {
     <app-breadcrumb [items]="breadcrumbItems()" />
@@ -24,29 +24,39 @@
           {{ addingManual() ? 'Cancel' : 'Add a game manually' }}
         </button>
 
+        @if (manualAdded(); as added) {
+          <p id="library-manual-added" class="text-success">Added {{ added }} to your library.</p>
+        }
+
         @if (addingManual()) {
           <div class="manual-add">
             <p class="text-muted">
-              For a game you own that PlayStation Network has no record of — a disc, typically. Search by name: if
-              the shared catalog already has it you can add it straight away, and if it does not, we check the
-              PlayStation Store and propose a match. A refresh will never remove what you add here.
+              For a game you own that isn't in your digital entitlements — a disc, typically. Search by name:
+              anything already in your library is left out, so what you see is what you can still add. If the
+              catalog has nothing left to offer, we check the PlayStation Store and propose a match. A refresh
+              will never remove what you add here.
             </p>
-            <form (submit)="$event.preventDefault(); searchCatalog()">
-              <label class="sr-only" for="library-manual-search">Search the shared catalog</label>
+            <form class="flex flex-wrap items-center gap-3 w-full" (submit)="$event.preventDefault(); searchCatalog()">
+              <label class="sr-only" for="library-manual-search">Search by name</label>
               <input
                 id="library-manual-search"
                 name="manualSearch"
                 type="search"
-                placeholder="Search the catalog"
+                class="grow basis-48 min-w-48"
+                placeholder="Search by name"
                 [ngModel]="manualSearch()"
                 (ngModelChange)="manualSearch.set($event)"
               />
-              <button id="library-manual-search-submit" type="submit" class="btn-primary btn-sm">Search</button>
+              <button
+                id="library-manual-search-submit"
+                type="submit"
+                class="btn-primary"
+                [disabled]="manualSearching() || manualPending() !== null"
+              >
+                {{ manualSearching() ? 'Searching…' : 'Search' }}
+              </button>
             </form>
 
-            @if (manualSearching()) {
-              <p class="text-muted">Searching…</p>
-            }
             @if (manualError()) {
               <p class="text-error">{{ manualError() }}</p>
             }
@@ -58,11 +68,18 @@
               </p>
             }
 
-            @if (manualResults().length > 0) {
+            @if (allCatalogMatchesOwned()) {
+              <p id="library-manual-all-owned" class="text-muted">
+                Every catalogued game matching that name is already in your library. If the copy you own is a
+                different edition, check the PlayStation Store for it.
+              </p>
+            }
+
+            @if (manualResults().length > 0 || allCatalogMatchesOwned()) {
               <ul class="manual-add-results">
                 @for (candidate of manualResults(); track $index) {
-                  <li>
-                    <span class="catalog-title">{{ candidate.canonical_title }}</span>
+                  <li class="flex flex-wrap items-center gap-3 w-full">
+                    <span class="catalog-title grow">{{ candidate.canonical_title }}</span>
                     @if (candidate.genre) {
                       <span class="spine-label">{{ candidate.genre }}</span>
                     }
@@ -70,7 +87,7 @@
                       type="button"
                       class="btn-ghost btn-sm"
                       [attr.id]="'library-manual-add-' + $index"
-                      [disabled]="manualPending() === candidate.game_id"
+                      [disabled]="manualPending() !== null"
                       (click)="addManualGame(candidate)"
                     >
                       Add
@@ -78,6 +95,19 @@
                   </li>
                 }
               </ul>
+
+              <div class="flex flex-wrap items-center gap-3 w-full">
+                <span class="text-muted grow">Not the game you own? The catalog holds only part of the Store.</span>
+                <button
+                  id="library-manual-check-store"
+                  type="button"
+                  class="btn-primary"
+                  [disabled]="manualSearching() || manualPending() !== null"
+                  (click)="checkTheStoreForCurrentSearch()"
+                >
+                  Search the PlayStation Store
+                </button>
+              </div>
             }
           </div>
         }
@@ -261,7 +291,7 @@
                             type="button"
                             class="btn-ghost btn-sm"
                             [attr.id]="'library-manual-remove-' + $index"
-                            [disabled]="manualPending() === row.original.game_id"
+                            [disabled]="manualPending() !== null"
                             (click)="removeManualGame(row.original)"
                           >
                             Remove
@@ -371,7 +401,7 @@
               type="button"
               class="btn-primary btn-sm"
               [attr.id]="'library-store-accept-' + $index"
-              [disabled]="manualPending() === candidate.id"
+              [disabled]="manualPending() !== null"
               (click)="acceptStoreMatch(candidate)"
             >
               Yes, add this one

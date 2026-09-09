@@ -995,6 +995,14 @@ exploratory pass, and it is the reason the global rule is safe to keep.
   itself inside `.library-controls`, and opens a native dropdown as wide as the card. Its two
   neighbours (`.library-search`, `.library-mobile-sort`) already carry the same pair — this one was
   simply missed, which is why it alone broke, and only above the `md` breakpoint.
+- **`.store-match { color: var(--color-text) }`.** The UA stylesheet sets `dialog { color: CanvasText }`,
+  which **breaks inheritance from `body`** — a `<dialog>` does not take the page's ink unless something
+  says so. Without this line the Store-match dialog renders in the browser's own colour, measured as pure
+  black on the live site where the light scheme expects `oklch(0.24 0.012 265)`. It looks redundant beside
+  a `.card` background that is already correct, because `.card` sets no `color`. `.nav-sheet` carries the
+  same declaration for the same reason; a new `<dialog>` anywhere in this app needs it too.
+  `library.spec.ts` pins it by comparing the dialog's computed colour against a probe span set to
+  `var(--color-text)` — computed against computed, which sidesteps the minified-`oklch` mismatch below.
 - **`.library-table th { white-space: nowrap }`.** The sort arrow is a separate `<span>` after a space,
   so a narrow column orphans it onto its own line and doubles the header row's height.
   `.library-table-scroll` already has `overflow-x: auto`, so a header row that no longer fits scrolls

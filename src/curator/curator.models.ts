@@ -18,6 +18,14 @@ export interface GameSummaryResponse {
 export interface CatalogGamesResponse {
   games: GameSummaryResponse[];
   total: number;
+  /**
+   * Matches dropped because the caller already holds them. Non-zero only for an `excludeOwned` request,
+   * and it is what separates "nothing matches that name" from "you already own every match" — two states
+   * that are otherwise the same empty list. Optional because a Curator predating the field sends none,
+   * and absence has to read as "nothing was excluded", which falls through to the PlayStation Store check
+   * rather than wrongly telling the owner they already have the game.
+   */
+  excluded_owned?: number;
 }
 
 export interface CatalogGenresResponse {
@@ -236,9 +244,21 @@ export interface StoreSearchResultResponse {
   is_free: boolean | null;
 }
 
-export interface StoreSearchResponse {
-  domain: string;
-  results: StoreSearchResultResponse[];
+/**
+ * What the caller can still add by hand for one search term. Curator decides whether the PlayStation
+ * Store was worth consulting and why an answer is missing; this page only renders the states it reports.
+ */
+export interface ManualCandidatesResponse {
+  /** Catalogued games the caller does not already hold. */
+  catalog: GameSummaryResponse[];
+  /** Store candidates, empty unless `store_consulted`. */
+  store: StoreSearchResultResponse[];
+  /** Catalogued matches dropped as already owned — separates "no match" from "you have them all". */
+  already_owned: number;
+  /** Whether a Store search was actually spent; it costs the caller's own PSN credentials. */
+  store_consulted: boolean;
+  /** Why the Store could not be consulted, when that question arose. */
+  store_unavailable: 'no_psn_link' | 'psn_auth_failed' | null;
 }
 
 export interface ManualStoreHit {

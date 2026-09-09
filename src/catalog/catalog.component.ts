@@ -1,7 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { CuratorService } from '../curator/curator.service';
+import { Subject, catchError, map, of, switchMap } from 'rxjs';
+import { CatalogGamesQuery, CuratorService } from '../curator/curator.service';
 import { CatalogGamesResponse, GameSummaryResponse } from '../curator/curator.models';
 import { RawgAttributionComponent } from '../app/shared/attribution/rawg-attribution.component';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
@@ -23,6 +25,7 @@ export const CATALOG_PAGE_SIZE_KEY = 'catalog';
 export class CatalogComponent {
   private readonly curator = inject(CuratorService);
   private readonly route = inject(ActivatedRoute);
+  private readonly pageRequests = new Subject<CatalogGamesQuery>();
 
   protected readonly games = signal<GameSummaryResponse[]>([]);
   protected readonly showsRawgData = computed(() => this.games().some((game) => game.critical_score !== null));
@@ -51,6 +54,25 @@ export class CatalogComponent {
   protected readonly hasPrevPage = signal(false);
 
   constructor() {
+    this.pageRequests
+      .pipe(
+        switchMap((query) =>
+          this.curator.listCatalogGames(query).pipe(
+            map((response): CatalogGamesResponse | null => response),
+            catchError(() => of(null)),
+          ),
+        ),
+        takeUntilDestroyed(),
+      )
+      .subscribe((response) => {
+        this.loading.set(false);
+        if (response === null) {
+          this.error.set('Unable to load the catalog.');
+          return;
+        }
+        this.applyPage(response);
+      });
+
     this.genreOptions.set((this.route.snapshot.data['genres'] as string[] | undefined) ?? []);
 
     const resolved = this.route.snapshot.data['catalog'] as CatalogGamesResponse | null;
@@ -99,25 +121,13 @@ export class CatalogComponent {
   private load(): void {
     this.loading.set(true);
     this.error.set(null);
-
-    this.curator
-      .listCatalogGames({
-        q: this.search().trim() || undefined,
-        franchise: this.franchise().trim() || undefined,
-        genre: this.genre().trim() || undefined,
-        aaaTier: this.aaaTier() || undefined,
-        limit: this.pageSize(),
-        offset: this.offset(),
-      })
-      .subscribe({
-        next: (response) => {
-          this.applyPage(response);
-          this.loading.set(false);
-        },
-        error: () => {
-          this.error.set('Unable to load the catalog.');
-          this.loading.set(false);
-        },
-      });
+    this.pageRequests.next({
+      q: this.search().trim() || undefined,
+      franchise: this.franchise().trim() || undefined,
+      genre: this.genre().trim() || undefined,
+      aaaTier: this.aaaTier() || undefined,
+      limit: this.pageSize(),
+      offset: this.offset(),
+    });
   }
 }

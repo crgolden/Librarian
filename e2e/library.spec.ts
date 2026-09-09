@@ -56,6 +56,93 @@ test.describe('Library — manual add, Store cross-check', () => {
     await expect(page.locator('#library-manual-badge-0')).toContainText('Added by hand');
   });
 
+  test('offers only what is missing, proving the BFF forwards the exclusion upstream', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedCatalogGames([
+      { game_id: 'g-owned', canonical_title: 'Rally Owned', franchise: null, genre: 'Racing', aaa_tier: 'AA' },
+      { game_id: 'g-missing', canonical_title: 'Rally Missing', franchise: null, genre: 'Racing', aaa_tier: 'AA' },
+    ]);
+    await store.seedLibraryGames([
+      { game_id: 'g-owned', title: 'Rally Owned', rawg_enriched: false, opencritic_enriched: false },
+    ]);
+
+    await page.goto('/library');
+    await searchTheManualAddPanelFor(page, 'Rally');
+
+    await expect(page.locator('#library-manual-add-0')).toBeVisible();
+    await expect(page.locator('.manual-add-results li')).toHaveCount(1);
+    await expect(page.locator('.manual-add-results li')).toContainText('Rally Missing');
+    await expect(page.locator('.manual-add-results')).not.toContainText('Rally Owned');
+  });
+
+  test('says every match is owned instead of spending a Store search, when the owner has them all', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedPsnLink();
+    await store.seedCatalogGames([
+      { game_id: 'g-owned', canonical_title: 'Rally Owned', franchise: null, genre: 'Racing', aaa_tier: 'AA' },
+    ]);
+    await store.seedLibraryGames([
+      { game_id: 'g-owned', title: 'Rally Owned', rawg_enriched: false, opencritic_enriched: false },
+    ]);
+
+    await page.goto('/library');
+    await searchTheManualAddPanelFor(page, 'Rally');
+
+    await expect(page.locator('#library-manual-all-owned')).toContainText('already in your library');
+    await expect(page.locator('#library-store-match')).toBeHidden();
+    await expect(page.locator('#library-manual-check-store')).toBeVisible();
+  });
+
+  test('the search field and its button share a row with a real gap between them', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+
+    await page.goto('/library');
+    await page.locator('#library-add-manual-toggle').click();
+
+    const input = await page.locator('#library-manual-search').boundingBox();
+    const button = await page.locator('#library-manual-search-submit').boundingBox();
+    if (input === null || button === null) {
+      throw new Error('The manual-add search controls are not laid out.');
+    }
+
+    const inputCentre = input.y + input.height / 2;
+    const buttonCentre = button.y + button.height / 2;
+    expect(Math.abs(inputCentre - buttonCentre)).toBeLessThan(4);
+    expect(button.x - (input.x + input.width)).toBeGreaterThanOrEqual(8);
+  });
+
+  test('the proposal dialog takes its ink from the palette, not the browser default', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+
+    await page.goto('/library');
+    await expect(page.locator('#library-store-match')).toBeAttached();
+    await expect(page.locator('#library-add-manual-toggle')).toBeVisible();
+
+    const inks = await page.evaluate(() => {
+      const dialog = document.querySelector('#library-store-match');
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--color-text)';
+      document.body.appendChild(probe);
+      const expected = getComputedStyle(probe).color;
+      probe.remove();
+      return { dialog: dialog === null ? null : getComputedStyle(dialog).color, expected };
+    });
+
+    expect(inks.dialog).toBe(inks.expected);
+  });
+
   test('declining the proposal adds nothing', async ({ authedPage: page, store }) => {
     await store.reset();
     await store.seedPsnLink();

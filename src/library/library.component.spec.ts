@@ -71,10 +71,70 @@ function storeMatchDialog(root: HTMLElement): HTMLDialogElement {
   return element;
 }
 
-function flushCatalogMiss(mock: HttpTestingController, expectedTerm: string): void {
-  const request = mock.expectOne((r) => r.url === '/curator/api/catalog/games');
+function catalogGame(gameId: string, title: string) {
+  return {
+    game_id: gameId,
+    canonical_title: title,
+    franchise: null,
+    genre: null,
+    aaa_tier: null,
+    cover_image_url: null,
+    store_product_id: null,
+    critical_score: null,
+    oc_score: null,
+    psn_rating: null,
+  };
+}
+
+interface CandidatesAnswer {
+  catalog?: ReturnType<typeof catalogGame>[];
+  store?: unknown[];
+  already_owned?: number;
+  store_consulted?: boolean;
+  store_unavailable?: 'no_psn_link' | 'psn_auth_failed' | null;
+}
+
+function flushCandidates(
+  mock: HttpTestingController,
+  expectedTerm: string,
+  answer: CandidatesAnswer,
+  expectedIncludeStore: string | null = null,
+): void {
+  const request = mock.expectOne((r) => r.url === '/curator/api/library/manual/candidates');
   expect(request.request.params.get('q')).toBe(expectedTerm);
-  request.flush({ games: [], total: 0 });
+  expect(request.request.params.get('includeStore')).toBe(expectedIncludeStore);
+  request.flush({
+    catalog: answer.catalog ?? [],
+    store: answer.store ?? [],
+    already_owned: answer.already_owned ?? 0,
+    store_consulted: answer.store_consulted ?? false,
+    store_unavailable: answer.store_unavailable ?? null,
+  });
+}
+
+function flushAddableSearch(
+  mock: HttpTestingController,
+  expectedTerm: string,
+  addable: ReturnType<typeof catalogGame>[],
+  excludedOwned = 0,
+): void {
+  flushCandidates(mock, expectedTerm, { catalog: addable, already_owned: excludedOwned });
+}
+
+function storeHit(id: string, name: string) {
+  return {
+    id,
+    kind: 'Concept',
+    game_id: null,
+    default_product_id: null,
+    name,
+    platforms: [],
+    cover_image_url: null,
+    classification: null,
+    price: null,
+    discounted_price: null,
+    is_free: null,
+  };
 }
 
 const FULL_GAME: LibraryGameResponse = {
@@ -217,25 +277,7 @@ describe('LibraryComponent', () => {
     fixture.detectChanges();
     clickById(compiled, 'library-manual-search-submit');
 
-    const searchReq = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
-    expect(searchReq.request.params.get('q')).toBe('disc');
-    searchReq.flush({
-      games: [
-        {
-          game_id: 'g-manual',
-          canonical_title: 'Disc Only Game',
-          franchise: null,
-          genre: 'Action',
-          aaa_tier: null,
-          cover_image_url: null,
-          store_product_id: null,
-          critical_score: null,
-          oc_score: null,
-          psn_rating: null,
-        },
-      ],
-      total: 1,
-    });
+    flushAddableSearch(httpMock, 'disc', [catalogGame('g-manual', 'Disc Only Game')]);
     fixture.detectChanges();
 
     clickById(compiled, 'library-manual-add-0');
@@ -269,7 +311,180 @@ describe('LibraryComponent', () => {
     await fixture.whenStable();
   });
 
-  it('cross-checks the PlayStation Store when the catalog has no match, and proposes what it found', async () => {
+  it('confirms what it added, which the table alone cannot show when the title sorts onto another page', async () => {
+    const fixture = await createAndLoad([FULL_GAME]);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    clickById(compiled, 'library-add-manual-toggle');
+    fixture.detectChanges();
+    setManualSearch(fixture, 'disc');
+    fixture.detectChanges();
+    clickById(compiled, 'library-manual-search-submit');
+
+    flushAddableSearch(httpMock, 'disc', [catalogGame('g-manual', 'Disc Only Game')]);
+    fixture.detectChanges();
+
+    clickById(compiled, 'library-manual-add-0');
+    httpMock.expectOne('/curator/api/library/manual').flush(null);
+    httpMock.expectOne((r) => r.url === '/curator/api/library').flush(page([FULL_GAME]));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('#library-manual-added')?.textContent).toContain('Disc Only Game');
+  });
+
+  it('says a game is already owned when the server declines the add, rather than reporting a failure', async () => {
+    const fixture = await createAndLoad([FULL_GAME]);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    clickById(compiled, 'library-add-manual-toggle');
+    fixture.detectChanges();
+    setManualSearch(fixture, 'disc');
+    fixture.detectChanges();
+    clickById(compiled, 'library-manual-search-submit');
+
+    flushAddableSearch(httpMock, 'disc', [catalogGame('g-manual', 'Disc Only Game')]);
+    fixture.detectChanges();
+
+    clickById(compiled, 'library-manual-add-0');
+    httpMock
+      .expectOne('/curator/api/library/manual')
+      .flush({ detail: 'Already owned.' }, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('Disc Only Game is already in your library');
+    expect(compiled.querySelector('#library-manual-added')).toBeNull();
+  });
+
+  it('cannot start a second manual search over the first, which would race the same way', async () => {
+    const searchedTitle = generatedToken();
+    const fixture = await createAndLoad([FULL_GAME]);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    clickById(compiled, 'library-add-manual-toggle');
+    fixture.detectChanges();
+    setManualSearch(fixture, searchedTitle);
+    fixture.detectChanges();
+    clickById(compiled, 'library-manual-search-submit');
+    fixture.detectChanges();
+
+    expect(buttonById(compiled, 'library-manual-search-submit').disabled).toBe(true);
+
+    flushAddableSearch(httpMock, searchedTitle, [catalogGame(generatedToken(), generatedToken())]);
+    fixture.detectChanges();
+
+    expect(buttonById(compiled, 'library-manual-search-submit').disabled).toBe(false);
+  });
+
+  it('lets a newer search win even when an older response comes back after it', async () => {
+    const staleTitle = generatedToken();
+    const freshTitle = generatedToken();
+    const fixture = await createAndLoad([FULL_GAME]);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    const searchBox = compiled.querySelector('#library-search');
+    if (!(searchBox instanceof HTMLInputElement)) {
+      throw new Error('The library search box is not rendered.');
+    }
+
+    searchBox.value = 'D';
+    searchBox.dispatchEvent(new Event('input'));
+    await vi.advanceTimersByTimeAsync(400);
+
+    searchBox.value = 'DJ';
+    searchBox.dispatchEvent(new Event('input'));
+    await vi.advanceTimersByTimeAsync(400);
+
+    const inFlight = httpMock.match((r) => r.url === '/curator/api/library');
+    const broad = inFlight.find((r) => r.request.params.get('q') === 'D');
+    const narrow = inFlight.find((r) => r.request.params.get('q') === 'DJ');
+    if (broad === undefined || narrow === undefined) {
+      throw new Error('Both the broad and the narrow search should have been issued.');
+    }
+
+    expect(broad.cancelled).toBe(true);
+
+    narrow.flush(page([{ ...FULL_GAME, game_id: generatedToken(), title: freshTitle }]));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain(freshTitle);
+    expect(compiled.textContent).not.toContain(staleTitle);
+  });
+
+  it('asks the server to leave out what the owner already has, rather than filtering a page itself', async () => {
+    const searchedTitle = generatedToken();
+    const addableTitle = generatedToken();
+    const fixture = await createAndLoad([FULL_GAME]);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    clickById(compiled, 'library-add-manual-toggle');
+    fixture.detectChanges();
+    setManualSearch(fixture, searchedTitle);
+    fixture.detectChanges();
+    clickById(compiled, 'library-manual-search-submit');
+
+    flushAddableSearch(httpMock, searchedTitle, [catalogGame(generatedToken(), addableTitle)]);
+    fixture.detectChanges();
+
+    const offered = [...compiled.querySelectorAll('.manual-add-results li .catalog-title')].map((el) =>
+      el.textContent?.trim(),
+    );
+    expect(offered).toEqual([addableTitle]);
+    expect(compiled.querySelector('#library-manual-all-owned')).toBeNull();
+  });
+
+  it('says every match is already owned rather than spending a Store search on it', async () => {
+    const searchedTitle = generatedToken();
+    const fixture = await createAndLoad([FULL_GAME]);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    clickById(compiled, 'library-add-manual-toggle');
+    fixture.detectChanges();
+    setManualSearch(fixture, searchedTitle);
+    fixture.detectChanges();
+    clickById(compiled, 'library-manual-search-submit');
+
+    flushAddableSearch(httpMock, searchedTitle, [], 3);
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('#library-manual-all-owned')?.textContent).toContain('already in your library');
+    expect(compiled.querySelectorAll('.manual-add-results li').length).toBe(0);
+    expect(compiled.querySelector('#library-manual-check-store')).not.toBeNull();
+    httpMock.expectNone((r) => r.url === '/curator/api/library/manual/candidates');
+  });
+
+  it('reaches the Store even when the catalog returned matches that were not the right game', async () => {
+    const searchedTitle = generatedToken();
+    const conceptId = generatedToken();
+    const fixture = await createAndLoad([FULL_GAME]);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    clickById(compiled, 'library-add-manual-toggle');
+    fixture.detectChanges();
+    setManualSearch(fixture, searchedTitle);
+    fixture.detectChanges();
+    clickById(compiled, 'library-manual-search-submit');
+
+    flushAddableSearch(httpMock, searchedTitle, [catalogGame(generatedToken(), generatedToken())]);
+    fixture.detectChanges();
+
+    clickById(compiled, 'library-manual-check-store');
+
+    flushCandidates(
+      httpMock,
+      searchedTitle,
+      { store: [storeHit(conceptId, generatedToken())], store_consulted: true },
+      'true',
+    );
+    fixture.detectChanges();
+
+    expect(storeMatchDialog(compiled).open).toBe(true);
+  });
+
+  it('proposes what Curator says the Store carries when the catalog had nothing to offer', async () => {
     const searchedTitle = generatedToken();
     const proposedTitle = generatedToken();
     const fixture = await createAndLoad([FULL_GAME]);
@@ -281,27 +496,9 @@ describe('LibraryComponent', () => {
     fixture.detectChanges();
     clickById(compiled, 'library-manual-search-submit');
 
-    flushCatalogMiss(httpMock, searchedTitle);
-
-    const storeReq = httpMock.expectOne((r) => r.url === '/curator/api/library/manual/search');
-    expect(storeReq.request.params.get('q')).toBe(searchedTitle);
-    storeReq.flush({
-      domain: 'MobileGames',
-      results: [
-        {
-          id: generatedToken(),
-          kind: 'Concept',
-          game_id: null,
-          default_product_id: null,
-          name: proposedTitle,
-          platforms: ['PS3'],
-          cover_image_url: null,
-          classification: 'Full Game',
-          price: null,
-          discounted_price: null,
-          is_free: null,
-        },
-      ],
+    flushCandidates(httpMock, searchedTitle, {
+      store: [storeHit(generatedToken(), proposedTitle)],
+      store_consulted: true,
     });
     fixture.detectChanges();
 
@@ -321,24 +518,9 @@ describe('LibraryComponent', () => {
     fixture.detectChanges();
     clickById(compiled, 'library-manual-search-submit');
 
-    flushCatalogMiss(httpMock, searchedTitle);
-    httpMock.expectOne((r) => r.url === '/curator/api/library/manual/search').flush({
-      domain: 'MobileGames',
-      results: [
-        {
-          id: conceptId,
-          kind: 'Concept',
-          game_id: null,
-          default_product_id: null,
-          name: generatedToken(),
-          platforms: [],
-          cover_image_url: null,
-          classification: null,
-          price: null,
-          discounted_price: null,
-          is_free: null,
-        },
-      ],
+    flushCandidates(httpMock, searchedTitle, {
+      store: [storeHit(conceptId, generatedToken())],
+      store_consulted: true,
     });
     fixture.detectChanges();
 
@@ -367,24 +549,9 @@ describe('LibraryComponent', () => {
     fixture.detectChanges();
     clickById(compiled, 'library-manual-search-submit');
 
-    flushCatalogMiss(httpMock, searchedTitle);
-    httpMock.expectOne((r) => r.url === '/curator/api/library/manual/search').flush({
-      domain: 'MobileGames',
-      results: [
-        {
-          id: generatedToken(),
-          kind: 'Concept',
-          game_id: null,
-          default_product_id: null,
-          name: generatedToken(),
-          platforms: [],
-          cover_image_url: null,
-          classification: null,
-          price: null,
-          discounted_price: null,
-          is_free: null,
-        },
-      ],
+    flushCandidates(httpMock, searchedTitle, {
+      store: [storeHit(generatedToken(), generatedToken())],
+      store_consulted: true,
     });
     fixture.detectChanges();
 
@@ -407,10 +574,7 @@ describe('LibraryComponent', () => {
     fixture.detectChanges();
     clickById(compiled, 'library-manual-search-submit');
 
-    flushCatalogMiss(httpMock, searchedTitle);
-    httpMock
-      .expectOne((r) => r.url === '/curator/api/library/manual/search')
-      .flush({ detail: 'PSN account not linked.' }, { status: 404, statusText: 'Not Found' });
+    flushCandidates(httpMock, searchedTitle, { store_unavailable: 'no_psn_link' });
     fixture.detectChanges();
 
     expect(compiled.querySelector('#library-store-unlinked')?.textContent).toContain('linked PlayStation Network');
@@ -428,10 +592,7 @@ describe('LibraryComponent', () => {
     fixture.detectChanges();
     clickById(compiled, 'library-manual-search-submit');
 
-    flushCatalogMiss(httpMock, searchedTitle);
-    httpMock
-      .expectOne((r) => r.url === '/curator/api/library/manual/search')
-      .flush({ domain: 'MobileGames', results: [] });
+    flushCandidates(httpMock, searchedTitle, { store: [], store_consulted: true });
     fixture.detectChanges();
 
     expect(compiled.textContent).toContain(searchedTitle);
@@ -943,6 +1104,31 @@ describe('LibraryComponent', () => {
           + 'the OWNER, with the follow graph absent from it. The message has to say so, or the only '
           + 'actionable control in reach reads as the remedy.',
       ).toContain('following them does not grant access');
+    });
+
+    it('reports a 403 that arrives from a later load, not only one the resolver saw', async () => {
+      configureForViewer('other-sub', null, okLibrary([FULL_GAME]));
+
+      const fixture = TestBed.createComponent(LibraryComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const compiled: HTMLElement = fixture.nativeElement;
+      const searchBox = compiled.querySelector('#library-search');
+      if (!(searchBox instanceof HTMLInputElement)) {
+        throw new Error('The library search box is not rendered.');
+      }
+      searchBox.value = generatedToken();
+      searchBox.dispatchEvent(new Event('input'));
+      await vi.advanceTimersByTimeAsync(400);
+
+      httpMock
+        .expectOne((r) => r.url === '/curator/api/users/other-sub/library')
+        .flush({ detail: 'Not public.' }, { status: 403, statusText: 'Forbidden' });
+      fixture.detectChanges();
+
+      expect(compiled.querySelector('#library-forbidden')?.textContent).toContain('keeps their library private');
     });
 
     it('shows a generic error message when the resolver reports a non-403 failure', async () => {

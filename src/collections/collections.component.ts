@@ -1,13 +1,16 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { isPlatformBrowser } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { CuratorService } from '../curator/curator.service';
+import { Subject, catchError, map, of, switchMap } from 'rxjs';
+import { CollectionItemsQuery, CuratorService } from '../curator/curator.service';
 import {
   CollectionGameResponse,
   CollectionItemResponse,
   CollectionItemSortField,
+  CollectionItemsPageResponse,
   CollectionPreviewResponse,
   CollectionRunResponse,
   CollectionSpecRequest,
@@ -51,6 +54,29 @@ export class CollectionsComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly curator = inject(CuratorService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  private readonly itemRequests = new Subject<{ definitionId: string; query: CollectionItemsQuery }>();
+
+  constructor() {
+    this.itemRequests
+      .pipe(
+        switchMap(({ definitionId, query }) =>
+          this.curator.getDefinitionItems(definitionId, query).pipe(
+            map((page): CollectionItemsPageResponse | null => page),
+            catchError(() => of(null)),
+          ),
+        ),
+        takeUntilDestroyed(),
+      )
+      .subscribe((page) => {
+        this.itemsLoading.set(false);
+        if (page === null) {
+          this.itemsError.set('Unable to load this collection’s titles.');
+          return;
+        }
+        this.items.set(page.items);
+        this.itemsTotal.set(page.total);
+      });
+  }
 
   protected readonly viewerMode = signal(false);
   protected readonly breadcrumbItems = signal<BreadcrumbItem[]>([]);
@@ -461,25 +487,16 @@ export class CollectionsComponent implements OnInit {
 
   private loadItems(definitionId: string): void {
     this.itemsLoading.set(true);
-    this.curator
-      .getDefinitionItems(definitionId, {
+    this.itemRequests.next({
+      definitionId,
+      query: {
         q: this.itemSearch() || undefined,
         sort: this.itemSort(),
         sortDir: this.itemSortDir(),
         limit: ITEMS_PAGE_SIZE,
         offset: this.itemOffset(),
-      })
-      .subscribe({
-        next: (page) => {
-          this.itemsLoading.set(false);
-          this.items.set(page.items);
-          this.itemsTotal.set(page.total);
-        },
-        error: () => {
-          this.itemsLoading.set(false);
-          this.itemsError.set('Unable to load this collection’s titles.');
-        },
-      });
+      },
+    });
   }
 
   protected searchItems(term: string): void {

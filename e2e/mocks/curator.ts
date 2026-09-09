@@ -395,6 +395,17 @@ const STORE_ONLY_GAMES: StoreSearchHit[] = [
   },
 ];
 
+function toCatalogSummary(game: GameSummary) {
+  return {
+    ...game,
+    cover_image_url: null,
+    store_product_id: null,
+    critical_score: game.critical_score ?? null,
+    oc_score: game.oc_score ?? null,
+    psn_rating: game.psn_rating ?? null,
+  };
+}
+
 const TROPHY_SUMMARY = {
   level: 42,
   progress: 65,
@@ -1157,13 +1168,19 @@ export function createCuratorApp(): Express {
     const limit = req.query['limit'] ? parseInt(req.query['limit'] as string, 10) : 50;
     const offset = req.query['offset'] ? parseInt(req.query['offset'] as string, 10) : 0;
 
-    const filtered = CATALOG_GAMES.filter(
+    const excludeOwned = req.query['excludeOwned'] === 'true';
+    const owned = excludeOwned
+      ? new Set((libraryGames.get(subFromRequest(req)) ?? []).map((game) => game.game_id))
+      : new Set<string>();
+
+    const matching = CATALOG_GAMES.filter(
       (game) =>
         (!q || game.canonical_title.toLowerCase().includes(q.toLowerCase())) &&
         (!franchise || game.franchise === franchise) &&
         (!genre || game.genre === genre) &&
         (!aaaTier || game.aaa_tier === aaaTier),
     );
+    const filtered = matching.filter((game) => !owned.has(game.game_id));
     const page = filtered.slice(offset, offset + limit).map((game) => ({
       ...game,
       cover_image_url: null,
@@ -1172,7 +1189,11 @@ export function createCuratorApp(): Express {
       oc_score: game.oc_score ?? null,
       psn_rating: game.psn_rating ?? null,
     }));
-    res.json({ games: page, total: filtered.length });
+    res.json({
+      games: page,
+      total: filtered.length,
+      excluded_owned: matching.length - filtered.length,
+    });
   });
 
   app.get('/catalog/genres', (_req: Request, res: Response) => {
@@ -1624,20 +1645,53 @@ export function createCuratorApp(): Express {
     res.json({ genres: libraryGenres(libraryGames.get(subFromRequest(req)) ?? []) });
   });
 
-  app.get('/library/manual/search', (req: Request, res: Response) => {
-    if (!getUser(subFromRequest(req)).psn) {
-      res.status(404).json({ detail: 'PSN account not linked.' });
-      return;
-    }
+  app.get('/library/manual/candidates', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
     const q = req.query['q'];
     if (typeof q !== 'string' || q.trim().length === 0) {
       res.status(422).json({ detail: 'q is required.' });
       return;
     }
     const term = q.toLowerCase();
-    const limit = req.query['limit'] ? parseInt(req.query['limit'] as string, 10) : 20;
-    const results = STORE_ONLY_GAMES.filter((hit) => hit.name.toLowerCase().includes(term)).slice(0, limit);
-    res.json({ domain: 'MobileGames', results: results.map((hit) => ({ ...hit, game_id: null })) });
+    const includeStore = req.query['includeStore'] === 'true';
+    const limit = req.query['limit'] ? parseInt(req.query['limit'] as string, 10) : 10;
+
+    const owned = new Set((libraryGames.get(sub) ?? []).map((game) => game.game_id));
+    const matching = CATALOG_GAMES.filter((game) => game.canonical_title.toLowerCase().includes(term));
+    const addable = matching.filter((game) => !owned.has(game.game_id));
+    const catalog = addable.slice(0, limit).map(toCatalogSummary);
+    const alreadyOwned = matching.length - addable.length;
+
+    if ((catalog.length > 0 || alreadyOwned > 0) && !includeStore) {
+      res.json({
+        catalog,
+        store: [],
+        already_owned: alreadyOwned,
+        store_consulted: false,
+        store_unavailable: null,
+      });
+      return;
+    }
+
+    if (!getUser(sub).psn) {
+      res.json({
+        catalog,
+        store: [],
+        already_owned: alreadyOwned,
+        store_consulted: false,
+        store_unavailable: 'no_psn_link',
+      });
+      return;
+    }
+
+    const hits = STORE_ONLY_GAMES.filter((hit) => hit.name.toLowerCase().includes(term)).slice(0, limit);
+    res.json({
+      catalog,
+      store: hits.map((hit) => ({ ...hit, game_id: null })),
+      already_owned: alreadyOwned,
+      store_consulted: true,
+      store_unavailable: null,
+    });
   });
 
   app.post('/library/manual', (req: Request, res: Response) => {
@@ -1680,7 +1734,12 @@ export function createCuratorApp(): Express {
     }
 
     const owned = libraryGames.get(sub) ?? [];
-    if (!owned.some((game) => game.game_id === gameId)) {
+    const existing = owned.find((game) => game.game_id === gameId);
+    if (existing && existing.source !== 'manual') {
+      res.status(409).json({ detail: 'That game is already in your library from PlayStation Network.' });
+      return;
+    }
+    if (!existing) {
       owned.push(
         normalizeLibraryGames([
           { game_id: gameId, title, rawg_enriched: false, opencritic_enriched: false, source: 'manual', platforms },

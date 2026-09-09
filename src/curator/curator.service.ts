@@ -30,6 +30,7 @@ import {
   LibraryPageResponse,
   LibraryRefreshResponse,
   LibraryRefreshStatusResponse,
+  ManualCandidatesResponse,
   ManualGameRequest,
   MeasuredSizeResponse,
   MeResponse,
@@ -49,7 +50,6 @@ import {
   SaveDefinitionRequest,
   StorageDeviceInstallResponse,
   StorageDeviceInstallsResponse,
-  StoreSearchResponse,
   StorageDeviceRequest,
   StorageDeviceResponse,
   StorageDeviceUpdateRequest,
@@ -62,6 +62,8 @@ export interface CatalogGamesQuery {
   franchise?: string;
   genre?: string;
   aaaTier?: string;
+  /** Drop games the signed-in caller already has a library entry for. Ignored for an anonymous caller. */
+  excludeOwned?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -155,6 +157,9 @@ export class CuratorService {
     }
     if (query.aaaTier) {
       params = params.set('aaaTier', query.aaaTier);
+    }
+    if (query.excludeOwned === true) {
+      params = params.set('excludeOwned', true);
     }
     if (query.limit !== undefined) {
       params = params.set('limit', query.limit);
@@ -355,10 +360,12 @@ export class CuratorService {
     return this.http.get<LibraryPageResponse>('/curator/api/library', { params: libraryQueryParams(query) });
   }
 
-  searchStoreForManualAdd(q: string, limit: number): Observable<StoreSearchResponse> {
-    return this.http.get<StoreSearchResponse>('/curator/api/library/manual/search', {
-      params: new HttpParams().set('q', q).set('limit', limit),
-    });
+  manualAddCandidates(q: string, includeStore: boolean, limit: number): Observable<ManualCandidatesResponse> {
+    let params = new HttpParams().set('q', q).set('limit', limit);
+    if (includeStore) {
+      params = params.set('includeStore', true);
+    }
+    return this.http.get<ManualCandidatesResponse>('/curator/api/library/manual/candidates', { params });
   }
 
   addManualGame(body: ManualGameRequest): Observable<void> {

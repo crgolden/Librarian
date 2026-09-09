@@ -24,7 +24,20 @@ import {
   type PaginationState,
   type SortingState,
 } from '@tanstack/angular-table';
-import { Subject, Subscription, debounceTime, distinctUntilChanged, interval, retry, switchMap, takeWhile } from 'rxjs';
+import {
+  Observable,
+  Subject,
+  Subscription,
+  catchError,
+  debounceTime,
+  distinctUntilChanged,
+  interval,
+  map,
+  of,
+  retry,
+  switchMap,
+  takeWhile,
+} from 'rxjs';
 import { CuratorService, LibraryQuery, LibrarySortField } from '../curator/curator.service';
 import {
   GameSummaryResponse,
@@ -54,9 +67,22 @@ const KNOWN_STATUSES = new Set(['queued', 'running', 'succeeded', 'failed', 'rat
 const SUMMARY_TITLE_DISPLAY_CAP = 10;
 const SEARCH_DEBOUNCE_MS = 300;
 const MANUAL_SEARCH_LIMIT = 10;
-const NO_PSN_LINK_STATUS = 404;
+const FORBIDDEN_STATUS = 403;
+const ALREADY_OWNED_STATUS = 409;
 
 type LibraryGame = LibraryGameResponse | ProfileLibraryGameResponse;
+
+interface LibraryRequest {
+  viewerMode: boolean;
+  sub: string | null;
+  query: LibraryQuery;
+}
+
+interface LibraryLoadOutcome {
+  games: LibraryGame[];
+  total: number;
+  failure: 'forbidden' | 'failed' | null;
+}
 
 const LIBRARY_TABLE_FEATURES = tableFeatures({ rowSortingFeature, rowPaginationFeature });
 
@@ -94,6 +120,8 @@ export class LibraryComponent implements OnInit, OnDestroy {
   private pollSubscription: Subscription | null = null;
   private readonly searchCommit = new Subject<string>();
   private searchCommitSubscription: Subscription | null = null;
+  private readonly libraryRequests = new Subject<LibraryRequest>();
+  private libraryRequestSubscription: Subscription | null = null;
   @ViewChild('storeMatchDialog') private storeMatchDialog?: ElementRef<HTMLDialogElement>;
 
   protected readonly viewerMode = signal(false);
@@ -129,6 +157,9 @@ export class LibraryComponent implements OnInit, OnDestroy {
   protected readonly manualSearching = signal(false);
   protected readonly manualPending = signal<string | null>(null);
   protected readonly manualError = signal<string | null>(null);
+
+  protected readonly allCatalogMatchesOwned = signal(false);
+  protected readonly manualAdded = signal<string | null>(null);
 
   protected readonly storeCandidates = signal<StoreSearchResultResponse[]>([]);
   protected readonly storeQuery = signal<string | null>(null);
@@ -176,6 +207,10 @@ export class LibraryComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
+    this.libraryRequestSubscription = this.libraryRequests
+      .pipe(switchMap((request) => this.libraryPageFor(request)))
+      .subscribe((outcome) => this.applyLibraryOutcome(outcome));
+
     this.searchCommitSubscription = this.searchCommit
       .pipe(debounceTime(SEARCH_DEBOUNCE_MS), distinctUntilChanged())
       .subscribe((value) => {
@@ -224,6 +259,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.pollSubscription?.unsubscribe();
     this.searchCommitSubscription?.unsubscribe();
+    this.libraryRequestSubscription?.unsubscribe();
   }
 
   private currentQuery(): LibraryQuery {
@@ -262,7 +298,9 @@ export class LibraryComponent implements OnInit, OnDestroy {
     this.manualSearch.set('');
     this.manualResults.set([]);
     this.manualError.set(null);
+    this.manualAdded.set(null);
     this.storeUnlinked.set(false);
+    this.allCatalogMatchesOwned.set(false);
     this.closeStoreMatch();
   }
 
@@ -275,43 +313,50 @@ export class LibraryComponent implements OnInit, OnDestroy {
     this.manualSearching.set(true);
     this.manualError.set(null);
     this.storeUnlinked.set(false);
-    this.curator.listCatalogGames({ q: term, limit: MANUAL_SEARCH_LIMIT }).subscribe({
-      next: (response) => {
-        this.manualResults.set(response.games);
-        if (response.games.length > 0) {
-          this.manualSearching.set(false);
-          return;
-        }
-        this.crossCheckAgainstTheStore(term);
-      },
-      error: () => {
-        this.manualSearching.set(false);
-        this.manualError.set('Unable to search the catalog.');
-      },
-    });
+    this.allCatalogMatchesOwned.set(false);
+    this.askForCandidates(term, false);
   }
 
-  private crossCheckAgainstTheStore(term: string): void {
-    this.curator.searchStoreForManualAdd(term, MANUAL_SEARCH_LIMIT).subscribe({
-      next: (response) => {
+  protected checkTheStoreForCurrentSearch(): void {
+    const term = this.manualSearch().trim();
+    if (!term) {
+      return;
+    }
+    this.manualSearching.set(true);
+    this.manualError.set(null);
+    this.askForCandidates(term, true);
+  }
+
+  private askForCandidates(term: string, includeStore: boolean): void {
+    this.storeUnlinked.set(false);
+    this.allCatalogMatchesOwned.set(false);
+    this.curator.manualAddCandidates(term, includeStore, MANUAL_SEARCH_LIMIT).subscribe({
+      next: (answer) => {
         this.manualSearching.set(false);
-        const named = response.results.filter((result) => result.id !== null && result.name !== null);
-        if (named.length === 0) {
-          this.manualError.set(`Nothing in the catalog or the PlayStation Store matches "${term}".`);
+        this.manualResults.set(answer.catalog);
+        this.allCatalogMatchesOwned.set(answer.catalog.length === 0 && answer.already_owned > 0);
+        this.storeUnlinked.set(answer.store_unavailable === 'no_psn_link');
+
+        if (answer.store_unavailable === 'psn_auth_failed') {
+          this.manualError.set('The PlayStation Store could not be checked — re-link your account.');
+          return;
+        }
+        if (!answer.store_consulted) {
+          return;
+        }
+        if (answer.store.length === 0) {
+          this.manualError.set(`The PlayStation Store has nothing matching "${term}" either.`);
           return;
         }
         this.storeQuery.set(term);
-        this.storeCandidates.set(named);
+        this.storeCandidates.set(answer.store);
         this.storeMatchError.set(null);
         this.openStoreMatch();
       },
-      error: (err: HttpErrorResponse) => {
+      error: () => {
         this.manualSearching.set(false);
-        if (err.status === NO_PSN_LINK_STATUS) {
-          this.storeUnlinked.set(true);
-          return;
-        }
-        this.manualError.set(`"${term}" is not in the catalog, and the PlayStation Store could not be checked.`);
+        this.manualResults.set([]);
+        this.manualError.set('Unable to search for that game.');
       },
     });
   }
@@ -345,11 +390,16 @@ export class LibraryComponent implements OnInit, OnDestroy {
   protected addManualGame(game: GameSummaryResponse): void {
     this.manualPending.set(game.game_id);
     this.manualError.set(null);
+    this.manualAdded.set(null);
     this.curator.addManualGame({ game_id: game.game_id }).subscribe({
-      next: () => this.manualAddSucceeded(),
-      error: () => {
+      next: () => this.manualAddSucceeded(game.canonical_title),
+      error: (err: HttpErrorResponse) => {
         this.manualPending.set(null);
-        this.manualError.set(`Unable to add ${game.canonical_title}.`);
+        this.manualError.set(
+          err.status === ALREADY_OWNED_STATUS
+            ? `${game.canonical_title} is already in your library from PlayStation Network.`
+            : `Unable to add ${game.canonical_title}.`,
+        );
       },
     });
   }
@@ -362,29 +412,38 @@ export class LibraryComponent implements OnInit, OnDestroy {
     }
     this.manualPending.set(id);
     this.storeMatchError.set(null);
+    this.manualAdded.set(null);
+    const addedTitle = candidate.name;
     this.curator.addManualGame({ store_hit: { query, id } }).subscribe({
       next: () => {
         this.closeStoreMatch();
-        this.manualAddSucceeded();
+        this.manualAddSucceeded(addedTitle);
       },
-      error: () => {
+      error: (err: HttpErrorResponse) => {
         this.manualPending.set(null);
-        this.storeMatchError.set(`Unable to add ${candidate.name}.`);
+        this.storeMatchError.set(
+          err.status === ALREADY_OWNED_STATUS
+            ? `${candidate.name} is already in your library from PlayStation Network.`
+            : `Unable to add ${candidate.name}.`,
+        );
       },
     });
   }
 
-  private manualAddSucceeded(): void {
+  private manualAddSucceeded(title: string | null): void {
     this.manualPending.set(null);
     this.addingManual.set(false);
     this.manualSearch.set('');
     this.manualResults.set([]);
+    this.allCatalogMatchesOwned.set(false);
+    this.manualAdded.set(title);
     this.reload();
   }
 
   protected removeManualGame(game: LibraryGame): void {
     this.manualPending.set(game.game_id);
     this.manualError.set(null);
+    this.manualAdded.set(null);
     this.curator.removeManualGame(game.game_id).subscribe({
       next: () => {
         this.manualPending.set(null);
@@ -400,36 +459,41 @@ export class LibraryComponent implements OnInit, OnDestroy {
   private load(viewerMode: boolean, sub: string | null, query: LibraryQuery): void {
     this.gamesLoading.set(true);
     this.gamesError.set(null);
+    this.libraryRequests.next({ viewerMode, sub, query });
+  }
 
-    if (viewerMode && sub !== null) {
-      this.curator.getUserLibrary(sub, query).subscribe({
-        next: (response) => {
-          this.games.set(response.games);
-          this.total.set(response.total);
-          this.gamesLoading.set(false);
-        },
-        error: (err: HttpErrorResponse) => {
-          this.gamesLoading.set(false);
-          if (err.status === 403) {
-            this.viewerForbidden.set(true);
-          } else {
-            this.gamesError.set("Unable to load this user's library.");
-          }
-        },
-      });
-    } else {
-      this.curator.getLibrary(query).subscribe({
-        next: (response) => {
-          this.games.set(response.games);
-          this.total.set(response.total);
-          this.gamesLoading.set(false);
-        },
-        error: () => {
-          this.gamesLoading.set(false);
-          this.gamesError.set('Unable to load your library.');
-        },
-      });
+  private libraryPageFor(request: LibraryRequest): Observable<LibraryLoadOutcome> {
+    const page =
+      request.viewerMode && request.sub !== null
+        ? this.curator.getUserLibrary(request.sub, request.query)
+        : this.curator.getLibrary(request.query);
+
+    return page.pipe(
+      map((response): LibraryLoadOutcome => ({ games: response.games, total: response.total, failure: null })),
+      catchError((err: HttpErrorResponse) =>
+        of<LibraryLoadOutcome>({
+          games: [],
+          total: 0,
+          failure: request.viewerMode && err.status === FORBIDDEN_STATUS ? 'forbidden' : 'failed',
+        }),
+      ),
+    );
+  }
+
+  private applyLibraryOutcome(outcome: LibraryLoadOutcome): void {
+    this.gamesLoading.set(false);
+    if (outcome.failure === 'forbidden') {
+      this.viewerForbidden.set(true);
+      return;
     }
+    if (outcome.failure === 'failed') {
+      this.gamesError.set(
+        this.viewerMode() ? "Unable to load this user's library." : 'Unable to load your library.',
+      );
+      return;
+    }
+    this.games.set(outcome.games);
+    this.total.set(outcome.total);
   }
 
   protected onSearchInput(value: string): void {

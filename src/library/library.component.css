@@ -68,14 +68,13 @@
   width: 100%;
 }
 
-/* A dialog's backdrop is not an element, so no template utility can reach it. */
 .store-match::backdrop {
   background: oklch(0 0 0 / 0.6);
 }
 
-/* A <dialog> is width: fit-content, so a utility on a wrapper inside it leaves the dialog shrink-wrapped. */
 .store-match {
   width: min(var(--container-narrow), calc(100vw - 2 * var(--space-4)));
+  color: var(--color-text);
 }
 
 .library-controls {
