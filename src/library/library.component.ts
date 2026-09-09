@@ -162,6 +162,9 @@ export class LibraryComponent implements OnInit, OnDestroy {
   protected readonly manualAdded = signal<string | null>(null);
 
   protected readonly storeCandidates = signal<StoreSearchResultResponse[]>([]);
+  protected readonly catalogAnsweredTheTerm = computed(
+    () => this.manualResults().length > 0 || this.allCatalogMatchesOwned(),
+  );
   protected readonly storeQuery = signal<string | null>(null);
   protected readonly storeUnlinked = signal(false);
   protected readonly storeMatchError = signal<string | null>(null);

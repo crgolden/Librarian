@@ -182,7 +182,7 @@ const reachabilityFailures = ({ usedClasses, strippedStylesheets, allowedUndecla
       failures.push(
         `${className}: used ${usages} time(s) in src/**/*.html and reached only under an ancestor ` +
           `(${selectors}) — every usage outside that ancestor renders unstyled. Declare it unscoped, ` +
-          'use an existing primitive, or name it in ALLOWED_SCOPED with a reason in AGENTS/Librarian.md.',
+          'use an existing primitive, or name it in ALLOWED_SCOPED with a reason in AGENTS/REPOS/Librarian.md.',
       );
     }
   }

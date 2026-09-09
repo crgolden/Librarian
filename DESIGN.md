@@ -1003,6 +1003,14 @@ exploratory pass, and it is the reason the global rule is safe to keep.
   same declaration for the same reason; a new `<dialog>` anywhere in this app needs it too.
   `library.spec.ts` pins it by comparing the dialog's computed colour against a probe span set to
   `var(--color-text)` — computed against computed, which sidesteps the minified-`oklch` mismatch below.
+- **`.store-match { margin: auto; max-height: calc(100vh - 2 * var(--space-4)) }`.** **A modal `<dialog>`
+  is centred by `margin: auto` in the UA stylesheet, and Tailwind's Preflight resets every element's
+  margin to `0`** — so a `<dialog>` in this app is *not* centred by default and lands jammed against the
+  top-left inset. That shipped to production and was caught by eye, not by a spec: the E2E suite asserted
+  the dialog was visible and took its ink from the palette, and both were true of a dialog in the wrong
+  place. `max-height` is the companion — a ten-candidate Store proposal otherwise runs past the bottom
+  edge of the viewport. **Any future `<dialog>` here needs both**; `.nav-sheet` escapes it only because it
+  is deliberately edge-anchored rather than centred.
 - **`.library-table th { white-space: nowrap }`.** The sort arrow is a separate `<span>` after a space,
   so a narrow column orphans it onto its own line and doubles the header row's height.
   `.library-table-scroll` already has `overflow-x: auto`, so a header row that no longer fits scrolls
@@ -1120,8 +1128,8 @@ worse paraphrase of PSN's own term.
 ---
 
 This document is the source of truth for all future Librarian UI work, and is linked from both
-`AGENTS/Librarian.md` and the repo `README.md` so it is reachable from wherever someone starts. Any
-new page or component should be checked against it before merging, the same way `DESIGN-LANGUAGE.md`
+`AGENTS/REPOS/Librarian.md` and the repo `README.md` so it is reachable from wherever someone starts. Any
+new page or component should be checked against it before merging, the same way `COVERAGE/METHOD.md`
 governs testing conventions at the workspace root.
 
 Librarian is a working multi-page app, not the two-page (Home, PSN settings) state this document once

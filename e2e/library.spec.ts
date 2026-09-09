@@ -143,6 +143,36 @@ test.describe('Library — manual add, Store cross-check', () => {
     expect(inks.dialog).toBe(inks.expected);
   });
 
+  test('the proposal dialog is centred and fits the viewport, which Preflight otherwise breaks', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedPsnLink();
+
+    await page.goto('/library');
+    await searchTheManualAddPanelFor(page, STORE_ONLY_TITLE_FRAGMENT);
+    await expect(page.locator('#library-store-match')).toBeVisible();
+
+    const box = await page.evaluate(() => {
+      const dialog = document.querySelector('#library-store-match');
+      if (dialog === null) {
+        throw new Error('The Store-match dialog is not rendered.');
+      }
+      const rect = dialog.getBoundingClientRect();
+      return {
+        left: rect.left,
+        rightGap: document.documentElement.clientWidth - rect.right,
+        top: rect.top,
+        bottomGap: document.documentElement.clientHeight - rect.bottom,
+      };
+    });
+
+    expect(Math.abs(box.left - box.rightGap)).toBeLessThanOrEqual(2);
+    expect(box.top).toBeGreaterThan(0);
+    expect(box.bottomGap).toBeGreaterThan(0);
+  });
+
   test('declining the proposal adds nothing', async ({ authedPage: page, store }) => {
     await store.reset();
     await store.seedPsnLink();

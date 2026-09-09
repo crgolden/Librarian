@@ -72,8 +72,17 @@
   background: oklch(0 0 0 / 0.6);
 }
 
+/* Four rules a utility on the element cannot express, because each one loses to a stylesheet that wins
+   against it. `margin: auto` is what centres a modal <dialog> in the UA stylesheet, and Tailwind's
+   Preflight resets every element's margin to 0 -- without restoring it the dialog sits jammed in the
+   top-left inset, which is what shipped. `max-height` bounds a long candidate list to the viewport rather
+   than letting it run past the bottom edge. `width` is the measure. And `color` is needed because the UA
+   sets `dialog { color: CanvasText }`, which breaks inheritance from body, so the dialog would otherwise
+   render in the browser's own ink rather than the palette's. */
 .store-match {
   width: min(var(--container-narrow), calc(100vw - 2 * var(--space-4)));
+  max-height: calc(100vh - 2 * var(--space-4));
+  margin: auto;
   color: var(--color-text);
 }
 

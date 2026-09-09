@@ -453,12 +453,14 @@ describe('LibraryComponent', () => {
     expect(compiled.querySelector('#library-manual-all-owned')?.textContent).toContain('already in your library');
     expect(compiled.querySelectorAll('.manual-add-results li').length).toBe(0);
     expect(compiled.querySelector('#library-manual-check-store')).not.toBeNull();
+    expect(compiled.textContent).not.toContain('Not the game you own?');
     httpMock.expectNone((r) => r.url === '/curator/api/library/manual/candidates');
   });
 
   it('reaches the Store even when the catalog returned matches that were not the right game', async () => {
     const searchedTitle = generatedToken();
     const conceptId = generatedToken();
+    const wrongGame = catalogGame(generatedToken(), generatedToken());
     const fixture = await createAndLoad([FULL_GAME]);
     const compiled: HTMLElement = fixture.nativeElement;
 
@@ -468,7 +470,7 @@ describe('LibraryComponent', () => {
     fixture.detectChanges();
     clickById(compiled, 'library-manual-search-submit');
 
-    flushAddableSearch(httpMock, searchedTitle, [catalogGame(generatedToken(), generatedToken())]);
+    flushAddableSearch(httpMock, searchedTitle, [wrongGame]);
     fixture.detectChanges();
 
     clickById(compiled, 'library-manual-check-store');
@@ -476,12 +478,15 @@ describe('LibraryComponent', () => {
     flushCandidates(
       httpMock,
       searchedTitle,
-      { store: [storeHit(conceptId, generatedToken())], store_consulted: true },
+      { catalog: [wrongGame], store: [storeHit(conceptId, generatedToken())], store_consulted: true },
       'true',
     );
     fixture.detectChanges();
 
     expect(storeMatchDialog(compiled).open).toBe(true);
+    expect(compiled.querySelector('#library-store-match-query')?.textContent).not.toContain(
+      'Nothing in the shared catalog',
+    );
   });
 
   it('proposes what Curator says the Store carries when the catalog had nothing to offer', async () => {
@@ -504,6 +509,9 @@ describe('LibraryComponent', () => {
 
     expect(storeMatchDialog(compiled).open).toBe(true);
     expect(compiled.querySelector('#library-store-candidate-name-0')?.textContent).toContain(proposedTitle);
+    expect(compiled.querySelector('#library-store-match-query')?.textContent).toContain(
+      'Nothing in the shared catalog',
+    );
   });
 
   it('sends the search term back with the chosen id, because the server re-runs the search to verify it', async () => {

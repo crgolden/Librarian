@@ -30,11 +30,13 @@
 
         @if (addingManual()) {
           <div class="manual-add">
+            <h2 id="library-manual-heading">Add a game manually</h2>
             <p class="text-muted">
               For a game you own that isn't in your digital entitlements — a disc, typically. Search by name:
               anything already in your library is left out, so what you see is what you can still add. If the
-              catalog has nothing left to offer, we check the PlayStation Store and propose a match. A refresh
-              will never remove what you add here.
+              catalog has never heard of the name, we check the PlayStation Store and propose a match; you can
+              also send the search there yourself when the catalog answers with the wrong game. A refresh will
+              never remove what you add here.
             </p>
             <form class="flex flex-wrap items-center gap-3 w-full" (submit)="$event.preventDefault(); searchCatalog()">
               <label class="sr-only" for="library-manual-search">Search by name</label>
@@ -97,7 +99,9 @@
               </ul>
 
               <div class="flex flex-wrap items-center gap-3 w-full">
-                <span class="text-muted grow">Not the game you own? The catalog holds only part of the Store.</span>
+                @if (manualResults().length > 0) {
+                  <span class="text-muted grow">Not the game you own? The catalog holds only part of the Store.</span>
+                }
                 <button
                   id="library-manual-check-store"
                   type="button"
@@ -375,7 +379,11 @@
   >
     <h2 id="library-store-match-heading">Is this the game?</h2>
     <p id="library-store-match-query" class="text-muted">
-      Nothing in the shared catalog matches “{{ storeQuery() }}”. The PlayStation Store carries the following.
+      @if (catalogAnsweredTheTerm()) {
+        The PlayStation Store carries the following for “{{ storeQuery() }}”.
+      } @else {
+        Nothing in the shared catalog matches “{{ storeQuery() }}”. The PlayStation Store carries the following.
+      }
       Accepting one adds it to the catalog and to your library; nothing is added if you decline.
     </p>
 

@@ -298,7 +298,7 @@ Playwright route mocks — no real Identity or Curator is contacted.
 by the Node SSR/BFF process, which Playwright never sees. So `e2e/mocks/curator.ts` serves the real
 route shapes over HTTP and tests drive its state through the control API at `/_test/*`. It mounts those
 routes with **no path prefix**, because `curatorProxy` has already stripped `/curator/api` before
-forwarding (see `AGENTS/Librarian.md`).
+forwarding (see `AGENTS/REPOS/Librarian.md`).
 
 The `e2e` project runs single-worker, non-parallel (`fullyParallel: false`, `workers: 1`, matching the
 C# suites' xUnit `Collection` behavior): every spec file shares the same mock server's in-memory state,
@@ -506,7 +506,7 @@ actions (nav rail, catalog browsing, library search/filter/pagination, FAQ, colo
 no mutating POSTs; `#library-refresh` is deliberately excluded because it triggers a real
 enrichment run). It runs on a schedule from `.github/workflows/synthetic.yml` (twice daily, plus
 `workflow_dispatch` with a `seed` input) and is **never a merge gate** — `e2e:synthetic` is
-deliberately absent from the CI gate order in `AGENTS/Librarian.md`; do not "complete" that list
+deliberately absent from the CI gate order in `AGENTS/REPOS/Librarian.md`; do not "complete" that list
 with it. Tests skip unless `WalkerBaseUrl` is set.
 
 **This replaced the post-deploy smoke tier, which was deleted fleet-wide.** Smoke was a stopgap
@@ -558,7 +558,7 @@ drift is expected — the guarantee is the decision sequence.
   Raising the timeout would only have failed slower. Because the walker picks the rail link at
   **random**, a page missing the id fails on some seeds and not others, which is exactly the class
   of defect the walker exists to surface and the reason a failure must be diagnosed before it is
-  timed out. See `AGENTS/Librarian.md` § navigation for the resulting invariant: every page's `<h1>`
+  timed out. See `AGENTS/REPOS/Librarian.md` § navigation for the resulting invariant: every page's `<h1>`
   carries `id="page-title"` unconditionally, error branches included.
 - **The engine comes from `@crgolden/modules/synthetic-walker`** (the Modules repo). Installing
   it needs GitHub Packages auth — CI uses the `PACKAGES_READ_TOKEN` secret; locally a
@@ -666,4 +666,4 @@ differently from its two siblings is drift, not a decision.
 
 The coverage **score is read from SonarCloud, never hand-maintained** here. Build a per-method table
 only when SonarCloud flags a method with **cognitive complexity > 15 AND uncovered conditions > 0**.
-See `../AGENTS/DESIGN-LANGUAGE.md` and `../AGENTS/TESTING-COVERAGE.md`.
+See the workspace `COVERAGE/METHOD.md`.
