@@ -36,7 +36,7 @@
     "@angular/router": "^22.1.5",
     "@angular/ssr": "^22.1.7",
     "@ng-icons/core": "^35.0.1",
-    "@ng-icons/lucide": "^35.0.1",
+    "@ng-icons/lucide": "^36.0.0",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "^0.222.0",
     "@opentelemetry/auto-instrumentations-node": "^0.80.0",
