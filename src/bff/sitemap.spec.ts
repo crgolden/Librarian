@@ -190,7 +190,7 @@ describe('robotsHandler', () => {
 
     expect(captured.status).toBe(200);
     expect(captured.body).toContain('Sitemap: https://librarian.test/sitemap.xml');
-    for (const prefix of ['/account', '/collections', '/consoles', '/library', '/profile', '/u/', '/admin', '/c/']) {
+    for (const prefix of ['/account', '/bff/', '/collections', '/consoles', '/library', '/profile', '/u/', '/admin', '/c/']) {
       expect(captured.body).toContain(`Disallow: ${prefix}`);
     }
   });

@@ -12,6 +12,7 @@ const STATIC_PATHS = ['/', '/catalog', '/faq', '/privacy'];
 const PRIVATE_PREFIXES = [
   '/account',
   '/psn',
+  '/bff/',
   '/collections',
   '/consoles',
   '/library',
