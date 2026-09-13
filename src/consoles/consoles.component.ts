@@ -1,18 +1,25 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CuratorService } from '../curator/curator.service';
-import { ConsoleResponse, StorageDeviceResponse } from '../curator/curator.models';
+import { ConsoleDeviceLinkState, ConsoleResponse, StorageDeviceResponse } from '../curator/curator.models';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
 import { ConsolesPageData } from './consoles.resolver';
 
 type ConsolePlatform = 'PS5' | 'PS4';
 type StorageKind = 'm2' | 'usb';
 
+export const DEVICE_LINK_LABELS: Record<ConsoleDeviceLinkState, string> = {
+  linked: 'Linked to a PSN device',
+  device_deactivated: 'Linked PSN device is deactivated',
+  device_missing: 'Linked PSN device is no longer registered',
+  not_checked: 'Linked to a PSN device (not checked; device harvesting is off)',
+};
+
 @Component({
   selector: 'app-consoles',
-  imports: [FormsModule, LoadingOverlayComponent],
+  imports: [FormsModule, LoadingOverlayComponent, RouterLink],
   templateUrl: './consoles.component.html',
   styleUrl: './consoles.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -25,6 +32,10 @@ export class ConsolesComponent {
 
   protected readonly consoles = signal<ConsoleResponse[]>([]);
   protected readonly consolesError = signal<string | null>(null);
+
+  protected deviceLinkLabel(state: ConsoleDeviceLinkState): string {
+    return DEVICE_LINK_LABELS[state];
+  }
 
   protected readonly showConsoleForm = signal(false);
   protected readonly consoleName = signal('');

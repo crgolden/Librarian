@@ -124,6 +124,89 @@ test.describe('Profile — viewing another user', () => {
   });
 });
 
+test.describe('Profile — adding a PSN friend', () => {
+  async function seedADisclosedIdentity(store: {
+    seedUserPsnLink: (sub: string, link?: { psn_account_id?: string }) => Promise<void>;
+    seedUserPsnPreferences: (sub: string, prefs: { harvest_identity?: boolean }) => Promise<void>;
+    seedUserProfileSettings: (sub: string, settings: { is_public?: boolean; show_identity?: boolean }) => Promise<void>;
+  }): Promise<void> {
+    await store.seedUserPsnLink(DEFAULT_E2E_SUB, { psn_account_id: 'psn-account-owner' });
+    await store.seedUserPsnPreferences(DEFAULT_E2E_SUB, { harvest_identity: true });
+    await store.seedUserProfileSettings(DEFAULT_E2E_SUB, { is_public: true, show_identity: true });
+  }
+
+  test('offers a friend request on a disclosed identity, and sends it only after confirming', async ({
+    authedPage: page,
+    secondAuthedPage: viewerPage,
+    store,
+  }) => {
+    await store.reset();
+    await seedADisclosedIdentity(store);
+    await store.seedUserPsnLink(SECOND_E2E_SUB, { psn_account_id: 'psn-account-viewer' });
+    await store.seedUserPsnPreferences(SECOND_E2E_SUB, { harvest_identity: true, allow_friend_writes: true });
+
+    await page.goto('/profile');
+    await viewerPage.goto(`/u/${DEFAULT_E2E_SUB}`);
+
+    await expect(viewerPage.locator('#page-title')).toContainText('e2e_gamer');
+    await viewerPage.locator('#profile-add-psn-friend').click();
+
+    await expect(viewerPage.locator('#profile-add-psn-friend-prompt')).toContainText('e2e_gamer');
+    await viewerPage.locator('#profile-add-psn-friend-confirm').click();
+
+    await expect(viewerPage.locator('#profile-add-psn-friend-sent')).toContainText('e2e_gamer');
+    await expect(viewerPage.locator('#profile-add-psn-friend')).toHaveCount(0);
+  });
+
+  test('withholds the friend request from a viewer who never granted friend writes', async ({
+    authedPage: page,
+    secondAuthedPage: viewerPage,
+    store,
+  }) => {
+    await store.reset();
+    await seedADisclosedIdentity(store);
+    await store.seedUserPsnLink(SECOND_E2E_SUB, { psn_account_id: 'psn-account-viewer' });
+    await store.seedUserPsnPreferences(SECOND_E2E_SUB, { harvest_identity: true, allow_friend_writes: false });
+
+    await page.goto('/profile');
+    await viewerPage.goto(`/u/${DEFAULT_E2E_SUB}`);
+
+    await expect(viewerPage.locator('#page-title')).toContainText('e2e_gamer');
+    await expect(
+      viewerPage.locator('#profile-add-psn-friend'),
+      'the write consent is what PSN acts on, so offering the control without it would fail at the API',
+    ).toHaveCount(0);
+  });
+
+  test('offers no friend request where the online id was never disclosed', async ({
+    authedPage: page,
+    secondAuthedPage: viewerPage,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedUserPsnLink(DEFAULT_E2E_SUB, { psn_account_id: 'psn-account-owner' });
+    await store.seedUserProfileSettings(DEFAULT_E2E_SUB, { is_public: true });
+    await store.seedUserPsnLink(SECOND_E2E_SUB, { psn_account_id: 'psn-account-viewer' });
+    await store.seedUserPsnPreferences(SECOND_E2E_SUB, { allow_friend_writes: true });
+
+    await page.goto('/profile');
+    await viewerPage.goto(`/u/${DEFAULT_E2E_SUB}`);
+
+    await expect(viewerPage.locator('#page-title')).toContainText('PlayStation account');
+    await expect(viewerPage.locator('#profile-add-psn-friend')).toHaveCount(0);
+  });
+
+  test('no friend request is offered on your own profile', async ({ authedPage: page, store }) => {
+    await store.reset();
+    await store.seedPsnLink();
+    await store.seedPsnPreferences({ harvest_identity: true, allow_friend_writes: true });
+
+    await page.goto('/profile');
+
+    await expect(page.locator('#profile-add-psn-friend')).toHaveCount(0);
+  });
+});
+
 test.describe('Profile — follow / unfollow', () => {
   test('follow() shows Unfollow and increments the follower count; unfollow() reverses it', async ({
     authedPage: page,

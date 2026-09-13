@@ -14,6 +14,7 @@ import { ownerCollectionsResolver, viewerCollectionsResolver } from '../collecti
 import { consolesResolver } from '../consoles/consoles.resolver';
 import { publicCollectionResolver } from '../public-collection/public-collection.resolver';
 import { libraryResolver } from '../library/library.resolver';
+import { psPlusRotationResolver } from '../library/ps-plus/ps-plus.resolver';
 import { latestEnrichmentRunResolver } from '../admin/admin-enrichment.resolver';
 
 export const routes: Routes = [
@@ -79,6 +80,13 @@ export const routes: Routes = [
     canActivate: [authGuard],
     resolve: { library: libraryResolver },
     title: 'Library',
+  },
+  {
+    path: 'library/ps-plus',
+    loadComponent: () => import('../library/ps-plus/ps-plus.component').then((m) => m.PsPlusComponent),
+    canActivate: [authGuard],
+    resolve: { rotation: psPlusRotationResolver },
+    title: 'PlayStation Plus',
   },
   {
     path: 'library/:sub',

@@ -1,5 +1,5 @@
 
-import { test, expect } from './fixtures.js';
+import { test, expect, DEFAULT_E2E_SUB } from './fixtures.js';
 
 const CATALOG_GRID_MINIMUM_TRACK_PX = 220;
 
@@ -261,6 +261,129 @@ test.describe('Catalog — authenticated', () => {
 
     await expect(page.locator('[id^="catalog-title-"]')).toHaveCount(1);
     await expect(page.locator('#catalog-title-0')).toHaveText('Bloodborne');
+  });
+
+  test('browses games by default and lists a media app only when asked for that kind', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedCatalogGames([
+      { game_id: 'g1', canonical_title: 'Bloodborne', franchise: null, genre: 'RPG', aaa_tier: 'AAA' },
+      {
+        game_id: 'g2',
+        canonical_title: 'Streaming App',
+        franchise: null,
+        genre: null,
+        aaa_tier: null,
+        content_kind: 'media_app',
+      },
+    ]);
+
+    await page.goto('/catalog');
+    await expect(page.locator('#catalog-title-0')).toHaveText('Bloodborne');
+    await expect(page.locator(CATALOG_TILES)).toHaveCount(1);
+
+    await page.locator('#catalog-kind').selectOption('media_app');
+
+    await expect(page.locator('#catalog-title-0')).toHaveText('Streaming App');
+    await expect(page.locator('#catalog-kind-0')).toHaveText('Media app');
+    await expect(page.locator(CATALOG_TILES)).toHaveCount(1);
+  });
+
+  test('sorting by price orders the page by what the storefront charges', async ({ authedPage: page, store }) => {
+    await store.reset();
+    await store.seedCatalogGames([
+      {
+        game_id: 'g-dear',
+        canonical_title: 'Dear Game',
+        franchise: null,
+        genre: 'RPG',
+        aaa_tier: 'AAA',
+        price: {
+          is_free: false,
+          tied_to_subscription: false,
+          base_cents: 6999,
+          discounted_cents: 6999,
+          discount_text: null,
+          fetched_at: '2031-06-15T00:00:00+00:00',
+        },
+      },
+      {
+        game_id: 'g-cheap',
+        canonical_title: 'Cheap Game',
+        franchise: null,
+        genre: 'RPG',
+        aaa_tier: 'AAA',
+        price: {
+          is_free: false,
+          tied_to_subscription: false,
+          base_cents: 999,
+          discounted_cents: 999,
+          discount_text: null,
+          fetched_at: '2031-06-15T00:00:00+00:00',
+        },
+      },
+    ]);
+
+    await page.goto('/catalog');
+    await expect(page.locator('#catalog-price-0')).toHaveText('$9.99');
+
+    await page.locator('#catalog-sort').selectOption('price:desc');
+
+    await expect(page.locator('#catalog-title-0')).toHaveText('Dear Game');
+    await expect(page.locator('#catalog-price-0')).toHaveText('$69.99');
+  });
+
+  test('the detail page states the price and the public collections holding the game', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedCatalogGames([
+      {
+        game_id: 'g1',
+        canonical_title: 'Bloodborne',
+        franchise: null,
+        genre: 'RPG',
+        aaa_tier: 'AAA',
+        price: {
+          is_free: true,
+          tied_to_subscription: true,
+          base_cents: null,
+          discounted_cents: null,
+          discount_text: null,
+          fetched_at: '2031-06-15T00:00:00+00:00',
+        },
+      },
+    ]);
+    await store.seedUserCollections(DEFAULT_E2E_SUB, [
+      { definition_id: 'd1', name: 'Weekend picks', kind: 'filter_list', visibility: 'public', game_ids: ['g1'] },
+      { definition_id: 'd2', name: 'Private pile', kind: 'filter_list', visibility: 'private', game_ids: ['g1'] },
+    ]);
+
+    await page.goto('/catalog/g1');
+
+    await expect(page.locator('#catalog-detail-price')).toContainText('PlayStation Plus');
+    await expect(page.locator('#catalog-detail-collections')).toBeVisible();
+    await expect(page.locator('[id^="catalog-detail-collection-"]')).toHaveCount(1);
+    await expect(page.locator('#catalog-detail-collection-0')).toHaveText('Weekend picks');
+  });
+
+  test('the detail page renders no collections section for a game no public collection holds', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedCatalogGames([
+      { game_id: 'g1', canonical_title: 'Bloodborne', franchise: null, genre: 'RPG', aaa_tier: 'AAA' },
+    ]);
+
+    await page.goto('/catalog/g1');
+
+    await expect(page.locator('#page-title')).toContainText('Bloodborne');
+    await expect(page.locator('#catalog-detail-collections')).toHaveCount(0);
+    await expect(page.locator('#catalog-detail-price')).toHaveCount(0);
   });
 
   test('pager enables Next on a full page and Previous after advancing', async ({ authedPage: page, store }) => {

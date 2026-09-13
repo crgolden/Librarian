@@ -30,6 +30,31 @@ test.describe('Consoles & Storage — authenticated', () => {
     await expect(page.locator('text=We guessed')).toBeVisible();
   });
 
+  test('reports a stale PSN device link in words, and offers the page that manages it', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedConsoles(['console-a']);
+    await store.seedConsoleDeviceLink('console-a', { state: 'device_deactivated' });
+
+    await page.goto('/consoles');
+
+    await expect(page.locator('#console-device-link-0')).toContainText('deactivated');
+    await expect(page.locator('#console-device-link-0')).not.toContainText('device_deactivated');
+    await expect(page.locator('#console-device-link-account-0')).toHaveAttribute('href', '/account');
+  });
+
+  test('says nothing about a device link on a console that has none', async ({ authedPage: page, store }) => {
+    await store.reset();
+    await store.seedConsoles(['console-a']);
+
+    await page.goto('/consoles');
+
+    await expect(page.locator('#console-name-0')).toBeVisible();
+    await expect(page.locator('#console-device-link-0')).toHaveCount(0);
+  });
+
   test('creates a storage device and attaches it to a console', async ({ authedPage: page, store }) => {
     await store.reset();
 

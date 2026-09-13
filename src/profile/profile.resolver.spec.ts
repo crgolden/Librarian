@@ -5,9 +5,11 @@ import { Observable, of, throwError } from 'rxjs';
 import { profileResolver, ResolvedProfile } from './profile.resolver';
 import { AuthService } from '../auth/auth.service';
 import { CuratorService } from '../curator/curator.service';
-import { PublicProfileResponse } from '../curator/curator.models';
+import { PsnPreferencesResponse, PublicProfileResponse } from '../curator/curator.models';
 
-const PROFILE = { is_public: true } as unknown as PublicProfileResponse;
+const PROFILE = { is_public: true, viewer_is_owner: false } as unknown as PublicProfileResponse;
+const OWN_PROFILE = { is_public: true, viewer_is_owner: true } as unknown as PublicProfileResponse;
+const VIEWER_PREFERENCES = { allow_friend_writes: true } as unknown as PsnPreferencesResponse;
 
 function run(
   curator: Partial<CuratorService>,
@@ -40,13 +42,14 @@ describe('profileResolver', () => {
           asked.push(sub);
           return of(PROFILE);
         },
+        getPsnPreferences: () => of(VIEWER_PREFERENCES),
       },
       'other-user',
       'me',
     );
 
     expect(asked).toEqual(['other-user']);
-    expect(result).toEqual({ status: 'ok', profile: PROFILE });
+    expect(result).toEqual({ status: 'ok', profile: PROFILE, viewerPreferences: VIEWER_PREFERENCES });
   });
 
   it('falls back to the signed-in user when the route names nobody', async () => {
@@ -55,7 +58,7 @@ describe('profileResolver', () => {
       {
         getUserProfile: (sub: string) => {
           asked.push(sub);
-          return of(PROFILE);
+          return of(OWN_PROFILE);
         },
       },
       null,
@@ -63,6 +66,37 @@ describe('profileResolver', () => {
     );
 
     expect(asked).toEqual(['me']);
+  });
+
+  it("never asks for the viewer's own PSN preferences on their own profile", async () => {
+    let askedForPreferences = false;
+    const result = await run(
+      {
+        getUserProfile: () => of(OWN_PROFILE),
+        getPsnPreferences: () => {
+          askedForPreferences = true;
+          return of(VIEWER_PREFERENCES);
+        },
+      },
+      null,
+      'me',
+    );
+
+    expect(askedForPreferences).toBe(false);
+    expect(result).toEqual({ status: 'ok', profile: OWN_PROFILE, viewerPreferences: null });
+  });
+
+  it("degrades the viewer's preferences to null rather than failing another user's profile", async () => {
+    const result = await run(
+      {
+        getUserProfile: () => of(PROFILE),
+        getPsnPreferences: () => throwError(() => new Error('boom')),
+      },
+      'other-user',
+      'me',
+    );
+
+    expect(result).toEqual({ status: 'ok', profile: PROFILE, viewerPreferences: null });
   });
 
   it('reports no-user when nobody is named and nobody is signed in', async () => {

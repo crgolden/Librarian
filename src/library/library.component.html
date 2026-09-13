@@ -1,5 +1,5 @@
 <section id="library-page" class="page-section library">
-  <app-loading-overlay [visible]="gamesLoading() || manualPending() !== null" />
+  <app-loading-overlay [visible]="gamesLoading() || manualPending() !== null || hidePending() !== null" />
 
   @if (viewerMode()) {
     <app-breadcrumb [items]="breadcrumbItems()" />
@@ -78,7 +78,7 @@
             }
 
             @if (manualResults().length > 0 || allCatalogMatchesOwned()) {
-              <ul class="manual-add-results">
+              <ul id="library-manual-results" class="manual-add-results">
                 @for (candidate of manualResults(); track $index) {
                   <li class="flex flex-wrap items-center gap-3 w-full">
                     <span class="catalog-title grow">{{ candidate.canonical_title }}</span>
@@ -132,6 +132,17 @@
           <p id="library-schedule-none" class="catalog-meta">
             No automatic refresh is scheduled.
             <a id="library-schedule-link" routerLink="/account">Set one up</a>
+          </p>
+        }
+
+        @if (psPlus(); as rotation) {
+          <p id="library-ps-plus-summary" class="catalog-meta">
+            @if (rotation.catalog_walked_at) {
+              PlayStation Plus: {{ rotation.unclaimed }} unclaimed, {{ rotation.leaving }} leaving ·
+            } @else {
+              PlayStation Plus: the catalog has not been walked yet ·
+            }
+            <a id="library-ps-plus-link" routerLink="/library/ps-plus">See the rotation</a>
           </p>
         }
 
@@ -196,10 +207,18 @@
     }
 
     <div class="card p-6 flex flex-col items-start gap-3 library-table-card">
-      <h2>{{ viewerMode() ? 'Games' : 'Your games' }}</h2>
+      <h2>{{ viewerMode() ? 'Games' : showingHidden() ? 'Hidden games' : 'Your games' }}</h2>
+
+      @if (!viewerMode() && (hiddenCount() > 0 || showingHidden())) {
+        <button id="library-show-hidden" type="button" class="btn-ghost btn-sm" (click)="toggleHiddenView()">
+          {{ showingHidden() ? 'Back to your games' : 'Hidden games (' + hiddenCount() + ')' }}
+        </button>
+      }
 
       @if (gamesError()) {
         <p class="text-error">{{ gamesError() }}</p>
+      } @else if (total() === 0 && showingHidden() && !committedSearch() && !genreFilter()) {
+        <p id="library-hidden-empty" class="text-muted">Nothing is hidden.</p>
       } @else if (total() === 0 && !committedSearch() && !genreFilter()) {
         <p id="library-empty" class="text-muted">
           {{ viewerMode() ? 'No games in this library yet.' : 'No games yet — run a refresh to build your library.' }}
@@ -268,6 +287,15 @@
                         (keydown.space)="onHeaderKeydown($event, header)"
                       >
                         {{ headerLabel(header) }}
+                        @if (header.column.id === 'percent_completed' && trophyLinkNeeded()) {
+                          <a
+                            id="library-header-percent_completed-link"
+                            routerLink="/account"
+                            fragment="pref-trophies"
+                            (click)="stopHeaderSort($event)"
+                            >Turn on trophies</a
+                          >
+                        }
                         @if (header.column.getIsSorted() === 'asc') {
                           <span aria-hidden="true"> ▲</span>
                         } @else if (header.column.getIsSorted() === 'desc') {
@@ -302,6 +330,29 @@
                           </button>
                         }
                       }
+                      @if (!viewerMode()) {
+                        @if (showingHidden()) {
+                          <button
+                            type="button"
+                            class="btn-ghost btn-sm"
+                            [attr.id]="'library-unhide-' + row.original.game_id"
+                            [disabled]="hidePending() !== null"
+                            (click)="unhideGame(row.original)"
+                          >
+                            Show again
+                          </button>
+                        } @else {
+                          <button
+                            type="button"
+                            class="btn-ghost btn-sm"
+                            [attr.id]="'library-hide-' + row.original.game_id"
+                            [disabled]="hidePending() !== null"
+                            (click)="hideGame(row.original)"
+                          >
+                            Hide
+                          </button>
+                        }
+                      }
                     </td>
                     <td data-label="Platforms">
                       @if (row.original.platforms?.length) {
@@ -327,7 +378,7 @@
                     <td data-label="RAWG">{{ row.original.rawg_rating ?? '—' }}</td>
                     <td data-label="OpenCritic">{{ row.original.opencritic_rating ?? '—' }}</td>
                     <td data-label="PS Store">{{ row.original.psn_rating ?? '—' }}</td>
-                    <td data-label="% Completed" [title]="percentCompletedTitle()">
+                    <td data-label="% Completed" [title]="percentCompletedCellTitle(row.original)">
                       {{ percentCompletedDisplay(row.original.percent_completed) }}
                     </td>
                     <td data-label="Catalog">

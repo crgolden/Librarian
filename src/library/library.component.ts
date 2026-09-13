@@ -42,11 +42,15 @@ import { CuratorService, LibraryQuery, LibrarySortField } from '../curator/curat
 import {
   GameSummaryResponse,
   LibraryGameResponse,
+  LibraryPageResponse,
   LibraryRefreshResultSummary,
   LibraryRefreshStatusResponse,
   ProfileLibraryGameResponse,
+  ProfileLibraryPageResponse,
+  PsPlusRotationSummaryResponse,
   RefreshScheduleResponse,
   StoreSearchResultResponse,
+  TrophyProgressResponse,
 } from '../curator/curator.models';
 import { RawgAttributionComponent } from '../app/shared/attribution/rawg-attribution.component';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
@@ -81,7 +85,27 @@ interface LibraryRequest {
 interface LibraryLoadOutcome {
   games: LibraryGame[];
   total: number;
+  trophyProgress: TrophyProgressResponse | null;
+  hiddenCount: number;
   failure: 'forbidden' | 'failed' | null;
+}
+
+const TROPHY_PROGRESS_TITLES: Readonly<Record<string, string>> = {
+  no_link: 'Link a PlayStation Network account on your account page to see trophy completion.',
+  harvest_off: 'Trophy harvesting is off in your PSN preferences; turn it on to see completion.',
+  never_refreshed: 'Trophy completion appears after your next library refresh.',
+};
+
+const TROPHY_PENDING_TITLE = 'Trophy completion appears after your next library refresh.';
+const TROPHY_UNMATCHED_TITLE = 'No PlayStation trophy title matched this game, so its completion cannot be shown.';
+const VIEWER_TROPHY_TITLE = "Trophy completion isn't shown for other users' libraries yet.";
+
+function trophyProgressOf(page: LibraryPageResponse | ProfileLibraryPageResponse): TrophyProgressResponse | null {
+  return 'trophy_progress' in page ? (page.trophy_progress ?? null) : null;
+}
+
+function hiddenCountOf(page: LibraryPageResponse | ProfileLibraryPageResponse): number {
+  return 'hidden_count' in page ? (page.hidden_count ?? 0) : 0;
 }
 
 const LIBRARY_TABLE_FEATURES = tableFeatures({ rowSortingFeature, rowPaginationFeature });
@@ -130,6 +154,12 @@ export class LibraryComponent implements OnInit, OnDestroy {
   protected readonly breadcrumbItems = signal<BreadcrumbItem[]>([]);
 
   protected readonly schedule = signal<RefreshScheduleResponse | null>(null);
+  protected readonly psPlus = signal<PsPlusRotationSummaryResponse | null>(null);
+  protected readonly trophyProgress = signal<TrophyProgressResponse | null>(null);
+  protected readonly trophyLinkNeeded = computed(() => !this.viewerMode() && this.trophyProgress()?.state === 'off');
+  protected readonly hiddenCount = signal(0);
+  protected readonly showingHidden = signal(false);
+  protected readonly hidePending = signal<string | null>(null);
 
   protected readonly refreshing = signal(false);
   protected readonly status = signal<LibraryRefreshStatusResponse | null>(null);
@@ -245,6 +275,9 @@ export class LibraryComponent implements OnInit, OnDestroy {
     this.total.set(resolved.total);
     this.genreOptions.set(resolved.genres);
     this.schedule.set(resolved.schedule);
+    this.trophyProgress.set(resolved.trophyProgress);
+    this.hiddenCount.set(resolved.hiddenCount);
+    this.psPlus.set(resolved.psPlus);
 
     const preferred = readPageSize(LIBRARY_PAGE_SIZE_KEY, this.pageSizeChoices, LIBRARY_PAGE_SIZE);
     if (preferred !== LIBRARY_PAGE_SIZE) {
@@ -275,7 +308,44 @@ export class LibraryComponent implements OnInit, OnDestroy {
       sortDir: sorting[0]?.desc ? 'desc' : 'asc',
       limit: pagination.pageSize,
       offset: pagination.pageIndex * pagination.pageSize,
+      hidden: !this.viewerMode() && this.showingHidden() ? 'only' : undefined,
     };
+  }
+
+  protected toggleHiddenView(): void {
+    this.showingHidden.update((showing) => !showing);
+    this.pagination.update((old) => ({ ...old, pageIndex: 0 }));
+    this.reload();
+  }
+
+  protected hideGame(game: LibraryGame): void {
+    this.hidePending.set(game.game_id);
+    this.gamesError.set(null);
+    this.curator.hideLibraryGame(game.game_id).subscribe({
+      next: () => {
+        this.hidePending.set(null);
+        this.reload();
+      },
+      error: () => {
+        this.hidePending.set(null);
+        this.gamesError.set(`Unable to hide ${game.title}.`);
+      },
+    });
+  }
+
+  protected unhideGame(game: LibraryGame): void {
+    this.hidePending.set(game.game_id);
+    this.gamesError.set(null);
+    this.curator.unhideLibraryGame(game.game_id).subscribe({
+      next: () => {
+        this.hidePending.set(null);
+        this.reload();
+      },
+      error: () => {
+        this.hidePending.set(null);
+        this.gamesError.set(`Unable to show ${game.title} again.`);
+      },
+    });
   }
 
   private reload(): void {
@@ -472,11 +542,21 @@ export class LibraryComponent implements OnInit, OnDestroy {
         : this.curator.getLibrary(request.query);
 
     return page.pipe(
-      map((response): LibraryLoadOutcome => ({ games: response.games, total: response.total, failure: null })),
+      map(
+        (response): LibraryLoadOutcome => ({
+          games: response.games,
+          total: response.total,
+          trophyProgress: trophyProgressOf(response),
+          hiddenCount: hiddenCountOf(response),
+          failure: null,
+        }),
+      ),
       catchError((err: HttpErrorResponse) =>
         of<LibraryLoadOutcome>({
           games: [],
           total: 0,
+          trophyProgress: null,
+          hiddenCount: 0,
           failure: request.viewerMode && err.status === FORBIDDEN_STATUS ? 'forbidden' : 'failed',
         }),
       ),
@@ -497,6 +577,10 @@ export class LibraryComponent implements OnInit, OnDestroy {
     }
     this.games.set(outcome.games);
     this.total.set(outcome.total);
+    if (!this.viewerMode()) {
+      this.trophyProgress.set(outcome.trophyProgress);
+      this.hiddenCount.set(outcome.hiddenCount);
+    }
   }
 
   protected onSearchInput(value: string): void {
@@ -530,7 +614,28 @@ export class LibraryComponent implements OnInit, OnDestroy {
   }
 
   protected percentCompletedTitle(): string | undefined {
-    return this.viewerMode() ? "Trophy completion isn't shown for other users' libraries yet." : undefined;
+    if (this.viewerMode()) {
+      return VIEWER_TROPHY_TITLE;
+    }
+    const progress = this.trophyProgress();
+    if (progress === null || progress.state === 'on') {
+      return undefined;
+    }
+    if (progress.state === 'pending') {
+      return TROPHY_PENDING_TITLE;
+    }
+    return progress.reason === null ? undefined : TROPHY_PROGRESS_TITLES[progress.reason];
+  }
+
+  protected percentCompletedCellTitle(game: LibraryGame): string | undefined {
+    if (!this.viewerMode() && 'trophy_match' in game && game.trophy_match === 'unmatched') {
+      return TROPHY_UNMATCHED_TITLE;
+    }
+    return this.percentCompletedTitle();
+  }
+
+  protected stopHeaderSort(event: Event): void {
+    event.stopPropagation();
   }
 
   protected headerLabel(header: Header<typeof LIBRARY_TABLE_FEATURES, LibraryGame, unknown>): string | null {

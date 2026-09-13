@@ -43,6 +43,43 @@
         }
       }
 
+      @if (viewerMayAddFriend() && current.identity; as identity) {
+        @if (friendRequestSent()) {
+          <p id="profile-add-psn-friend-sent" class="text-success">Friend request sent to {{ identity.online_id }}.</p>
+        } @else if (confirmingFriendRequest()) {
+          <p id="profile-add-psn-friend-prompt" class="text-muted">
+            Send {{ identity.online_id }} a PlayStation Network friend request from your account?
+          </p>
+          @if (friendRequestError()) {
+            <p id="profile-add-psn-friend-error" class="text-error">{{ friendRequestError() }}</p>
+          }
+          <div class="form-actions">
+            <button
+              id="profile-add-psn-friend-cancel"
+              type="button"
+              class="btn-ghost"
+              [disabled]="friendRequestBusy()"
+              (click)="cancelFriendRequest()"
+            >
+              Cancel
+            </button>
+            <button
+              id="profile-add-psn-friend-confirm"
+              type="button"
+              class="btn-primary"
+              [disabled]="friendRequestBusy()"
+              (click)="sendFriendRequest()"
+            >
+              {{ friendRequestBusy() ? 'Sending...' : 'Send request' }}
+            </button>
+          </div>
+        } @else {
+          <button id="profile-add-psn-friend" type="button" class="btn-ghost" (click)="startFriendRequest()">
+            Add as PSN friend
+          </button>
+        }
+      }
+
       <div id="profile-actions" class="flex flex-wrap gap-3">
         @if (current.viewer_is_owner || current.library_visible) {
           <a id="profile-library-link" class="btn-ghost" [routerLink]="libraryLink()">View library</a>

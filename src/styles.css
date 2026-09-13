@@ -531,11 +531,13 @@ code {
   color: var(--color-text-muted);
 }
 
-.size-source[data-size-source='measured'] {
+.size-source[data-size-source='measured'],
+.size-source[data-size-source='download'] {
   color: var(--color-ok);
 }
 
-.size-source[data-size-source='estimated'] {
+.size-source[data-size-source='estimated'],
+.size-source[data-size-source='capped_default'] {
   color: var(--color-warn);
 }
 

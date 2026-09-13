@@ -11,7 +11,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideZonelessChangeDetection(),
     provideClientHydration(withEventReplay(), withNoIncrementalHydration()),
-    provideRouter(routes, withInMemoryScrolling({ scrollPositionRestoration: 'top', anchorScrolling: 'enabled' })),
+    provideRouter(routes, withInMemoryScrolling({ scrollPositionRestoration: 'enabled', anchorScrolling: 'enabled' })),
     provideHttpClient(withFetch(), withInterceptors([appInterceptor])),
     provideAppInitializer(() => inject(AuthService).initialize()),
     provideNgIconsConfig({ size: '1.5rem' }),

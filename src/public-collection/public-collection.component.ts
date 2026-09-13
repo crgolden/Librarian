@@ -46,14 +46,7 @@ export class PublicCollectionComponent implements OnInit {
 
     this.collection.set(resolved.collection);
     this.title.setTitle(`${resolved.collection.name} — Librarian`);
-    this.loadFollowState(resolved.collection.definition_id);
-  }
-
-  private loadFollowState(definitionId: string): void {
-    this.curator.listFollowedCollections().subscribe({
-      next: (definitions) => this.following.set(definitions.some((definition) => definition.definition_id === definitionId)),
-      error: () => undefined,
-    });
+    this.following.set(resolved.following);
   }
 
   protected returnToUrl(): string {

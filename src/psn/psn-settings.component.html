@@ -28,7 +28,28 @@
         <p class="text-error">{{ error() }}</p>
       }
       @if (success()) {
-        <p class="text-success">{{ success() }}</p>
+        <div id="psn-link-success" class="card p-4 flex flex-col items-start gap-2 w-full">
+          <p class="text-success">{{ success() }}</p>
+          @if (preferences(); as prefs) {
+            <p class="text-muted">
+              Nothing is read from PlayStation Network until you turn it on under Data sharing below:
+            </p>
+            <ul class="list-none m-0 p-0 flex flex-col gap-1 catalog-meta">
+              <li id="psn-link-success-trophies">
+                <a routerLink="/account" fragment="pref-trophies">Trophies</a>: {{ prefs.harvest_trophies ? 'on' : 'off' }}
+              </li>
+              <li id="psn-link-success-identity">
+                <a routerLink="/account" fragment="pref-identity">Identity</a>: {{ prefs.harvest_identity ? 'on' : 'off' }}
+              </li>
+              <li id="psn-link-success-presence">
+                <a routerLink="/account" fragment="pref-presence">Presence</a>: {{ prefs.harvest_presence ? 'on' : 'off' }}
+              </li>
+              <li id="psn-link-success-devices">
+                <a routerLink="/account" fragment="pref-devices">Devices</a>: {{ prefs.harvest_devices ? 'on' : 'off' }}
+              </li>
+            </ul>
+          }
+        </div>
       }
       <button
         id="psn-unlink"
@@ -180,6 +201,45 @@
         <p class="text-error">{{ identityError() }}</p>
       }
 
+      @if (prefs.harvest_identity && friendRequests(); as requests) {
+        <div id="friend-requests" class="card p-6 flex flex-col items-start gap-4 psn-category-card">
+          <h3>Friend requests <span class="text-muted">(live)</span></h3>
+          @if (friendRequestAccepted(); as accepted) {
+            <p id="friend-request-accepted" class="text-success">You and {{ accepted }} are now PSN friends.</p>
+          }
+          @if (friendRequestsError()) {
+            <p id="friend-requests-error" class="text-error">{{ friendRequestsError() }}</p>
+          }
+          @if (requests.length === 0) {
+            <p id="friend-requests-empty" class="text-muted">Nobody is waiting on you.</p>
+          } @else {
+            <ul class="list-none m-0 p-0 flex flex-col gap-2 w-full">
+              @for (request of requests; track request.account_id) {
+                <li class="flex flex-wrap items-center gap-3" [attr.id]="'friend-request-' + $index">
+                  <span class="catalog-title grow">{{ request.online_id ?? request.account_id }}</span>
+                  @if (request.online_id) {
+                    <button
+                      type="button"
+                      class="btn-primary btn-sm"
+                      [attr.id]="'friend-request-accept-' + $index"
+                      [disabled]="friendRequestPending() !== null || !prefs.allow_friend_writes"
+                      (click)="acceptFriendRequest(request)"
+                    >
+                      {{ friendRequestPending() === request.online_id ? 'Accepting…' : 'Accept' }}
+                    </button>
+                  }
+                </li>
+              }
+            </ul>
+            @if (!prefs.allow_friend_writes) {
+              <p id="friend-requests-consent" class="text-muted">
+                Accepting needs the friend-writes permission above.
+              </p>
+            }
+          }
+        </div>
+      }
+
       @if (prefs.harvest_presence && presence(); as live) {
         <div id="psn-card-presence" class="card p-6 flex flex-col items-start gap-4 psn-category-card">
           <h3>Online Presence <span class="text-muted">(live)</span></h3>
@@ -209,6 +269,12 @@
                   <span class="spine-label" [attr.id]="'device-linked-' + $index">
                     Linked to {{ consoleName }}
                   </span>
+                  @if (device.deactivation_date) {
+                    <span class="text-warning" [attr.id]="'device-deactivated-' + $index">
+                      PSN deactivated this device on {{ device.deactivation_date | date: 'medium' }}; the link is kept
+                      until you unlink it.
+                    </span>
+                  }
                   <button
                     type="button"
                     class="btn-ghost btn-sm"
@@ -287,7 +353,7 @@
       @if (current.last_run_at; as lastRun) {
         <p class="catalog-meta" id="schedule-last-run">Last refresh: {{ lastRun | date: 'medium' }}</p>
       }
-    } @else if (!scheduleLoading()) {
+    } @else {
       <p class="text-muted" id="schedule-none">No schedule yet — your library only refreshes when you ask.</p>
     }
 
@@ -317,7 +383,7 @@
         PS Plus watch
       </label>
       <span class="text-muted">
-        Nothing reports PS Plus rotation yet. Ticking this records that you want it.
+        Show which Game Catalog titles you haven't claimed and which are leaving.
       </span>
     </div>
 

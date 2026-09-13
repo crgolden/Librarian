@@ -2,6 +2,14 @@ import type { Request, Response, NextFunction } from 'express';
 
 const capturedHandlers = new Map<string, ((...args: unknown[]) => unknown)[]>();
 
+function handlersRegisteredFor(path: string): ((...args: unknown[]) => unknown)[] {
+  const fns = capturedHandlers.get(path);
+  if (fns === undefined) {
+    throw new Error(`No handler was registered for ${path}`);
+  }
+  return fns;
+}
+
 vi.mock('express', () => ({
   Router: vi.fn(() => ({
     get: vi.fn((path: string, ...fns: ((...args: unknown[]) => unknown)[]) => {
@@ -116,7 +124,7 @@ describe('requireCsrf', () => {
 
 describe('/bff/login', () => {
   function handler() {
-    const fns = capturedHandlers.get('/login')!;
+    const fns = handlersRegisteredFor('/login');
     return fns[fns.length - 1] as (req: Request, res: Response) => Promise<void>;
   }
 
@@ -176,7 +184,7 @@ describe('/bff/login', () => {
 
 describe('/bff/callback', () => {
   function handler() {
-    const fns = capturedHandlers.get('/callback')!;
+    const fns = handlersRegisteredFor('/callback');
     return fns[fns.length - 1] as (req: Request, res: Response) => Promise<void>;
   }
 
@@ -298,7 +306,7 @@ describe('/bff/callback', () => {
 
 describe('/bff/user', () => {
   function handler() {
-    const fns = capturedHandlers.get('/user')!;
+    const fns = handlersRegisteredFor('/user');
     return fns[1] as (req: Request, res: Response) => void;
   }
 
@@ -332,7 +340,7 @@ describe('/bff/user', () => {
 
 describe('/bff/logout', () => {
   function handler() {
-    const fns = capturedHandlers.get('/logout')!;
+    const fns = handlersRegisteredFor('/logout');
     return fns[fns.length - 1] as (req: Request, res: Response) => Promise<void>;
   }
 

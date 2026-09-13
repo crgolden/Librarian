@@ -25,7 +25,7 @@ import {
 } from '../curator/curator.models';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
-import { ResolvedCollections } from './collections.resolver';
+import { installConsoleIdFor, ResolvedCollections, ResolvedInstalls } from './collections.resolver';
 
 type CollectionKind = 'filter_list' | 'capacity_fill';
 type View = 'list' | 'create' | 'detail' | 'followed';
@@ -38,7 +38,9 @@ export const UNMEASURED_SIZE_SOURCE: SizeSource = 'default';
 
 export const SIZE_SOURCE_LABELS: Record<SizeSource, string> = {
   measured: 'measured',
+  download: 'download size',
   estimated: 'estimated',
+  capped_default: 'media ceiling',
   default: 'not measured',
 };
 
@@ -219,7 +221,7 @@ export class CollectionsComponent implements OnInit {
     switch (resolved.mode) {
       case 'viewer':
         this.viewerDefinitions.set(resolved.definitions);
-        this.loadViewerFollowedIds();
+        this.viewerFollowedIds.set(new Set(resolved.followedIds));
         return;
       case 'viewer-forbidden':
         this.viewerForbidden.set(true);
@@ -241,11 +243,7 @@ export class CollectionsComponent implements OnInit {
         this.applyDefinition(resolved.definition);
         this.editName.set(resolved.definition.name);
         this.editDescription.set(resolved.definition.description);
-        const installConsoleId = this.installConsoleId(resolved.definition);
-        if (installConsoleId !== null) {
-          this.hydrateInstalls(installConsoleId);
-          this.hydrateDeviceInstalls(installConsoleId);
-        }
+        this.applyInstalls(resolved.installs);
         return;
       }
       case 'detail-error':
@@ -256,11 +254,16 @@ export class CollectionsComponent implements OnInit {
     }
   }
 
-  private loadViewerFollowedIds(): void {
-    this.curator.listFollowedCollections().subscribe({
-      next: (definitions) => this.viewerFollowedIds.set(new Set(definitions.map((definition) => definition.definition_id))),
-      error: () => undefined,
-    });
+  private applyInstalls(installs: ResolvedInstalls): void {
+    this.installedGameIds.set(new Set(installs.installedGameIds));
+    this.attachedDevices.set(installs.attachedDevices);
+    this.deviceInstalledKeys.set(
+      new Set(
+        installs.deviceInstalls.flatMap((install) =>
+          install.gameIds.map((gameId) => this.deviceInstallKey(install.deviceId, gameId)),
+        ),
+      ),
+    );
   }
 
   protected isFollowingViewerDefinition(definitionId: string): boolean {
@@ -533,51 +536,7 @@ export class CollectionsComponent implements OnInit {
   }
 
   private installConsoleId(definition: DefinitionDetailResponse | null): string | null {
-    if (definition === null) {
-      return null;
-    }
-    const target = definition.install_target_console_id ?? null;
-    if (target !== null) {
-      return target;
-    }
-    return definition.kind === 'capacity_fill' ? (definition.console_id ?? null) : null;
-  }
-
-  private hydrateInstalls(consoleId: string): void {
-    this.installsLoading.set(true);
-    this.curator.getConsoleInstalls(consoleId).subscribe({
-      next: (response) => {
-        this.installsLoading.set(false);
-        this.installedGameIds.set(new Set(response.game_ids));
-      },
-      error: () => {
-        this.installsLoading.set(false);
-      },
-    });
-  }
-
-  private hydrateDeviceInstalls(consoleId: string): void {
-    this.curator.listStorageDevices().subscribe({
-      next: (devices) => {
-        const attached = devices.filter((device) => device.console_id === consoleId);
-        this.attachedDevices.set(attached);
-        for (const device of attached) {
-          this.curator.getStorageDeviceInstalls(device.device_id).subscribe({
-            next: (response) => {
-              this.deviceInstalledKeys.update((keys) => {
-                const next = new Set(keys);
-                for (const gameId of response.game_ids) {
-                  next.add(this.deviceInstallKey(device.device_id, gameId));
-                }
-                return next;
-              });
-            },
-            error: () => undefined,
-          });
-        }
-      },
-      error: () => undefined,
-    });
+    return installConsoleIdFor(definition);
   }
 
   private deviceInstallKey(deviceId: string, gameId: string): string {

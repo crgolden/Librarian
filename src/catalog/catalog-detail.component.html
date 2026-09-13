@@ -27,12 +27,32 @@
         <p class="catalog-meta" id="catalog-detail-progress">Your trophy progress: {{ current.percent_completed }}%</p>
       }
 
+      @if (priceLine(current); as price) {
+        <p class="catalog-meta" id="catalog-detail-price">{{ price }}</p>
+      }
+
       @if (storeUrl(current); as url) {
         <a id="catalog-detail-store-link" [href]="url" target="_blank" rel="noopener noreferrer">
           View on PlayStation Store
         </a>
       }
     </div>
+
+    @if (collections().length > 0) {
+      <section id="catalog-detail-collections" class="card p-6 flex flex-col gap-2 items-start">
+        <h2>In public collections</h2>
+        <ul class="list-none m-0 p-0 flex flex-col gap-2">
+          @for (collection of collections(); track collection.definition_id) {
+            <li>
+              <a [attr.id]="'catalog-detail-collection-' + $index" [routerLink]="['/c', collection.share_slug]">{{
+                collection.name
+              }}</a>
+              <span class="catalog-meta"> · {{ collection.item_count }} titles</span>
+            </li>
+          }
+        </ul>
+      </section>
+    }
 
     @if (current.critical_score !== null) {
       <app-rawg-attribution />

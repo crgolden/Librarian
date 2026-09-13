@@ -548,14 +548,20 @@ that genuinely floats over the page rather than sitting in it.
   by hand, at two different sizes and two different letter-spacings, without ever naming a class the
   primitive check could see.
 - **`.size-source`** — the provenance tag on a packed size: which rung produced the `size_gb` it sits
-  beside. `measured` takes `--color-ok`, `estimated` takes `--color-warn`, and the unmeasured rung takes
-  the base rule's `--color-text-muted` with no modifier of its own. That base is the load-bearing part.
-  Curator seeds estimate bands for PS5 and PS4 only, so every PS3, Vita, PSP, PS2 and PS1 title falls to
-  the unmeasured rung — it is the **majority** case, not an edge one, and painting it `--color-danger`
-  would render most of a catalogue as broken. It is ordinary metadata: the two known rungs are marked,
-  and the unknown one is simply not. The label reads `not measured` rather than the raw `default` the
-  wire carries, and the rung is mirrored onto a `data-size-source` attribute, which is what the two
-  colour variants select on — the class carries the treatment, the attribute carries the value.
+  beside. Curator's ladder has five rungs and they group into three treatments. `measured` and `download`
+  take `--color-ok`: one is a figure somebody measured, the other is Sony's own, and both are facts.
+  `estimated` and `capped_default` take `--color-warn`: a band and a platform media ceiling are both
+  derivations, and a reader deciding whether a fill will fit needs to see that. The bare `default` rung
+  takes the base rule's `--color-text-muted` with no modifier of its own, and **that base is the
+  load-bearing part**. Curator seeds estimate bands for PS5 and PS4 only, so a great many PS3, Vita, PSP,
+  PS2 and PS1 titles fall to the unmeasured rung — it is a common case, not an edge one, and painting it
+  `--color-danger` would render much of a catalogue as broken. It is ordinary metadata: the rungs that
+  carry information are marked, and the absence of information is simply not.
+  Labels read `measured`, `download size`, `estimated`, `media ceiling` and `not measured` rather than the
+  raw wire values, and the rung is mirrored onto a `data-size-source` attribute, which is what the colour
+  variants select on — the class carries the treatment, the attribute carries the value. **A new rung on
+  the wire needs an entry in `SIZE_SOURCE_LABELS` or the label renders `undefined`**, and only the bare
+  `default` rung counts toward the "contribute a real size" prompt.
 - **`.catalog-title` / `.catalog-meta`** — game title and stamped-metadata treatments (see
   Typography). Live in production on the Catalog grid, Collections list, and Library table.
 - **`.catalog-list`** — a list of catalogued entries as a responsive card grid

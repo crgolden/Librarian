@@ -9,7 +9,9 @@ import {
   LibraryGameResponse,
   LibraryPageResponse,
   ProfileLibraryGameResponse,
+  PsPlusRotationSummaryResponse,
   RefreshScheduleResponse,
+  TrophyProgressResponse,
 } from '../curator/curator.models';
 import { AuthService } from '../auth/auth.service';
 
@@ -18,8 +20,9 @@ function okLibrary(
   total = games.length,
   genres: string[] = [],
   schedule: RefreshScheduleResponse | null = null,
+  extras: Partial<Extract<ResolvedLibrary, { status: 'ok' }>> = {},
 ): ResolvedLibrary {
-  return { status: 'ok', games, total, genres, schedule };
+  return { status: 'ok', games, total, genres, schedule, trophyProgress: null, hiddenCount: 0, psPlus: null, ...extras };
 }
 
 function activatedRouteWithSub(sub: string | null, resolved: ResolvedLibrary = okLibrary()): ActivatedRoute {
@@ -1023,6 +1026,202 @@ describe('LibraryComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load your library.');
   });
 
+  describe('the PlayStation Plus rotation summary', () => {
+    const WATCHING_SCHEDULE: RefreshScheduleResponse = {
+      cadence: 'weekly',
+      ps_plus_watch: true,
+      next_run_at: '2026-09-14T12:00:00Z',
+      last_run_at: null,
+      consecutive_failures: 0,
+      paused_reason: null,
+    };
+
+    async function createWithPsPlus(
+      psPlus: PsPlusRotationSummaryResponse | null,
+    ): Promise<ComponentFixture<LibraryComponent>> {
+      configureOwner(okLibrary([FULL_GAME], 1, [], WATCHING_SCHEDULE, { psPlus }));
+      const fixture = TestBed.createComponent(LibraryComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    it('counts what is unclaimed and leaving, and sends the owner to the rotation page', async () => {
+      const fixture = await createWithPsPlus({
+        catalog_walked_at: '2026-09-10T04:00:00Z',
+        unclaimed: 12,
+        leaving: 3,
+      });
+
+      const compiled: HTMLElement = fixture.nativeElement;
+      const summary = compiled.querySelector('#library-ps-plus-summary');
+      expect(summary?.textContent).toContain('12');
+      expect(summary?.textContent).toContain('3');
+      expect(compiled.querySelector('#library-ps-plus-link')?.getAttribute('href')).toBe('/library/ps-plus');
+    });
+
+    it('says the catalog has not been walked rather than reporting zero of everything', async () => {
+      const fixture = await createWithPsPlus({ catalog_walked_at: null, unclaimed: 0, leaving: 0 });
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('#library-ps-plus-summary')?.textContent).toContain(
+        'not been walked',
+      );
+    });
+
+    it('renders no summary at all when the resolver supplied none', async () => {
+      const fixture = await createWithPsPlus(null);
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('#library-ps-plus-summary')).toBeNull();
+    });
+  });
+
+  describe('hiding a game', () => {
+    async function createOwner(resolved: ResolvedLibrary): Promise<ComponentFixture<LibraryComponent>> {
+      configureOwner(resolved);
+      const fixture = TestBed.createComponent(LibraryComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    it('offers no hidden view until something is hidden', async () => {
+      const fixture = await createOwner(okLibrary([FULL_GAME], 1));
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('#library-show-hidden')).toBeNull();
+    });
+
+    it('counts the hidden games on the control that reveals them', async () => {
+      const fixture = await createOwner(okLibrary([FULL_GAME], 1, [], null, { hiddenCount: 4 }));
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('#library-show-hidden')?.textContent).toContain('4');
+    });
+
+    it('hides a row through the hidden route and reloads the list without it', async () => {
+      const fixture = await createOwner(okLibrary([FULL_GAME], 1));
+
+      clickById(fixture.nativeElement, `library-hide-${FULL_GAME.game_id}`);
+      fixture.detectChanges();
+
+      const hide = httpMock.expectOne(`/curator/api/library/${FULL_GAME.game_id}/hidden`);
+      expect(hide.request.method).toBe('PUT');
+      hide.flush(null, { status: 204, statusText: 'No Content' });
+      fixture.detectChanges();
+
+      const reload = httpMock.expectOne((r) => r.url === '/curator/api/library');
+      expect(reload.request.params.get('hidden')).toBeNull();
+      reload.flush({ games: [], total: 0, hidden_count: 1 });
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('#library-show-hidden')?.textContent).toContain('1');
+    });
+
+    it('reports a failed hide against the title it could not hide', async () => {
+      const fixture = await createOwner(okLibrary([FULL_GAME], 1));
+
+      clickById(fixture.nativeElement, `library-hide-${FULL_GAME.game_id}`);
+      fixture.detectChanges();
+      httpMock
+        .expectOne(`/curator/api/library/${FULL_GAME.game_id}/hidden`)
+        .flush(null, { status: 500, statusText: 'Error' });
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain(`Unable to hide ${FULL_GAME.title}`);
+    });
+
+    it('the hidden view asks Curator for the hidden rows only, and offers to show one again', async () => {
+      const fixture = await createOwner(okLibrary([FULL_GAME], 1, [], null, { hiddenCount: 1 }));
+
+      clickById(fixture.nativeElement, 'library-show-hidden');
+      fixture.detectChanges();
+
+      const hiddenOnly = httpMock.expectOne((r) => r.url === '/curator/api/library');
+      expect(hiddenOnly.request.params.get('hidden')).toBe('only');
+      expect(hiddenOnly.request.params.get('offset')).toBe('0');
+      hiddenOnly.flush(page([FULL_GAME], 1));
+      fixture.detectChanges();
+
+      const compiled: HTMLElement = fixture.nativeElement;
+      expect(compiled.querySelector(`#library-unhide-${FULL_GAME.game_id}`)).not.toBeNull();
+      expect(compiled.querySelector(`#library-hide-${FULL_GAME.game_id}`)).toBeNull();
+
+      clickById(compiled, `library-unhide-${FULL_GAME.game_id}`);
+      fixture.detectChanges();
+
+      const unhide = httpMock.expectOne(`/curator/api/library/${FULL_GAME.game_id}/hidden`);
+      expect(unhide.request.method).toBe('DELETE');
+      unhide.flush(null, { status: 204, statusText: 'No Content' });
+      fixture.detectChanges();
+      httpMock.expectOne((r) => r.url === '/curator/api/library').flush({ games: [], total: 0, hidden_count: 0 });
+      fixture.detectChanges();
+    });
+
+    it('says nothing is hidden, rather than inviting a refresh the way an empty library does', async () => {
+      const fixture = await createOwner(okLibrary([FULL_GAME], 1, [], null, { hiddenCount: 1 }));
+
+      clickById(fixture.nativeElement, 'library-show-hidden');
+      fixture.detectChanges();
+      httpMock
+        .expectOne((r) => r.url === '/curator/api/library')
+        .flush({ games: [], total: 0, hidden_count: 0 });
+      fixture.detectChanges();
+
+      const compiled: HTMLElement = fixture.nativeElement;
+      expect(compiled.querySelector('#library-hidden-empty')).not.toBeNull();
+      expect(compiled.querySelector('#library-empty')).toBeNull();
+    });
+
+  });
+
+  describe('trophy progress in owner mode', () => {
+    async function createOwner(
+      trophyProgress: TrophyProgressResponse | null,
+      games: LibraryGameResponse[] = [FULL_GAME],
+    ): Promise<ComponentFixture<LibraryComponent>> {
+      configureOwner(okLibrary(games, games.length, [], null, { trophyProgress }));
+      const fixture = TestBed.createComponent(LibraryComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    it('offers the trophy setting from the column header when harvesting is off', async () => {
+      const fixture = await createOwner({ state: 'off', reason: 'harvest_off' });
+
+      const link = (fixture.nativeElement as HTMLElement).querySelector('#library-header-percent_completed-link');
+      expect(link?.getAttribute('href')).toBe('/account#pref-trophies');
+    });
+
+    it('offers no such link once trophies are being harvested', async () => {
+      const fixture = await createOwner({ state: 'on', reason: null });
+
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('#library-header-percent_completed-link'),
+      ).toBeNull();
+    });
+
+    it('explains an empty column by the reason Curator gave, not by a generic dash', async () => {
+      const fixture = await createOwner({ state: 'off', reason: 'no_link' }, [
+        { ...FULL_GAME, percent_completed: null },
+      ]);
+
+      const cell = (fixture.nativeElement as HTMLElement).querySelector('td[data-label="% Completed"]');
+      expect(cell?.textContent?.trim()).toBe('—');
+      expect(cell?.getAttribute('title')).toContain('PlayStation Network');
+    });
+
+    it('says a refresh has not matched this title yet when only that row is unmatched', async () => {
+      const fixture = await createOwner({ state: 'on', reason: null }, [
+        { ...FULL_GAME, percent_completed: null, trophy_match: 'unmatched' },
+      ]);
+
+      const cell = (fixture.nativeElement as HTMLElement).querySelector('td[data-label="% Completed"]');
+      expect(cell?.getAttribute('title')).toContain('match');
+    });
+  });
+
   describe('viewer mode', () => {
     function configureForViewer(routeSub: string, ownSub: string | null, resolved: ResolvedLibrary = okLibrary()): void {
       TestBed.resetTestingModule();
@@ -1137,6 +1336,23 @@ describe('LibraryComponent', () => {
       fixture.detectChanges();
 
       expect(compiled.querySelector('#library-forbidden')?.textContent).toContain('keeps their library private');
+    });
+
+    it('offers no hide control and no hidden view on another user\'s library', async () => {
+      configureForViewer('other-sub', null, okLibrary([FULL_GAME], 1, [], null, { hiddenCount: 3 }));
+
+      const fixture = TestBed.createComponent(LibraryComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const compiled: HTMLElement = fixture.nativeElement;
+      expect(compiled.querySelector(`#library-hide-${FULL_GAME.game_id}`)).toBeNull();
+      expect(
+        compiled.querySelector('#library-show-hidden'),
+        'hidden_count is the owner\'s own figure; offering a viewer the hidden view would ask Curator for '
+          + 'rows it will refuse and tell the viewer how many titles the owner has hidden',
+      ).toBeNull();
     });
 
     it('shows a generic error message when the resolver reports a non-403 failure', async () => {

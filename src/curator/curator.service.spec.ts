@@ -157,6 +157,67 @@ describe('CuratorService', () => {
     req.flush({ rawg_configured: false, opencritic_configured: false, rawg_added_at: null, opencritic_added_at: null });
   });
 
+  it('getPsnPreferences gets the caller\'s own harvest preferences', () => {
+    service.getPsnPreferences().subscribe();
+
+    const req = httpMock.expectOne('/curator/api/me/psn-preferences');
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      harvest_trophies: false,
+      harvest_identity: false,
+      harvest_presence: false,
+      harvest_devices: false,
+      allow_friend_writes: false,
+      allow_chat_writes: false,
+    });
+  });
+
+  it('getTrophySummary gets the trophy summary', () => {
+    service.getTrophySummary().subscribe();
+
+    const req = httpMock.expectOne('/curator/api/trophies/summary');
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      level: 1,
+      progress: 0,
+      tier: 1,
+      earned: { bronze: 0, silver: 0, gold: 0, platinum: 0 },
+      account_id: null,
+    });
+  });
+
+  it('getIdentity gets the PSN identity', () => {
+    service.getIdentity().subscribe();
+
+    const req = httpMock.expectOne('/curator/api/identity');
+    expect(req.request.method).toBe('GET');
+    req.flush({ account_id: 'acct-1', online_id: 'gamer', region: null });
+  });
+
+  it('getFriendRequests gets the requests waiting on the caller', () => {
+    service.getFriendRequests().subscribe();
+
+    const req = httpMock.expectOne('/curator/api/me/friend-requests');
+    expect(req.request.method).toBe('GET');
+    req.flush({ requests: [] });
+  });
+
+  it('getPresence gets the online presence', () => {
+    service.getPresence().subscribe();
+
+    const req = httpMock.expectOne('/curator/api/presence');
+    expect(req.request.method).toBe('GET');
+    req.flush({ online_status: 'offline', platform: null, last_online_date: null, game_title: null });
+  });
+
+  it('getDevices gets the registered devices', () => {
+    service.getDevices().subscribe();
+
+    const req = httpMock.expectOne('/curator/api/devices');
+    expect(req.request.method).toBe('GET');
+    req.flush({ devices: [] });
+  });
+
   it('setRawgKey puts the api_key body', () => {
     service.setRawgKey('my-key').subscribe();
 

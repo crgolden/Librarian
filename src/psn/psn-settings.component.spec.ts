@@ -3,7 +3,7 @@ import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ActivatedRoute } from '@angular/router';
 import { PsnSettingsComponent } from './psn-settings.component';
-import { PsnStatus } from './psn-status.resolver';
+import { PsnStatus, ResolvedPsnStatus } from './psn-status.resolver';
 import { PsnPreferencesResponse } from '../curator/curator.models';
 import { MeService } from '../curator/me.service';
 
@@ -35,11 +35,11 @@ const VALID_NPSSO = 'a'.repeat(64);
 
 describe('PsnSettingsComponent', () => {
   let httpMock: HttpTestingController;
-  let routeSnapshotData: { status: MeResponse | null };
+  let routeSnapshotData: { status: ResolvedPsnStatus };
   let invalidateMe: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    routeSnapshotData = { status: null };
+    routeSnapshotData = { status: resolved() };
     invalidateMe = vi.fn();
     TestBed.configureTestingModule({
       imports: [PsnSettingsComponent],
@@ -71,23 +71,53 @@ describe('PsnSettingsComponent', () => {
     opencritic_configured: false,
     rawg_added_at: null,
     opencritic_added_at: null,
+    rawg_key_rejected_at: null,
+    opencritic_key_rejected_at: null,
   };
 
-  function createAndLoad(response: MeResponse | null): ComponentFixture<PsnSettingsComponent> {
-    routeSnapshotData.status = response;
+  const NO_FRIEND_REQUESTS: { requests: { online_id: string | null; account_id: string }[] } = { requests: [] };
+
+  const IDENTITY_ONLY = {
+    harvest_trophies: false,
+    harvest_identity: true,
+    harvest_presence: false,
+    harvest_devices: false,
+    allow_friend_writes: false,
+    allow_chat_writes: false,
+  };
+
+  const PSN_IDENTITY = { account_id: 'acct-1', online_id: 'gamer', region: 'US' };
+  const PSN_PRESENCE = { online_status: 'online', platform: 'PS5', last_online_date: null, game_title: null };
+  const NO_DEVICES = { devices: [] };
+
+  function resolved(overrides: Partial<ResolvedPsnStatus> = {}): ResolvedPsnStatus {
+    return {
+      status: { sub: 'u1', email: null, linked: false, psn: null },
+      enrichmentKeys: NO_ENRICHMENT_KEYS,
+      schedule: null,
+      preferences: null,
+      trophySummary: null,
+      identity: null,
+      friendRequests: null,
+      presence: null,
+      devices: null,
+      consoles: [],
+      ...overrides,
+    };
+  }
+
+  function createWith(overrides: Partial<ResolvedPsnStatus> = {}): ComponentFixture<PsnSettingsComponent> {
+    routeSnapshotData.status = resolved(overrides);
     const fixture = TestBed.createComponent(PsnSettingsComponent);
     fixture.detectChanges();
-    if (response !== null) {
-      if (response.linked) {
-        httpMock.expectOne('/curator/api/me/psn-preferences').flush(ALL_PREFS_OFF);
-      }
-      httpMock.expectOne('/curator/api/me/enrichment-keys').flush(NO_ENRICHMENT_KEYS);
-      httpMock
-        .expectOne('/curator/api/me/refresh-schedule')
-        .flush(null, { status: 404, statusText: 'Not Found' });
-      fixture.detectChanges();
-    }
     return fixture;
+  }
+
+  function createAndLoad(response: MeResponse | null): ComponentFixture<PsnSettingsComponent> {
+    if (response === null) {
+      return createWith({ status: null });
+    }
+    return createWith({ status: response, preferences: response.linked ? ALL_PREFS_OFF : null });
   }
 
   it('treats a 404 refresh-schedule as "not opted in yet", not as an error on the page', () => {
@@ -130,24 +160,21 @@ describe('PsnSettingsComponent', () => {
     const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
 
     expect((fixture.nativeElement as HTMLElement).querySelector('#pref-trophies')).toBeNull();
-    httpMock.expectNone('/curator/api/me/psn-preferences');
   });
 
   it('shows the stored cadence and next run, and offers a cancel, once a schedule exists', () => {
-    routeSnapshotData.status = { sub: 'u1', email: null, linked: true, psn: null };
-    const fixture = TestBed.createComponent(PsnSettingsComponent);
-    fixture.detectChanges();
-    httpMock.expectOne('/curator/api/me/psn-preferences').flush(ALL_PREFS_OFF);
-    httpMock.expectOne('/curator/api/me/enrichment-keys').flush(NO_ENRICHMENT_KEYS);
-    httpMock.expectOne('/curator/api/me/refresh-schedule').flush({
-      cadence: 'monthly',
-      ps_plus_watch: true,
-      next_run_at: '2026-09-21T00:00:00Z',
-      last_run_at: '2026-08-21T00:00:00Z',
-      consecutive_failures: 0,
-      paused_reason: null,
+    const fixture = createWith({
+      status: { sub: 'u1', email: null, linked: true, psn: null },
+      preferences: ALL_PREFS_OFF,
+      schedule: {
+        cadence: 'monthly',
+        ps_plus_watch: true,
+        next_run_at: '2026-09-21T00:00:00Z',
+        last_run_at: '2026-08-21T00:00:00Z',
+        consecutive_failures: 0,
+        paused_reason: null,
+      },
     });
-    fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.querySelector('#schedule-next-run')).not.toBeNull();
@@ -157,20 +184,18 @@ describe('PsnSettingsComponent', () => {
   });
 
   it('explains a paused chain in terms of the remedy, rather than echoing the stored reason', () => {
-    routeSnapshotData.status = { sub: 'u1', email: null, linked: true, psn: null };
-    const fixture = TestBed.createComponent(PsnSettingsComponent);
-    fixture.detectChanges();
-    httpMock.expectOne('/curator/api/me/psn-preferences').flush(ALL_PREFS_OFF);
-    httpMock.expectOne('/curator/api/me/enrichment-keys').flush(NO_ENRICHMENT_KEYS);
-    httpMock.expectOne('/curator/api/me/refresh-schedule').flush({
-      cadence: 'weekly',
-      ps_plus_watch: false,
-      next_run_at: '2026-09-01T00:00:00Z',
-      last_run_at: null,
-      consecutive_failures: 3,
-      paused_reason: 'psn-link-expired',
+    const fixture = createWith({
+      status: { sub: 'u1', email: null, linked: true, psn: null },
+      preferences: ALL_PREFS_OFF,
+      schedule: {
+        cadence: 'weekly',
+        ps_plus_watch: false,
+        next_run_at: '2026-09-01T00:00:00Z',
+        last_run_at: null,
+        consecutive_failures: 3,
+        paused_reason: 'psn-link-expired',
+      },
     });
-    fixture.detectChanges();
 
     const paused = (fixture.nativeElement as HTMLElement).querySelector('#schedule-paused');
     expect(paused?.textContent).toContain('Re-link');
@@ -565,48 +590,25 @@ describe('PsnSettingsComponent', () => {
 
   function createLinkedWithPreferences(
     prefs: Record<keyof PsnPreferencesResponse, boolean>,
+    friendRequests: { requests: { online_id: string | null; account_id: string }[] } = NO_FRIEND_REQUESTS,
   ): ComponentFixture<PsnSettingsComponent> {
-    routeSnapshotData.status = LINKED_STATUS;
-    const fixture = TestBed.createComponent(PsnSettingsComponent);
-    fixture.detectChanges();
-
-    httpMock.expectOne('/curator/api/me/psn-preferences').flush(prefs);
-    httpMock.expectOne('/curator/api/me/enrichment-keys').flush(NO_ENRICHMENT_KEYS);
-    httpMock
-      .expectOne('/curator/api/me/refresh-schedule')
-      .flush(null, { status: 404, statusText: 'Not Found' });
-    fixture.detectChanges();
-
-    if (prefs.harvest_trophies) {
-      httpMock.expectOne('/curator/api/trophies/summary').flush(TROPHY_SUMMARY);
-    }
-    if (prefs.harvest_identity) {
-      httpMock.expectOne('/curator/api/identity').flush({ account_id: 'acct-1', online_id: 'gamer', region: 'US' });
-    }
-    if (prefs.harvest_presence) {
-      httpMock
-        .expectOne('/curator/api/presence')
-        .flush({ online_status: 'online', platform: 'PS5', last_online_date: null, game_title: null });
-    }
-    if (prefs.harvest_devices) {
-      httpMock.expectOne('/curator/api/devices').flush({ devices: [] });
-      httpMock.expectOne('/curator/api/consoles').flush([]);
-    }
-    fixture.detectChanges();
-
-    return fixture;
+    return createWith({
+      status: LINKED_STATUS,
+      preferences: prefs,
+      trophySummary: prefs.harvest_trophies ? TROPHY_SUMMARY : null,
+      identity: prefs.harvest_identity ? PSN_IDENTITY : null,
+      friendRequests: prefs.harvest_identity ? friendRequests.requests : null,
+      presence: prefs.harvest_presence ? PSN_PRESENCE : null,
+      devices: prefs.harvest_devices ? NO_DEVICES : null,
+    });
   }
 
-  it('fires the preferences GET only after the linked status resolves, and no per-category GET when all flags are off', () => {
+  it('renders the harvest panel with no category card when every flag is off', () => {
     const fixture = createAndLoad(LINKED_STATUS);
     const compiled: HTMLElement = fixture.nativeElement;
 
     expect(compiled.querySelector('.psn-preferences')).not.toBeNull();
     expect(compiled.querySelectorAll('.psn-category-card').length).toBe(0);
-    httpMock.expectNone('/curator/api/trophies/summary');
-    httpMock.expectNone('/curator/api/identity');
-    httpMock.expectNone('/curator/api/presence');
-    httpMock.expectNone('/curator/api/devices');
   });
 
   it('shows the profile-settings cross-reference copy near the harvest toggles, linking to /profile/settings', () => {
@@ -635,12 +637,7 @@ describe('PsnSettingsComponent', () => {
     expect(compiled.textContent?.toLowerCase()).not.toContain('region');
   });
 
-  it('does not fire a preferences GET when the account is not linked', () => {
-    createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
-    httpMock.expectNone('/curator/api/me/psn-preferences');
-  });
-
-  it('fires a per-category GET only for the flags that are enabled on initial load', () => {
+  it('renders a card for each category the resolver supplied, and none for the rest', () => {
     const fixture = createLinkedWithPreferences({
       harvest_trophies: true,
       harvest_identity: false,
@@ -654,8 +651,6 @@ describe('PsnSettingsComponent', () => {
     expect(compiled.querySelectorAll('.psn-category-card').length).toBe(2);
     expect(compiled.textContent).toContain('Level 42');
     expect(compiled.textContent).toContain('online');
-    httpMock.expectNone('/curator/api/identity');
-    httpMock.expectNone('/curator/api/devices');
   });
 
   it('onToggle sends a PUT with all current preference flags, not just the one being changed', () => {
@@ -842,6 +837,110 @@ describe('PsnSettingsComponent', () => {
     httpMock.expectNone('/curator/api/trophies/summary');
   });
 
+  it('renders no friend-requests list while identity harvesting is off', () => {
+    const fixture = createAndLoad(LINKED_STATUS);
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('#friend-requests')).toBeNull();
+  });
+
+  it('says nobody is waiting rather than rendering an empty list', () => {
+    const fixture = createLinkedWithPreferences(IDENTITY_ONLY);
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    expect(compiled.querySelector('#friend-requests')).not.toBeNull();
+    expect(compiled.querySelector('#friend-requests-empty')).not.toBeNull();
+    expect(compiled.querySelector('#friend-request-accept-0')).toBeNull();
+  });
+
+  it('names a requester by their online id, falling back to the account id PSN disclosed', () => {
+    const fixture = createLinkedWithPreferences(IDENTITY_ONLY, {
+      requests: [
+        { online_id: 'waiting_gamer', account_id: 'acct-9' },
+        { online_id: null, account_id: 'acct-10' },
+      ],
+    });
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    expect(compiled.querySelector('#friend-request-0')?.textContent).toContain('waiting_gamer');
+    expect(compiled.querySelector('#friend-request-1')?.textContent).toContain('acct-10');
+    expect(
+      compiled.querySelector('#friend-request-accept-1'),
+      'PSN takes an online id to accept, so a request with none has nothing to send and must offer no button',
+    ).toBeNull();
+  });
+
+  it('withholds the accept control until the friend-writes consent is given', () => {
+    const fixture = createLinkedWithPreferences(IDENTITY_ONLY, {
+      requests: [{ online_id: 'waiting_gamer', account_id: 'acct-9' }],
+    });
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    expect(compiled.querySelector<HTMLButtonElement>('#friend-request-accept-0')?.disabled).toBe(true);
+    expect(compiled.querySelector('#friend-requests-consent')).not.toBeNull();
+  });
+
+  it('accepts a request through the friends route and drops it from the list', () => {
+    const fixture = createLinkedWithPreferences(
+      { ...IDENTITY_ONLY, allow_friend_writes: true },
+      { requests: [{ online_id: 'waiting_gamer', account_id: 'acct-9' }] },
+    );
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    compiled.querySelector<HTMLButtonElement>('#friend-request-accept-0')?.click();
+    fixture.detectChanges();
+
+    const accept = httpMock.expectOne('/curator/api/me/friends/waiting_gamer');
+    expect(accept.request.method).toBe('PUT');
+    accept.flush(null, { status: 204, statusText: 'No Content' });
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('#friend-request-accepted')?.textContent).toContain('waiting_gamer');
+    expect(compiled.querySelector('#friend-request-accept-0')).toBeNull();
+    expect(compiled.querySelector('#friend-requests-empty')).not.toBeNull();
+  });
+
+  it('keeps a request that could not be accepted, and says which one failed', () => {
+    const fixture = createLinkedWithPreferences(
+      { ...IDENTITY_ONLY, allow_friend_writes: true },
+      { requests: [{ online_id: 'waiting_gamer', account_id: 'acct-9' }] },
+    );
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    compiled.querySelector<HTMLButtonElement>('#friend-request-accept-0')?.click();
+    fixture.detectChanges();
+    httpMock.expectOne('/curator/api/me/friends/waiting_gamer').flush(null, { status: 500, statusText: 'Error' });
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('#friend-requests-error')?.textContent).toContain('waiting_gamer');
+    expect(compiled.querySelector('#friend-request-accept-0')).not.toBeNull();
+  });
+
+  it('the post-link card states what each data-sharing toggle is currently set to', () => {
+    const fixture = createAndLoad({ sub: 'u1', email: null, linked: false, psn: null });
+    const h = harness(fixture);
+    h.npsso.set(VALID_NPSSO);
+
+    h.link();
+    fixture.detectChanges();
+    httpMock.expectOne('/curator/api/psn/link').flush({});
+    httpMock.expectOne('/curator/api/me').flush({ sub: 'u1', email: null, linked: true, psn: null });
+    fixture.detectChanges();
+    httpMock.expectOne('/curator/api/me/psn-preferences').flush({ ...ALL_PREFS_OFF, harvest_trophies: true });
+    fixture.detectChanges();
+    httpMock.expectOne('/curator/api/trophies/summary').flush(TROPHY_SUMMARY);
+    fixture.detectChanges();
+
+    const card = (fixture.nativeElement as HTMLElement).querySelector('#psn-link-success');
+    expect(
+      card,
+      'linking reads nothing on its own, so the success card is where a new user learns that every '
+        + 'harvest is still off and where it is turned on',
+    ).not.toBeNull();
+    expect(card?.querySelector('#psn-link-success-trophies')?.textContent).toContain('on');
+    expect(card?.querySelector('#psn-link-success-identity')?.textContent).toContain('off');
+    expect(card?.querySelector('#psn-link-success-devices')?.textContent).toContain('off');
+  });
+
   it('the loading overlay is visible during linking, unlinking, and a preference save, and hidden otherwise', () => {
     const fixture = createLinkedWithPreferences({
       harvest_trophies: false,
@@ -890,26 +989,19 @@ describe('PsnSettingsComponent', () => {
         opencritic_key_rejected_at: string | null;
       }>,
     ): ComponentFixture<PsnSettingsComponent> {
-      routeSnapshotData.status = LINKED_STATUS;
-      const fixture = TestBed.createComponent(PsnSettingsComponent);
-      fixture.detectChanges();
-
-      httpMock.expectOne('/curator/api/me/psn-preferences').flush(ALL_PREFS_OFF);
-      httpMock.expectOne('/curator/api/me/enrichment-keys').flush({
-        rawg_configured: false,
-        opencritic_configured: false,
-        rawg_added_at: null,
-        opencritic_added_at: null,
-        rawg_key_rejected_at: null,
-        opencritic_key_rejected_at: null,
-        ...status,
+      return createWith({
+        status: LINKED_STATUS,
+        preferences: ALL_PREFS_OFF,
+        enrichmentKeys: {
+          rawg_configured: false,
+          opencritic_configured: false,
+          rawg_added_at: null,
+          opencritic_added_at: null,
+          rawg_key_rejected_at: null,
+          opencritic_key_rejected_at: null,
+          ...status,
+        },
       });
-      httpMock
-        .expectOne('/curator/api/me/refresh-schedule')
-        .flush(null, { status: 404, statusText: 'Not Found' });
-      fixture.detectChanges();
-
-      return fixture;
     }
 
     it('shows both providers as not configured, with input forms, when neither key is set', () => {

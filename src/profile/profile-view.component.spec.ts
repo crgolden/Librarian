@@ -6,7 +6,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { AuthService } from '../auth/auth.service';
 import { ProfileViewComponent } from './profile-view.component';
 import { ResolvedProfile } from './profile.resolver';
-import { PublicProfileResponse } from '../curator/curator.models';
+import { PsnPreferencesResponse, PublicProfileResponse } from '../curator/curator.models';
 
 function activatedRoute(sub: string | null, resolved: ResolvedProfile): ActivatedRoute {
   return {
@@ -35,6 +35,18 @@ function profile(overrides: Partial<PublicProfileResponse> = {}): PublicProfileR
     collections_count: null,
     trophies_hidden_by_owner_setting: false,
     profile_links: [],
+    ...overrides,
+  };
+}
+
+function viewerPreferences(overrides: Partial<PsnPreferencesResponse> = {}): PsnPreferencesResponse {
+  return {
+    harvest_trophies: false,
+    harvest_identity: true,
+    harvest_presence: false,
+    harvest_devices: false,
+    allow_friend_writes: false,
+    allow_chat_writes: false,
     ...overrides,
   };
 }
@@ -69,8 +81,12 @@ describe('ProfileViewComponent', () => {
     httpMock.verify();
   });
 
-  function createAndLoad(routeSub: string | null, response: PublicProfileResponse): ComponentFixture<ProfileViewComponent> {
-    configure(routeSub, { status: 'ok', profile: response });
+  function createAndLoad(
+    routeSub: string | null,
+    response: PublicProfileResponse,
+    prefs: PsnPreferencesResponse | null = null,
+  ): ComponentFixture<ProfileViewComponent> {
+    configure(routeSub, { status: 'ok', profile: response, viewerPreferences: prefs });
     const fixture = TestBed.createComponent(ProfileViewComponent);
     fixture.detectChanges();
     return fixture;
@@ -101,7 +117,7 @@ describe('ProfileViewComponent', () => {
     response: PublicProfileResponse,
     picture: string | null,
   ): ComponentFixture<ProfileViewComponent> {
-    configure(routeSub, { status: 'ok', profile: response }, picture);
+    configure(routeSub, { status: 'ok', profile: response, viewerPreferences: null }, picture);
     const fixture = TestBed.createComponent(ProfileViewComponent);
     fixture.detectChanges();
     return fixture;
@@ -366,6 +382,87 @@ describe('ProfileViewComponent', () => {
 
     expect(compiled.textContent).toContain('Unable to follow this user.');
     expect(statValue(compiled, 'followers')).toBe('5');
+  });
+
+  const disclosedProfile = () =>
+    profile({ psn_account_id: 'psn-account-other', identity: { online_id: 'other_gamer' } });
+
+  it('offers to add a disclosed PSN identity as a friend only when the viewer allows friend writes', () => {
+    const allowed = createAndLoad('other-sub', disclosedProfile(), viewerPreferences({ allow_friend_writes: true }));
+    expect((allowed.nativeElement as HTMLElement).querySelector('#profile-add-psn-friend')).not.toBeNull();
+
+    const withheld = createAndLoad('other-sub', disclosedProfile(), viewerPreferences({ allow_friend_writes: false }));
+    expect((withheld.nativeElement as HTMLElement).querySelector('#profile-add-psn-friend')).toBeNull();
+
+    const unknown = createAndLoad('other-sub', disclosedProfile(), null);
+    expect((unknown.nativeElement as HTMLElement).querySelector('#profile-add-psn-friend')).toBeNull();
+  });
+
+  it('never offers a friend request for an undisclosed identity or on your own profile', () => {
+    const undisclosed = createAndLoad(
+      'other-sub',
+      profile({ psn_account_id: 'psn-account-other', identity: null }),
+      viewerPreferences({ allow_friend_writes: true }),
+    );
+    expect((undisclosed.nativeElement as HTMLElement).querySelector('#profile-add-psn-friend')).toBeNull();
+
+    const own = createAndLoad(
+      null,
+      profile({ viewer_is_owner: true, identity: { online_id: 'me_gamer' } }),
+      viewerPreferences({ allow_friend_writes: true }),
+    );
+    expect((own.nativeElement as HTMLElement).querySelector('#profile-add-psn-friend')).toBeNull();
+  });
+
+  it('sends the friend request only after a second confirming click, and reports it', () => {
+    const fixture = createAndLoad('other-sub', disclosedProfile(), viewerPreferences({ allow_friend_writes: true }));
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    compiled.querySelector<HTMLButtonElement>('#profile-add-psn-friend')?.click();
+    fixture.detectChanges();
+    httpMock.expectNone((r) => r.url.includes('/friend-requests/'));
+    expect(compiled.querySelector('#profile-add-psn-friend-confirm')).not.toBeNull();
+
+    compiled.querySelector<HTMLButtonElement>('#profile-add-psn-friend-confirm')?.click();
+    fixture.detectChanges();
+
+    const req = httpMock.expectOne('/curator/api/me/friend-requests/other_gamer');
+    expect(req.request.method).toBe('POST');
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('#profile-add-psn-friend-sent')?.textContent).toContain('other_gamer');
+    expect(compiled.querySelector('#profile-add-psn-friend')).toBeNull();
+  });
+
+  it('cancelling the confirmation sends nothing and restores the offer', () => {
+    const fixture = createAndLoad('other-sub', disclosedProfile(), viewerPreferences({ allow_friend_writes: true }));
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    compiled.querySelector<HTMLButtonElement>('#profile-add-psn-friend')?.click();
+    fixture.detectChanges();
+    compiled.querySelector<HTMLButtonElement>('#profile-add-psn-friend-cancel')?.click();
+    fixture.detectChanges();
+
+    httpMock.expectNone((r) => r.url.includes('/friend-requests/'));
+    expect(compiled.querySelector('#profile-add-psn-friend')).not.toBeNull();
+  });
+
+  it('reports a failed friend request and keeps the confirmation open', () => {
+    const fixture = createAndLoad('other-sub', disclosedProfile(), viewerPreferences({ allow_friend_writes: true }));
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    compiled.querySelector<HTMLButtonElement>('#profile-add-psn-friend')?.click();
+    fixture.detectChanges();
+    compiled.querySelector<HTMLButtonElement>('#profile-add-psn-friend-confirm')?.click();
+    fixture.detectChanges();
+    httpMock
+      .expectOne('/curator/api/me/friend-requests/other_gamer')
+      .flush(null, { status: 500, statusText: 'Error' });
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('#profile-add-psn-friend-error')?.textContent).toContain('Unable to send');
+    expect(compiled.querySelector('#profile-add-psn-friend-confirm')).not.toBeNull();
   });
 
   it('shows an error message when the resolver could not load the profile', () => {

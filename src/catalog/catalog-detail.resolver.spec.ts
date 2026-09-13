@@ -4,7 +4,15 @@ import { ActivatedRouteSnapshot } from '@angular/router';
 import { Observable, throwError, of } from 'rxjs';
 import { catalogDetailResolver, ResolvedCatalogGame } from './catalog-detail.resolver';
 import { CuratorService } from '../curator/curator.service';
-import { GameSummaryResponse } from '../curator/curator.models';
+import { GameSummaryResponse, PublicCollectionSummaryResponse } from '../curator/curator.models';
+
+const PUBLIC_COLLECTION: PublicCollectionSummaryResponse = {
+  definition_id: 'd1',
+  name: 'Weekend picks',
+  share_slug: 'weekend-picks',
+  item_count: 3,
+  updated_at: '2026-09-01T00:00:00Z',
+};
 
 const GAME: GameSummaryResponse = {
   game_id: 'g1',
@@ -34,15 +42,30 @@ function resolve(curator: Partial<CuratorService>, gameId: string | null): Promi
 }
 
 describe('catalogDetailResolver', () => {
-  it('resolves the game the route asked for', async () => {
-    const result = await resolve({ getCatalogGame: () => of(GAME) }, 'g1');
+  const publicCollections = () => of({ collections: [PUBLIC_COLLECTION], total: 1 });
 
-    expect(result).toEqual({ status: 'ok', game: GAME });
+  it('resolves the game the route asked for, with the public collections that hold it', async () => {
+    const result = await resolve({ getCatalogGame: () => of(GAME), getCatalogGameCollections: publicCollections }, 'g1');
+
+    expect(result).toEqual({ status: 'ok', game: GAME, collections: [PUBLIC_COLLECTION] });
+  });
+
+  it('degrades a failed collections lookup to none rather than failing the game page', async () => {
+    const result = await resolve(
+      {
+        getCatalogGame: () => of(GAME),
+        getCatalogGameCollections: () => throwError(() => new HttpErrorResponse({ status: 500 })),
+      },
+      'g1',
+    );
+
+    expect(result).toEqual({ status: 'ok', game: GAME, collections: [] });
   });
 
   it('reports not-found for a 404 rather than surfacing an error page', async () => {
     const curator = {
       getCatalogGame: () => throwError(() => new HttpErrorResponse({ status: 404 })),
+      getCatalogGameCollections: publicCollections,
     };
 
     const result = await resolve(curator, 'missing');
@@ -53,6 +76,7 @@ describe('catalogDetailResolver', () => {
   it('distinguishes a failed load from an unknown id', async () => {
     const curator = {
       getCatalogGame: () => throwError(() => new HttpErrorResponse({ status: 500 })),
+      getCatalogGameCollections: publicCollections,
     };
 
     const result = await resolve(curator, 'g1');
@@ -67,6 +91,7 @@ describe('catalogDetailResolver', () => {
         called = true;
         return of(GAME);
       },
+      getCatalogGameCollections: publicCollections,
     };
 
     const result = await resolve(curator, null);

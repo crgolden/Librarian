@@ -52,6 +52,12 @@ export class ProfileViewComponent implements OnInit {
   protected readonly followBusy = signal(false);
   protected readonly followError = signal<string | null>(null);
 
+  protected readonly viewerMayAddFriend = signal(false);
+  protected readonly confirmingFriendRequest = signal(false);
+  protected readonly friendRequestBusy = signal(false);
+  protected readonly friendRequestSent = signal(false);
+  protected readonly friendRequestError = signal<string | null>(null);
+
   protected readonly followersLink = signal<string[]>(['/profile', 'followers']);
   protected readonly followingLink = signal<string[]>(['/profile', 'following']);
   protected readonly libraryLink = signal<string[]>(['/library']);
@@ -79,6 +85,40 @@ export class ProfileViewComponent implements OnInit {
     }
 
     this.profile.set(resolved.profile);
+    this.viewerMayAddFriend.set(
+      !resolved.profile.viewer_is_owner &&
+        resolved.profile.identity?.online_id !== undefined &&
+        resolved.viewerPreferences?.allow_friend_writes === true,
+    );
+  }
+
+  protected startFriendRequest(): void {
+    this.confirmingFriendRequest.set(true);
+    this.friendRequestError.set(null);
+  }
+
+  protected cancelFriendRequest(): void {
+    this.confirmingFriendRequest.set(false);
+  }
+
+  protected sendFriendRequest(): void {
+    const onlineId = this.profile()?.identity?.online_id;
+    if (onlineId === undefined) {
+      return;
+    }
+    this.friendRequestBusy.set(true);
+    this.friendRequestError.set(null);
+    this.curator.sendFriendRequest(onlineId).subscribe({
+      next: () => {
+        this.friendRequestBusy.set(false);
+        this.confirmingFriendRequest.set(false);
+        this.friendRequestSent.set(true);
+      },
+      error: () => {
+        this.friendRequestBusy.set(false);
+        this.friendRequestError.set('Unable to send a friend request.');
+      },
+    });
   }
 
   protected displayName(profile: PublicProfileResponse): string {

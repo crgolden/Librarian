@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { GameSummaryResponse } from '../curator/curator.models';
+import { GameSummaryResponse, PublicCollectionSummaryResponse } from '../curator/curator.models';
 import { RawgAttributionComponent } from '../app/shared/attribution/rawg-attribution.component';
 import { ResolvedCatalogGame } from './catalog-detail.resolver';
-
-const PS_STORE_PRODUCT_BASE = 'https://store.playstation.com/product/';
+import { priceLine } from './catalog.component';
+import { storeProductUrl } from './store-links';
 
 @Component({
   selector: 'app-catalog-detail',
@@ -19,6 +19,7 @@ export class CatalogDetailComponent implements OnInit {
   private readonly meta = inject(Meta);
 
   protected readonly game = signal<GameSummaryResponse | null>(null);
+  protected readonly collections = signal<PublicCollectionSummaryResponse[]>([]);
   protected readonly notFound = signal(false);
   protected readonly error = signal<string | null>(null);
 
@@ -36,6 +37,7 @@ export class CatalogDetailComponent implements OnInit {
     }
 
     this.game.set(resolved.game);
+    this.collections.set(resolved.collections);
     this.describe(`${resolved.game.canonical_title} — Librarian`, this.description(resolved.game));
   }
 
@@ -44,7 +46,11 @@ export class CatalogDetailComponent implements OnInit {
   }
 
   protected storeUrl(game: GameSummaryResponse): string | null {
-    return game.store_product_id ? PS_STORE_PRODUCT_BASE + encodeURIComponent(game.store_product_id) : null;
+    return storeProductUrl(game.store_product_id);
+  }
+
+  protected priceLine(game: GameSummaryResponse): string | null {
+    return priceLine(game.price);
   }
 
   private description(game: GameSummaryResponse): string {

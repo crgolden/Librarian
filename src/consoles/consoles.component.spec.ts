@@ -1,10 +1,10 @@
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute } from '@angular/router';
-import { ConsolesComponent } from './consoles.component';
+import { ActivatedRoute, provideRouter } from '@angular/router';
+import { ConsolesComponent, DEVICE_LINK_LABELS } from './consoles.component';
 import { ConsolesPageData } from './consoles.resolver';
-import { ConsoleResponse, StorageDeviceResponse } from '../curator/curator.models';
+import { ConsoleDeviceLinkState, ConsoleResponse, StorageDeviceResponse } from '../curator/curator.models';
 
 function console_(overrides: Partial<ConsoleResponse> = {}): ConsoleResponse {
   return {
@@ -87,6 +87,7 @@ describe('ConsolesComponent', () => {
       providers: [
         provideHttpClient(withXhr()),
         provideHttpClientTesting(),
+        provideRouter([]),
         { provide: ActivatedRoute, useValue: { snapshot: { data: routeData } } },
       ],
     });
@@ -109,6 +110,44 @@ describe('ConsolesComponent', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent;
     expect(text).toContain('No consoles yet.');
     expect(text).toContain('No storage devices yet.');
+  });
+
+  it('says nothing about a PSN device link on a console that has none', () => {
+    const fixture = createAndLoad([console_({ device_link: null })], []);
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('#console-device-link-0')).toBeNull();
+  });
+
+  it('names a healthy device link and offers the page that manages it', () => {
+    const fixture = createAndLoad([console_({ device_link: { device_id: 'dev-1', state: 'linked' } })], []);
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.querySelector('#console-device-link-0')?.textContent).toContain(DEVICE_LINK_LABELS.linked);
+    expect(compiled.querySelector('#console-device-link-account-0')?.getAttribute('href')).toBe('/account');
+  });
+
+  it('reports a deactivated PSN device in words rather than as the raw state', () => {
+    const state: ConsoleDeviceLinkState = 'device_deactivated';
+    const fixture = createAndLoad([console_({ device_link: { device_id: 'dev-1', state } })], []);
+
+    const rendered = (fixture.nativeElement as HTMLElement).querySelector('#console-device-link-0')?.textContent;
+    expect(rendered).toContain(DEVICE_LINK_LABELS[state]);
+    expect(rendered).not.toContain(state);
+  });
+
+  it('says a link went unchecked rather than claiming the device is gone', () => {
+    const unchecked = createAndLoad(
+      [console_({ device_link: { device_id: 'dev-1', state: 'not_checked' } })],
+      [],
+    );
+    expect((unchecked.nativeElement as HTMLElement).querySelector('#console-device-link-0')?.textContent).toContain(
+      DEVICE_LINK_LABELS.not_checked,
+    );
+
+    const missing = createAndLoad([console_({ device_link: { device_id: 'dev-1', state: 'device_missing' } })], []);
+    expect((missing.nativeElement as HTMLElement).querySelector('#console-device-link-0')?.textContent).toContain(
+      DEVICE_LINK_LABELS.device_missing,
+    );
   });
 
   it('offers the route-resolved genres as routing-genre options', () => {

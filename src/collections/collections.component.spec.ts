@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { CollectionsComponent, RESULT_PAGE_SIZE, SIZE_SOURCE_LABELS } from './collections.component';
-import { ResolvedCollections } from './collections.resolver';
+import { NO_INSTALLS, ResolvedCollections, ResolvedInstalls } from './collections.resolver';
 import {
   CollectionGameResponse,
   CollectionItemResponse,
@@ -154,8 +154,6 @@ describe('CollectionsComponent', () => {
       providers: [
         provideHttpClient(withXhr()),
         provideHttpClientTesting(),
-        // A route that matches and activates nothing: enough for a real navigation to resolve, without
-        // pulling a component into a fixture that has no RouterOutlet to host it.
         provideRouter([{ path: 'collections', children: [] }]),
         { provide: ActivatedRoute, useValue: activatedRouteStub(params, resolved, genres) },
       ],
@@ -182,16 +180,17 @@ describe('CollectionsComponent', () => {
     return fixture;
   }
 
-  // Opening a collection is a real router navigation onto a separate route entry, so the component is
-  // destroyed and rebuilt with the definition already resolved. Building it that way here is what the
-  // detail view actually receives in the browser; there is no RouterOutlet in a unit fixture, so driving
-  // the navigation itself belongs to the Playwright suite.
   function createDetail(
     detail: DefinitionDetailResponse,
     consoles: ConsoleResponse[] = [],
     genres: string[] = [],
+    installs: ResolvedInstalls = NO_INSTALLS,
   ): ComponentFixture<CollectionsComponent> {
-    configure({ definitionId: detail.definition_id }, { mode: 'detail', definition: detail, consoles }, genres);
+    configure(
+      { definitionId: detail.definition_id },
+      { mode: 'detail', definition: detail, consoles, installs },
+      genres,
+    );
     const fixture = TestBed.createComponent(CollectionsComponent);
     fixture.detectChanges();
     return fixture;
@@ -258,7 +257,7 @@ describe('CollectionsComponent', () => {
       return fixture;
     }
 
-    const rungs: SizeSource[] = ['measured', 'estimated', 'default'];
+    const rungs: SizeSource[] = ['measured', 'download', 'estimated', 'capped_default', 'default'];
 
     it('labels every included title with the rung its size came from, addressable by id', () => {
       const fixture = previewWith(rungs.map((rung, index) => game(`g${index}`, null, rung)));
@@ -300,11 +299,27 @@ describe('CollectionsComponent', () => {
       expect((fixture.nativeElement as HTMLElement).querySelector('#preview-unmeasured-sizes')).toBeNull();
     });
 
+    it('counts a download size and a media ceiling as sizes somebody reported, not as placeholders', () => {
+      const fixture = previewWith([game('g0', null, 'download'), game('g1', null, 'capped_default')]);
+
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('#preview-unmeasured-sizes'),
+        'only the bare default rung means nobody reported a size; a download figure comes from Sony and a '
+          + 'media ceiling from the platform, so prompting for either asks the owner to fix what is not broken',
+      ).toBeNull();
+    });
+
+    it('names the download rung after its source rather than repeating "measured"', () => {
+      const fixture = previewWith([game('g0', null, 'download'), game('g1', null, 'capped_default')]);
+      const compiled: HTMLElement = fixture.nativeElement;
+
+      expect(compiled.querySelector('#preview-included-size-source-0')?.textContent?.trim()).toBe('download size');
+      expect(compiled.querySelector('#preview-included-size-source-1')?.textContent?.trim()).toBe('media ceiling');
+    });
+
     function runWith(included: CollectionGameResponse[]): ComponentFixture<CollectionsComponent> {
       const fixture = createDetail(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g0')]));
       const h = harness(fixture);
-      httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: [] });
-      httpMock.expectOne('/curator/api/storage-devices').flush([]);
       fixture.detectChanges();
 
       h.runSelected();
@@ -386,8 +401,6 @@ describe('CollectionsComponent', () => {
       },
     ];
     const fixture = createDetail(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]), consoles);
-    httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: [] });
-    httpMock.expectOne('/curator/api/storage-devices').flush([]);
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent;
@@ -429,7 +442,10 @@ describe('CollectionsComponent', () => {
   });
 
   it('a direct deep link to /collections/d/:definitionId opens the detail view immediately, without loading the list first', () => {
-    configure({ definitionId: 'd1' }, { mode: 'detail', definition: definitionDetail(), consoles: [] });
+    configure(
+      { definitionId: 'd1' },
+      { mode: 'detail', definition: definitionDetail(), consoles: [], installs: NO_INSTALLS },
+    );
 
     const fixture = TestBed.createComponent(CollectionsComponent);
     fixture.detectChanges();
@@ -716,8 +732,6 @@ describe('CollectionsComponent', () => {
   it('runSelected() proposes a fresh list and adoptRunResult() PATCHes it as the new membership', () => {
     const fixture = createDetail(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g0')]));
     const h = harness(fixture);
-    httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: [] });
-    httpMock.expectOne('/curator/api/storage-devices').flush([]);
     fixture.detectChanges();
 
     h.runSelected();
@@ -745,8 +759,6 @@ describe('CollectionsComponent', () => {
   it('a truncated run says so rather than offering a pager that would re-run and re-persist it', () => {
     const fixture = createDetail(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g0')]));
     const h = harness(fixture);
-    httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: [] });
-    httpMock.expectOne('/curator/api/storage-devices').flush([]);
     fixture.detectChanges();
 
     const proposedBeyondOnePage = 1 + Math.floor(Math.random() * (RESULT_PAGE_SIZE - 1));
@@ -775,12 +787,14 @@ describe('CollectionsComponent', () => {
     httpMock.verify();
   });
 
-  it('install toggle hydrates from GET installs and persists via PUT for capacity_fill', () => {
-    const fixture = createDetail(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]));
+  it('install toggle opens from the resolved install state and persists via PUT for capacity_fill', () => {
+    const fixture = createDetail(
+      definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]),
+      [],
+      [],
+      { ...NO_INSTALLS, installedGameIds: ['g0'] },
+    );
     const h = harness(fixture);
-    httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: ['g0'] });
-    httpMock.expectOne('/curator/api/storage-devices').flush([]);
-    fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.textContent).toContain('Mark installed');
@@ -795,47 +809,44 @@ describe('CollectionsComponent', () => {
     expect(compiled.textContent).toContain('Installed');
   });
 
-  it('device install toggle hydrates from GET storage-devices + installs and persists via PUT, without auto-carrying to another device or the console', () => {
-    const fixture = createDetail(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]));
+  it('device install toggle opens from the resolved device installs and persists via PUT, without auto-carrying to another device or the console', () => {
+    const fixture = createDetail(
+      definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]),
+      [],
+      [],
+      {
+        installedGameIds: [],
+        attachedDevices: [
+          {
+            device_id: 'dev1',
+            console_id: 'c1',
+            name: 'M.2 Expansion',
+            kind: 'm2',
+            capacity_gb: 1000,
+            buffer_gb: 0,
+            effective_capacity_gb: 1000,
+          },
+          {
+            device_id: 'dev3',
+            console_id: 'c1',
+            name: 'Backup USB',
+            kind: 'usb',
+            capacity_gb: 500,
+            buffer_gb: 0,
+            effective_capacity_gb: 500,
+          },
+        ],
+        deviceInstalls: [
+          { deviceId: 'dev1', gameIds: ['g0'] },
+          { deviceId: 'dev3', gameIds: [] },
+        ],
+      },
+    );
     const h = harness(fixture);
-    httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: [] });
-    httpMock.expectOne('/curator/api/storage-devices').flush([
-      {
-        device_id: 'dev1',
-        console_id: 'c1',
-        name: 'M.2 Expansion',
-        kind: 'm2',
-        capacity_gb: 1000,
-        buffer_gb: 0,
-        effective_capacity_gb: 1000,
-      },
-      {
-        device_id: 'dev2',
-        console_id: 'some-other-console',
-        name: 'Unrelated USB',
-        kind: 'usb',
-        capacity_gb: 500,
-        buffer_gb: 0,
-        effective_capacity_gb: 500,
-      },
-      {
-        device_id: 'dev3',
-        console_id: 'c1',
-        name: 'Backup USB',
-        kind: 'usb',
-        capacity_gb: 500,
-        buffer_gb: 0,
-        effective_capacity_gb: 500,
-      },
-    ]);
-    httpMock.expectOne('/curator/api/storage-devices/dev1/installs').flush({ game_ids: ['g0'] });
-    httpMock.expectOne('/curator/api/storage-devices/dev3/installs').flush({ game_ids: [] });
-    fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.textContent).toContain('Mark on M.2 Expansion');
     expect(compiled.textContent).toContain('Mark on Backup USB');
-    expect(compiled.textContent).not.toContain('Unrelated USB');
     expect(compiled.textContent).toContain('Mark installed');
 
     h.toggleDeviceInstall('dev1', 'g1');
@@ -846,8 +857,6 @@ describe('CollectionsComponent', () => {
     fixture.detectChanges();
 
     expect(compiled.textContent).toContain('On M.2 Expansion');
-    // Install state is per device by design (no auto-carry): marking g1 installed on dev1 must not
-    // also mark it on dev3 (another device attached to the same console) or on the console itself.
     expect(compiled.textContent).toContain('Mark on Backup USB');
     expect(compiled.textContent).toContain('Mark installed');
   });
@@ -855,8 +864,6 @@ describe('CollectionsComponent', () => {
   it('measured-size panel lazily hydrates on first expand and PUTs a new contribution', () => {
     const fixture = createDetail(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]));
     const h = harness(fixture);
-    httpMock.expectOne('/curator/api/consoles/c1/installs').flush({ game_ids: [] });
-    httpMock.expectOne('/curator/api/storage-devices').flush([]);
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
@@ -890,9 +897,6 @@ describe('CollectionsComponent', () => {
   it('install toggle surfaces an inline 404 error when the console is unknown', () => {
     const fixture = createDetail(definitionDetail({ kind: 'capacity_fill', console_id: 'unknown-console' }, [item('g1')]));
     const h = harness(fixture);
-    httpMock.expectOne('/curator/api/consoles/unknown-console/installs').flush(null, { status: 404, statusText: 'Not Found' });
-    httpMock.expectOne('/curator/api/storage-devices').flush([]);
-    fixture.detectChanges();
 
     h.toggleInstall('g1');
     httpMock
@@ -929,11 +933,13 @@ describe('CollectionsComponent', () => {
     }
 
     it("renders another user's saved collections read-only, with a follow toggle", () => {
-      configureForViewer('other-sub', { mode: 'viewer', definitions: [profileDefinition()] });
+      configureForViewer('other-sub', {
+        mode: 'viewer',
+        definitions: [profileDefinition()],
+        followedIds: [],
+      });
 
       const fixture = TestBed.createComponent(CollectionsComponent);
-      fixture.detectChanges();
-      httpMock.expectOne('/curator/api/collections/followed').flush([]);
       fixture.detectChanges();
 
       const compiled: HTMLElement = fixture.nativeElement;
@@ -951,14 +957,25 @@ describe('CollectionsComponent', () => {
     });
 
     it('shows an empty state for another user with no saved collections', () => {
-      configureForViewer('other-sub', { mode: 'viewer', definitions: [] });
+      configureForViewer('other-sub', { mode: 'viewer', definitions: [], followedIds: [] });
 
       const fixture = TestBed.createComponent(CollectionsComponent);
       fixture.detectChanges();
-      httpMock.expectOne('/curator/api/collections/followed').flush([]);
-      fixture.detectChanges();
 
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('No saved collections yet.');
+    });
+
+    it('opens the follow toggle as already-following for a collection the resolver says the viewer follows', () => {
+      configureForViewer('other-sub', {
+        mode: 'viewer',
+        definitions: [profileDefinition()],
+        followedIds: ['d1'],
+      });
+
+      const fixture = TestBed.createComponent(CollectionsComponent);
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('button')?.textContent?.trim()).toBe('Unfollow');
     });
 
     it('shows an inline message when the resolver reports the section is not public', () => {

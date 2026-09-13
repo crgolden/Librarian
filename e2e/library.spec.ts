@@ -73,9 +73,10 @@ test.describe('Library — manual add, Store cross-check', () => {
     await searchTheManualAddPanelFor(page, 'Rally');
 
     await expect(page.locator('#library-manual-add-0')).toBeVisible();
-    await expect(page.locator('.manual-add-results li')).toHaveCount(1);
-    await expect(page.locator('.manual-add-results li')).toContainText('Rally Missing');
-    await expect(page.locator('.manual-add-results')).not.toContainText('Rally Owned');
+    await expect(page.locator('[id^="library-manual-add-"]')).toHaveCount(1);
+    await expect(page.locator('#library-manual-add-0')).toBeVisible();
+    await expect(page.locator('#library-manual-results')).toContainText('Rally Missing');
+    await expect(page.locator('#library-manual-results')).not.toContainText('Rally Owned');
   });
 
   test('says every match is owned instead of spending a Store search, when the owner has them all', async ({
@@ -595,6 +596,120 @@ test.describe('Library — authenticated', () => {
     await expect(page.locator('#library-summary-opencritic-topup')).toContainText(
       'OpenCritic still has more of your library to check',
     );
+  });
+});
+
+test.describe('Library — hiding a game', () => {
+  test('hiding a title takes it out of the list and offers it back under the hidden view', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedLibraryGames([
+      { game_id: 'g1', title: 'Elden Ring', rawg_enriched: false, opencritic_enriched: false },
+      { game_id: 'g2', title: 'Bloodborne', rawg_enriched: false, opencritic_enriched: false },
+    ]);
+
+    await page.goto('/library');
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(2);
+    await expect(page.locator('#library-show-hidden')).toHaveCount(0);
+
+    await page.locator('#library-hide-g1').click();
+
+    await expect(page.locator('#library-row-g1')).toHaveCount(0);
+    await expect(page.locator('#library-row-g2')).toBeVisible();
+    await expect(page.locator('#library-show-hidden')).toContainText('1');
+
+    await page.locator('#library-show-hidden').click();
+
+    await expect(page.locator('#library-row-g1')).toBeVisible();
+    await expect(page.locator('#library-row-g2')).toHaveCount(0);
+    await expect(page.locator('#library-hide-g1')).toHaveCount(0);
+
+    await page.locator('#library-unhide-g1').click();
+
+    await expect(page.locator('#library-hidden-empty')).toBeVisible();
+
+    await page.locator('#library-show-hidden').click();
+    await expect(page.locator('#library-row-g1')).toBeVisible();
+  });
+
+  test('a hidden title survives a reload, because the exclusion is stored rather than held in the page', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedLibraryGames([
+      { game_id: 'g1', title: 'Elden Ring', rawg_enriched: false, opencritic_enriched: false },
+    ]);
+    await store.seedHiddenLibraryGames(['g1']);
+
+    await page.goto('/library');
+
+    await expect(page.locator('#library-row-g1')).toHaveCount(0);
+    await expect(page.locator('#library-show-hidden')).toContainText('1');
+  });
+
+  test('offers no hide control on another user\'s library', async ({
+    authedPage: page,
+    secondAuthedPage: viewerPage,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedUserProfileSettings(DEFAULT_E2E_SUB, { is_public: true, show_library: true });
+    await store.seedUserLibraryGames(DEFAULT_E2E_SUB, [
+      { game_id: 'g1', title: 'Elden Ring', rawg_enriched: false, opencritic_enriched: false },
+    ]);
+
+    await page.goto('/profile');
+    await viewerPage.goto(`/library/${DEFAULT_E2E_SUB}`);
+
+    await expect(viewerPage.locator('#library-row-g1')).toBeVisible();
+    await expect(viewerPage.locator('#library-hide-g1')).toHaveCount(0);
+    await expect(viewerPage.locator('#library-show-hidden')).toHaveCount(0);
+  });
+});
+
+test.describe('Library — trophy completion', () => {
+  test('offers the trophy setting from the column header when nothing is harvesting trophies', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedLibraryGames([
+      { game_id: 'g1', title: 'Elden Ring', rawg_enriched: false, opencritic_enriched: false },
+    ]);
+
+    await page.goto('/library');
+
+    await expect(page.locator('#library-header-percent_completed-link')).toHaveAttribute(
+      'href',
+      '/account#pref-trophies',
+    );
+  });
+
+  test('drops the header link once trophies are harvested and a refresh has matched a title', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedPsnLink();
+    await store.seedPsnPreferences({ harvest_trophies: true });
+    await store.seedLibraryGames([
+      {
+        game_id: 'g1',
+        title: 'Elden Ring',
+        rawg_enriched: false,
+        opencritic_enriched: false,
+        percent_completed: 42,
+        trophy_match: 'matched',
+      },
+    ]);
+
+    await page.goto('/library');
+
+    await expect(page.locator('td[data-label="% Completed"]')).toHaveText('42%');
+    await expect(page.locator('#library-header-percent_completed-link')).toHaveCount(0);
   });
 });
 

@@ -4,7 +4,12 @@ import { ActivatedRouteSnapshot } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { libraryResolver, initialLibraryQuery, ResolvedLibrary } from './library.resolver';
 import { CuratorService, LibraryQuery } from '../curator/curator.service';
-import { LibraryGameResponse, RefreshScheduleResponse } from '../curator/curator.models';
+import {
+  LibraryGameResponse,
+  PsPlusRotationSummaryResponse,
+  RefreshScheduleResponse,
+  TrophyProgressResponse,
+} from '../curator/curator.models';
 
 const GAMES = [{ game_id: 'g1', title: 'Bloodborne' }] as unknown as LibraryGameResponse[];
 
@@ -43,7 +48,75 @@ describe('libraryResolver', () => {
       null,
     );
 
-    expect(result).toEqual({ status: 'ok', games: GAMES, total: 42, genres: ['RPG'], schedule: SCHEDULE });
+    expect(result).toEqual({
+      status: 'ok',
+      games: GAMES,
+      total: 42,
+      genres: ['RPG'],
+      schedule: SCHEDULE,
+      trophyProgress: null,
+      hiddenCount: 0,
+      psPlus: null,
+    });
+  });
+
+  it('carries the owner page’s trophy progress and hidden count through to the component', async () => {
+    const trophyProgress = { state: 'off', reason: 'harvest_off' } satisfies TrophyProgressResponse;
+    const hiddenCount = Math.floor(Math.random() * 50) + 1;
+    const result = await run(
+      {
+        getLibrary: () => of({ games: GAMES, total: 1, trophy_progress: trophyProgress, hidden_count: hiddenCount }),
+        getLibraryGenres: () => of({ genres: [] }),
+        getRefreshSchedule: fails(404),
+      },
+      null,
+    );
+
+    expect(result).toMatchObject({ trophyProgress, hiddenCount });
+  });
+
+  it('asks for the PS Plus rotation summary only when the schedule watches PS Plus', async () => {
+    const summary = { catalog_walked_at: '2026-09-01T00:00:00Z', unclaimed: 3, leaving: 1 } satisfies PsPlusRotationSummaryResponse;
+    let askedWhileUnwatched = false;
+    const watched = await run(
+      {
+        getLibrary: () => of({ games: GAMES, total: 1 }),
+        getLibraryGenres: () => of({ genres: [] }),
+        getRefreshSchedule: () => of({ ...SCHEDULE, ps_plus_watch: true }),
+        getPsPlusRotationSummary: () => of(summary),
+      },
+      null,
+    );
+    const unwatched = await run(
+      {
+        getLibrary: () => of({ games: GAMES, total: 1 }),
+        getLibraryGenres: () => of({ genres: [] }),
+        getRefreshSchedule: () => of(SCHEDULE),
+        getPsPlusRotationSummary: () => {
+          askedWhileUnwatched = true;
+          return of(summary);
+        },
+      },
+      null,
+    );
+
+    expect(watched).toMatchObject({ psPlus: summary });
+    expect(unwatched).toMatchObject({ psPlus: null });
+    expect(askedWhileUnwatched).toBe(false);
+  });
+
+  it('treats the PS Plus summary as best-effort, keeping the schedule when the summary fails', async () => {
+    const result = await run(
+      {
+        getLibrary: () => of({ games: GAMES, total: 1 }),
+        getLibraryGenres: () => of({ genres: [] }),
+        getRefreshSchedule: () => of({ ...SCHEDULE, ps_plus_watch: true }),
+        getPsPlusRotationSummary: fails(404),
+      },
+      null,
+    );
+
+    expect(result).toMatchObject({ schedule: { ...SCHEDULE, ps_plus_watch: true }, psPlus: null });
   });
 
   it('asks for another user’s library when the route names a sub', async () => {
@@ -60,7 +133,7 @@ describe('libraryResolver', () => {
     );
 
     expect(asked).toEqual(['u1']);
-    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null });
+    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null, trophyProgress: null, hiddenCount: 0, psPlus: null });
   });
 
   it('never asks for a schedule in viewer mode, because the schedule belongs to the library’s owner', async () => {
@@ -78,7 +151,7 @@ describe('libraryResolver', () => {
     );
 
     expect(asked).toBe(false);
-    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null });
+    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null, trophyProgress: null, hiddenCount: 0, psPlus: null });
   });
 
   it('treats a schedule as best-effort, so a 404 for “no schedule yet” still resolves the library', async () => {
@@ -91,7 +164,7 @@ describe('libraryResolver', () => {
       null,
     );
 
-    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null });
+    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null, trophyProgress: null, hiddenCount: 0, psPlus: null });
   });
 
   it('starts on title-ascending, first page, with no filters applied', async () => {
@@ -123,7 +196,7 @@ describe('libraryResolver', () => {
       null,
     );
 
-    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null });
+    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null, trophyProgress: null, hiddenCount: 0, psPlus: null });
   });
 
   it('distinguishes a private library from a failed load', async () => {

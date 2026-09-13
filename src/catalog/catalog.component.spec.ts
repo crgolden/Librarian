@@ -2,10 +2,17 @@ import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
-import { CATALOG_PAGE_SIZE_CEILING, CATALOG_PAGE_SIZE_KEY, CatalogComponent } from './catalog.component';
+import {
+  CATALOG_KIND_OPTIONS,
+  CATALOG_PAGE_SIZE_CEILING,
+  CATALOG_PAGE_SIZE_KEY,
+  CATALOG_SORT_OPTIONS,
+  CatalogComponent,
+  DEFAULT_CATALOG_KIND,
+} from './catalog.component';
 import { CATALOG_PAGE_SIZE } from './catalog.resolver';
 import { readPageSize, writePageSize } from '../shared/page-size/page-size.preference';
-import { CatalogGamesResponse, GameSummaryResponse } from '../curator/curator.models';
+import { CatalogGamesResponse, CatalogKind, GameSummaryResponse } from '../curator/curator.models';
 
 const CURATOR_CATALOG_LIMIT_MAX = 200;
 
@@ -62,6 +69,8 @@ interface CatalogHarness {
   applyFilters(): void;
   nextPage(): void;
   prevPage(): void;
+  onKindChange(value: CatalogKind): void;
+  onSortChange(value: string): void;
 }
 
 function harness(fixture: ComponentFixture<CatalogComponent>): CatalogHarness {
@@ -270,6 +279,88 @@ describe('CatalogComponent', () => {
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load the catalog.');
+  });
+
+  it('asks for games only, titled ascending, until the reader says otherwise', () => {
+    const fixture = render({ games: [], total: 0 });
+
+    harness(fixture).applyFilters();
+
+    const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
+    expect(req.request.params.get('kind')).toBe(DEFAULT_CATALOG_KIND);
+    expect(req.request.params.get('sort')).toBe('title');
+    expect(req.request.params.get('sortDir')).toBe('asc');
+    req.flush({ games: [], total: 0 });
+  });
+
+  it('offers every kind the models declare, and sends the chosen one from the first page', () => {
+    const fixture = render(fullPage(CATALOG_PAGE_SIZE * 4));
+    const compiled: HTMLElement = fixture.nativeElement;
+
+    const offered = Array.from(selectById(compiled, 'catalog-kind').options).map((option) => option.value);
+    expect(offered).toEqual(CATALOG_KIND_OPTIONS.map((option) => option.value));
+
+    harness(fixture).nextPage();
+    httpMock.expectOne((r) => r.url === '/curator/api/catalog/games').flush(fullPage(CATALOG_PAGE_SIZE * 4));
+    fixture.detectChanges();
+
+    harness(fixture).onKindChange('media_app');
+
+    const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
+    expect(req.request.params.get('kind')).toBe('media_app');
+    expect(
+      req.request.params.get('offset'),
+      'a kind change narrows the result set, so holding the old offset can land past its end',
+    ).toBe('0');
+    req.flush({ games: [], total: 0 });
+  });
+
+  it('splits the chosen sort option into the field and direction Curator expects', () => {
+    const fixture = render({ games: [], total: 0 });
+
+    const offered = Array.from(selectById(fixture.nativeElement, 'catalog-sort').options).map((o) => o.value);
+    expect(offered).toEqual(CATALOG_SORT_OPTIONS.map((option) => option.value));
+
+    harness(fixture).onSortChange('price:desc');
+
+    const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
+    expect(req.request.params.get('sort')).toBe('price');
+    expect(req.request.params.get('sortDir')).toBe('desc');
+    req.flush({ games: [], total: 0 });
+  });
+
+  it('states a published price on the card, and renders no price line without one', () => {
+    const fixture = render({
+      games: [
+        game('g1', 'Bloodborne', {
+          price: {
+            is_free: false,
+            tied_to_subscription: false,
+            base_cents: 1999,
+            discounted_cents: 1999,
+            discount_text: null,
+            fetched_at: '2026-09-01T00:00:00Z',
+          },
+        }),
+        game('g2', 'Unpriced', { price: null }),
+      ],
+      total: 2,
+    });
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.querySelector('#catalog-price-0')?.textContent).toContain('$19.99');
+    expect(compiled.querySelector('#catalog-price-1')).toBeNull();
+  });
+
+  it('labels an entry that is not a game, and labels a game as nothing at all', () => {
+    const fixture = render({
+      games: [game('g1', 'Netflix', { content_kind: 'media_app' }), game('g2', 'Bloodborne', { content_kind: 'game' })],
+      total: 2,
+    });
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.querySelector('#catalog-kind-0')?.textContent).toContain('Media app');
+    expect(compiled.querySelector('#catalog-kind-1')).toBeNull();
   });
 
   it('offers no page size above the ceiling /catalog/games enforces', () => {

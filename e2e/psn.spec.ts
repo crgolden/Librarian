@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures.js';
+import { test, expect, DEFAULT_E2E_SUB } from './fixtures.js';
 
 const VALID_NPSSO = 'a'.repeat(64);
 
@@ -295,6 +295,72 @@ test.describe('PSN settings — data-sharing preferences', () => {
     await page.reload();
     await expect(page.locator('#pref-identity')).not.toBeChecked();
     await expect(page.locator('#psn-card-identity')).toHaveCount(0);
+  });
+});
+
+test.describe('PSN settings — friend requests', () => {
+  test('lists a received request once identity sharing is on, and accepting it clears the request', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedPsnLink();
+    await store.seedPsnPreferences({ harvest_identity: true, allow_friend_writes: true });
+    await store.seedUserFriendRequests(DEFAULT_E2E_SUB, [{ online_id: 'waiting_gamer', account_id: 'acct-9' }]);
+
+    await page.goto('/account');
+
+    await expect(page.locator('#friend-requests')).toBeVisible();
+    await expect(page.locator('#friend-request-0')).toContainText('waiting_gamer');
+
+    await page.locator('#friend-request-accept-0').click();
+
+    await expect(page.locator('#friend-request-accepted')).toContainText('waiting_gamer');
+    await expect(page.locator('#friend-requests-empty')).toBeVisible();
+  });
+
+  test('shows no friend-request list at all while identity sharing is off', async ({ authedPage: page, store }) => {
+    await store.reset();
+    await store.seedPsnLink();
+    await store.seedUserFriendRequests(DEFAULT_E2E_SUB, [{ online_id: 'waiting_gamer', account_id: 'acct-9' }]);
+
+    await page.goto('/account');
+
+    await expect(page.locator('text=PSN account linked')).toBeVisible();
+    await expect(page.locator('#friend-requests')).toHaveCount(0);
+  });
+
+  test('withholds accepting until the friend-writes consent is given', async ({ authedPage: page, store }) => {
+    await store.reset();
+    await store.seedPsnLink();
+    await store.seedPsnPreferences({ harvest_identity: true, allow_friend_writes: false });
+    await store.seedUserFriendRequests(DEFAULT_E2E_SUB, [{ online_id: 'waiting_gamer', account_id: 'acct-9' }]);
+
+    await page.goto('/account');
+
+    await expect(page.locator('#friend-request-accept-0')).toBeDisabled();
+    await expect(page.locator('#friend-requests-consent')).toBeVisible();
+  });
+});
+
+test.describe('PSN settings — what linking does and does not switch on', () => {
+  test('the post-link card states that every harvest is still off, and where each is turned on', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+
+    await page.goto('/account');
+    await page.locator('#npsso').fill(VALID_NPSSO);
+    await page.locator('#psn-link-submit').click();
+
+    const card = page.locator('#psn-link-success');
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.locator('#psn-link-success-trophies')).toContainText('off');
+    await expect(card.locator('#psn-link-success-identity')).toContainText('off');
+    await expect(card.locator('#psn-link-success-presence')).toContainText('off');
+    await expect(card.locator('#psn-link-success-devices')).toContainText('off');
+    await expect(card.locator('#psn-link-success-trophies a')).toHaveAttribute('href', '/account#pref-trophies');
   });
 });
 

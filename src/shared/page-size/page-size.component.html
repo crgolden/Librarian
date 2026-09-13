@@ -1,6 +1,6 @@
 <label class="flex items-center gap-2 whitespace-nowrap" [attr.for]="controlId">
   <span class="text-muted">Per page</span>
-  <select [id]="controlId" (change)="choose($event)">
+  <select [attr.id]="controlId" (change)="choose($event)">
     @for (choice of choices; track choice) {
       <option [value]="choice" [selected]="choice === value">{{ choice }}</option>
     }

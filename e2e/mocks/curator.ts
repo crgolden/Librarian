@@ -97,9 +97,20 @@ interface FollowEdge {
   followedAt: string;
 }
 
-export type SizeSource = 'measured' | 'estimated' | 'default';
+export type SizeSource = 'measured' | 'download' | 'estimated' | 'capped_default' | 'default';
 
 export const UNMEASURED_SIZE_SOURCE: SizeSource = 'default';
+
+export type ContentKind = 'game' | 'media_app' | 'add_on' | 'demo' | 'soundtrack' | 'theme' | 'subscription';
+
+export interface CatalogPrice {
+  is_free: boolean | null;
+  tied_to_subscription: boolean | null;
+  base_cents: number | null;
+  discounted_cents: number | null;
+  discount_text: string | null;
+  fetched_at: string;
+}
 
 export interface GameSummary {
   game_id: string;
@@ -111,6 +122,8 @@ export interface GameSummary {
   oc_score?: number | null;
   psn_rating?: number | null;
   size_source?: SizeSource;
+  content_kind?: ContentKind | null;
+  price?: CatalogPrice | null;
 }
 
 interface CollectionGame {
@@ -193,9 +206,63 @@ export interface LibraryGame {
   percent_completed: number | null;
   platforms: string[];
   source: string;
+  trophy_match: TrophyMatch;
 }
 
-const LIBRARY_SORT_FIELDS = ['title', 'genre', 'rawg_rating', 'opencritic_rating', 'psn_rating'] as const;
+export type TrophyMatch = 'matched' | 'unmatched' | 'not_attempted';
+
+export type TrophyProgressState = 'off' | 'pending' | 'on';
+
+export type TrophyProgressReason = 'no_link' | 'harvest_off' | 'never_refreshed';
+
+export interface TrophyProgress {
+  state: TrophyProgressState;
+  reason: TrophyProgressReason | null;
+}
+
+export type PsPlusTier = 'extra' | 'premium';
+
+export interface PsPlusTitle {
+  title_id: string;
+  game_id: string | null;
+  title: string | null;
+  tier: PsPlusTier | null;
+  platforms: string[];
+  cover_image_url: string | null;
+  store_product_id: string | null;
+  since_at: string | null;
+}
+
+export interface PsPlusRotation {
+  catalog_walked_at: string | null;
+  since: string | null;
+  added: PsPlusTitle[];
+  leaving: PsPlusTitle[];
+  unclaimed: PsPlusTitle[];
+  lapsed: PsPlusTitle[];
+  categories: { tier: PsPlusTier; walked_at: string | null; total: number }[];
+}
+
+export interface FriendRequest {
+  online_id: string | null;
+  account_id: string;
+}
+
+export type ConsoleDeviceLinkState = 'linked' | 'device_deactivated' | 'device_missing' | 'not_checked';
+
+export interface ConsoleDeviceLink {
+  device_id: string;
+  state: ConsoleDeviceLinkState;
+}
+
+const LIBRARY_SORT_FIELDS = [
+  'title',
+  'genre',
+  'rawg_rating',
+  'opencritic_rating',
+  'psn_rating',
+  'percent_completed',
+] as const;
 type LibrarySortField = (typeof LIBRARY_SORT_FIELDS)[number];
 
 function queryLibraryGames(games: LibraryGame[], req: Request): { games: LibraryGame[]; total: number } {
@@ -251,7 +318,31 @@ function normalizeLibraryGames(games: SeededLibraryGame[]): LibraryGame[] {
     percent_completed: g.percent_completed ?? null,
     platforms: g.platforms ?? [],
     source: g.source ?? 'psn',
+    trophy_match: g.trophy_match ?? 'not_attempted',
   }));
+}
+
+function hiddenFor(sub: string): Set<string> {
+  let hidden = hiddenLibraryGames.get(sub);
+  if (!hidden) {
+    hidden = new Set();
+    hiddenLibraryGames.set(sub, hidden);
+  }
+  return hidden;
+}
+
+function trophyProgressFor(user: UserRecord): TrophyProgress {
+  if (user.psn === null) {
+    return { state: 'off', reason: 'no_link' };
+  }
+  if (!user.psnPreferences.harvest_trophies) {
+    return { state: 'off', reason: 'harvest_off' };
+  }
+  const games = libraryGames.get(user.sub) ?? [];
+  if (games.every((game) => game.percent_completed === null)) {
+    return { state: 'pending', reason: 'never_refreshed' };
+  }
+  return { state: 'on', reason: null };
 }
 
 export interface LibraryRefreshResultSummary {
@@ -318,6 +409,12 @@ const nextLibraryOutcome = new Map<string, LibraryRefreshOutcome>();
 const enrichmentRuns = new Map<string, EnrichmentRun>();
 const actionLog = new Map<string, ActionLogEntry[]>();
 const libraryGames = new Map<string, LibraryGame[]>();
+const hiddenLibraryGames = new Map<string, Set<string>>();
+const psPlusRotations = new Map<string, PsPlusRotation>();
+const receivedFriendRequests = new Map<string, FriendRequest[]>();
+const acceptedFriendRequests = new Map<string, string[]>();
+const sentFriendRequests = new Map<string, string[]>();
+const consoleDeviceLinks = new Map<string, ConsoleDeviceLink>();
 const profileSettings = new Map<string, ProfileSettings>();
 const profileLinkHandles = new Map<string, Map<string, string>>();
 const followEdges: FollowEdge[] = [];
@@ -329,6 +426,16 @@ const PROFILE_LINK_SITES = [
 ];
 
 const PROFILE_LINK_HANDLE_PATTERN = /^[A-Za-z0-9_-]{3,16}$/;
+
+const EMPTY_PS_PLUS_ROTATION: PsPlusRotation = {
+  catalog_walked_at: null,
+  since: null,
+  added: [],
+  leaving: [],
+  unclaimed: [],
+  lapsed: [],
+  categories: [],
+};
 
 const DEFAULT_SUB = 'e2e-user-id';
 let nextShareSlug = 1;
@@ -403,7 +510,54 @@ function toCatalogSummary(game: GameSummary) {
     critical_score: game.critical_score ?? null,
     oc_score: game.oc_score ?? null,
     psn_rating: game.psn_rating ?? null,
+    content_kind: game.content_kind ?? null,
+    price: game.price ?? null,
   };
+}
+
+const CATALOG_SORT_FIELDS = ['title', 'price'] as const;
+type CatalogSortField = (typeof CATALOG_SORT_FIELDS)[number];
+
+function priceRank(game: GameSummary): number | null {
+  const price = game.price;
+  if (!price) {
+    return null;
+  }
+  if (price.is_free === true) {
+    return 0;
+  }
+  return price.discounted_cents ?? price.base_cents;
+}
+
+function sortCatalog(games: GameSummary[], req: Request): GameSummary[] {
+  const asked = req.query['sort'] as string | undefined;
+  const field: CatalogSortField = CATALOG_SORT_FIELDS.includes(asked as CatalogSortField)
+    ? (asked as CatalogSortField)
+    : 'title';
+  const desc = req.query['sortDir'] === 'desc';
+  return [...games].sort((a, b) => {
+    if (field === 'title') {
+      const byTitle = a.canonical_title.localeCompare(b.canonical_title);
+      return desc ? -byTitle : byTitle;
+    }
+    const left = priceRank(a);
+    const right = priceRank(b);
+    if (left === null && right === null) return a.canonical_title.localeCompare(b.canonical_title);
+    if (left === null) return 1;
+    if (right === null) return -1;
+    return desc ? right - left : left - right;
+  });
+}
+
+function matchesKind(game: GameSummary, req: Request): boolean {
+  const kind = (req.query['kind'] as string | undefined) ?? 'game';
+  if (kind === 'all') {
+    return true;
+  }
+  if (kind === 'game') {
+    return game.content_kind === undefined || game.content_kind === null || game.content_kind === 'game';
+  }
+  return game.content_kind === kind;
 }
 
 const TROPHY_SUMMARY = {
@@ -584,7 +738,13 @@ function toDefinitionItems(d: DefinitionRecord): CollectionItem[] {
   return d.game_ids.map((gameId, index) => toCollectionItem(gameId, index + 1));
 }
 
-function toConsoleResponse(c: ConsoleRecord): Omit<ConsoleRecord, 'identity_sub'> & { effective_capacity_gb: number; capacity_is_default: boolean } {
+function toConsoleResponse(
+  c: ConsoleRecord,
+): Omit<ConsoleRecord, 'identity_sub'> & {
+  effective_capacity_gb: number;
+  capacity_is_default: boolean;
+  device_link: ConsoleDeviceLink | null;
+} {
   return {
     console_id: c.console_id,
     name: c.name,
@@ -596,6 +756,7 @@ function toConsoleResponse(c: ConsoleRecord): Omit<ConsoleRecord, 'identity_sub'
     routing_genres: c.routing_genres,
     fill_order: c.fill_order,
     capacity_is_default: false,
+    device_link: consoleDeviceLinks.get(c.console_id) ?? null,
   };
 }
 
@@ -760,6 +921,12 @@ export function createCuratorApp(): Express {
     nextEnrichmentRunId = 1;
     actionLog.clear();
     libraryGames.clear();
+    hiddenLibraryGames.clear();
+    psPlusRotations.clear();
+    receivedFriendRequests.clear();
+    acceptedFriendRequests.clear();
+    sentFriendRequests.clear();
+    consoleDeviceLinks.clear();
     profileSettings.clear();
     profileLinkHandles.clear();
     followEdges.length = 0;
@@ -935,6 +1102,35 @@ export function createCuratorApp(): Express {
         game_ids: d.game_ids ?? [],
       })),
     );
+    res.status(204).end();
+  });
+
+  app.post('/_test/user/ps-plus-rotation', (req: Request, res: Response) => {
+    const { sub, ...rotation } = req.body as Partial<PsPlusRotation> & { sub: string };
+    getUser(sub);
+    psPlusRotations.set(sub, { ...EMPTY_PS_PLUS_ROTATION, ...rotation });
+    res.status(204).end();
+  });
+
+  app.post('/_test/user/friend-requests', (req: Request, res: Response) => {
+    const body = req.body as { sub: string; requests?: FriendRequest[] };
+    getUser(body.sub);
+    receivedFriendRequests.set(body.sub, body.requests ?? []);
+    res.status(204).end();
+  });
+
+  app.post('/_test/console-device-link', (req: Request, res: Response) => {
+    const body = req.body as { console_id: string; device_id?: string; state?: ConsoleDeviceLinkState };
+    consoleDeviceLinks.set(body.console_id, {
+      device_id: body.device_id ?? 'dev-1',
+      state: body.state ?? 'linked',
+    });
+    res.status(204).end();
+  });
+
+  app.post('/_test/hidden-library-games', (req: Request, res: Response) => {
+    const body = req.body as { game_ids?: string[] };
+    hiddenLibraryGames.set(DEFAULT_SUB, new Set(body.game_ids ?? []));
     res.status(204).end();
   });
 
@@ -1178,21 +1374,36 @@ export function createCuratorApp(): Express {
         (!q || game.canonical_title.toLowerCase().includes(q.toLowerCase())) &&
         (!franchise || game.franchise === franchise) &&
         (!genre || game.genre === genre) &&
-        (!aaaTier || game.aaa_tier === aaaTier),
+        (!aaaTier || game.aaa_tier === aaaTier) &&
+        matchesKind(game, req),
     );
-    const filtered = matching.filter((game) => !owned.has(game.game_id));
-    const page = filtered.slice(offset, offset + limit).map((game) => ({
-      ...game,
-      cover_image_url: null,
-      store_product_id: null,
-      critical_score: game.critical_score ?? null,
-      oc_score: game.oc_score ?? null,
-      psn_rating: game.psn_rating ?? null,
-    }));
+    const filtered = sortCatalog(
+      matching.filter((game) => !owned.has(game.game_id)),
+      req,
+    );
+    const page = filtered.slice(offset, offset + limit).map(toCatalogSummary);
     res.json({
       games: page,
       total: filtered.length,
       excluded_owned: matching.length - filtered.length,
+    });
+  });
+
+  app.get('/catalog/games/:gameId/collections', (req: Request, res: Response) => {
+    const gameId = pathParam(req, 'gameId');
+    const holding: DefinitionRecord[] = [];
+    for (const list of definitions.values()) {
+      holding.push(...list.filter((d) => d.visibility === 'public' && d.game_ids.includes(gameId)));
+    }
+    res.json({
+      collections: holding.map((d) => ({
+        definition_id: d.definition_id,
+        name: d.name,
+        share_slug: d.share_slug,
+        item_count: d.game_ids.length,
+        updated_at: ACCOUNT_CREATED_AT,
+      })),
+      total: holding.length,
     });
   });
 
@@ -1207,14 +1418,7 @@ export function createCuratorApp(): Express {
       res.status(404).json({ detail: 'No such game.' });
       return;
     }
-    res.json({
-      ...game,
-      cover_image_url: null,
-      store_product_id: null,
-      critical_score: game.critical_score ?? null,
-      oc_score: game.oc_score ?? null,
-      psn_rating: game.psn_rating ?? null,
-    });
+    res.json(toCatalogSummary(game));
   });
 
   app.post('/collections/preview', (req: Request, res: Response) => {
@@ -1638,7 +1842,107 @@ export function createCuratorApp(): Express {
   });
 
   app.get('/library', (req: Request, res: Response) => {
-    res.json(queryLibraryGames(libraryGames.get(subFromRequest(req)) ?? [], req));
+    const sub = subFromRequest(req);
+    const hidden = hiddenFor(sub);
+    const all = libraryGames.get(sub) ?? [];
+    const hiddenOnly = req.query['hidden'] === 'only';
+    const inView = all.filter((game) => hidden.has(game.game_id) === hiddenOnly);
+    res.json({
+      ...queryLibraryGames(inView, req),
+      trophy_progress: trophyProgressFor(getUser(sub)),
+      hidden_count: hidden.size,
+    });
+  });
+
+  app.put('/library/:gameId/hidden', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const gameId = pathParam(req, 'gameId');
+    if (!(libraryGames.get(sub) ?? []).some((game) => game.game_id === gameId)) {
+      res.status(404).json({ detail: 'No library entry for that game.' });
+      return;
+    }
+    hiddenFor(sub).add(gameId);
+    logAction(sub, 'library_game_hidden', gameId);
+    res.status(204).end();
+  });
+
+  app.delete('/library/:gameId/hidden', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    hiddenFor(sub).delete(pathParam(req, 'gameId'));
+    logAction(sub, 'library_game_unhidden', pathParam(req, 'gameId'));
+    res.status(204).end();
+  });
+
+  app.get('/me/ps-plus-rotation', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    if (!getUser(sub).psn) {
+      res.status(404).json({ detail: 'PSN account is not linked.' });
+      return;
+    }
+    res.json(psPlusRotations.get(sub) ?? EMPTY_PS_PLUS_ROTATION);
+  });
+
+  app.get('/me/ps-plus-rotation/summary', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    if (!getUser(sub).psn) {
+      res.status(404).json({ detail: 'PSN account is not linked.' });
+      return;
+    }
+    const rotation = psPlusRotations.get(sub) ?? EMPTY_PS_PLUS_ROTATION;
+    res.json({
+      catalog_walked_at: rotation.catalog_walked_at,
+      unclaimed: rotation.unclaimed.length,
+      leaving: rotation.leaving.length,
+    });
+  });
+
+  app.get('/me/friend-requests', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const user = getUser(sub);
+    if (!user.psn) {
+      res.status(404).json({ detail: 'PSN account is not linked.' });
+      return;
+    }
+    if (!user.psnPreferences.harvest_identity) {
+      res.status(403).json({ detail: 'Identity harvesting is disabled for this account.' });
+      return;
+    }
+    const accepted = acceptedFriendRequests.get(sub) ?? [];
+    res.json({
+      requests: (receivedFriendRequests.get(sub) ?? []).filter(
+        (request) => request.online_id === null || !accepted.includes(request.online_id),
+      ),
+    });
+  });
+
+  app.put('/me/friends/:onlineId', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    const user = getUser(sub);
+    if (!user.psnPreferences.allow_friend_writes) {
+      res.status(403).json({ detail: 'Friend writes are not permitted for this account.' });
+      return;
+    }
+    const onlineId = pathParam(req, 'onlineId');
+    const pending = (receivedFriendRequests.get(sub) ?? []).some((request) => request.online_id === onlineId);
+    if (!pending) {
+      res.status(409).json({ detail: 'no_pending_request' });
+      return;
+    }
+    acceptedFriendRequests.set(sub, [...(acceptedFriendRequests.get(sub) ?? []), onlineId]);
+    logAction(sub, 'friend_accepted', onlineId);
+    res.status(204).end();
+  });
+
+  app.post('/me/friend-requests/:onlineId', (req: Request, res: Response) => {
+    const sub = subFromRequest(req);
+    if (!getUser(sub).psnPreferences.allow_friend_writes) {
+      res.status(403).json({ detail: 'Friend writes are not permitted for this account.' });
+      return;
+    }
+    const onlineId = pathParam(req, 'onlineId');
+    sentFriendRequests.set(sub, [...(sentFriendRequests.get(sub) ?? []), onlineId]);
+    logAction(sub, 'friend_request_sent', onlineId);
+    res.status(204).end();
   });
 
   app.get('/library/genres', (req: Request, res: Response) => {

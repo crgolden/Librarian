@@ -9,6 +9,7 @@ import { MeService } from '../curator/me.service';
 import {
   AccountActionResponse,
   ConsoleResponse,
+  FriendRequestResponse,
   DeviceResponse,
   DevicesResponse,
   EnrichmentKeyStatusResponse,
@@ -20,7 +21,7 @@ import {
   TrophySummaryResponse,
 } from '../curator/curator.models';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
-import { PsnStatus } from './psn-status.resolver';
+import { PsnStatus, ResolvedPsnStatus } from './psn-status.resolver';
 
 type MeResponse = PsnStatus;
 
@@ -96,6 +97,11 @@ export class PsnSettingsComponent implements OnInit {
   protected readonly identityLoading = signal(false);
   protected readonly identityError = signal<string | null>(null);
 
+  protected readonly friendRequests = signal<FriendRequestResponse[] | null>(null);
+  protected readonly friendRequestsError = signal<string | null>(null);
+  protected readonly friendRequestPending = signal<string | null>(null);
+  protected readonly friendRequestAccepted = signal<string | null>(null);
+
   protected readonly presence = signal<PresenceResponse | null>(null);
   protected readonly presenceLoading = signal(false);
   protected readonly presenceError = signal<string | null>(null);
@@ -109,7 +115,6 @@ export class PsnSettingsComponent implements OnInit {
   protected readonly deviceLinkError = signal<string | null>(null);
 
   protected readonly schedule = signal<RefreshScheduleResponse | null>(null);
-  protected readonly scheduleLoading = signal(false);
   protected readonly scheduleError = signal<string | null>(null);
   protected readonly scheduleSaving = signal(false);
   protected readonly scheduleCadence = signal<RefreshCadence>('weekly');
@@ -145,41 +150,29 @@ export class PsnSettingsComponent implements OnInit {
   );
 
   ngOnInit(): void {
-    const status = this.route.snapshot.data['status'] as MeResponse | null;
-    if (status === null) {
+    const resolved = this.route.snapshot.data['status'] as ResolvedPsnStatus;
+    if (resolved.status === null) {
       this.error.set('Unable to load PSN link status.');
       return;
     }
-    this.loadEnrichmentKeyStatus();
-    this.loadSchedule();
-    this.applyStatus(status);
+    this.enrichmentKeyStatus.set(resolved.enrichmentKeys);
+    if (resolved.schedule !== null) {
+      this.applySchedule(resolved.schedule);
+    }
+    this.applyStatus(resolved.status);
+    this.preferences.set(resolved.preferences);
+    this.trophySummary.set(resolved.trophySummary);
+    this.identity.set(resolved.identity);
+    this.friendRequests.set(resolved.friendRequests ?? []);
+    this.presence.set(resolved.presence);
+    this.devices.set(resolved.devices);
+    this.consoles.set(resolved.consoles);
   }
 
   private applyStatus(me: MeResponse): void {
     this.linked.set(me.linked);
     this.accessTokenExpiresAt.set(me.psn?.access_token_expires_at ?? null);
     this.refreshTokenExpiresAt.set(me.psn?.refresh_token_expires_at ?? null);
-    if (me.linked) {
-      this.loadPreferences();
-    }
-  }
-
-  private loadSchedule(): void {
-    this.scheduleLoading.set(true);
-    this.scheduleError.set(null);
-    this.curator.getRefreshSchedule().subscribe({
-      next: (schedule) => {
-        this.applySchedule(schedule);
-        this.scheduleLoading.set(false);
-      },
-      error: (err: HttpErrorResponse) => {
-        if (err.status !== 404) {
-          this.scheduleError.set('Unable to load your refresh schedule.');
-        }
-        this.schedule.set(null);
-        this.scheduleLoading.set(false);
-      },
-    });
   }
 
   private applySchedule(schedule: RefreshScheduleResponse): void {
@@ -253,6 +246,9 @@ export class PsnSettingsComponent implements OnInit {
       return;
     }
     this.applyStatus(me);
+    if (me.linked) {
+      this.loadPreferences();
+    }
   }
 
   private loadPreferences(): void {
@@ -265,6 +261,7 @@ export class PsnSettingsComponent implements OnInit {
         }
         if (prefs.harvest_identity) {
           this.loadIdentity();
+          this.loadFriendRequests();
         }
         if (prefs.harvest_presence) {
           this.loadPresence();
@@ -305,6 +302,38 @@ export class PsnSettingsComponent implements OnInit {
       error: () => {
         this.identityError.set('Unable to load PSN identity.');
         this.identityLoading.set(false);
+      },
+    });
+  }
+
+  private loadFriendRequests(): void {
+    this.friendRequestsError.set(null);
+    this.curator.getFriendRequests().subscribe({
+      next: (response) => this.friendRequests.set(response.requests),
+      error: () => {
+        this.friendRequests.set(null);
+        this.friendRequestsError.set('Unable to load friend requests.');
+      },
+    });
+  }
+
+  protected acceptFriendRequest(request: FriendRequestResponse): void {
+    const onlineId = request.online_id;
+    if (onlineId === null) {
+      return;
+    }
+    this.friendRequestPending.set(onlineId);
+    this.friendRequestsError.set(null);
+    this.friendRequestAccepted.set(null);
+    this.curator.acceptFriendRequest(onlineId).subscribe({
+      next: () => {
+        this.friendRequestPending.set(null);
+        this.friendRequestAccepted.set(onlineId);
+        this.friendRequests.update((requests) => requests?.filter((entry) => entry.online_id !== onlineId) ?? null);
+      },
+      error: () => {
+        this.friendRequestPending.set(null);
+        this.friendRequestsError.set(`Unable to accept ${onlineId}'s request.`);
       },
     });
   }
@@ -425,6 +454,7 @@ export class PsnSettingsComponent implements OnInit {
         break;
       case 'harvest_identity':
         this.loadIdentity();
+        this.loadFriendRequests();
         break;
       case 'harvest_presence':
         this.loadPresence();

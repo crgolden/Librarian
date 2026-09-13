@@ -21,8 +21,8 @@ function publicCollection(overrides: Partial<PublicCollectionResponse> = {}): Pu
   };
 }
 
-function ok(overrides: Partial<PublicCollectionResponse> = {}): ResolvedPublicCollection {
-  return { status: 'ok', collection: publicCollection(overrides) };
+function ok(overrides: Partial<PublicCollectionResponse> = {}, following = false): ResolvedPublicCollection {
+  return { status: 'ok', collection: publicCollection(overrides), following };
 }
 
 function activatedRoute(slug: string | null, resolved: ResolvedPublicCollection): ActivatedRoute {
@@ -63,7 +63,6 @@ describe('PublicCollectionComponent', () => {
     configure('slug1', false, ok());
     const fixture = TestBed.createComponent(PublicCollectionComponent);
     fixture.detectChanges();
-    httpMock.expectOne('/curator/api/collections/followed').flush(null, { status: 401, statusText: 'Unauthorized' });
 
     const meta = TestBed.inject(Meta);
     expect(meta.getTag('name="robots"')?.content).toBe('noindex, nofollow');
@@ -73,7 +72,6 @@ describe('PublicCollectionComponent', () => {
     configure('slug1', false, ok({ name: 'Shared picks' }));
     const fixture = TestBed.createComponent(PublicCollectionComponent);
     fixture.detectChanges();
-    httpMock.expectOne('/curator/api/collections/followed').flush(null, { status: 401, statusText: 'Unauthorized' });
 
     expect(TestBed.inject(Title).getTitle()).toBe('Shared picks — Librarian');
   });
@@ -103,8 +101,6 @@ describe('PublicCollectionComponent', () => {
     );
     const fixture = TestBed.createComponent(PublicCollectionComponent);
     fixture.detectChanges();
-    httpMock.expectOne('/curator/api/collections/followed').flush(null, { status: 401, statusText: 'Unauthorized' });
-    fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.textContent).toContain('Shared picks');
@@ -119,7 +115,7 @@ describe('PublicCollectionComponent', () => {
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Shared picks');
     httpMock.expectNone('/curator/api/public/collections/slug1');
-    httpMock.expectOne('/curator/api/collections/followed').flush(null, { status: 401, statusText: 'Unauthorized' });
+    httpMock.expectNone('/curator/api/collections/followed');
   });
 
   it('shows a not-found message when the share link is unknown or no longer shared', () => {
@@ -142,8 +138,6 @@ describe('PublicCollectionComponent', () => {
     configure('slug1', false, ok());
     const fixture = TestBed.createComponent(PublicCollectionComponent);
     fixture.detectChanges();
-    httpMock.expectOne('/curator/api/collections/followed').flush(null, { status: 401, statusText: 'Unauthorized' });
-    fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.textContent).toContain('Sign in to follow this collection');
@@ -153,8 +147,6 @@ describe('PublicCollectionComponent', () => {
   it('follows and unfollows a collection when authenticated', () => {
     configure('slug1', true, ok());
     const fixture = TestBed.createComponent(PublicCollectionComponent);
-    fixture.detectChanges();
-    httpMock.expectOne('/curator/api/collections/followed').flush([]);
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
@@ -169,11 +161,9 @@ describe('PublicCollectionComponent', () => {
     expect(followButton()?.textContent?.trim()).toBe('Unfollow');
   });
 
-  it('pre-selects the follow button as already-following when the viewer already follows it', () => {
-    configure('slug1', true, ok({ definition_id: 'd1' }));
+  it('pre-selects the follow button as already-following when the resolver says the viewer follows it', () => {
+    configure('slug1', true, ok({ definition_id: 'd1' }, true));
     const fixture = TestBed.createComponent(PublicCollectionComponent);
-    fixture.detectChanges();
-    httpMock.expectOne('/curator/api/collections/followed').flush([{ definition_id: 'd1', name: 'x', kind: 'filter_list', console_id: null, description: null, genre_filter: [], min_score: null, aaa_tier_filter: null, include_inactive: false, min_percent_completed: null, visibility: 'unlisted', share_slug: 'slug1', item_count: 1 }]);
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;

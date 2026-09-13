@@ -210,6 +210,18 @@
         @if (preview.used_gb !== null) {
           <p class="catalog-meta">Estimated size: {{ preview.used_gb }} GB</p>
         }
+        @if (preview.ignored_filters?.length) {
+          <p id="preview-ignored-filters" class="text-warning">
+            The completion floor was ignored: no trophy data has been harvested for your library yet, so every
+            title passed it. Turn on trophy harvesting on your account page and refresh to apply it.
+          </p>
+        }
+        @if (preview.excluded_for_missing_trophy_data; as dropped) {
+          <p id="preview-excluded-missing-trophy" class="text-muted">
+            {{ dropped }} title(s) were left out because they carry no trophy data to measure against the
+            completion floor.
+          </p>
+        }
         @if (unmeasuredSizeCount(preview.included); as unmeasured) {
           <p id="preview-unmeasured-sizes" class="text-muted">
             {{ unmeasured }} of the {{ preview.included.length }} titles shown pack at a placeholder size
@@ -568,6 +580,18 @@
           <div class="flex flex-col gap-3 w-full">
             @if (result.used_gb !== null) {
               <p class="catalog-meta">Estimated size: {{ result.used_gb }} GB</p>
+            }
+            @if (result.ignored_filters?.length) {
+              <p id="run-ignored-filters" class="text-warning">
+                The completion floor was ignored: no trophy data has been harvested for your library yet, so
+                every title passed it.
+              </p>
+            }
+            @if (result.excluded_for_missing_trophy_data; as dropped) {
+              <p id="run-excluded-missing-trophy" class="text-muted">
+                {{ dropped }} title(s) were left out because they carry no trophy data to measure against the
+                completion floor.
+              </p>
             }
 
             @if (unmeasuredSizeCount(result.included); as unmeasured) {

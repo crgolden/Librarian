@@ -1,0 +1,86 @@
+<section id="ps-plus-page" class="page-section flex flex-col gap-4 max-w-data mx-auto">
+  <app-breadcrumb [items]="breadcrumbItems" />
+  <h1 id="page-title">PlayStation Plus</h1>
+
+  @if (notLinked()) {
+    <p id="ps-plus-not-linked" class="text-muted">
+      The rotation compares the Game Catalog with your own library, so it needs a linked PlayStation Network
+      account. <a routerLink="/account">Link one on your account page</a>.
+    </p>
+  } @else if (error()) {
+    <p id="ps-plus-error" class="text-error">{{ error() }}</p>
+  } @else if (rotation(); as current) {
+    <p class="text-muted">
+      The Game Catalog and Classics Catalog on the US storefront, measured against what you already hold.
+      Claiming a title on the PlayStation Store adds it to your library on the next refresh.
+    </p>
+
+    @if (current.catalog_walked_at) {
+      <p id="ps-plus-walked-at" class="catalog-meta">
+        Catalog last walked {{ current.catalog_walked_at | date: 'medium' }}
+        @if (current.since) {
+          · changes measured since {{ current.since | date: 'medium' }}
+        } @else {
+          · changes appear once the catalog has been walked twice
+        }
+      </p>
+    } @else {
+      <p id="ps-plus-not-walked" class="catalog-meta">The catalog has not been walked yet, so there is nothing to compare.</p>
+    }
+
+    <ul id="ps-plus-categories" class="list-none m-0 p-0 flex flex-wrap gap-4">
+      @for (category of current.categories; track category.tier) {
+        <li class="catalog-meta" [attr.id]="'ps-plus-category-' + category.tier">
+          {{ category.tier }}: {{ category.total }} titles
+          @if (category.walked_at) {
+            (walked {{ category.walked_at | date: 'medium' }})
+          }
+        </li>
+      }
+    </ul>
+
+    @for (list of lists(); track list.id) {
+      <section class="card p-6 flex flex-col gap-2 items-start" [attr.id]="'ps-plus-' + list.id">
+        <h2>{{ list.heading }} ({{ list.titles.length }})</h2>
+        @if (list.titles.length === 0) {
+          <p class="text-muted" [attr.id]="'ps-plus-' + list.id + '-empty'">{{ list.empty }}</p>
+        } @else {
+          <ul class="catalog-list w-full">
+            @for (title of list.titles; track title.title_id) {
+              <li class="card p-4 flex flex-col gap-2" [attr.id]="'ps-plus-' + list.id + '-' + $index">
+                @if (title.cover_image_url) {
+                  <img class="cover-art" [src]="title.cover_image_url" [alt]="title.title ?? title.title_id" loading="lazy" />
+                }
+                @if (title.game_id) {
+                  <a class="catalog-title" [attr.id]="'ps-plus-' + list.id + '-title-' + $index" [routerLink]="['/catalog', title.game_id]">{{
+                    title.title ?? title.title_id
+                  }}</a>
+                } @else if (storeUrl(title); as url) {
+                  <a
+                    class="catalog-title"
+                    [attr.id]="'ps-plus-' + list.id + '-title-' + $index"
+                    [href]="url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >{{ title.title ?? title.title_id }}</a
+                  >
+                } @else {
+                  <span class="catalog-title" [attr.id]="'ps-plus-' + list.id + '-title-' + $index">{{ title.title ?? title.title_id }}</span>
+                }
+                @if (title.tier) {
+                  <span class="spine-label">{{ title.tier }}</span>
+                }
+                @if (title.platforms.length > 0) {
+                  <span class="catalog-meta">{{ title.platforms.join(' · ') }}</span>
+                }
+                @if (title.since_at) {
+                  <span class="catalog-meta">since {{ title.since_at | date: 'mediumDate' }}</span>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    }
+  }
+</section>

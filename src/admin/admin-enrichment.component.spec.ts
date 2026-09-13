@@ -72,7 +72,11 @@ describe('AdminEnrichmentComponent', () => {
   }
 
   function clickButtonByText(root: HTMLElement, text: string): void {
-    Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.includes(text))!.click();
+    const button = Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.includes(text));
+    if (button === undefined) {
+      throw new Error(`No button whose text includes "${text}" is rendered`);
+    }
+    button.click();
   }
 
   it('shows "no run yet" (not an error) when no run has ever been started', () => {

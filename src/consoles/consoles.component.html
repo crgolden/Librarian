@@ -103,6 +103,12 @@
             @if (console.routing_genres.length > 0) {
               <span class="catalog-meta">Routing genres: {{ console.routing_genres.join(', ') }}</span>
             }
+            @if (console.device_link; as link) {
+              <span class="catalog-meta" [attr.id]="'console-device-link-' + $index">
+                {{ deviceLinkLabel(link.state) }} ·
+                <a [attr.id]="'console-device-link-account-' + $index" routerLink="/account">Manage on your account page</a>
+              </span>
+            }
 
             @if (confirmingDeleteConsoleId() === console.console_id) {
               <p class="text-error">Delete "{{ console.name }}"? Any attached storage device is detached, not deleted.</p>

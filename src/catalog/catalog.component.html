@@ -51,6 +51,24 @@
       </select>
     </div>
 
+    <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
+      <label class="block font-semibold" for="catalog-kind">Kind</label>
+      <select id="catalog-kind" name="kind" class="w-full" [ngModel]="kind()" (ngModelChange)="onKindChange($event)">
+        @for (option of kindOptions; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
+      <label class="block font-semibold" for="catalog-sort">Sort</label>
+      <select id="catalog-sort" name="sort" class="w-full" [ngModel]="sortValue()" (ngModelChange)="onSortChange($event)">
+        @for (option of sortOptions; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </div>
+
     <button id="catalog-apply" type="submit" class="btn-primary">Apply</button>
   </form>
 
@@ -72,11 +90,17 @@
             [routerLink]="['/catalog', game.game_id]"
             >{{ game.canonical_title }}</a
           >
+          @if (kindLabel(game); as kind) {
+            <span class="spine-label" [attr.id]="'catalog-kind-' + $index">{{ kind }}</span>
+          }
           @if (game.genre) {
             <span class="spine-label" [attr.id]="'catalog-genre-' + $index">{{ game.genre }}</span>
           }
           @if (metaLine(game); as meta) {
             <span class="catalog-meta">{{ meta }}</span>
+          }
+          @if (priceLine(game); as price) {
+            <span class="catalog-meta" [attr.id]="'catalog-price-' + $index">{{ price }}</span>
           }
           <span class="catalog-meta" [attr.id]="'catalog-ratings-' + $index">
             RAWG {{ game.critical_score ?? '—' }} &middot; OpenCritic {{ game.oc_score ?? '—' }} &middot; PS Store

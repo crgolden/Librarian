@@ -1,6 +1,14 @@
 
 import { test as base, type Page } from '@playwright/test';
-import type { SizeSource } from './mocks/curator.js';
+import type {
+  CatalogPrice,
+  ConsoleDeviceLinkState,
+  ContentKind,
+  FriendRequest,
+  PsPlusRotation,
+  SizeSource,
+  TrophyMatch,
+} from './mocks/curator.js';
 
 const MOCK_BASE = 'http://localhost:4101';
 const MOCK_OIDC_BASE = 'http://localhost:4102';
@@ -18,6 +26,8 @@ export interface CatalogGameFixture {
   oc_score?: number | null;
   psn_rating?: number | null;
   size_source?: SizeSource;
+  content_kind?: ContentKind | null;
+  price?: CatalogPrice | null;
 }
 
 export interface RefreshScheduleFixture {
@@ -59,6 +69,7 @@ export interface LibraryGameFixture {
   opencritic_enriched: boolean;
   percent_completed?: number | null;
   platforms?: string[];
+  trophy_match?: TrophyMatch;
 }
 
 export interface LibraryRefreshResultSummaryFixture {
@@ -133,6 +144,10 @@ export interface TestStore {
   seedUserLibraryGames(sub: string, games: LibraryGameFixture[]): Promise<void>;
   seedUserCollections(sub: string, definitions: DefinitionFixture[]): Promise<void>;
   seedFollow(followerSub: string, followedSub: string): Promise<void>;
+  seedUserPsPlusRotation(sub: string, rotation: Partial<PsPlusRotation>): Promise<void>;
+  seedUserFriendRequests(sub: string, requests: FriendRequest[]): Promise<void>;
+  seedConsoleDeviceLink(consoleId: string, link?: { device_id?: string; state?: ConsoleDeviceLinkState }): Promise<void>;
+  seedHiddenLibraryGames(gameIds: string[]): Promise<void>;
 }
 
 async function fetchControl(path: string, body?: unknown): Promise<void> {
@@ -263,6 +278,18 @@ export const test = base.extend<LibrarianFixtures>({
       },
       async seedFollow(followerSub, followedSub) {
         await fetchControl('/_test/follow', { follower_sub: followerSub, followed_sub: followedSub });
+      },
+      async seedUserPsPlusRotation(sub, rotation) {
+        await fetchControl('/_test/user/ps-plus-rotation', { sub, ...rotation });
+      },
+      async seedUserFriendRequests(sub, requests) {
+        await fetchControl('/_test/user/friend-requests', { sub, requests });
+      },
+      async seedConsoleDeviceLink(consoleId, link) {
+        await fetchControl('/_test/console-device-link', { console_id: consoleId, ...(link ?? {}) });
+      },
+      async seedHiddenLibraryGames(gameIds) {
+        await fetchControl('/_test/hidden-library-games', { game_ids: gameIds });
       },
     };
     await use(s);

@@ -4,9 +4,12 @@ import { ActivatedRouteSnapshot } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { publicCollectionResolver, ResolvedPublicCollection } from './public-collection.resolver';
 import { CuratorService } from '../curator/curator.service';
-import { PublicCollectionResponse } from '../curator/curator.models';
+import { DefinitionResponse, PublicCollectionResponse } from '../curator/curator.models';
 
-const COLLECTION = { name: 'Backlog', games: [] } as unknown as PublicCollectionResponse;
+const COLLECTION = { name: 'Backlog', games: [], definition_id: 'd1' } as unknown as PublicCollectionResponse;
+
+const followed = (...ids: string[]) => () =>
+  of(ids.map((id) => ({ definition_id: id })) as unknown as DefinitionResponse[]);
 
 function run(curator: Partial<CuratorService>, slug: string | null): Promise<ResolvedPublicCollection> {
   TestBed.resetTestingModule();
@@ -25,9 +28,30 @@ const fails = (status: number) => () => throwError(() => new HttpErrorResponse({
 
 describe('publicCollectionResolver', () => {
   it('resolves the shared collection the slug names', async () => {
-    const result = await run({ getPublicCollection: () => of(COLLECTION) }, 'slug1');
+    const result = await run(
+      { getPublicCollection: () => of(COLLECTION), listFollowedCollections: followed() },
+      'slug1',
+    );
 
-    expect(result).toEqual({ status: 'ok', collection: COLLECTION });
+    expect(result).toEqual({ status: 'ok', collection: COLLECTION, following: false });
+  });
+
+  it('resolves the follow state, so the component never fetches it', async () => {
+    const result = await run(
+      { getPublicCollection: () => of(COLLECTION), listFollowedCollections: followed('d1') },
+      'slug1',
+    );
+
+    expect(result).toEqual({ status: 'ok', collection: COLLECTION, following: true });
+  });
+
+  it('still renders the collection for a signed-out viewer, whose follow lookup is refused', async () => {
+    const result = await run(
+      { getPublicCollection: () => of(COLLECTION), listFollowedCollections: fails(401) },
+      'slug1',
+    );
+
+    expect(result).toEqual({ status: 'ok', collection: COLLECTION, following: false });
   });
 
   it('reports not-found for a revoked or unknown slug, never an error page', async () => {

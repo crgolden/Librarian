@@ -5,6 +5,13 @@ import {
   AccountActionsResponse,
   CatalogGamesResponse,
   CatalogGenresResponse,
+  CatalogKind,
+  CatalogSortField,
+  FriendRequestsResponse,
+  GameCollectionsResponse,
+  LibraryHiddenFilter,
+  PsPlusRotationResponse,
+  PsPlusRotationSummaryResponse,
   CollectionPreviewResponse,
   CollectionRunResponse,
   CollectionSpecRequest,
@@ -64,6 +71,10 @@ export interface CatalogGamesQuery {
   aaaTier?: string;
   /** Drop games the signed-in caller already has a library entry for. Ignored for an anonymous caller. */
   excludeOwned?: boolean;
+  /** Curator defaults to `game`; `all` lists every classified kind and the unclassified rows. */
+  kind?: CatalogKind;
+  sort?: CatalogSortField;
+  sortDir?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
 }
@@ -83,6 +94,8 @@ export interface LibraryQuery {
   sortDir?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
+  /** Owner mode only: `only` lists the hidden games instead of excluding them. */
+  hidden?: LibraryHiddenFilter;
 }
 
 export interface CollectionItemsQuery {
@@ -137,6 +150,9 @@ function libraryQueryParams(query: LibraryQuery): HttpParams {
   if (query.offset !== undefined) {
     params = params.set('offset', query.offset);
   }
+  if (query.hidden) {
+    params = params.set('hidden', query.hidden);
+  }
   return params;
 }
 
@@ -161,6 +177,15 @@ export class CuratorService {
     if (query.excludeOwned === true) {
       params = params.set('excludeOwned', true);
     }
+    if (query.kind) {
+      params = params.set('kind', query.kind);
+    }
+    if (query.sort) {
+      params = params.set('sort', query.sort);
+    }
+    if (query.sortDir) {
+      params = params.set('sortDir', query.sortDir);
+    }
     if (query.limit !== undefined) {
       params = params.set('limit', query.limit);
     }
@@ -172,6 +197,38 @@ export class CuratorService {
 
   getCatalogGame(gameId: string): Observable<GameSummaryResponse> {
     return this.http.get<GameSummaryResponse>(`/curator/api/catalog/games/${gameId}`);
+  }
+
+  getCatalogGameCollections(gameId: string): Observable<GameCollectionsResponse> {
+    return this.http.get<GameCollectionsResponse>(`/curator/api/catalog/games/${gameId}/collections`);
+  }
+
+  getPsPlusRotation(): Observable<PsPlusRotationResponse> {
+    return this.http.get<PsPlusRotationResponse>('/curator/api/me/ps-plus-rotation');
+  }
+
+  getPsPlusRotationSummary(): Observable<PsPlusRotationSummaryResponse> {
+    return this.http.get<PsPlusRotationSummaryResponse>('/curator/api/me/ps-plus-rotation/summary');
+  }
+
+  hideLibraryGame(gameId: string): Observable<void> {
+    return this.http.put<void>(`/curator/api/library/${gameId}/hidden`, {});
+  }
+
+  unhideLibraryGame(gameId: string): Observable<void> {
+    return this.http.delete<void>(`/curator/api/library/${gameId}/hidden`);
+  }
+
+  getFriendRequests(): Observable<FriendRequestsResponse> {
+    return this.http.get<FriendRequestsResponse>('/curator/api/me/friend-requests');
+  }
+
+  sendFriendRequest(onlineId: string): Observable<void> {
+    return this.http.post<void>(`/curator/api/me/friend-requests/${onlineId}`, {});
+  }
+
+  acceptFriendRequest(onlineId: string): Observable<void> {
+    return this.http.put<void>(`/curator/api/me/friends/${onlineId}`, {});
   }
 
   getCatalogGenres(): Observable<CatalogGenresResponse> {

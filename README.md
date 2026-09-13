@@ -54,9 +54,12 @@ enrichment key management), `/catalog` (browse the shared game catalog), `/colle
 run curated collections — filterable by genre, minimum score, AAA tier, and minimum trophy completion —
 plus a detail view for renaming, editing membership, deleting, and setting a collection's visibility to
 private, unlisted, or public with a copyable share link), `/consoles` (manage consoles and swappable
-storage devices, attach/detach a device between consoles, and track install state), and `/library`
+storage devices, attach/detach a device between consoles, and track install state), `/library`
 (trigger a refresh and browse the caller's own library — server-side search, genre filtering, sortable
-columns, and paging; see "The library page" below) — all backed by real Curator endpoints. A public
+columns, paging, and per-title hide controls with a separate view of what you have hidden; see "The
+library page" below), and `/library/ps-plus` (which PlayStation Plus Game Catalog and Classics Catalog
+titles you have not claimed, which are leaving, and which of your claimed titles have lapsed) — all
+backed by real Curator endpoints. A public
 social-profile feature adds `/profile` and its sub-keyed counterpart `/u/:sub`: a viewable, followable
 profile with opt-in display toggles for library, collections, PSN trophies, and PSN identity, plus
 always-visible follower/following lists — collections can also be followed individually, from a "Collections

@@ -12,6 +12,7 @@ export const serverRoutes: ServerRoute[] = [
   { path: 'consoles', renderMode: RenderMode.Client },
   { path: 'c/:slug', renderMode: RenderMode.Client },
   { path: 'library', renderMode: RenderMode.Client },
+  { path: 'library/ps-plus', renderMode: RenderMode.Client },
   { path: 'library/:sub', renderMode: RenderMode.Client },
   { path: 'profile', renderMode: RenderMode.Client },
   { path: 'profile/followers', renderMode: RenderMode.Client },
