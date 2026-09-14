@@ -1,7 +1,8 @@
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, Params, Router, convertToParamMap, provideRouter } from '@angular/router';
+import { BehaviorSubject } from 'rxjs';
 import { CollectionsComponent, RESULT_PAGE_SIZE, SIZE_SOURCE_LABELS } from './collections.component';
 import { NO_INSTALLS, ResolvedCollections, ResolvedInstalls } from './collections.resolver';
 import {
@@ -122,22 +123,23 @@ function harness(fixture: ComponentFixture<CollectionsComponent>): CollectionsHa
   return fixture.componentInstance as unknown as CollectionsHarness;
 }
 
-function clickById(root: HTMLElement, id: string): void {
-  const element = root.querySelector(`#${id}`);
-  if (!(element instanceof HTMLElement)) {
-    throw new Error(`No element with id "${id}" is rendered.`);
-  }
-  element.click();
-}
+let queryParams$: BehaviorSubject<Params>;
 
 function activatedRouteStub(
   params: Record<string, string>,
   resolved: ResolvedCollections,
   genres: string[] = [],
+  queryParams: Params = {},
 ): ActivatedRoute {
+  queryParams$ = new BehaviorSubject<Params>(queryParams);
   return {
-    snapshot: { paramMap: convertToParamMap(params), data: { collections: resolved, genres } },
+    snapshot: { paramMap: convertToParamMap(params), data: { collections: resolved, genres }, queryParams },
+    queryParams: queryParams$.asObservable(),
   } as unknown as ActivatedRoute;
+}
+
+function setQueryParams(next: Params): void {
+  queryParams$.next(next);
 }
 
 describe('CollectionsComponent', () => {
@@ -147,6 +149,7 @@ describe('CollectionsComponent', () => {
     params: Record<string, string>,
     resolved: ResolvedCollections,
     genres: string[] = [],
+    queryParams: Params = {},
   ): void {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -155,7 +158,7 @@ describe('CollectionsComponent', () => {
         provideHttpClient(withXhr()),
         provideHttpClientTesting(),
         provideRouter([{ path: 'collections', children: [] }]),
-        { provide: ActivatedRoute, useValue: activatedRouteStub(params, resolved, genres) },
+        { provide: ActivatedRoute, useValue: activatedRouteStub(params, resolved, genres, queryParams) },
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);
@@ -185,11 +188,13 @@ describe('CollectionsComponent', () => {
     consoles: ConsoleResponse[] = [],
     genres: string[] = [],
     installs: ResolvedInstalls = NO_INSTALLS,
+    queryParams: Params = {},
   ): ComponentFixture<CollectionsComponent> {
     configure(
       { definitionId: detail.definition_id },
       { mode: 'detail', definition: detail, consoles, installs },
       genres,
+      queryParams,
     );
     const fixture = TestBed.createComponent(CollectionsComponent);
     fixture.detectChanges();
@@ -679,26 +684,49 @@ describe('CollectionsComponent', () => {
     httpMock.expectOne((r) => r.url === '/curator/api/collections/d1/items').flush({ items: [], total: 0 });
   });
 
+  it('opens a deep link straight at the item page the URL names', () => {
+    createDetail(definitionDetail({ item_count: 120 }, [item('g1')]), [], [], NO_INSTALLS, { itemPage: '3' });
+
+    const req = httpMock.expectOne((r) => r.url === '/curator/api/collections/d1/items');
+    expect(req.request.params.get('offset')).toBe('100');
+    req.flush({ items: [item('g2')], total: 120 });
+  });
+
+  it('takes the resolver first page as answered rather than refetching it', () => {
+    createDetail(definitionDetail({ item_count: 120 }, [item('g1')]));
+
+    httpMock.expectNone((r) => r.url === '/curator/api/collections/d1/items');
+  });
+
+  it('turns the item pager into links, and leaves an inert control where there is nowhere to go', () => {
+    const fixture = createDetail(definitionDetail({ item_count: 120 }, [item('g1')]));
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.querySelector('#collection-items-prev')?.tagName).toBe('BUTTON');
+    expect(compiled.querySelector('#collection-items-next')?.tagName).toBe('A');
+  });
+
   it('exposes which field the item list is sorted by, and its direction, to assistive tech', () => {
     const fixture = createDetail(definitionDetail({}, [item('g1')]));
 
     const compiled: HTMLElement = fixture.nativeElement;
     const rank = compiled.querySelector('#collection-sort-rank');
     const openCritic = compiled.querySelector('#collection-sort-oc');
-    expect(rank?.getAttribute('aria-pressed')).toBe('true');
+    expect(rank?.tagName, 'a sort control that changes the URL is a link, not a toggle button').toBe('A');
+    expect(rank?.getAttribute('aria-current')).toBe('true');
     expect(rank?.classList.contains('sort-active')).toBe(true);
     expect(rank?.textContent).toContain('▲');
-    expect(openCritic?.getAttribute('aria-pressed')).toBe('false');
+    expect(openCritic?.getAttribute('aria-current')).toBeNull();
 
-    clickById(compiled, 'collection-sort-oc');
+    setQueryParams({ itemSort: 'oc_score' });
     fixture.detectChanges();
     httpMock
       .expectOne((r) => r.url === '/curator/api/collections/d1/items' && r.params.get('sort') === 'oc_score')
       .flush({ items: [item('g1')], total: 1 });
     fixture.detectChanges();
 
-    expect(compiled.querySelector('#collection-sort-rank')?.getAttribute('aria-pressed')).toBe('false');
-    expect(compiled.querySelector('#collection-sort-oc')?.getAttribute('aria-pressed')).toBe('true');
+    expect(compiled.querySelector('#collection-sort-rank')?.getAttribute('aria-current')).toBeNull();
+    expect(compiled.querySelector('#collection-sort-oc')?.getAttribute('aria-current')).toBe('true');
     expect(compiled.querySelector('#collection-sort-oc')?.classList.contains('sort-active')).toBe(true);
   });
 

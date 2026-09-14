@@ -4,6 +4,8 @@ import { test, expect, DEFAULT_E2E_SUB } from './fixtures.js';
 
 const VALID_NPSSO = 'a'.repeat(64);
 
+const SCHEDULE_NEXT_RUN_AT = '2027-03-04T12:00:00Z';
+
 const CATEGORY_CARD_IDS = ['#psn-card-trophies', '#psn-card-identity', '#psn-card-presence', '#psn-card-devices'];
 
 async function expectNoCategoryCards(page: Page): Promise<void> {
@@ -64,6 +66,36 @@ test.describe('PSN settings — authenticated', () => {
     await expect(page.locator('#psn-enrichment-keys-card')).toBeVisible();
     await expect(page.locator('#psn-schedule-card')).toBeVisible();
     await expect(page.locator('#pref-trophies')).toHaveCount(0);
+  });
+
+  test('says there is no schedule yet rather than rendering an empty card', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+
+    await page.goto('/account');
+
+    await expect(page.locator('#schedule-none')).toBeVisible();
+    await expect(page.locator('#schedule-next-run')).toHaveCount(0);
+    await expect(page.locator('#schedule-cancel')).toHaveCount(0);
+  });
+
+  test('shows the stored schedule instead of the no-schedule line once one exists', async ({
+    authedPage: page,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedUserRefreshSchedule(DEFAULT_E2E_SUB, {
+      cadence: 'daily',
+      next_run_at: SCHEDULE_NEXT_RUN_AT,
+    });
+
+    await page.goto('/account');
+
+    await expect(page.locator('#schedule-next-run')).toBeVisible();
+    await expect(page.locator('#schedule-cancel')).toBeVisible();
+    await expect(page.locator('#schedule-none')).toHaveCount(0);
   });
 
   test('keeps enrichment keys and scheduling visible after unlinking and reloading', async ({

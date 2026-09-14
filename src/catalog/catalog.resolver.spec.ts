@@ -6,9 +6,9 @@ import { Observable } from 'rxjs';
 import { CATALOG_PAGE_SIZE, catalogGenresResolver, catalogResolver } from './catalog.resolver';
 import { CatalogGamesResponse } from '../curator/curator.models';
 
-function resolve(): Observable<CatalogGamesResponse | null> {
+function resolve(queryParams: Record<string, string> = {}): Observable<CatalogGamesResponse | null> {
   return TestBed.runInInjectionContext(
-    () => catalogResolver({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
+    () => catalogResolver({ queryParams } as unknown as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
   ) as Observable<CatalogGamesResponse | null>;
 }
 
@@ -32,7 +32,7 @@ describe('catalogResolver', () => {
     httpMock.verify();
   });
 
-  it('requests only the first page', () => {
+  it('requests the first page when the URL names none', () => {
     let resolved: CatalogGamesResponse | null | undefined;
     resolve().subscribe((value) => (resolved = value));
 
@@ -42,6 +42,35 @@ describe('catalogResolver', () => {
     req.flush({ games: [], total: 0 });
 
     expect(resolved).toEqual({ games: [], total: 0 });
+  });
+
+  it('server-renders the page the URL asks for, so a shared deep link is not page one', () => {
+    resolve({ page: '3', pageSize: '20', kind: 'media_app', sort: 'price', sortDir: 'desc', q: 'tomb' }).subscribe();
+
+    const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
+    expect(req.request.params.get('limit')).toBe('20');
+    expect(req.request.params.get('offset')).toBe('40');
+    expect(req.request.params.get('kind')).toBe('media_app');
+    expect(req.request.params.get('sort')).toBe('price');
+    expect(req.request.params.get('sortDir')).toBe('desc');
+    expect(req.request.params.get('q')).toBe('tomb');
+    req.flush({ games: [], total: 0 });
+  });
+
+  it('ignores a page size above the ceiling rather than sending Curator a 422', () => {
+    resolve({ pageSize: '5000' }).subscribe();
+
+    const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
+    expect(req.request.params.get('limit')).toBe('200');
+    req.flush({ games: [], total: 0 });
+  });
+
+  it('ignores a page that is not a positive whole number', () => {
+    resolve({ page: '-2' }).subscribe();
+
+    const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
+    expect(req.request.params.get('offset')).toBe('0');
+    req.flush({ games: [], total: 0 });
   });
 
   it('resolves to null rather than failing the navigation when the request errors', () => {

@@ -1,45 +1,42 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
 import { Subject, catchError, map, of, switchMap } from 'rxjs';
 import { CatalogGamesQuery, CuratorService } from '../curator/curator.service';
-import {
-  CatalogGamesResponse,
-  CatalogKind,
-  CatalogPriceResponse,
-  CatalogSortField,
-  GameSummaryResponse,
-} from '../curator/curator.models';
+import { CatalogGamesResponse, CatalogKind, CatalogPriceResponse, GameSummaryResponse } from '../curator/curator.models';
 import { RawgAttributionComponent } from '../app/shared/attribution/rawg-attribution.component';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
 import { PageSizeComponent } from '../shared/page-size/page-size.component';
 import { pageSizeChoicesUpTo, readPageSize, writePageSize } from '../shared/page-size/page-size.preference';
-import { CATALOG_PAGE_SIZE } from './catalog.resolver';
+import {
+  CATALOG_KIND_OPTIONS,
+  CATALOG_PAGE_SIZE,
+  CATALOG_PAGE_SIZE_CEILING,
+  CATALOG_PAGE_SIZE_KEY,
+  CATALOG_SORT_OPTIONS,
+  catalogFranchiseFrom,
+  catalogGenreFrom,
+  catalogKindFrom,
+  catalogPageFrom,
+  catalogPageSizeFrom,
+  catalogQueryFromParams,
+  catalogQueryKey,
+  catalogSearchFrom,
+  catalogSortValueFrom,
+  catalogTierFrom,
+} from './catalog.query';
+import { nullIfNoSelection, selectionOf, trimmedOrNull } from '../shared/control-value';
 import { storeProductUrl } from './store-links';
 
-export const CATALOG_PAGE_SIZE_CEILING = 200;
-export const CATALOG_PAGE_SIZE_KEY = 'catalog';
-export const DEFAULT_CATALOG_KIND: CatalogKind = 'game';
-export const DEFAULT_CATALOG_SORT = 'title:asc';
-
-export const CATALOG_KIND_OPTIONS: readonly { value: CatalogKind; label: string }[] = [
-  { value: 'game', label: 'Games' },
-  { value: 'media_app', label: 'Media apps' },
-  { value: 'add_on', label: 'Add-ons' },
-  { value: 'demo', label: 'Demos' },
-  { value: 'soundtrack', label: 'Soundtracks' },
-  { value: 'theme', label: 'Themes' },
-  { value: 'subscription', label: 'Subscriptions' },
-  { value: 'all', label: 'Everything' },
-];
-
-export const CATALOG_SORT_OPTIONS: readonly { value: string; label: string }[] = [
-  { value: 'title:asc', label: 'Title (A–Z)' },
-  { value: 'title:desc', label: 'Title (Z–A)' },
-  { value: 'price:asc', label: 'Price (low to high)' },
-  { value: 'price:desc', label: 'Price (high to low)' },
-];
+export {
+  CATALOG_KIND_OPTIONS,
+  CATALOG_PAGE_SIZE_CEILING,
+  CATALOG_PAGE_SIZE_KEY,
+  CATALOG_SORT_OPTIONS,
+  DEFAULT_CATALOG_KIND,
+  DEFAULT_CATALOG_SORT,
+} from './catalog.query';
 
 const CONTENT_KIND_LABELS: Readonly<Record<string, string>> = {
   media_app: 'Media app',
@@ -63,8 +60,9 @@ export function priceLine(price: CatalogPriceResponse | null | undefined): strin
   const base = price.base_cents === null ? null : USD.format(price.base_cents / CENTS_PER_DOLLAR);
   const discounted = price.discounted_cents === null ? null : USD.format(price.discounted_cents / CENTS_PER_DOLLAR);
   if (discounted !== null && base !== null && price.discounted_cents !== price.base_cents) {
-    const discount = price.discount_text ? ` (${price.discount_text})` : '';
-    return `${discounted}, was ${base}${discount}`;
+    return price.discount_text
+      ? `${discounted}, was ${base} (${price.discount_text})`
+      : `${discounted}, was ${base}`;
   }
   return discounted ?? base;
 }
@@ -78,6 +76,7 @@ export function priceLine(price: CatalogPriceResponse | null | undefined): strin
 export class CatalogComponent {
   private readonly curator = inject(CuratorService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly pageRequests = new Subject<CatalogGamesQuery>();
 
   protected readonly games = signal<GameSummaryResponse[]>([]);
@@ -85,48 +84,25 @@ export class CatalogComponent {
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  protected readonly search = signal('');
-  protected readonly franchise = signal('');
+  protected readonly search = signal<string | null>(null);
+  protected readonly franchise = signal<string | null>(null);
   protected readonly genre = signal('');
   protected readonly aaaTier = signal('');
-  protected readonly kind = signal<CatalogKind>(DEFAULT_CATALOG_KIND);
-  protected readonly sortValue = signal(DEFAULT_CATALOG_SORT);
+  protected readonly kind = signal<CatalogKind>(catalogKindFrom({}));
+  protected readonly sortValue = signal(catalogSortValueFrom({}));
   protected readonly kindOptions = CATALOG_KIND_OPTIONS;
   protected readonly sortOptions = CATALOG_SORT_OPTIONS;
   protected readonly genreOptions = signal<string[]>([]);
-  protected readonly offset = signal(0);
+  protected readonly page = signal(1);
   protected readonly total = signal(0);
   protected readonly pageSize = signal(CATALOG_PAGE_SIZE);
+  protected readonly offset = computed(() => (this.page() - 1) * this.pageSize());
   protected readonly pageSizeChoices = pageSizeChoicesUpTo(CATALOG_PAGE_SIZE_CEILING, CATALOG_PAGE_SIZE);
-
-  protected metaLine(game: GameSummaryResponse): string {
-    return [game.franchise, game.aaa_tier].filter((part) => !!part).join(' · ');
-  }
-
-  protected storeUrl(game: GameSummaryResponse): string | null {
-    return storeProductUrl(game.store_product_id);
-  }
-
-  protected priceLine(game: GameSummaryResponse): string | null {
-    return priceLine(game.price);
-  }
-
-  protected kindLabel(game: GameSummaryResponse): string | null {
-    return game.content_kind ? (CONTENT_KIND_LABELS[game.content_kind] ?? null) : null;
-  }
-
-  protected onKindChange(value: CatalogKind): void {
-    this.kind.set(value);
-    this.applyFilters();
-  }
-
-  protected onSortChange(value: string): void {
-    this.sortValue.set(value);
-    this.applyFilters();
-  }
 
   protected readonly hasNextPage = signal(false);
   protected readonly hasPrevPage = signal(false);
+
+  private loadedKey: string;
 
   constructor() {
     this.pageRequests
@@ -150,25 +126,106 @@ export class CatalogComponent {
 
     this.genreOptions.set((this.route.snapshot.data['genres'] as string[] | undefined) ?? []);
 
+    this.loadedKey = catalogQueryKey(catalogQueryFromParams(this.route.snapshot.queryParams));
+    this.readControlsFrom(this.route.snapshot.queryParams);
+
     const resolved = this.route.snapshot.data['catalog'] as CatalogGamesResponse | null;
     if (resolved === null) {
       this.error.set('Unable to load the catalog.');
-      return;
+    } else {
+      this.applyPage(resolved);
     }
-    this.applyPage(resolved);
 
-    const preferred = readPageSize(CATALOG_PAGE_SIZE_KEY, this.pageSizeChoices, CATALOG_PAGE_SIZE);
-    if (preferred !== CATALOG_PAGE_SIZE) {
-      this.pageSize.set(preferred);
-      this.load();
-    }
+    this.route.queryParams.pipe(takeUntilDestroyed()).subscribe((params) => {
+      this.readControlsFrom(params);
+      const query = catalogQueryFromParams(params);
+      const key = catalogQueryKey(query);
+      if (key === this.loadedKey) {
+        return;
+      }
+      this.loadedKey = key;
+      this.load(query);
+    });
+
+    this.seedPageSizeFromPreference();
+  }
+
+  protected metaLine(game: GameSummaryResponse): string {
+    return [game.franchise, game.aaa_tier].filter((part) => !!part).join(' · ');
+  }
+
+  protected storeUrl(game: GameSummaryResponse): string | null {
+    return storeProductUrl(game.store_product_id);
+  }
+
+  protected priceLine(game: GameSummaryResponse): string | null {
+    return priceLine(game.price);
+  }
+
+  protected kindLabel(game: GameSummaryResponse): string | null {
+    return game.content_kind ? (CONTENT_KIND_LABELS[game.content_kind] ?? null) : null;
+  }
+
+  protected pageParams(page: number): Params {
+    return { page: page === 1 ? null : page };
+  }
+
+  protected onKindChange(value: CatalogKind): void {
+    this.writeListStateToUrl({ kind: value });
+  }
+
+  protected onSortChange(value: string): void {
+    const [sort, sortDir] = value.split(':');
+    this.writeListStateToUrl({ sort, sortDir });
+  }
+
+  protected applyFilters(): void {
+    this.writeListStateToUrl({
+      q: trimmedOrNull(this.search()),
+      franchise: trimmedOrNull(this.franchise()),
+      genre: nullIfNoSelection(this.genre()),
+      aaaTier: nullIfNoSelection(this.aaaTier()),
+    });
   }
 
   protected setPageSize(size: number): void {
-    this.pageSize.set(size);
     writePageSize(CATALOG_PAGE_SIZE_KEY, size);
-    this.offset.set(0);
-    this.load();
+    this.writeListStateToUrl({ pageSize: size === CATALOG_PAGE_SIZE ? null : size });
+  }
+
+  private writeListStateToUrl(queryParams: Params): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { ...queryParams, page: null },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  private readControlsFrom(params: Params): void {
+    this.search.set(catalogSearchFrom(params));
+    this.franchise.set(catalogFranchiseFrom(params));
+    this.genre.set(selectionOf(catalogGenreFrom(params)));
+    this.aaaTier.set(selectionOf(catalogTierFrom(params)));
+    this.kind.set(catalogKindFrom(params));
+    this.sortValue.set(catalogSortValueFrom(params));
+    this.page.set(catalogPageFrom(params));
+    this.pageSize.set(catalogPageSizeFrom(params));
+  }
+
+  private seedPageSizeFromPreference(): void {
+    if (this.route.snapshot.queryParams['pageSize'] !== undefined) {
+      return;
+    }
+    const preferred = readPageSize(CATALOG_PAGE_SIZE_KEY, this.pageSizeChoices, CATALOG_PAGE_SIZE);
+    if (preferred === CATALOG_PAGE_SIZE) {
+      return;
+    }
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { pageSize: preferred },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   private applyPage(response: CatalogGamesResponse): void {
@@ -178,35 +235,9 @@ export class CatalogComponent {
     this.hasPrevPage.set(this.offset() > 0);
   }
 
-  protected applyFilters(): void {
-    this.offset.set(0);
-    this.load();
-  }
-
-  protected nextPage(): void {
-    this.offset.update((value) => value + this.pageSize());
-    this.load();
-  }
-
-  protected prevPage(): void {
-    this.offset.update((value) => Math.max(0, value - this.pageSize()));
-    this.load();
-  }
-
-  private load(): void {
+  private load(query: CatalogGamesQuery): void {
     this.loading.set(true);
     this.error.set(null);
-    const [sort, sortDir] = this.sortValue().split(':');
-    this.pageRequests.next({
-      q: this.search().trim() || undefined,
-      franchise: this.franchise().trim() || undefined,
-      genre: this.genre().trim() || undefined,
-      aaaTier: this.aaaTier() || undefined,
-      kind: this.kind(),
-      sort: sort as CatalogSortField,
-      sortDir: sortDir === 'desc' ? 'desc' : 'asc',
-      limit: this.pageSize(),
-      offset: this.offset(),
-    });
+    this.pageRequests.next(query);
   }
 }

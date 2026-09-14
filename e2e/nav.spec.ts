@@ -31,8 +31,6 @@ const railId = (label: string, order: string[] = RAIL_ORDER) => `#nav-rail-${ord
 const tabId = (label: string) => `#nav-tab-${TAB_ORDER.indexOf(label)}`;
 const sheetId = (label: string) => `#nav-sheet-link-${SHEET_ORDER.indexOf(label)}`;
 
-const SHEET_OPEN_TIMEOUT_MS = 15_000;
-
 const DESKTOP = { width: 1440, height: 900 };
 const MOBILE = { width: 390, height: 844 };
 
@@ -400,10 +398,7 @@ test.describe('SiteNavComponent — the More sheet', () => {
     await expect(page.locator(SHEET)).toBeHidden();
 
     await page.locator('#nav-tab-more').click();
-    await expect(
-      page.locator(SHEET),
-      'the sheet did not open — a click landing before hydration is inert',
-    ).toBeVisible({ timeout: SHEET_OPEN_TIMEOUT_MS });
+    await expect(page.locator(SHEET)).toBeVisible();
 
     await expect(page.locator(`${SHEET} ${SHEET_LINKS}`)).toHaveCount(SHEET_ORDER.length);
     for (const [index, label] of SHEET_ORDER.entries()) {
@@ -420,10 +415,7 @@ test.describe('SiteNavComponent — the More sheet', () => {
     await page.goto('/');
     const tabs = await page.locator(TAB_LABELS).allTextContents();
     await page.locator('#nav-tab-more').click();
-    await expect(
-      page.locator(SHEET),
-      'the sheet did not open — a click landing before hydration is inert',
-    ).toBeVisible({ timeout: SHEET_OPEN_TIMEOUT_MS });
+    await expect(page.locator(SHEET)).toBeVisible();
     const sheetLinks = await page.locator(`${SHEET} ${SHEET_LINKS}`).allTextContents();
 
     const offered = [...tabs, ...sheetLinks].map((text) => text.trim());
@@ -440,10 +432,7 @@ test.describe('SiteNavComponent — the More sheet', () => {
 
     await page.goto('/');
     await page.locator('#nav-tab-more').click();
-    await expect(
-      page.locator(SHEET),
-      'the sheet did not open — a click landing before hydration is inert',
-    ).toBeVisible({ timeout: SHEET_OPEN_TIMEOUT_MS });
+    await expect(page.locator(SHEET)).toBeVisible();
 
     const insideSheet = await page.evaluate(
       (sheet) => document.querySelector(sheet)?.contains(document.activeElement),
@@ -463,10 +452,7 @@ test.describe('SiteNavComponent — the More sheet', () => {
 
     await page.goto('/');
     await page.locator('#nav-tab-more').click();
-    await expect(
-      page.locator(SHEET),
-      'the sheet did not open — a click landing before hydration is inert',
-    ).toBeVisible({ timeout: SHEET_OPEN_TIMEOUT_MS });
+    await expect(page.locator(SHEET)).toBeVisible();
 
     await page.locator('#nav-sheet-close').click();
     await expect(page.locator(SHEET)).toBeHidden();
@@ -480,10 +466,7 @@ test.describe('SiteNavComponent — the More sheet', () => {
 
     await page.goto('/');
     await page.locator('#nav-tab-more').click();
-    await expect(
-      page.locator(SHEET),
-      'the sheet did not open — a click landing before hydration is inert',
-    ).toBeVisible({ timeout: SHEET_OPEN_TIMEOUT_MS });
+    await expect(page.locator(SHEET)).toBeVisible();
 
     await page.locator(sheetId('Profile')).click();
     await page.waitForURL('**/profile', { timeout: 10_000 });

@@ -210,9 +210,15 @@
       <h2>{{ viewerMode() ? 'Games' : showingHidden() ? 'Hidden games' : 'Your games' }}</h2>
 
       @if (!viewerMode() && (hiddenCount() > 0 || showingHidden())) {
-        <button id="library-show-hidden" type="button" class="btn-ghost btn-sm" (click)="toggleHiddenView()">
+        <a
+          id="library-show-hidden"
+          class="btn-ghost btn-sm"
+          [routerLink]="[]"
+          [queryParams]="hiddenViewParams()"
+          queryParamsHandling="merge"
+        >
           {{ showingHidden() ? 'Back to your games' : 'Hidden games (' + hiddenCount() + ')' }}
-        </button>
+        </a>
       }
 
       @if (gamesError()) {
@@ -281,18 +287,20 @@
                               ? 'descending'
                               : null
                         "
-                        [attr.tabindex]="header.column.getCanSort() ? 0 : null"
-                        (click)="header.column.getToggleSortingHandler()?.($event)"
-                        (keydown.enter)="onHeaderKeydown($event, header)"
-                        (keydown.space)="onHeaderKeydown($event, header)"
                       >
-                        {{ headerLabel(header) }}
-                        @if (header.column.id === 'percent_completed' && trophyLinkNeeded()) {
+                        @if (header.column.getCanSort()) {
                           <a
-                            id="library-header-percent_completed-link"
-                            routerLink="/account"
-                            fragment="pref-trophies"
-                            (click)="stopHeaderSort($event)"
+                            [attr.id]="'library-sort-' + header.column.id"
+                            [routerLink]="[]"
+                            [queryParams]="headerSortParams(header)"
+                            queryParamsHandling="merge"
+                            >{{ headerLabel(header) }}</a
+                          >
+                        } @else {
+                          {{ headerLabel(header) }}
+                        }
+                        @if (header.column.id === 'percent_completed' && trophyLinkNeeded()) {
+                          <a id="library-header-percent_completed-link" routerLink="/account" fragment="pref-trophies"
                             >Turn on trophies</a
                           >
                         }
@@ -393,15 +401,35 @@
           </div>
 
           <div id="library-pager" class="pager">
-            <button id="library-prev" type="button" class="btn-ghost" [disabled]="!hasPrevPage()" (click)="prevPage()">
-              Previous
-            </button>
+            @if (hasPrevPage()) {
+              <a
+                id="library-prev"
+                class="btn-ghost"
+                [routerLink]="[]"
+                [queryParams]="pageParams(pagination().pageIndex)"
+                queryParamsHandling="merge"
+              >
+                Previous
+              </a>
+            } @else {
+              <button id="library-prev" type="button" class="btn-ghost" disabled>Previous</button>
+            }
             <span id="library-page-range" class="text-muted">
               {{ pageStart() }}&ndash;{{ pageEnd() }} of {{ total() }}
             </span>
-            <button id="library-next" type="button" class="btn-ghost" [disabled]="!hasNextPage()" (click)="nextPage()">
-              Next
-            </button>
+            @if (hasNextPage()) {
+              <a
+                id="library-next"
+                class="btn-ghost"
+                [routerLink]="[]"
+                [queryParams]="pageParams(pagination().pageIndex + 2)"
+                queryParamsHandling="merge"
+              >
+                Next
+              </a>
+            } @else {
+              <button id="library-next" type="button" class="btn-ghost" disabled>Next</button>
+            }
             <app-page-size
               controlId="library-page-size"
               [choices]="pageSizeChoices"

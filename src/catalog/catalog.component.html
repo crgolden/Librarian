@@ -122,9 +122,19 @@
     }
 
     <div class="pager">
-      <button id="catalog-prev" type="button" class="btn-ghost" [disabled]="!hasPrevPage()" (click)="prevPage()">
-        Previous
-      </button>
+      @if (hasPrevPage()) {
+        <a
+          id="catalog-prev"
+          class="btn-ghost"
+          [routerLink]="[]"
+          [queryParams]="pageParams(page() - 1)"
+          queryParamsHandling="merge"
+        >
+          Previous
+        </a>
+      } @else {
+        <button id="catalog-prev" type="button" class="btn-ghost" disabled>Previous</button>
+      }
       <span id="catalog-page-range" class="text-muted">
         @if (total() === 0) {
           0 of 0
@@ -132,9 +142,19 @@
           {{ offset() + 1 }}&ndash;{{ offset() + games().length }} of {{ total() }}
         }
       </span>
-      <button id="catalog-next" type="button" class="btn-ghost" [disabled]="!hasNextPage()" (click)="nextPage()">
-        Next
-      </button>
+      @if (hasNextPage()) {
+        <a
+          id="catalog-next"
+          class="btn-ghost"
+          [routerLink]="[]"
+          [queryParams]="pageParams(page() + 1)"
+          queryParamsHandling="merge"
+        >
+          Next
+        </a>
+      } @else {
+        <button id="catalog-next" type="button" class="btn-ghost" disabled>Next</button>
+      }
       <app-page-size
         controlId="catalog-page-size"
         [choices]="pageSizeChoices"

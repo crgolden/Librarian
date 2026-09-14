@@ -464,11 +464,11 @@ test.describe('Library — authenticated', () => {
     const titles = page.locator('[id^="library-title-"]');
     await expect(titles).toHaveText(['Bloodborne', 'Elden Ring']);
 
-    const titleHeader = page.locator('#library-header-title');
-    await titleHeader.click();
+    const titleSort = page.locator('#library-sort-title');
+    await titleSort.click();
     await expect(titles).toHaveText(['Elden Ring', 'Bloodborne']);
 
-    await titleHeader.click();
+    await titleSort.click();
     await expect(titles).toHaveText(['Bloodborne', 'Elden Ring']);
   });
 
@@ -560,8 +560,8 @@ test.describe('Library — authenticated', () => {
     await page.locator('#library-search').fill('ring');
     await expect(page.locator(LIBRARY_ROWS)).toHaveCount(20, { timeout: 5_000 });
 
-    const titleHeader = page.locator('#library-header-title');
-    await titleHeader.click();
+    const titleSort = page.locator('#library-sort-title');
+    await titleSort.click();
     const titles = page.locator('[id^="library-title-"]');
     await expect(titles).toHaveText(Array.from({ length: 20 }, (_, i) => `Ring Game ${String(24 - i).padStart(2, '0')}`));
 

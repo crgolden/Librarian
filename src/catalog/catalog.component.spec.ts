@@ -1,7 +1,9 @@
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, NavigationExtras, Params, Router, provideRouter } from '@angular/router';
+import { BehaviorSubject } from 'rxjs';
+import { vi } from 'vitest';
 import {
   CATALOG_KIND_OPTIONS,
   CATALOG_PAGE_SIZE_CEILING,
@@ -15,14 +17,6 @@ import { readPageSize, writePageSize } from '../shared/page-size/page-size.prefe
 import { CatalogGamesResponse, CatalogKind, GameSummaryResponse } from '../curator/curator.models';
 
 const CURATOR_CATALOG_LIMIT_MAX = 200;
-
-function buttonById(root: HTMLElement, id: string): HTMLButtonElement {
-  const element = root.querySelector(`#${id}`);
-  if (!(element instanceof HTMLButtonElement)) {
-    throw new Error(`No button with id "${id}" is rendered.`);
-  }
-  return element;
-}
 
 function selectById(root: HTMLElement, id: string): HTMLSelectElement {
   const element = root.querySelector(`#${id}`);
@@ -67,10 +61,9 @@ interface CatalogHarness {
   genre: { set(value: string): void };
   aaaTier: { set(value: string): void };
   applyFilters(): void;
-  nextPage(): void;
-  prevPage(): void;
   onKindChange(value: CatalogKind): void;
   onSortChange(value: string): void;
+  pageParams(page: number): Params;
 }
 
 function harness(fixture: ComponentFixture<CatalogComponent>): CatalogHarness {
@@ -79,26 +72,66 @@ function harness(fixture: ComponentFixture<CatalogComponent>): CatalogHarness {
 
 describe('CatalogComponent', () => {
   let httpMock: HttpTestingController;
+  let queryParams$: BehaviorSubject<Params>;
+  let currentParams: Params;
   const routeData: { catalog: CatalogGamesResponse | null; genres: string[] } = { catalog: null, genres: [] };
+  const snapshot = { data: routeData, queryParams: {} as Params };
 
-  function render(resolved: CatalogGamesResponse | null, genres: string[] = []): ComponentFixture<CatalogComponent> {
+  function applyNavigation(extras: NavigationExtras | undefined): void {
+    const merged: Params = { ...currentParams };
+    for (const [key, value] of Object.entries(extras?.queryParams ?? {})) {
+      if (value === null || value === undefined) {
+        delete merged[key];
+      } else {
+        merged[key] = String(value);
+      }
+    }
+    currentParams = merged;
+    snapshot.queryParams = merged;
+    queryParams$.next(merged);
+  }
+
+  function render(
+    resolved: CatalogGamesResponse | null,
+    genres: string[] = [],
+    params: Params = {},
+  ): ComponentFixture<CatalogComponent> {
     routeData.catalog = resolved;
     routeData.genres = genres;
+    currentParams = { ...params };
+    snapshot.queryParams = currentParams;
+    queryParams$ = new BehaviorSubject<Params>(currentParams);
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockImplementation((_commands, extras) => {
+      applyNavigation(extras);
+      return Promise.resolve(true);
+    });
     const fixture = TestBed.createComponent(CatalogComponent);
     fixture.detectChanges();
     return fixture;
+  }
+
+  async function settleNgModelWrites(fixture: ComponentFixture<CatalogComponent>): Promise<void> {
+    await fixture.whenStable();
+    fixture.detectChanges();
   }
 
   beforeEach(() => {
     localStorage.clear();
     routeData.catalog = { games: [], total: 0 };
     routeData.genres = [];
+    currentParams = {};
+    snapshot.queryParams = {};
+    queryParams$ = new BehaviorSubject<Params>({});
     TestBed.configureTestingModule({
       imports: [CatalogComponent],
       providers: [
         provideHttpClient(withXhr()),
         provideHttpClientTesting(),
-        { provide: ActivatedRoute, useValue: { snapshot: { data: routeData } } },
+        provideRouter([{ path: 'catalog', children: [] }]),
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot, get queryParams() { return queryParams$.asObservable(); } },
+        },
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);
@@ -106,6 +139,7 @@ describe('CatalogComponent', () => {
 
   afterEach(() => {
     httpMock.verify();
+    vi.restoreAllMocks();
   });
 
   it('renders the first page from the resolver without issuing a request', () => {
@@ -113,7 +147,12 @@ describe('CatalogComponent', () => {
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.textContent).toContain('Bloodborne');
-    expect(compiled.querySelector('button[disabled]')?.textContent).toContain('Previous');
+    httpMock.expectNone((r) => r.url === '/curator/api/catalog/games');
+  });
+
+  it('does not refetch the page the resolver already answered for this URL', () => {
+    render(fullPage(120), [], { page: '2', pageSize: String(CATALOG_PAGE_SIZE) });
+
     httpMock.expectNone((r) => r.url === '/curator/api/catalog/games');
   });
 
@@ -193,15 +232,42 @@ describe('CatalogComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('#catalog-store-link-0')).toBeNull();
   });
 
-  it('disables Next on the last page even when the page came back full', () => {
+  it('offers no Next link on the last page even when the page came back full', () => {
     const fixture = render(fullPage(50));
 
-    const next = buttonById(fixture.nativeElement, 'catalog-next');
-    expect(next.disabled).toBe(true);
+    const next = (fixture.nativeElement as HTMLElement).querySelector('#catalog-next');
+    expect(next?.tagName, 'an anchor cannot carry disabled, so the inert shape is a real button').toBe(
+      'BUTTON',
+    );
+    expect((next as HTMLButtonElement | null)?.disabled).toBe(true);
   });
 
-  it('applying filters resets the offset and re-requests with the given params', () => {
-    const fixture = render({ games: [], total: 0 });
+  it('turns the pager into links once there is a page to turn to', () => {
+    const fixture = render(fullPage(120));
+
+    const next = (fixture.nativeElement as HTMLElement).querySelector('#catalog-next');
+    expect(next?.tagName, 'a page turn must be a link, not a click handler').toBe('A');
+    expect(harness(fixture).pageParams(2)).toEqual({ page: 2 });
+  });
+
+  it('drops the page parameter rather than writing page=1, so the first page has one URL', () => {
+    const fixture = render(fullPage(120), [], { page: '2' });
+
+    expect(harness(fixture).pageParams(1)).toEqual({ page: null });
+  });
+
+  it('requests the offset a page query parameter describes', () => {
+    render(fullPage(120));
+
+    applyNavigation({ queryParams: { page: 3 } });
+
+    const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
+    expect(req.request.params.get('offset')).toBe(String(CATALOG_PAGE_SIZE * 2));
+    req.flush({ games: [], total: 120 });
+  });
+
+  it('applying filters resets to the first page and re-requests with the given params', () => {
+    const fixture = render(fullPage(120), [], { page: '3' });
 
     const h = harness(fixture);
     h.franchise.set('Uncharted');
@@ -213,13 +279,32 @@ describe('CatalogComponent', () => {
     req.flush({ games: [], total: 0 });
   });
 
-  it('nextPage advances the offset by one page', () => {
-    const fixture = render(fullPage(120));
+  it('restores the controls from the URL, so a shared link opens the list it describes', async () => {
+    const fixture = render({ games: [], total: 0 }, ['Shooter'], {
+      q: 'tomb',
+      franchise: 'Uncharted',
+      genre: 'Shooter',
+      aaaTier: 'AAA',
+      kind: 'media_app',
+      sort: 'price',
+      sortDir: 'desc',
+    });
+    await settleNgModelWrites(fixture);
 
-    harness(fixture).nextPage();
-    const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
-    expect(req.request.params.get('offset')).toBe('50');
-    req.flush({ games: [], total: 120 });
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.querySelector<HTMLInputElement>('#catalog-search')?.value).toBe('tomb');
+    expect(compiled.querySelector<HTMLInputElement>('#franchise')?.value).toBe('Uncharted');
+    expect(selectById(compiled, 'catalog-kind').value).toBe('media_app');
+    expect(selectById(compiled, 'catalog-sort').value).toBe('price:desc');
+  });
+
+  it('falls back to the defaults when the URL asks for a kind or sort that does not exist', async () => {
+    const fixture = render({ games: [], total: 0 }, [], { kind: 'nonsense', sort: 'nonsense', sortDir: 'sideways' });
+    await settleNgModelWrites(fixture);
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(selectById(compiled, 'catalog-kind').value).toBe(DEFAULT_CATALOG_KIND);
+    expect(selectById(compiled, 'catalog-sort').value).toBe('title:asc');
   });
 
   it('blocks interaction with the overlay while an in-page load is in flight, and keeps the current page visible', () => {
@@ -227,7 +312,7 @@ describe('CatalogComponent', () => {
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.querySelector('.loading-overlay')).toBeNull();
 
-    harness(fixture).nextPage();
+    applyNavigation({ queryParams: { page: 2 } });
     fixture.detectChanges();
 
     expect(compiled.querySelector('.loading-overlay')).not.toBeNull();
@@ -240,6 +325,18 @@ describe('CatalogComponent', () => {
 
     expect(compiled.querySelector('.loading-overlay')).toBeNull();
     expect(compiled.textContent).toContain('Sekiro');
+  });
+
+  it('lets a newer page win even when an older response comes back after it', () => {
+    render(fullPage(500));
+
+    applyNavigation({ queryParams: { page: 2 } });
+    const first = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
+    applyNavigation({ queryParams: { page: 3 } });
+    const second = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
+
+    expect(first.cancelled, 'a superseded page request must be cancelled, not merely ignored').toBe(true);
+    second.flush({ games: [], total: 500 });
   });
 
   it('offers the resolved genres as options under an Any default, in the order resolved', () => {
@@ -272,6 +369,7 @@ describe('CatalogComponent', () => {
   it('shows an error message when an in-page load fails', () => {
     const fixture = render({ games: [], total: 0 });
 
+    harness(fixture).search.set('tomb');
     harness(fixture).applyFilters();
     httpMock
       .expectOne((r) => r.url === '/curator/api/catalog/games')
@@ -284,6 +382,7 @@ describe('CatalogComponent', () => {
   it('asks for games only, titled ascending, until the reader says otherwise', () => {
     const fixture = render({ games: [], total: 0 });
 
+    harness(fixture).search.set('tomb');
     harness(fixture).applyFilters();
 
     const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
@@ -294,15 +393,11 @@ describe('CatalogComponent', () => {
   });
 
   it('offers every kind the models declare, and sends the chosen one from the first page', () => {
-    const fixture = render(fullPage(CATALOG_PAGE_SIZE * 4));
+    const fixture = render(fullPage(CATALOG_PAGE_SIZE * 4), [], { page: '2' });
     const compiled: HTMLElement = fixture.nativeElement;
 
     const offered = Array.from(selectById(compiled, 'catalog-kind').options).map((option) => option.value);
     expect(offered).toEqual(CATALOG_KIND_OPTIONS.map((option) => option.value));
-
-    harness(fixture).nextPage();
-    httpMock.expectOne((r) => r.url === '/curator/api/catalog/games').flush(fullPage(CATALOG_PAGE_SIZE * 4));
-    fixture.detectChanges();
 
     harness(fixture).onKindChange('media_app');
 
@@ -375,12 +470,8 @@ describe('CatalogComponent', () => {
   });
 
   it('re-requests the first page at the chosen size, and remembers the choice', () => {
-    const fixture = render(fullPage(CATALOG_PAGE_SIZE * 4));
+    const fixture = render(fullPage(CATALOG_PAGE_SIZE * 4), [], { page: '2' });
     const compiled: HTMLElement = fixture.nativeElement;
-
-    harness(fixture).nextPage();
-    httpMock.expectOne((r) => r.url === '/curator/api/catalog/games').flush(fullPage(CATALOG_PAGE_SIZE * 4));
-    fixture.detectChanges();
 
     const larger = String(CATALOG_PAGE_SIZE_CEILING);
     chooseSize(compiled, '#catalog-page-size', larger);
@@ -396,13 +487,24 @@ describe('CatalogComponent', () => {
     );
   });
 
-  it('loads at the remembered size rather than the size the resolver used', () => {
+  it('seeds the URL from the remembered size rather than quietly loading at it', () => {
     writePageSize(CATALOG_PAGE_SIZE_KEY, CATALOG_PAGE_SIZE_CEILING);
 
     render(fullPage(CATALOG_PAGE_SIZE * 4));
 
+    expect(currentParams['pageSize'], 'a remembered size must reach the address bar to stay shareable').toBe(
+      String(CATALOG_PAGE_SIZE_CEILING),
+    );
     const reload = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
     expect(reload.request.params.get('limit')).toBe(String(CATALOG_PAGE_SIZE_CEILING));
     reload.flush({ games: [], total: 0 });
+  });
+
+  it('leaves a URL that already names a page size alone', () => {
+    writePageSize(CATALOG_PAGE_SIZE_KEY, CATALOG_PAGE_SIZE_CEILING);
+
+    render(fullPage(CATALOG_PAGE_SIZE * 4), [], { pageSize: String(CATALOG_PAGE_SIZE) });
+
+    httpMock.expectNone((r) => r.url === '/curator/api/catalog/games');
   });
 });

@@ -3,6 +3,7 @@ import { DatePipe, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   OnDestroy,
   OnInit,
@@ -12,8 +13,9 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
 import {
   ColumnDef,
   injectTable,
@@ -55,12 +57,25 @@ import {
 import { RawgAttributionComponent } from '../app/shared/attribution/rawg-attribution.component';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
 import { LIBRARY_PAGE_SIZE, ResolvedLibrary } from './library.resolver';
+import {
+  DEFAULT_LIBRARY_SORT,
+  LIBRARY_PAGE_SIZE_CEILING,
+  LIBRARY_PAGE_SIZE_KEY,
+  libraryGenreFrom,
+  libraryPageFrom,
+  libraryPageSizeFrom,
+  libraryQueryKey,
+  librarySearchFrom,
+  libraryShowsHiddenFrom,
+  librarySortDescFrom,
+  librarySortFrom,
+} from './library.query';
+import { nullIfNoSelection, selectionOf } from '../shared/control-value';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
 import { PageSizeComponent } from '../shared/page-size/page-size.component';
 import { pageSizeChoicesUpTo, readPageSize, writePageSize } from '../shared/page-size/page-size.preference';
 
-export const LIBRARY_PAGE_SIZE_CEILING = 100;
-export const LIBRARY_PAGE_SIZE_KEY = 'library';
+export { LIBRARY_PAGE_SIZE_CEILING, LIBRARY_PAGE_SIZE_KEY } from './library.query';
 
 const POLL_INTERVAL_MS = 2500;
 const POLL_ERROR_RETRY_COUNT = 3;
@@ -139,8 +154,11 @@ const LIBRARY_COLUMNS: ColumnDef<typeof LIBRARY_TABLE_FEATURES, LibraryGame>[] =
 })
 export class LibraryComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly curator = inject(CuratorService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  private loadedKey = libraryQueryKey({}, LIBRARY_PAGE_SIZE);
   private pollSubscription: Subscription | null = null;
   private readonly searchCommit = new Subject<string>();
   private searchCommitSubscription: Subscription | null = null;
@@ -176,8 +194,8 @@ export class LibraryComponent implements OnInit, OnDestroy {
   protected readonly gamesLoading = signal(false);
   protected readonly gamesError = signal<string | null>(null);
 
-  protected readonly searchInput = signal('');
-  protected readonly committedSearch = signal('');
+  protected readonly searchInput = signal<string | null>(null);
+  protected readonly committedSearch = signal<string | null>(null);
   protected readonly genreFilter = signal('');
   protected readonly genreOptions = signal<string[]>([]);
 
@@ -199,8 +217,17 @@ export class LibraryComponent implements OnInit, OnDestroy {
   protected readonly storeUnlinked = signal(false);
   protected readonly storeMatchError = signal<string | null>(null);
 
-  protected readonly sorting = signal<SortingState>([{ id: 'title', desc: false }]);
-  protected readonly pagination = signal<PaginationState>({ pageIndex: 0, pageSize: LIBRARY_PAGE_SIZE });
+  private readonly routeParams = signal<Params>({});
+
+  protected readonly sorting = computed<SortingState>(() => [
+    { id: librarySortFrom(this.routeParams()), desc: librarySortDescFrom(this.routeParams()) },
+  ]);
+
+  protected readonly pagination = computed<PaginationState>(() => ({
+    pageIndex: libraryPageFrom(this.routeParams()) - 1,
+    pageSize: libraryPageSizeFrom(this.routeParams(), LIBRARY_PAGE_SIZE),
+  }));
+
   protected readonly pageSizeChoices = pageSizeChoicesUpTo(LIBRARY_PAGE_SIZE_CEILING, LIBRARY_PAGE_SIZE);
 
   protected readonly table = injectTable(() => ({
@@ -213,13 +240,16 @@ export class LibraryComponent implements OnInit, OnDestroy {
     rowCount: this.total(),
     state: { sorting: this.sorting(), pagination: this.pagination() },
     onSortingChange: (updater) => {
-      this.sorting.update((old) => (typeof updater === 'function' ? updater(old) : updater));
-      this.pagination.update((old) => ({ ...old, pageIndex: 0 }));
-      this.reload();
+      const next = typeof updater === 'function' ? updater(this.sorting()) : updater;
+      const first = next[0];
+      this.writeListStateToUrl({
+        sort: !first || first.id === DEFAULT_LIBRARY_SORT ? null : first.id,
+        sortDir: first?.desc ? 'desc' : null,
+      });
     },
     onPaginationChange: (updater) => {
-      this.pagination.update((old) => (typeof updater === 'function' ? updater(old) : updater));
-      this.reload();
+      const next = typeof updater === 'function' ? updater(this.pagination()) : updater;
+      this.writeListStateToUrl({ page: next.pageIndex === 0 ? null : next.pageIndex + 1 }, false);
     },
   }));
 
@@ -247,9 +277,12 @@ export class LibraryComponent implements OnInit, OnDestroy {
     this.searchCommitSubscription = this.searchCommit
       .pipe(debounceTime(SEARCH_DEBOUNCE_MS), distinctUntilChanged())
       .subscribe((value) => {
-        this.committedSearch.set(value);
-        this.pagination.update((old) => ({ ...old, pageIndex: 0 }));
-        this.reload();
+        void this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: { q: value || null, page: null },
+          queryParamsHandling: 'merge',
+          replaceUrl: true,
+        });
       });
 
     const sub = this.route.snapshot.paramMap.get('sub');
@@ -279,17 +312,60 @@ export class LibraryComponent implements OnInit, OnDestroy {
     this.hiddenCount.set(resolved.hiddenCount);
     this.psPlus.set(resolved.psPlus);
 
-    const preferred = readPageSize(LIBRARY_PAGE_SIZE_KEY, this.pageSizeChoices, LIBRARY_PAGE_SIZE);
-    if (preferred !== LIBRARY_PAGE_SIZE) {
-      this.pagination.set({ pageIndex: 0, pageSize: preferred });
-      this.reload();
-    }
+    this.watchQueryParams();
+    this.seedPageSizeFromPreference();
   }
 
   protected setPageSize(size: number): void {
     writePageSize(LIBRARY_PAGE_SIZE_KEY, size);
-    this.pagination.set({ pageIndex: 0, pageSize: size });
-    this.reload();
+    this.writeListStateToUrl({ pageSize: size === LIBRARY_PAGE_SIZE ? null : size });
+  }
+
+  protected pageParams(page: number): Params {
+    return { page: page <= 1 ? null : page };
+  }
+
+  private writeListStateToUrl(queryParams: Params, resetPage = true): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: resetPage ? { ...queryParams, page: null } : queryParams,
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  private watchQueryParams(): void {
+    this.route.queryParams.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      this.routeParams.set(params);
+      const search = librarySearchFrom(params);
+      this.committedSearch.set(search);
+      if ((this.searchInput()?.trim() ?? null) !== search) {
+        this.searchInput.set(search);
+      }
+      this.genreFilter.set(selectionOf(libraryGenreFrom(params)));
+      this.showingHidden.set(libraryShowsHiddenFrom(params));
+      const key = libraryQueryKey(params, LIBRARY_PAGE_SIZE);
+      if (key === this.loadedKey) {
+        return;
+      }
+      this.loadedKey = key;
+      this.reload();
+    });
+  }
+
+  private seedPageSizeFromPreference(): void {
+    if (this.route.snapshot.queryParams['pageSize'] !== undefined) {
+      return;
+    }
+    const preferred = readPageSize(LIBRARY_PAGE_SIZE_KEY, this.pageSizeChoices, LIBRARY_PAGE_SIZE);
+    if (preferred === LIBRARY_PAGE_SIZE) {
+      return;
+    }
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { pageSize: preferred },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   ngOnDestroy(): void {
@@ -302,8 +378,8 @@ export class LibraryComponent implements OnInit, OnDestroy {
     const sorting = this.sorting();
     const pagination = this.pagination();
     return {
-      q: this.committedSearch() || undefined,
-      genre: this.genreFilter() || undefined,
+      q: this.committedSearch() ?? undefined,
+      genre: nullIfNoSelection(this.genreFilter()) ?? undefined,
       sort: (sorting[0]?.id as LibrarySortField | undefined) ?? 'title',
       sortDir: sorting[0]?.desc ? 'desc' : 'asc',
       limit: pagination.pageSize,
@@ -312,10 +388,8 @@ export class LibraryComponent implements OnInit, OnDestroy {
     };
   }
 
-  protected toggleHiddenView(): void {
-    this.showingHidden.update((showing) => !showing);
-    this.pagination.update((old) => ({ ...old, pageIndex: 0 }));
-    this.reload();
+  protected hiddenViewParams(): Params {
+    return { hidden: this.showingHidden() ? null : 'only', page: null };
   }
 
   protected hideGame(game: LibraryGame): void {
@@ -584,29 +658,17 @@ export class LibraryComponent implements OnInit, OnDestroy {
   }
 
   protected onSearchInput(value: string): void {
-    this.searchInput.set(value);
+    this.searchInput.set(nullIfNoSelection(value));
     this.searchCommit.next(value.trim());
   }
 
   protected onGenreFilterChange(value: string): void {
-    this.genreFilter.set(value);
-    this.pagination.update((old) => ({ ...old, pageIndex: 0 }));
-    this.reload();
+    this.writeListStateToUrl({ genre: nullIfNoSelection(value) });
   }
 
   protected onMobileSortChange(value: string): void {
     const [id, dir] = value.split(':');
-    this.sorting.set([{ id, desc: dir === 'desc' }]);
-    this.pagination.update((old) => ({ ...old, pageIndex: 0 }));
-    this.reload();
-  }
-
-  protected nextPage(): void {
-    this.table.nextPage();
-  }
-
-  protected prevPage(): void {
-    this.table.previousPage();
+    this.writeListStateToUrl({ sort: id === DEFAULT_LIBRARY_SORT ? null : id, sortDir: dir === 'desc' ? 'desc' : null });
   }
 
   protected percentCompletedDisplay(percentCompleted: number | null): string {
@@ -634,10 +696,6 @@ export class LibraryComponent implements OnInit, OnDestroy {
     return this.percentCompletedTitle();
   }
 
-  protected stopHeaderSort(event: Event): void {
-    event.stopPropagation();
-  }
-
   protected headerLabel(header: Header<typeof LIBRARY_TABLE_FEATURES, LibraryGame, unknown>): string | null {
     if (header.isPlaceholder) {
       return null;
@@ -646,9 +704,14 @@ export class LibraryComponent implements OnInit, OnDestroy {
     return typeof label === 'string' ? label : null;
   }
 
-  protected onHeaderKeydown(event: Event, header: Header<typeof LIBRARY_TABLE_FEATURES, LibraryGame, unknown>): void {
-    event.preventDefault();
-    header.column.getToggleSortingHandler()?.(event);
+  protected headerSortParams(header: Header<typeof LIBRARY_TABLE_FEATURES, LibraryGame, unknown>): Params {
+    const id = header.column.id;
+    const descending = header.column.getIsSorted() === 'asc';
+    return {
+      sort: id === DEFAULT_LIBRARY_SORT ? null : id,
+      sortDir: descending ? 'desc' : null,
+      page: null,
+    };
   }
 
   protected summaryTitles(titles: string[]): { shown: string[]; more: number } {
@@ -696,8 +759,11 @@ export class LibraryComponent implements OnInit, OnDestroy {
             this.refreshing.set(false);
           }
           if (response.status === 'succeeded') {
-            this.pagination.update((old) => ({ ...old, pageIndex: 0 }));
-            this.reload();
+            if (libraryPageFrom(this.routeParams()) === 1) {
+              this.reload();
+            } else {
+              this.writeListStateToUrl({});
+            }
             this.loadGenres();
           }
         },

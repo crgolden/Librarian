@@ -2,10 +2,10 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ViewChild,
   computed,
   inject,
   signal,
-  viewChild,
   ElementRef,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
@@ -99,7 +99,7 @@ export class SiteNavComponent {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
-  private readonly sheet = viewChild<ElementRef<HTMLDialogElement>>('sheet');
+  @ViewChild('sheet') private sheet?: ElementRef<HTMLDialogElement>;
 
   protected readonly sheetOpen = signal(false);
 
@@ -129,30 +129,35 @@ export class SiteNavComponent {
       : this.auth.loginUrl;
   });
 
+  private urlWhereSheetOpened: string | null = null;
+
   constructor() {
     this.router.events
       .pipe(
-        filter((event) => event instanceof NavigationEnd),
+        filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+        filter((event) => event.urlAfterRedirects !== this.urlWhereSheetOpened),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe(() => this.closeSheet());
   }
 
   protected openSheet(): void {
-    this.sheet()?.nativeElement.showModal();
+    this.sheet?.nativeElement.showModal();
     this.sheetOpen.set(true);
+    this.urlWhereSheetOpened = this.router.url;
   }
 
   protected closeSheet(): void {
-    const element = this.sheet()?.nativeElement;
+    const element = this.sheet?.nativeElement;
     if (element?.open === true) {
       element.close();
     }
     this.sheetOpen.set(false);
+    this.urlWhereSheetOpened = null;
   }
 
   protected dismissOnBackdrop(event: MouseEvent): void {
-    if (event.target === this.sheet()?.nativeElement) {
+    if (event.target === this.sheet?.nativeElement) {
       this.closeSheet();
     }
   }

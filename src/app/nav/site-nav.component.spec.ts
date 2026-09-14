@@ -203,6 +203,40 @@ describe('SiteNavComponent — signed in', () => {
     ).toBe('false');
   });
 
+  it('opens the sheet when the trigger is pressed', () => {
+    const fixture = configure(signedInSession());
+    const host = fixture.nativeElement as HTMLElement;
+
+    host.querySelector<HTMLButtonElement>('#nav-tab-more')?.click();
+    fixture.detectChanges();
+
+    expect(host.querySelector<HTMLDialogElement>('#nav-sheet')?.open).toBe(true);
+  });
+
+  it('leaves the sheet open when the app reports arriving where it already is, which is what the first navigation does', async () => {
+    const fixture = configure(signedInSession());
+    const host = fixture.nativeElement as HTMLElement;
+    host.querySelector<HTMLButtonElement>('#nav-tab-more')?.click();
+    fixture.detectChanges();
+
+    await TestBed.inject(Router).navigateByUrl('/');
+    fixture.detectChanges();
+
+    expect(host.querySelector<HTMLDialogElement>('#nav-sheet')?.open).toBe(true);
+  });
+
+  it('closes the sheet when navigation actually goes somewhere else', async () => {
+    const fixture = configure(signedInSession());
+    const host = fixture.nativeElement as HTMLElement;
+    host.querySelector<HTMLButtonElement>('#nav-tab-more')?.click();
+    fixture.detectChanges();
+
+    await TestBed.inject(Router).navigateByUrl('/catalog');
+    fixture.detectChanges();
+
+    expect(host.querySelector<HTMLDialogElement>('#nav-sheet')?.open).toBe(false);
+  });
+
   it('issues no request of its own — admin status comes from the session, not a round trip', () => {
     configure(signedInSession(), { isAdmin: signal(true) });
 

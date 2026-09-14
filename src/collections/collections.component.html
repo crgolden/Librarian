@@ -414,20 +414,21 @@
           <span id="collection-sort-label" class="stamp-label">Sort by</span>
           <div class="flex flex-wrap gap-2" role="group" aria-labelledby="collection-sort-label">
             @for (option of itemSortOptions; track option.field) {
-              <button
+              <a
                 [attr.id]="'collection-sort-' + option.id"
-                type="button"
                 class="btn-ghost btn-sm"
                 [class.sort-active]="itemSort() === option.field"
-                [attr.aria-pressed]="itemSort() === option.field"
-                (click)="sortItemsBy(option.field)"
+                [attr.aria-current]="itemSort() === option.field ? 'true' : null"
+                [routerLink]="[]"
+                [queryParams]="itemSortParams(option.field)"
+                queryParamsHandling="merge"
               >
                 {{ option.label }}
                 @if (itemSort() === option.field) {
                   <span aria-hidden="true">{{ itemSortDir() === 'asc' ? ' ▲' : ' ▼' }}</span>
                   <span class="sr-only">{{ itemSortDir() === 'asc' ? ', sorted ascending' : ', sorted descending' }}</span>
                 }
-              </button>
+              </a>
             }
           </div>
         </div>
@@ -543,27 +544,35 @@
           </ul>
           @if (itemsTotal() > itemsPageSize) {
             <div class="pager">
-              <button
-                id="collection-items-prev"
-                type="button"
-                class="btn-ghost"
-                [disabled]="itemOffset() === 0"
-                (click)="pageItems(-1)"
-              >
-                Previous
-              </button>
+              @if (itemOffset() > 0) {
+                <a
+                  id="collection-items-prev"
+                  class="btn-ghost"
+                  [routerLink]="[]"
+                  [queryParams]="itemPageParams(itemPage() - 1)"
+                  queryParamsHandling="merge"
+                >
+                  Previous
+                </a>
+              } @else {
+                <button id="collection-items-prev" type="button" class="btn-ghost" disabled>Previous</button>
+              }
               <span class="text-muted">
                 {{ itemOffset() + 1 }}&ndash;{{ itemOffset() + items().length }} of {{ itemsTotal() }}
               </span>
-              <button
-                id="collection-items-next"
-                type="button"
-                class="btn-ghost"
-                [disabled]="itemOffset() + itemsPageSize >= itemsTotal()"
-                (click)="pageItems(1)"
-              >
-                Next
-              </button>
+              @if (hasNextItemPage()) {
+                <a
+                  id="collection-items-next"
+                  class="btn-ghost"
+                  [routerLink]="[]"
+                  [queryParams]="itemPageParams(itemPage() + 1)"
+                  queryParamsHandling="merge"
+                >
+                  Next
+                </a>
+              } @else {
+                <button id="collection-items-next" type="button" class="btn-ghost" disabled>Next</button>
+              }
             </div>
           }
         }

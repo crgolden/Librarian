@@ -1,7 +1,9 @@
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, Params, Router, convertToParamMap, provideRouter } from '@angular/router';
+import { BehaviorSubject } from 'rxjs';
+import { vi } from 'vitest';
 import { LIBRARY_PAGE_SIZE_CEILING, LIBRARY_PAGE_SIZE_KEY, LibraryComponent } from './library.component';
 import { LIBRARY_PAGE_SIZE, ResolvedLibrary } from './library.resolver';
 import { pageSizeChoicesUpTo, writePageSize } from '../shared/page-size/page-size.preference';
@@ -25,13 +27,26 @@ function okLibrary(
   return { status: 'ok', games, total, genres, schedule, trophyProgress: null, hiddenCount: 0, psPlus: null, ...extras };
 }
 
-function activatedRouteWithSub(sub: string | null, resolved: ResolvedLibrary = okLibrary()): ActivatedRoute {
+let queryParams$: BehaviorSubject<Params>;
+
+function activatedRouteWithSub(
+  sub: string | null,
+  resolved: ResolvedLibrary = okLibrary(),
+  queryParams: Params = {},
+): ActivatedRoute {
+  queryParams$ = new BehaviorSubject<Params>(queryParams);
   return {
     snapshot: {
       paramMap: convertToParamMap(sub !== null ? { sub } : {}),
       data: { library: resolved },
+      queryParams,
     },
+    queryParams: queryParams$.asObservable(),
   } as unknown as ActivatedRoute;
+}
+
+function setQueryParams(next: Params): void {
+  queryParams$.next(next);
 }
 
 function authServiceWithSub(sub: string | null): AuthService {
@@ -64,6 +79,39 @@ function generatedToken(): string {
 
 function setManualSearch(fixture: ComponentFixture<LibraryComponent>, term: string): void {
   (fixture.componentInstance as unknown as { manualSearch: { set(v: string): void } }).manualSearch.set(term);
+}
+
+interface SortableHeader {
+  column: { id: string };
+}
+
+interface LibraryHarness {
+  headerSortParams(header: SortableHeader): Params;
+  hiddenViewParams(): Params;
+  table: { getHeaderGroups(): { headers: SortableHeader[] }[] };
+}
+
+function harness(fixture: ComponentFixture<LibraryComponent>): LibraryHarness {
+  return fixture.componentInstance as unknown as LibraryHarness;
+}
+
+function headerFor(fixture: ComponentFixture<LibraryComponent>, columnId: string): SortableHeader {
+  const header = harness(fixture)
+    .table.getHeaderGroups()
+    .flatMap((group) => group.headers)
+    .find((candidate) => candidate.column.id === columnId);
+  if (header === undefined) {
+    throw new Error(`The table renders no header for column "${columnId}".`);
+  }
+  return header;
+}
+
+function genreHeader(fixture: ComponentFixture<LibraryComponent>): SortableHeader {
+  return headerFor(fixture, 'genre');
+}
+
+function titleHeader(fixture: ComponentFixture<LibraryComponent>): SortableHeader {
+  return headerFor(fixture, 'title');
 }
 
 function storeMatchDialog(root: HTMLElement): HTMLDialogElement {
@@ -168,6 +216,21 @@ const MANUAL_GAME: LibraryGameResponse = {
 describe('LibraryComponent', () => {
   let httpMock: HttpTestingController;
 
+  function interceptNavigation(): void {
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockImplementation((_commands, extras) => {
+      const merged: Params = { ...queryParams$.value };
+      for (const [key, value] of Object.entries(extras?.queryParams ?? {})) {
+        if (value === null || value === undefined) {
+          delete merged[key];
+        } else {
+          merged[key] = String(value);
+        }
+      }
+      queryParams$.next(merged);
+      return Promise.resolve(true);
+    });
+  }
+
   beforeEach(() => {
     localStorage.clear();
     vi.useFakeTimers();
@@ -181,6 +244,7 @@ describe('LibraryComponent', () => {
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);
+    interceptNavigation();
   });
 
   afterEach(() => {
@@ -213,6 +277,7 @@ describe('LibraryComponent', () => {
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);
+    interceptNavigation();
   }
 
   it('reports the next automatic refresh from the resolved schedule, and links to where it is changed', async () => {
@@ -938,63 +1003,81 @@ describe('LibraryComponent', () => {
     req.flush(page([FULL_GAME]));
   });
 
-  it('sorts by clicking a column header, toggling direction on a second click', async () => {
+  it('offers each sortable column header as a link, never a clickable cell', async () => {
     const fixture = await createAndLoad([FULL_GAME]);
     const compiled: HTMLElement = fixture.nativeElement;
-    const findGenreHeader = (): HTMLElement | undefined =>
-      Array.from(compiled.querySelectorAll('th')).find((th) => th.textContent?.includes('Genre'));
 
-    expect(findGenreHeader()).toBeDefined();
-    findGenreHeader()?.dispatchEvent(new MouseEvent('click'));
+    const genre = compiled.querySelector('#library-sort-genre');
+    expect(genre?.tagName, 'a header that changes the URL is a link, not a clickable <th>').toBe('A');
+    expect(
+      compiled.querySelector('th[tabindex]'),
+      'a hand-rolled tabindex plus keydown pair is what the anchor replaces',
+    ).toBeNull();
+    expect(compiled.querySelector('#library-sort-cover'), 'an unsortable column offers no link').toBeNull();
+  });
+
+  it('sorts ascending on a first request for a column and flips direction once it is the active sort', async () => {
+    const fixture = await createAndLoad([FULL_GAME]);
+    const h = harness(fixture);
+
+    expect(h.headerSortParams(genreHeader(fixture))).toEqual({ sort: 'genre', sortDir: null, page: null });
+
+    setQueryParams({ sort: 'genre' });
     fixture.detectChanges();
-    const ascReq = httpMock.expectOne(
-      (r) => r.url === '/curator/api/library' && r.params.get('sort') === 'genre' && r.params.get('sortDir') === 'asc',
-    );
-    ascReq.flush(page([FULL_GAME]));
+    httpMock
+      .expectOne(
+        (r) => r.url === '/curator/api/library' && r.params.get('sort') === 'genre' && r.params.get('sortDir') === 'asc',
+      )
+      .flush(page([FULL_GAME]));
     fixture.detectChanges();
     await fixture.whenStable();
 
-    findGenreHeader()?.dispatchEvent(new MouseEvent('click'));
-    fixture.detectChanges();
-    const descReq = httpMock.expectOne(
-      (r) => r.url === '/curator/api/library' && r.params.get('sort') === 'genre' && r.params.get('sortDir') === 'desc',
-    );
-    descReq.flush(page([FULL_GAME]));
+    expect(h.headerSortParams(genreHeader(fixture))).toEqual({ sort: 'genre', sortDir: 'desc', page: null });
   });
 
-  it('sorts genre ascending on the first click even when every row has no genre', async () => {
-    const fixture = await createAndLoad([{ ...FULL_GAME, genre: null }]);
-    const compiled: HTMLElement = fixture.nativeElement;
-    const genreHeader = Array.from(compiled.querySelectorAll('th')).find((th) => th.textContent?.includes('Genre'));
+  it('drops the sort parameters rather than writing the defaults, so the default view has one URL', async () => {
+    const fixture = await createAndLoad([FULL_GAME]);
 
-    genreHeader?.dispatchEvent(new MouseEvent('click'));
-    fixture.detectChanges();
-
-    const request = httpMock.expectOne((r) => r.url === '/curator/api/library' && r.params.get('sort') === 'genre');
     expect(
-      request.request.params.get('sortDir'),
-      'The table infers a column\'s first sort direction by sampling the first ten rows and falls back to "desc" when it finds no non-nullish value, so a library with no genres would open the Genre sort backwards. sortDescFirst:false on the column declares the direction instead of letting the data decide it.',
-    ).toBe('asc');
-    request.flush(page([{ ...FULL_GAME, genre: null }]));
+      harness(fixture).headerSortParams(titleHeader(fixture)),
+      'title ascending is the default view, so its own link is the one that flips to descending',
+    ).toEqual({ sort: null, sortDir: 'desc', page: null });
+
+    setQueryParams({ sort: 'title', sortDir: 'desc' });
+    fixture.detectChanges();
+    httpMock.expectOne((r) => r.url === '/curator/api/library').flush(page([FULL_GAME]));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(
+      harness(fixture).headerSortParams(titleHeader(fixture)),
+      'returning to the default sort writes neither parameter, so there is exactly one URL for it',
+    ).toEqual({ sort: null, sortDir: null, page: null });
   });
 
-  it('pages through results, enabling/disabling Previous/Next based on the real total', async () => {
+  it('offers genre ascending first even when every row has no genre', async () => {
+    const fixture = await createAndLoad([{ ...FULL_GAME, genre: null }]);
+
+    expect(
+      harness(fixture).headerSortParams(genreHeader(fixture)),
+      'The table infers a column\'s first sort direction by sampling the first ten rows and falls back to "desc" when it finds no non-nullish value, so a library with no genres would once have opened the Genre sort backwards. The direction is now computed from the URL rather than the data, so the rows cannot decide it.',
+    ).toEqual({ sort: 'genre', sortDir: null, page: null });
+  });
+
+  it('pages through results, offering Previous/Next as links only where there is a page to reach', async () => {
     const fixture = await createAndLoad([FULL_GAME], 25);
     const compiled: HTMLElement = fixture.nativeElement;
 
-    const nextButton = buttonById(compiled, 'library-next');
-    const prevButton = buttonById(compiled, 'library-prev');
-    expect(prevButton.disabled).toBe(true);
-    expect(nextButton.disabled).toBe(false);
+    expect(compiled.querySelector('#library-prev')?.tagName).toBe('BUTTON');
+    expect(compiled.querySelector('#library-next')?.tagName, 'a page turn is a link, not a click handler').toBe('A');
 
-    nextButton.click();
+    setQueryParams({ page: '2' });
     fixture.detectChanges();
     const req = httpMock.expectOne((r) => r.url === '/curator/api/library' && r.params.get('offset') === '20');
     req.flush(page([FULL_GAME], 25));
     fixture.detectChanges();
 
-    const prevButtonAfter = buttonById(compiled, 'library-prev');
-    expect(prevButtonAfter.disabled).toBe(false);
+    expect(compiled.querySelector('#library-prev')?.tagName).toBe('A');
   });
 
   it('labels the pager as a range within the total, in the form the catalog and collections use', async () => {
@@ -1006,7 +1089,7 @@ describe('LibraryComponent', () => {
 
     expect(range()).toBe(`1–${LIBRARY_PAGE_SIZE} of ${seededTotal}`);
 
-    clickById(compiled, 'library-next');
+    setQueryParams({ page: '2' });
     fixture.detectChanges();
     httpMock
       .expectOne((r) => r.url === '/curator/api/library' && r.params.get('offset') === String(LIBRARY_PAGE_SIZE))
@@ -1014,6 +1097,18 @@ describe('LibraryComponent', () => {
     fixture.detectChanges();
 
     expect(range()).toBe(`${LIBRARY_PAGE_SIZE + 1}–${seededTotal} of ${seededTotal}`);
+  });
+
+  it('opens a deep link straight at the library page the URL names', async () => {
+    configureOwner(okLibrary([FULL_GAME], 200));
+    queryParams$.next({ page: '4' });
+    const fixture = TestBed.createComponent(LibraryComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const req = httpMock.expectOne((r) => r.url === '/curator/api/library');
+    expect(req.request.params.get('offset')).toBe(String(LIBRARY_PAGE_SIZE * 3));
+    req.flush(page([FULL_GAME], 200));
   });
 
   it('shows an error when the resolver could not load the library', async () => {
@@ -1130,10 +1225,18 @@ describe('LibraryComponent', () => {
       expect((fixture.nativeElement as HTMLElement).textContent).toContain(`Unable to hide ${FULL_GAME.title}`);
     });
 
+    it('offers the hidden view as a link carrying hidden=only', async () => {
+      const fixture = await createOwner(okLibrary([FULL_GAME], 1, [], null, { hiddenCount: 1 }));
+
+      const toggle = (fixture.nativeElement as HTMLElement).querySelector('#library-show-hidden');
+      expect(toggle?.tagName, 'a control that changes the URL is a link, not a click handler').toBe('A');
+      expect(harness(fixture).hiddenViewParams()).toEqual({ hidden: 'only', page: null });
+    });
+
     it('the hidden view asks Curator for the hidden rows only, and offers to show one again', async () => {
       const fixture = await createOwner(okLibrary([FULL_GAME], 1, [], null, { hiddenCount: 1 }));
 
-      clickById(fixture.nativeElement, 'library-show-hidden');
+      setQueryParams({ hidden: 'only' });
       fixture.detectChanges();
 
       const hiddenOnly = httpMock.expectOne((r) => r.url === '/curator/api/library');
@@ -1160,7 +1263,7 @@ describe('LibraryComponent', () => {
     it('says nothing is hidden, rather than inviting a refresh the way an empty library does', async () => {
       const fixture = await createOwner(okLibrary([FULL_GAME], 1, [], null, { hiddenCount: 1 }));
 
-      clickById(fixture.nativeElement, 'library-show-hidden');
+      setQueryParams({ hidden: 'only' });
       fixture.detectChanges();
       httpMock
         .expectOne((r) => r.url === '/curator/api/library')
@@ -1236,6 +1339,7 @@ describe('LibraryComponent', () => {
         ],
       });
       httpMock = TestBed.inject(HttpTestingController);
+      interceptNavigation();
     }
 
     it('shows no schedule summary at all on another user\'s library', async () => {

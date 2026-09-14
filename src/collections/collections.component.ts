@@ -1,9 +1,18 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { isPlatformBrowser } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnInit, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  PLATFORM_ID,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
 import { Subject, catchError, map, of, switchMap } from 'rxjs';
 import { CollectionItemsQuery, CuratorService } from '../curator/curator.service';
 import {
@@ -24,13 +33,22 @@ import {
   StorageDeviceResponse,
 } from '../curator/curator.models';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
+import { nullIfNoSelection } from '../shared/control-value';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
 import { installConsoleIdFor, ResolvedCollections, ResolvedInstalls } from './collections.resolver';
+import {
+  DEFAULT_ITEM_SORT,
+  ITEMS_PAGE_SIZE,
+  itemsOffsetFrom,
+  itemsPageFrom,
+  itemsQueryKey,
+  itemsSearchFrom,
+  itemsSortDirFrom,
+  itemsSortFrom,
+} from './collection-items.query';
 
 type CollectionKind = 'filter_list' | 'capacity_fill';
 type View = 'list' | 'create' | 'detail' | 'followed';
-
-const ITEMS_PAGE_SIZE = 50;
 
 export const RESULT_PAGE_SIZE = 50;
 
@@ -56,6 +74,7 @@ export class CollectionsComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly curator = inject(CuratorService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  private readonly destroyRef = inject(DestroyRef);
   private readonly itemRequests = new Subject<{ definitionId: string; query: CollectionItemsQuery }>();
 
   constructor() {
@@ -145,7 +164,7 @@ export class CollectionsComponent implements OnInit {
   protected readonly items = signal<CollectionItemResponse[]>([]);
   protected readonly itemsTotal = signal(0);
   protected readonly itemsLoading = signal(false);
-  protected readonly itemSearch = signal('');
+  protected readonly itemSearch = signal<string | null>(null);
   protected readonly itemSort = signal<CollectionItemSortField>('rank');
   protected readonly itemSortDir = signal<'asc' | 'desc'>('asc');
 
@@ -160,7 +179,11 @@ export class CollectionsComponent implements OnInit {
     { id: 'psn', field: 'psn_rating', label: 'PSN' },
   ];
   protected readonly itemOffset = signal(0);
+  protected readonly itemPage = signal(1);
   protected readonly itemsPageSize = ITEMS_PAGE_SIZE;
+  protected readonly hasNextItemPage = computed(() => this.itemOffset() + ITEMS_PAGE_SIZE < this.itemsTotal());
+
+  private loadedItemsKey = itemsQueryKey({});
 
   protected readonly confirmingDelete = signal(false);
   protected readonly deleting = signal(false);
@@ -244,6 +267,7 @@ export class CollectionsComponent implements OnInit {
         this.editName.set(resolved.definition.name);
         this.editDescription.set(resolved.definition.description);
         this.applyInstalls(resolved.installs);
+        this.watchItemQueryParams(resolved.definition.definition_id);
         return;
       }
       case 'detail-error':
@@ -485,7 +509,18 @@ export class CollectionsComponent implements OnInit {
     this.selectedDefinition.set(definition);
     this.items.set(definition.items);
     this.itemsTotal.set(definition.item_count);
-    this.itemOffset.set(0);
+  }
+
+  private watchItemQueryParams(definitionId: string): void {
+    this.route.queryParams.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      this.readItemControlsFrom(params);
+      const key = itemsQueryKey(params);
+      if (key === this.loadedItemsKey) {
+        return;
+      }
+      this.loadedItemsKey = key;
+      this.loadItems(definitionId);
+    });
   }
 
   private loadItems(definitionId: string): void {
@@ -493,7 +528,7 @@ export class CollectionsComponent implements OnInit {
     this.itemRequests.next({
       definitionId,
       query: {
-        q: this.itemSearch() || undefined,
+        q: this.itemSearch() ?? undefined,
         sort: this.itemSort(),
         sortDir: this.itemSortDir(),
         limit: ITEMS_PAGE_SIZE,
@@ -503,29 +538,37 @@ export class CollectionsComponent implements OnInit {
   }
 
   protected searchItems(term: string): void {
-    this.itemSearch.set(term);
-    this.itemOffset.set(0);
-    this.reloadItems();
+    this.writeItemStateToUrl({ itemQ: nullIfNoSelection(term) }, true);
   }
 
-  protected sortItemsBy(field: CollectionItemSortField): void {
-    if (this.itemSort() === field) {
-      this.itemSortDir.update((dir) => (dir === 'asc' ? 'desc' : 'asc'));
-    } else {
-      this.itemSort.set(field);
-      this.itemSortDir.set('asc');
-    }
-    this.itemOffset.set(0);
-    this.reloadItems();
+  protected itemSortParams(field: CollectionItemSortField): Params {
+    const sortDir = this.itemSort() === field && this.itemSortDir() === 'asc' ? 'desc' : 'asc';
+    return {
+      itemSort: field === DEFAULT_ITEM_SORT ? null : field,
+      itemSortDir: sortDir === 'asc' ? null : sortDir,
+      itemPage: null,
+    };
   }
 
-  protected pageItems(delta: number): void {
-    const next = this.itemOffset() + delta * ITEMS_PAGE_SIZE;
-    if (next < 0 || next >= this.itemsTotal()) {
-      return;
-    }
-    this.itemOffset.set(next);
-    this.reloadItems();
+  protected itemPageParams(page: number): Params {
+    return { itemPage: page <= 1 ? null : page };
+  }
+
+  private writeItemStateToUrl(queryParams: Params, replaceUrl = false): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { ...queryParams, itemPage: null },
+      queryParamsHandling: 'merge',
+      replaceUrl,
+    });
+  }
+
+  private readItemControlsFrom(params: Params): void {
+    this.itemSearch.set(itemsSearchFrom(params));
+    this.itemSort.set(itemsSortFrom(params));
+    this.itemSortDir.set(itemsSortDirFrom(params));
+    this.itemOffset.set(itemsOffsetFrom(params));
+    this.itemPage.set(itemsPageFrom(params));
   }
 
   private reloadItems(): void {

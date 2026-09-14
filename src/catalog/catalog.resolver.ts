@@ -1,17 +1,16 @@
 import { inject } from '@angular/core';
-import { ResolveFn } from '@angular/router';
+import { ActivatedRouteSnapshot, ResolveFn } from '@angular/router';
 import { catchError, map, of } from 'rxjs';
 import { CuratorService } from '../curator/curator.service';
 import { CatalogGamesResponse } from '../curator/curator.models';
+import { catalogQueryFromParams } from './catalog.query';
 
-export const CATALOG_PAGE_SIZE = 50;
+export { CATALOG_PAGE_SIZE } from './catalog.query';
 
-export const catalogResolver: ResolveFn<CatalogGamesResponse | null> = () => {
+export const catalogResolver: ResolveFn<CatalogGamesResponse | null> = (route: ActivatedRouteSnapshot) => {
   const curator = inject(CuratorService);
 
-  return curator
-    .listCatalogGames({ limit: CATALOG_PAGE_SIZE, offset: 0 })
-    .pipe(catchError(() => of(null)));
+  return curator.listCatalogGames(catalogQueryFromParams(route.queryParams)).pipe(catchError(() => of(null)));
 };
 
 export const catalogGenresResolver: ResolveFn<string[]> = () => {
