@@ -247,7 +247,7 @@
             (ngModelChange)="onGenreFilterChange($event)"
             aria-label="Filter by genre"
           >
-            <option value="">All genres</option>
+            <option [ngValue]="null">All genres</option>
             @for (genre of genreOptions(); track genre) {
               <option [value]="genre">{{ genre }}</option>
             }

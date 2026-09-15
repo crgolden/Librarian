@@ -90,7 +90,7 @@ function emptyPreview(): CollectionPreviewResponse {
 
 interface CollectionsHarness {
   kind: { set(value: string): void };
-  consoleId: { set(value: string): void };
+  consoleId: { set(value: string | null): void };
   genreFilter: { set(value: string[]): void };
   name: { set(value: string): void };
   minPercentCompleted: { set(value: number | null): void };

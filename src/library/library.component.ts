@@ -70,7 +70,7 @@ import {
   librarySortDescFrom,
   librarySortFrom,
 } from './library.query';
-import { nullIfNoSelection, selectionOf } from '../shared/control-value';
+import { nullIfEmpty } from '../shared/control-value';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
 import { PageSizeComponent } from '../shared/page-size/page-size.component';
 import { pageSizeChoicesUpTo, readPageSize, writePageSize } from '../shared/page-size/page-size.preference';
@@ -196,7 +196,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
 
   protected readonly searchInput = signal<string | null>(null);
   protected readonly committedSearch = signal<string | null>(null);
-  protected readonly genreFilter = signal('');
+  protected readonly genreFilter = signal<string | null>(null);
   protected readonly genreOptions = signal<string[]>([]);
 
   protected readonly addingManual = signal(false);
@@ -341,7 +341,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
       if ((this.searchInput()?.trim() ?? null) !== search) {
         this.searchInput.set(search);
       }
-      this.genreFilter.set(selectionOf(libraryGenreFrom(params)));
+      this.genreFilter.set(libraryGenreFrom(params));
       this.showingHidden.set(libraryShowsHiddenFrom(params));
       const key = libraryQueryKey(params, LIBRARY_PAGE_SIZE);
       if (key === this.loadedKey) {
@@ -379,7 +379,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
     const pagination = this.pagination();
     return {
       q: this.committedSearch() ?? undefined,
-      genre: nullIfNoSelection(this.genreFilter()) ?? undefined,
+      genre: this.genreFilter() ?? undefined,
       sort: (sorting[0]?.id as LibrarySortField | undefined) ?? 'title',
       sortDir: sorting[0]?.desc ? 'desc' : 'asc',
       limit: pagination.pageSize,
@@ -658,12 +658,12 @@ export class LibraryComponent implements OnInit, OnDestroy {
   }
 
   protected onSearchInput(value: string): void {
-    this.searchInput.set(nullIfNoSelection(value));
+    this.searchInput.set(nullIfEmpty(value));
     this.searchCommit.next(value.trim());
   }
 
-  protected onGenreFilterChange(value: string): void {
-    this.writeListStateToUrl({ genre: nullIfNoSelection(value) });
+  protected onGenreFilterChange(value: string | null): void {
+    this.writeListStateToUrl({ genre: value });
   }
 
   protected onMobileSortChange(value: string): void {

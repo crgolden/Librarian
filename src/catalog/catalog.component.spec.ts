@@ -56,10 +56,10 @@ function fullPage(total: number): CatalogGamesResponse {
 }
 
 interface CatalogHarness {
-  search: { set(value: string): void };
-  franchise: { set(value: string): void };
-  genre: { set(value: string): void };
-  aaaTier: { set(value: string): void };
+  search: { set(value: string | null): void };
+  franchise: { set(value: string | null): void };
+  genre: { set(value: string | null): void };
+  aaaTier: { set(value: string | null): void };
   applyFilters(): void;
   onKindChange(value: CatalogKind): void;
   onSortChange(value: string): void;
@@ -350,15 +350,31 @@ describe('CatalogComponent', () => {
     const fixture = render({ games: [], total: 0 }, ['Shooter', 'RPG', 'Adventure']);
 
     const select = selectById(fixture.nativeElement, 'genre');
-    expect(Array.from(select.options).map((option) => option.value)).toEqual(['', 'Shooter', 'RPG', 'Adventure']);
-    expect(select.options[0].textContent).toContain('Any');
+    expect(Array.from(select.options).map((option) => option.textContent?.trim())).toEqual([
+      'Any',
+      'Shooter',
+      'RPG',
+      'Adventure',
+    ]);
   });
 
   it('still renders a usable genre filter when no genres resolved', () => {
     const fixture = render({ games: [], total: 0 }, []);
 
     const select = selectById(fixture.nativeElement, 'genre');
-    expect(Array.from(select.options).map((option) => option.value)).toEqual(['']);
+    expect(Array.from(select.options).map((option) => option.textContent?.trim())).toEqual(['Any']);
+  });
+
+  it('binds the Any option to null rather than an empty string, so an absent filter is absence', async () => {
+    const fixture = render({ games: [], total: 0 }, ['Shooter']);
+    const select = selectById(fixture.nativeElement, 'genre');
+
+    await fixture.whenStable();
+
+    expect(select.options[0].value, 'CODE-STYLE rule 1: the DOM token for "no genre chosen" must decode to null').not.toBe(
+      '',
+    );
+    expect(select.value).toBe(select.options[0].value);
   });
 
   it('sends the selected genre as the genre filter', () => {

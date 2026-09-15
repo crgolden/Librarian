@@ -26,7 +26,7 @@ import {
   catalogSortValueFrom,
   catalogTierFrom,
 } from './catalog.query';
-import { nullIfNoSelection, selectionOf, trimmedOrNull } from '../shared/control-value';
+import { trimmedOrNull } from '../shared/control-value';
 import { storeProductUrl } from './store-links';
 
 export {
@@ -86,8 +86,8 @@ export class CatalogComponent {
 
   protected readonly search = signal<string | null>(null);
   protected readonly franchise = signal<string | null>(null);
-  protected readonly genre = signal('');
-  protected readonly aaaTier = signal('');
+  protected readonly genre = signal<string | null>(null);
+  protected readonly aaaTier = signal<string | null>(null);
   protected readonly kind = signal<CatalogKind>(catalogKindFrom({}));
   protected readonly sortValue = signal(catalogSortValueFrom({}));
   protected readonly kindOptions = CATALOG_KIND_OPTIONS;
@@ -183,8 +183,8 @@ export class CatalogComponent {
     this.writeListStateToUrl({
       q: trimmedOrNull(this.search()),
       franchise: trimmedOrNull(this.franchise()),
-      genre: nullIfNoSelection(this.genre()),
-      aaaTier: nullIfNoSelection(this.aaaTier()),
+      genre: this.genre(),
+      aaaTier: this.aaaTier(),
     });
   }
 
@@ -204,8 +204,8 @@ export class CatalogComponent {
   private readControlsFrom(params: Params): void {
     this.search.set(catalogSearchFrom(params));
     this.franchise.set(catalogFranchiseFrom(params));
-    this.genre.set(selectionOf(catalogGenreFrom(params)));
-    this.aaaTier.set(selectionOf(catalogTierFrom(params)));
+    this.genre.set(catalogGenreFrom(params));
+    this.aaaTier.set(catalogTierFrom(params));
     this.kind.set(catalogKindFrom(params));
     this.sortValue.set(catalogSortValueFrom(params));
     this.page.set(catalogPageFrom(params));

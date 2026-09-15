@@ -34,7 +34,7 @@
     <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
       <label class="block font-semibold" for="genre">Genre</label>
       <select id="genre" name="genre" class="w-full" [ngModel]="genre()" (ngModelChange)="genre.set($event)">
-        <option value="">Any</option>
+        <option [ngValue]="null">Any</option>
         @for (option of genreOptions(); track option) {
           <option [value]="option">{{ option }}</option>
         }
@@ -44,7 +44,7 @@
     <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
       <label class="block font-semibold" for="aaaTier">Tier</label>
       <select id="aaaTier" name="aaaTier" class="w-full" [ngModel]="aaaTier()" (ngModelChange)="aaaTier.set($event)">
-        <option value="">Any</option>
+        <option [ngValue]="null">Any</option>
         <option value="AAA">AAA</option>
         <option value="AA">AA</option>
         <option value="Indie">Indie</option>

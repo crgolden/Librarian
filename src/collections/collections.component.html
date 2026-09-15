@@ -125,7 +125,7 @@
       @if (kind() === 'capacity_fill') {
         <label for="consoleId">Console</label>
         <select id="consoleId" name="consoleId" [ngModel]="consoleId()" (ngModelChange)="consoleId.set($event)">
-          <option value="">Select a console&hellip;</option>
+          <option [ngValue]="null">Select a console&hellip;</option>
           @for (console of consoles(); track console.console_id) {
             <option [value]="console.console_id">{{ console.name }} ({{ console.platform }})</option>
           }
@@ -161,7 +161,7 @@
 
       <label for="aaaTierFilter">Tier</label>
       <select id="aaaTierFilter" name="aaaTierFilter" [ngModel]="aaaTierFilter()" (ngModelChange)="aaaTierFilter.set($event)">
-        <option value="">Any</option>
+        <option [ngValue]="null">Any</option>
         <option value="AAA">AAA</option>
         <option value="AA">AA</option>
         <option value="Indie">Indie</option>

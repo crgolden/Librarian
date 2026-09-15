@@ -33,7 +33,7 @@ import {
   StorageDeviceResponse,
 } from '../curator/curator.models';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
-import { nullIfNoSelection } from '../shared/control-value';
+import { nullIfEmpty } from '../shared/control-value';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
 import { installConsoleIdFor, ResolvedCollections, ResolvedInstalls } from './collections.resolver';
 import {
@@ -118,12 +118,12 @@ export class CollectionsComponent implements OnInit {
   protected readonly unfollowingIds = signal<ReadonlySet<string>>(new Set());
 
   protected readonly kind = signal<CollectionKind>('filter_list');
-  protected readonly consoleId = signal('');
+  protected readonly consoleId = signal<string | null>(null);
   protected readonly consoles = signal<ConsoleResponse[]>([]);
   protected readonly genreFilter = signal<string[]>([]);
   protected readonly genreOptions = signal<string[]>([]);
   protected readonly minScore = signal<number | null>(null);
-  protected readonly aaaTierFilter = signal('');
+  protected readonly aaaTierFilter = signal<string | null>(null);
   protected readonly includeInactive = signal(false);
   protected readonly minPercentCompleted = signal<number | null>(null);
   protected readonly createError = signal<string | null>(null);
@@ -360,10 +360,10 @@ export class CollectionsComponent implements OnInit {
 
   protected showCreate(): void {
     this.kind.set('filter_list');
-    this.consoleId.set('');
+    this.consoleId.set(null);
     this.genreFilter.set([]);
     this.minScore.set(null);
-    this.aaaTierFilter.set('');
+    this.aaaTierFilter.set(null);
     this.includeInactive.set(false);
     this.minPercentCompleted.set(null);
     this.createError.set(null);
@@ -421,17 +421,17 @@ export class CollectionsComponent implements OnInit {
   }
 
   private buildSpec(): CollectionSpecRequest | null {
-    if (this.kind() === 'capacity_fill' && !this.consoleId().trim()) {
+    if (this.kind() === 'capacity_fill' && this.consoleId() === null) {
       this.createError.set('A console is required for a capacity-fill collection.');
       return null;
     }
 
     return {
       kind: this.kind(),
-      console_id: this.kind() === 'capacity_fill' ? this.consoleId().trim() : null,
+      console_id: this.kind() === 'capacity_fill' ? this.consoleId() : null,
       genre_filter: this.genreFilter(),
       min_score: this.minScore(),
-      aaa_tier_filter: this.aaaTierFilter() || null,
+      aaa_tier_filter: this.aaaTierFilter(),
       include_inactive: this.includeInactive(),
       min_percent_completed: this.minPercentCompleted(),
     };
@@ -538,7 +538,7 @@ export class CollectionsComponent implements OnInit {
   }
 
   protected searchItems(term: string): void {
-    this.writeItemStateToUrl({ itemQ: nullIfNoSelection(term) }, true);
+    this.writeItemStateToUrl({ itemQ: nullIfEmpty(term) }, true);
   }
 
   protected itemSortParams(field: CollectionItemSortField): Params {

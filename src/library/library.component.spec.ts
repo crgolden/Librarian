@@ -1003,6 +1003,18 @@ describe('LibraryComponent', () => {
     req.flush(page([FULL_GAME]));
   });
 
+  it('shows All genres when no genre filter is in the URL', async () => {
+    const fixture = await createAndLoad([FULL_GAME], 1, ['Action RPG']);
+    const select: HTMLSelectElement = fixture.nativeElement.querySelector('.library-genre-filter');
+
+    await fixture.whenStable();
+
+    expect(
+      select.selectedOptions[0]?.textContent?.trim(),
+      'An unfiltered genre is null, so the "All genres" option must bind [ngValue]="null"; bound to "" the accessor matches no option and the control renders blank.',
+    ).toBe('All genres');
+  });
+
   it('offers each sortable column header as a link, never a clickable cell', async () => {
     const fixture = await createAndLoad([FULL_GAME]);
     const compiled: HTMLElement = fixture.nativeElement;
