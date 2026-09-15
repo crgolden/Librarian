@@ -19,8 +19,12 @@ const DESKTOP = { width: 1440, height: 900 };
 const MOBILE = { width: 390, height: 844 };
 
 interface AxeSummary {
-  violations: { id: string; impact?: string | null; nodes: number }[];
-  incomplete: { id: string; nodes: number }[];
+  violations: { id: string; impact?: string | null; nodes: number; targets: string[]; html: string[] }[];
+  incomplete: { id: string; nodes: number; targets: string[] }[];
+}
+
+function targetsOf(nodes: { target: unknown[] }[]): string[] {
+  return nodes.map((node) => node.target.flat().join(' '));
 }
 
 async function scan(page: import('@playwright/test').Page): Promise<AxeSummary> {
@@ -29,8 +33,14 @@ async function scan(page: import('@playwright/test').Page): Promise<AxeSummary> 
     .analyze();
 
   return {
-    violations: results.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })),
-    incomplete: results.incomplete.map((v) => ({ id: v.id, nodes: v.nodes.length })),
+    violations: results.violations.map((v) => ({
+      id: v.id,
+      impact: v.impact,
+      nodes: v.nodes.length,
+      targets: targetsOf(v.nodes),
+      html: v.nodes.map((node) => node.html),
+    })),
+    incomplete: results.incomplete.map((v) => ({ id: v.id, nodes: v.nodes.length, targets: targetsOf(v.nodes) })),
   };
 }
 
