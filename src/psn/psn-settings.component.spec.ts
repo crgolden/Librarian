@@ -828,8 +828,13 @@ describe('PsnSettingsComponent', () => {
       expect(request.request.method).toBe('PUT');
       expect(request.request.body).toEqual({ device_id: 'dev-1' });
       request.flush(null, { status: 204, statusText: 'No Content' });
-      httpMock.expectOne('/curator/api/devices').flush({ devices: [UNLINKED_DEVICE] });
+      flushBothHalvesOfTheDeviceCardReload();
     });
+
+    function flushBothHalvesOfTheDeviceCardReload(): void {
+      httpMock.expectOne('/curator/api/devices').flush({ devices: [UNLINKED_DEVICE] });
+      httpMock.expectOne('/curator/api/consoles').flush([CONSOLE]);
+    }
   });
 
   it('onToggle for allow_chat_writes checks the box optimistically and reverts it if the PUT fails', async () => {
