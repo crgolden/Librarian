@@ -720,6 +720,118 @@ describe('PsnSettingsComponent', () => {
     httpMock.expectNone('/curator/api/devices');
   });
 
+  describe('the device-link select, the one control on the page with no ngModel', () => {
+    const UNLINKED_DEVICE = {
+      device_id: 'dev-1',
+      device_type: 'PS5',
+      device_name: 'Living room',
+      activation_type: 'primary',
+      activation_date: null,
+      deactivation_date: null,
+      linked_console_id: null,
+    };
+    const CONSOLE = {
+      console_id: 'console-1',
+      name: 'Living room PS5',
+      platform: 'PS5',
+      raw_capacity_gb: 825,
+      model: null,
+      update_buffer_gb: 0,
+      effective_capacity_gb: 667,
+      routing_genres: [],
+      fill_order: 1,
+      capacity_is_default: false,
+    };
+
+    function createWithAnUnlinkedDevice(): ComponentFixture<PsnSettingsComponent> {
+      return createWith({
+        status: LINKED_STATUS,
+        preferences: {
+          harvest_trophies: false,
+          harvest_identity: false,
+          harvest_presence: false,
+          harvest_devices: true,
+          allow_friend_writes: false,
+          allow_chat_writes: false,
+        },
+        devices: { devices: [UNLINKED_DEVICE] },
+        consoles: [CONSOLE],
+      });
+    }
+
+    function press(fixture: ComponentFixture<PsnSettingsComponent>, selector: string): void {
+      fixture.nativeElement.querySelector(selector).click();
+      fixture.detectChanges();
+    }
+
+    function choose(fixture: ComponentFixture<PsnSettingsComponent>, consoleId: string): void {
+      const select: HTMLSelectElement = fixture.nativeElement.querySelector('#device-link-select-0');
+      select.value = consoleId;
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+    }
+
+    it('offers a Link control rather than a bare select, so choosing an option cannot act on its own', () => {
+      const fixture = createWithAnUnlinkedDevice();
+      const compiled: HTMLElement = fixture.nativeElement;
+
+      expect(
+        compiled.querySelector('#device-link-select-0'),
+        'The select must stay closed until asked for. A select that links on (change) fires a server mutation from a keyboard arrow press, and the success path then flips the @if branch and removes the control the reader was operating.',
+      ).toBeNull();
+      expect(compiled.querySelector('#device-link-start-0')).not.toBeNull();
+    });
+
+    it('binds the unchosen option to null, not to an empty string', async () => {
+      const fixture = createWithAnUnlinkedDevice();
+      press(fixture, '#device-link-start-0');
+      await fixture.whenStable();
+
+      const select: HTMLSelectElement = fixture.nativeElement.querySelector('#device-link-select-0');
+
+      expect(select.options[0].value, 'CODE-STYLE rule 1: absence is null, and [ngValue] is what carries it').not.toBe('');
+      expect(select.options[0].textContent).toContain('Select a console');
+      expect(select.value).toBe(select.options[0].value);
+    });
+
+    it('sends nothing and says why when Link is pressed with no console chosen', () => {
+      const fixture = createWithAnUnlinkedDevice();
+      press(fixture, '#device-link-start-0');
+
+      press(fixture, '#device-link-confirm-0');
+
+      httpMock.expectNone((request) => request.url.endsWith('/device-link'));
+      expect(fixture.nativeElement.textContent).toContain('Choose a console');
+    });
+
+    it('sends nothing when the reader cancels, and closes the control', () => {
+      const fixture = createWithAnUnlinkedDevice();
+      press(fixture, '#device-link-start-0');
+      choose(fixture, 'console-1');
+
+      press(fixture, '#device-link-cancel-0');
+
+      httpMock.expectNone((request) => request.url.endsWith('/device-link'));
+      expect(fixture.nativeElement.querySelector('#device-link-select-0')).toBeNull();
+    });
+
+    it('links the device only once the reader presses Link', () => {
+      const fixture = createWithAnUnlinkedDevice();
+      press(fixture, '#device-link-start-0');
+
+      choose(fixture, 'console-1');
+      httpMock.expectNone((request) => request.url.endsWith('/device-link'));
+
+      press(fixture, '#device-link-confirm-0');
+
+      const request = httpMock.expectOne('/curator/api/consoles/console-1/device-link');
+      expect(request.request.method).toBe('PUT');
+      expect(request.request.body).toEqual({ device_id: 'dev-1' });
+      request.flush(null, { status: 204, statusText: 'No Content' });
+      httpMock.expectOne('/curator/api/devices').flush({ devices: [UNLINKED_DEVICE] });
+    });
+  });
+
   it('onToggle for allow_chat_writes checks the box optimistically and reverts it if the PUT fails', async () => {
     const fixture = createLinkedWithPreferences({
       harvest_trophies: false,

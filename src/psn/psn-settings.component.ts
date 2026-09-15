@@ -20,7 +20,6 @@ import {
   RefreshScheduleResponse,
   TrophySummaryResponse,
 } from '../curator/curator.models';
-import { nullIfEmpty } from '../shared/control-value';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
 import { PsnStatus, ResolvedPsnStatus } from './psn-status.resolver';
 
@@ -114,6 +113,8 @@ export class PsnSettingsComponent implements OnInit {
   protected readonly consoles = signal<ConsoleResponse[]>([]);
   protected readonly deviceLinkPending = signal<string | null>(null);
   protected readonly deviceLinkError = signal<string | null>(null);
+  protected readonly linkingDeviceId = signal<string | null>(null);
+  protected readonly linkTargetConsoleId = signal<string | null>(null);
 
   protected readonly schedule = signal<RefreshScheduleResponse | null>(null);
   protected readonly scheduleError = signal<string | null>(null);
@@ -381,9 +382,22 @@ export class PsnSettingsComponent implements OnInit {
     return linked?.name ?? device.linked_console_id;
   }
 
-  protected linkDevice(device: DeviceResponse, selectedValue: string): void {
-    const consoleId = nullIfEmpty(selectedValue);
+  protected startLinking(device: DeviceResponse): void {
+    this.linkingDeviceId.set(device.device_id);
+    this.linkTargetConsoleId.set(null);
+    this.deviceLinkError.set(null);
+  }
+
+  protected cancelLinking(): void {
+    this.linkingDeviceId.set(null);
+    this.linkTargetConsoleId.set(null);
+    this.deviceLinkError.set(null);
+  }
+
+  protected linkDevice(device: DeviceResponse): void {
+    const consoleId = this.linkTargetConsoleId();
     if (consoleId === null) {
+      this.deviceLinkError.set('Choose a console to link this device to.');
       return;
     }
     this.deviceLinkPending.set(device.device_id);
@@ -391,6 +405,8 @@ export class PsnSettingsComponent implements OnInit {
     this.curator.linkConsoleDevice(consoleId, device.device_id).subscribe({
       next: () => {
         this.deviceLinkPending.set(null);
+        this.linkingDeviceId.set(null);
+        this.linkTargetConsoleId.set(null);
         this.loadDevices();
       },
       error: () => {

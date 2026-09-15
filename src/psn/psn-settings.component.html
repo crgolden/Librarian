@@ -285,16 +285,49 @@
                     Unlink
                   </button>
                 } @else if (consoles().length) {
-                  <select
-                    [attr.id]="'device-link-select-' + $index"
-                    [disabled]="deviceLinkPending() === device.device_id"
-                    (change)="linkDevice(device, $any($event.target).value)"
-                  >
-                    <option value="">Link to a console&hellip;</option>
-                    @for (console of consoles(); track console.console_id) {
-                      <option [value]="console.console_id">{{ console.name }}</option>
-                    }
-                  </select>
+                  @if (linkingDeviceId() === device.device_id) {
+                    <label [attr.for]="'device-link-select-' + $index" class="sr-only">Link to a console</label>
+                    <select
+                      [attr.id]="'device-link-select-' + $index"
+                      name="deviceLinkTarget"
+                      [disabled]="deviceLinkPending() === device.device_id"
+                      [ngModel]="linkTargetConsoleId()"
+                      (ngModelChange)="linkTargetConsoleId.set($event)"
+                    >
+                      <option [ngValue]="null">Select a console&hellip;</option>
+                      @for (console of consoles(); track console.console_id) {
+                        <option [value]="console.console_id">{{ console.name }}</option>
+                      }
+                    </select>
+                    <div class="form-actions">
+                      <button
+                        [attr.id]="'device-link-cancel-' + $index"
+                        type="button"
+                        class="btn-ghost btn-sm"
+                        (click)="cancelLinking()"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        [attr.id]="'device-link-confirm-' + $index"
+                        type="button"
+                        class="btn-primary btn-sm"
+                        [disabled]="deviceLinkPending() === device.device_id"
+                        (click)="linkDevice(device)"
+                      >
+                        Link
+                      </button>
+                    </div>
+                  } @else {
+                    <button
+                      [attr.id]="'device-link-start-' + $index"
+                      type="button"
+                      class="btn-ghost btn-sm"
+                      (click)="startLinking(device)"
+                    >
+                      Link to a console
+                    </button>
+                  }
                 }
               </li>
             }
