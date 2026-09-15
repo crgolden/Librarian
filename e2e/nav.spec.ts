@@ -57,7 +57,7 @@ test.describe('SiteNavComponent — desktop rail', () => {
 
     await page.goto('/');
     await page.locator(railId('Consoles & Storage')).click();
-    await page.waitForURL('**/consoles', { timeout: 10_000 });
+    await page.waitForURL('**/consoles');
   });
 
   test('clicking Profile in the rail navigates to /profile without a deep link', async ({
@@ -68,7 +68,7 @@ test.describe('SiteNavComponent — desktop rail', () => {
 
     await page.goto('/catalog');
     await page.locator(railId('Profile')).click();
-    await page.waitForURL('**/profile', { timeout: 10_000 });
+    await page.waitForURL('**/profile');
   });
 
   test('the active route is visually marked in the rail', async ({ authedPage: page, store }) => {
@@ -381,7 +381,7 @@ test.describe('SiteNavComponent — mobile tab bar', () => {
 
     await page.goto('/');
     await page.locator(tabId('Catalog')).click();
-    await page.waitForURL('**/catalog', { timeout: 10_000 });
+    await page.waitForURL('**/catalog');
   });
 });
 
@@ -469,7 +469,7 @@ test.describe('SiteNavComponent — the More sheet', () => {
     await expect(page.locator(SHEET)).toBeVisible();
 
     await page.locator(sheetId('Profile')).click();
-    await page.waitForURL('**/profile', { timeout: 10_000 });
+    await page.waitForURL('**/profile');
     await expect(page.locator(SHEET), 'the sheet survived navigation').toBeHidden();
   });
 
@@ -506,7 +506,7 @@ test.describe('SiteNavComponent — anonymous', () => {
   test('the catalog the rail advertises is genuinely reachable without an account', async ({ page }) => {
     await page.goto('/');
     await page.locator(railId('Catalog', RAIL_ORDER_ANONYMOUS)).click();
-    await page.waitForURL('**/catalog', { timeout: 10_000 });
+    await page.waitForURL('**/catalog');
     await expect(page.locator('#nav-link-signin')).toBeVisible();
   });
 });

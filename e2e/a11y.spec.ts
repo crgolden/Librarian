@@ -14,7 +14,6 @@ const AUTHED_ROUTES = [
 const ANONYMOUS_ROUTES = ['/', '/catalog', '/faq', '/privacy'] as const;
 
 const ADMIN_ROUTE_LANDMARK = new Map<string, string>([['/admin/enrichment', '#enrichment-no-run']]);
-const LANDMARK_TIMEOUT_MS = 15_000;
 
 const DESKTOP = { width: 1440, height: 900 };
 const MOBILE = { width: 390, height: 844 };
@@ -62,7 +61,7 @@ test.describe('Accessibility — signed in, desktop rail', () => {
         await expect(
           page.locator(landmark),
           `${route} never rendered — an error paragraph or a redirect scans just as clean as the page`,
-        ).toBeVisible({ timeout: LANDMARK_TIMEOUT_MS });
+        ).toBeVisible();
       }
 
       expectNoViolationsAndNothingUnevaluated(await scan(page), `signed in, desktop, ${route}`);

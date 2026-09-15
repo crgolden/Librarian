@@ -19,7 +19,7 @@ test.describe('PSN settings — auth guard', () => {
     await store.reset();
 
     await page.goto('/account');
-    await page.waitForURL('**/bff/login**', { timeout: 10_000 });
+    await page.waitForURL('**/bff/login**');
   });
 });
 
@@ -29,7 +29,7 @@ test.describe('PSN settings — legacy /psn bookmarks', () => {
 
     await page.goto('/psn');
 
-    await page.waitForURL('**/account', { timeout: 10_000 });
+    await page.waitForURL('**/account');
     await expect(page.locator('#page-title')).toContainText('Account');
   });
 
@@ -41,7 +41,7 @@ test.describe('PSN settings — legacy /psn bookmarks', () => {
 
     await page.goto('/psn');
 
-    await page.waitForURL('**/bff/login**', { timeout: 10_000 });
+    await page.waitForURL('**/bff/login**');
   });
 });
 
@@ -108,7 +108,7 @@ test.describe('PSN settings — authenticated', () => {
     await page.goto('/account');
     await expect(page.locator('#psn-enrichment-keys-card')).toBeVisible();
     await page.locator('#psn-unlink').click();
-    await expect(page.locator('#psn-link-submit')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#psn-link-submit')).toBeVisible();
 
     await page.reload();
 
@@ -139,7 +139,7 @@ test.describe('PSN settings — authenticated', () => {
     await page.goto('/account');
     await page.locator('#npsso').fill(VALID_NPSSO);
     await page.locator('#psn-link-submit').click();
-    await expect(page.locator('#psn-unlink')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#psn-unlink')).toBeVisible();
   });
 
   test('shows a no-refresh-token warning when PSN issued no refresh token', async ({
@@ -166,7 +166,7 @@ test.describe('PSN settings — authenticated', () => {
 
     await page.goto('/account');
     await page.locator('#psn-unlink').click();
-    await expect(page.locator('#psn-link-submit')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#psn-link-submit')).toBeVisible();
   });
 });
 
@@ -188,10 +188,10 @@ test.describe('PSN settings — action history', () => {
     await page.goto('/account');
     await page.locator('#npsso').fill(VALID_NPSSO);
     await page.locator('#psn-link-submit').click();
-    await expect(page.locator('#psn-unlink')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#psn-unlink')).toBeVisible();
 
     await page.locator('#psn-unlink').click();
-    await expect(page.locator('#psn-link-submit')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#psn-link-submit')).toBeVisible();
 
     await page.locator('#psn-action-history-load').click();
     const historyList = page.locator('#psn-action-history-list');
@@ -221,7 +221,6 @@ test.describe('PSN settings — delete my data', () => {
     await page.locator('#psn-delete-confirm').click();
     await expect(page.locator('#psn-deleted-notice')).toContainText(
       'Your account and all associated data have been deleted.',
-      { timeout: 10_000 },
     );
   });
 
@@ -387,7 +386,7 @@ test.describe('PSN settings — what linking does and does not switch on', () =>
     await page.locator('#psn-link-submit').click();
 
     const card = page.locator('#psn-link-success');
-    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card).toBeVisible();
     await expect(card.locator('#psn-link-success-trophies')).toContainText('off');
     await expect(card.locator('#psn-link-success-identity')).toContainText('off');
     await expect(card.locator('#psn-link-success-presence')).toContainText('off');
@@ -422,7 +421,7 @@ test.describe('PSN settings — enrichment API keys', () => {
     await page.locator('#rawg-key').fill('fake-rawg-key');
     await page.locator('#psn-rawg-key-save').click();
 
-    await expect(page.locator('#psn-rawg-key-remove')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#psn-rawg-key-remove')).toBeVisible();
     await expect(page.locator('#opencritic-key')).toBeVisible();
 
     await page.reload();
@@ -437,7 +436,7 @@ test.describe('PSN settings — enrichment API keys', () => {
     await page.goto('/account');
     await page.locator('#rawg-key').fill('super-secret-key-value');
     await page.locator('#psn-rawg-key-save').click();
-    await expect(page.locator('#psn-rawg-key-remove')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#psn-rawg-key-remove')).toBeVisible();
 
     await expect(page.locator('body')).not.toContainText('super-secret-key-value');
   });
@@ -451,7 +450,7 @@ test.describe('PSN settings — enrichment API keys', () => {
     await expect(page.locator('#psn-opencritic-key-remove')).toBeVisible();
 
     await page.locator('#psn-opencritic-key-remove').click();
-    await expect(page.locator('#opencritic-key')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#opencritic-key')).toBeVisible();
   });
 
   test('saving an empty key shows a validation error and makes no request', async ({

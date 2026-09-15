@@ -22,7 +22,7 @@ test.describe('Collections — auth guard', () => {
     await store.reset();
 
     await page.goto('/collections');
-    await page.waitForURL('**/bff/login**', { timeout: 10_000 });
+    await page.waitForURL('**/bff/login**');
   });
 });
 
@@ -49,12 +49,12 @@ test.describe('Collections — authenticated', () => {
     await page.locator('#genreFilter').selectOption({ label: 'RPG' });
     await page.locator('#collection-preview').click();
 
-    await expect(page.locator('#preview-included-title-0')).toHaveText('Bloodborne', { timeout: 10_000 });
+    await expect(page.locator('#preview-included-title-0')).toHaveText('Bloodborne');
 
     await page.locator('#name').fill('RPG picks');
     await page.locator('#collection-save').click();
 
-    await expect(page.locator('text=RPG picks')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('text=RPG picks')).toBeVisible();
   });
 
   test('a preview badges every included title with the rung its size came from', async ({
@@ -73,7 +73,7 @@ test.describe('Collections — authenticated', () => {
     await page.locator('#collections-new').click();
     await page.locator('#collection-preview').click();
 
-    await expect(sizeSourceBadge(page, 0)).toHaveAttribute('data-size-source', 'measured', { timeout: 10_000 });
+    await expect(sizeSourceBadge(page, 0)).toHaveAttribute('data-size-source', 'measured');
     await expect(sizeSourceBadge(page, 1)).toHaveAttribute('data-size-source', 'estimated');
     await expect(sizeSourceBadge(page, 2)).toHaveAttribute('data-size-source', 'default');
     await expect(sizeSourceBadge(page, 3)).toHaveAttribute('data-size-source', 'default');
@@ -107,7 +107,7 @@ test.describe('Collections — authenticated', () => {
     await page.goto('/collections');
     await page.locator('#collections-new').click();
     await page.locator('#collection-preview').click();
-    await expect(sizeSourceBadge(page, 1)).toHaveAttribute('data-size-source', 'default', { timeout: 10_000 });
+    await expect(sizeSourceBadge(page, 1)).toHaveAttribute('data-size-source', 'default');
 
     const muted = await computedColorOfToken(page, '--color-text-muted');
     const danger = await computedColorOfToken(page, '--color-danger');
@@ -155,18 +155,18 @@ test.describe('Collections — authenticated', () => {
     await page.locator('#kind').selectOption('capacity_fill');
     await page.locator('#consoleId').selectOption('console-1');
     await page.locator('#collection-preview').click();
-    await expect(page.locator('#preview-included-title-0')).toHaveText('Bloodborne', { timeout: 10_000 });
+    await expect(page.locator('#preview-included-title-0')).toHaveText('Bloodborne');
 
     await page.locator('#name').fill('Console pack');
     await page.locator('#collection-save').click();
-    await expect(page.locator('text=Console pack')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('text=Console pack')).toBeVisible();
 
 
     await page.locator('#collection-open-0').click();
-    await expect(page.locator('#collection-item-install-0')).toHaveText('Mark installed', { timeout: 10_000 });
+    await expect(page.locator('#collection-item-install-0')).toHaveText('Mark installed');
 
     await page.locator('#collection-item-install-0').click();
-    await expect(page.locator('#collection-item-install-0')).toHaveText('Installed', { timeout: 10_000 });
+    await expect(page.locator('#collection-item-install-0')).toHaveText('Installed');
   });
 
   test('toggling install state after a console loses ownership shows an inline 404 message', async ({
@@ -185,19 +185,19 @@ test.describe('Collections — authenticated', () => {
     await page.locator('#kind').selectOption('capacity_fill');
     await page.locator('#consoleId').selectOption('console-1');
     await page.locator('#collection-preview').click();
-    await expect(page.locator('#preview-included-title-0')).toHaveText('Bloodborne', { timeout: 10_000 });
+    await expect(page.locator('#preview-included-title-0')).toHaveText('Bloodborne');
 
     await page.locator('#name').fill('Console pack');
     await page.locator('#collection-save').click();
-    await expect(page.locator('text=Console pack')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('text=Console pack')).toBeVisible();
 
     await page.locator('#collection-open-0').click();
-    await expect(page.locator('#collection-item-install-0')).toHaveText('Mark installed', { timeout: 10_000 });
+    await expect(page.locator('#collection-item-install-0')).toHaveText('Mark installed');
 
     await store.seedConsoles([]);
     await page.locator('#collection-item-install-0').click();
 
-    await expect(page.locator("text=Console 'console-1' not found")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("text=Console 'console-1' not found")).toBeVisible();
   });
 
   test('collection detail: rename, set visibility to unlisted, copy the share link, then delete', async ({
@@ -213,10 +213,10 @@ test.describe('Collections — authenticated', () => {
     await page.locator('#collections-new').click();
     await page.locator('#genreFilter').selectOption({ label: 'RPG' });
     await page.locator('#collection-preview').click();
-    await expect(page.locator('#preview-included-title-0')).toHaveText('Bloodborne', { timeout: 10_000 });
+    await expect(page.locator('#preview-included-title-0')).toHaveText('Bloodborne');
     await page.locator('#name').fill('RPG picks');
     await page.locator('#collection-save').click();
-    await expect(page.locator('text=RPG picks')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('text=RPG picks')).toBeVisible();
 
     await page.locator('#collection-open-0').click();
     await page.locator('#collection-edit-meta').click();
@@ -225,11 +225,11 @@ test.describe('Collections — authenticated', () => {
     await expect(page.locator('#collection-detail-title')).toContainText('RPG favorites');
 
     await page.locator('#visibility').selectOption('unlisted');
-    await expect(page.locator('#collection-copy-share-link')).toHaveText('Copy share link', { timeout: 10_000 });
+    await expect(page.locator('#collection-copy-share-link')).toHaveText('Copy share link');
     await expect(page.locator('#collection-share-url')).toContainText('/c/');
 
     await page.locator('#collection-delete').click();
     await page.locator('#collection-delete-confirm').click();
-    await expect(page.locator("text=haven't saved any collections")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("text=haven't saved any collections")).toBeVisible();
   });
 });

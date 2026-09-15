@@ -190,7 +190,7 @@ test.describe('Layout invariants DESIGN.md states and markup cannot prove', () =
 
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/collections/d/d1');
-      await expect(page.locator('#collection-detail-title')).toBeVisible({ timeout: 10_000 });
+      await expect(page.locator('#collection-detail-title')).toBeVisible();
       await settleWebfonts(page, ['#collection-detail-title']);
 
       await expect(

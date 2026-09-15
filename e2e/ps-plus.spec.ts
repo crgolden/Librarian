@@ -31,7 +31,7 @@ test.describe('PlayStation Plus rotation — auth guard', () => {
     await store.reset();
 
     await page.goto('/library/ps-plus');
-    await page.waitForURL('**/bff/login**', { timeout: 10_000 });
+    await page.waitForURL('**/bff/login**');
   });
 });
 
@@ -107,7 +107,7 @@ test.describe('PlayStation Plus rotation', () => {
     await page.goto('/library/ps-plus');
     await page.locator('#ps-plus-unclaimed-title-0').click();
 
-    await page.waitForURL('**/catalog/g-bloodborne', { timeout: 10_000 });
+    await page.waitForURL('**/catalog/g-bloodborne');
     await expect(page.locator('#page-title')).toContainText('Bloodborne');
   });
 });
@@ -132,7 +132,7 @@ test.describe('PlayStation Plus rotation — the library summary', () => {
     await expect(page.locator('#library-ps-plus-link')).toHaveAttribute('href', '/library/ps-plus');
 
     await page.locator('#library-ps-plus-link').click();
-    await page.waitForURL('**/library/ps-plus', { timeout: 10_000 });
+    await page.waitForURL('**/library/ps-plus');
     await expect(page.locator('#page-title')).toContainText('PlayStation Plus');
   });
 

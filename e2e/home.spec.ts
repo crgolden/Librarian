@@ -81,13 +81,13 @@ test.describe('HomePage — resolved collection summary', () => {
     await expect(page.locator('#home-unlinked-notice')).toContainText(UNLINKED_NOTICE);
 
     await page.locator('#nav-rail-5').click();
-    await page.waitForURL('**/account', { timeout: 10_000 });
+    await page.waitForURL('**/account');
     await page.locator('#npsso').fill(VALID_NPSSO);
     await page.locator('#psn-link-submit').click();
-    await expect(page.locator('#psn-unlink')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#psn-unlink')).toBeVisible();
 
     await page.locator('#nav-rail-0').click();
-    await page.waitForURL((url) => url.pathname === '/', { timeout: 10_000 });
+    await page.waitForURL((url) => url.pathname === '/');
 
     await expect(page.locator('#home-total-library')).toBeVisible();
     await expect(page.locator('#home-unlinked-notice')).toHaveCount(0);

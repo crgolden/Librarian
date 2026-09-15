@@ -115,7 +115,7 @@ test.describe('Catalog — anonymous', () => {
     await page.goto('/catalog');
     await page.locator('#catalog-title-0').click();
 
-    await page.waitForURL('**/catalog/g1', { timeout: 10_000 });
+    await page.waitForURL('**/catalog/g1');
     await expect(page.locator('#page-title')).toContainText('Bloodborne');
   });
 

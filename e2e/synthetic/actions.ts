@@ -1,10 +1,9 @@
 import { hasPrefix, isVisible, pickFromPrefix, prefixLocator, type WalkerAction } from '@crgolden/modules/synthetic-walker';
 import { expect, type Locator } from '@playwright/test';
 
-const RENDER_TIMEOUT_MS = 30_000;
 
 async function expectRendered(locator: Locator): Promise<void> {
-  await expect(locator).toBeVisible({ timeout: RENDER_TIMEOUT_MS });
+  await expect(locator).toBeVisible();
 }
 
 const LIBRARY_SEARCH_TERMS = ['the', 'star', 'war', 'legend', 'world', 'dark', 'final', 'quest'] as const;

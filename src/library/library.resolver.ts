@@ -24,10 +24,8 @@ export type ResolvedLibrary =
       total: number;
       genres: string[];
       schedule: RefreshScheduleResponse | null;
-      /** Owner mode only; null in viewer mode or from a Curator that predates the field. */
       trophyProgress: TrophyProgressResponse | null;
       hiddenCount: number;
-      /** Owner mode only, and only when the schedule watches PS Plus; null otherwise or when it degrades. */
       psPlus: PsPlusRotationSummaryResponse | null;
     }
   | { status: 'forbidden' }

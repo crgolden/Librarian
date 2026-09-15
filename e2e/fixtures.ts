@@ -297,12 +297,10 @@ export const test = base.extend<LibrarianFixtures>({
 
   anonymousPage: async ({ page }, use) => {
     await applyAnonymousRoutes(page);
-    page.setDefaultTimeout(60_000);
     await use(page);
   },
 
   authedPage: async ({ page }, use) => {
-    page.setDefaultTimeout(60_000);
     await applyAuthRoutes(page, { sub: DEFAULT_E2E_SUB });
     await use(page);
   },
@@ -310,7 +308,6 @@ export const test = base.extend<LibrarianFixtures>({
   secondAuthedPage: async ({ browser }, use) => {
     const context = await browser.newContext();
     const page = await context.newPage();
-    page.setDefaultTimeout(60_000);
     await applyAuthRoutes(page, { sub: SECOND_E2E_SUB });
     await use(page);
     await context.close();
@@ -320,7 +317,6 @@ export const test = base.extend<LibrarianFixtures>({
     const context = await browser.newContext();
     const page = await context.newPage();
     await applyAnonymousRoutes(page);
-    page.setDefaultTimeout(60_000);
     await use(page);
     await context.close();
   },

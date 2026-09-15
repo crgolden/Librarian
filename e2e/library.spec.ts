@@ -205,7 +205,7 @@ test.describe('Library — auth guard', () => {
     await store.reset();
 
     await page.goto('/library');
-    await page.waitForURL('**/bff/login**', { timeout: 10_000 });
+    await page.waitForURL('**/bff/login**');
   });
 });
 
@@ -217,7 +217,7 @@ test.describe('Library — authenticated', () => {
     await expect(page.locator('#page-title')).toContainText('My Library');
     await page.locator('#library-refresh').click();
 
-    await expect(page.locator('text=Library catalogued.')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('text=Library catalogued.')).toBeVisible();
   });
 
   test('a RAWG-enriched entry brings the backlink their terms require', async ({
@@ -267,7 +267,7 @@ test.describe('Library — authenticated', () => {
     await page.goto('/library');
     await page.locator('#library-refresh').click();
 
-    await expect(page.locator('text=PSN entitlement fetch failed.')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('text=PSN entitlement fetch failed.')).toBeVisible();
   });
 
   test('shows a message when the library is empty', async ({ authedPage: page, store }) => {
@@ -373,7 +373,7 @@ test.describe('Library — authenticated', () => {
     await expect(page.locator(LIBRARY_ROWS)).toHaveCount(2);
 
     await page.locator('#library-search').fill('elden');
-    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(1, { timeout: 5_000 });
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(1);
     await expect(page.locator(LIBRARY_ROWS)).toContainText('Elden Ring');
   });
 
@@ -558,7 +558,7 @@ test.describe('Library — authenticated', () => {
     await expect(page.locator(LIBRARY_ROWS)).toHaveCount(20);
 
     await page.locator('#library-search').fill('ring');
-    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(20, { timeout: 5_000 });
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(20);
 
     const titleSort = page.locator('#library-sort-title');
     await titleSort.click();
@@ -570,7 +570,7 @@ test.describe('Library — authenticated', () => {
     await expect(page.locator('#library-next')).toBeDisabled();
 
     await page.locator('#library-search').fill('ring game 01');
-    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(1, { timeout: 5_000 });
+    await expect(page.locator(LIBRARY_ROWS)).toHaveCount(1);
     await expect(page.locator(LIBRARY_ROWS)).toContainText('Ring Game 01');
     await expect(page.locator('#library-prev')).toBeDisabled();
   });
@@ -590,7 +590,7 @@ test.describe('Library — authenticated', () => {
     await page.goto('/library');
     await page.locator('#library-refresh').click();
 
-    await expect(page.locator('#library-refresh-succeeded')).toHaveText('Library catalogued.', { timeout: 10_000 });
+    await expect(page.locator('#library-refresh-succeeded')).toHaveText('Library catalogued.');
     await expect(page.locator('#library-summary-rawg')).toContainText('+2 more');
     await expect(page.locator('#library-summary-opencritic')).toContainText('Elden Ring');
     await expect(page.locator('#library-summary-opencritic-topup')).toContainText(

@@ -196,16 +196,23 @@ describe('CatalogComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('#rawg-attribution')).toBeNull();
   });
 
-  it('sends the title search term as q', () => {
+  it('sends a typed title search as q, and sends no q at all for a whitespace-only one', () => {
     const fixture = render({ games: [], total: 0 });
 
     const h = harness(fixture);
     h.search.set('tomb');
     h.applyFilters();
 
-    const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
-    expect(req.request.params.get('q')).toBe('tomb');
-    req.flush({ games: [], total: 0 });
+    const typed = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
+    expect(typed.request.params.get('q')).toBe('tomb');
+    typed.flush({ games: [], total: 0 });
+
+    h.search.set('   ');
+    h.applyFilters();
+
+    const whitespaceOnly = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
+    expect(whitespaceOnly.request.params.has('q')).toBe(false);
+    whitespaceOnly.flush({ games: [], total: 0 });
   });
 
   it('renders cover art and a PlayStation Store link when the catalog has them', () => {

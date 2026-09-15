@@ -6,14 +6,14 @@ async function createAndPublishCollection(page: import('@playwright/test').Page)
   await page.locator('#collections-new').click();
   await page.locator('#genreFilter').selectOption({ label: 'RPG' });
   await page.locator('#collection-preview').click();
-  await expect(page.locator('#preview-included-title-0')).toHaveText('Bloodborne', { timeout: 10_000 });
+  await expect(page.locator('#preview-included-title-0')).toHaveText('Bloodborne');
   await page.locator('#name').fill('RPG picks');
   await page.locator('#collection-save').click();
-  await expect(page.locator('text=RPG picks')).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('text=RPG picks')).toBeVisible();
 
   await page.locator('#collection-open-0').click();
   await page.locator('#visibility').selectOption('unlisted');
-  await expect(page.locator('#collection-share-url')).toContainText('/c/', { timeout: 10_000 });
+  await expect(page.locator('#collection-share-url')).toContainText('/c/');
 
   const shareUrl = await page.locator('#collection-share-url').textContent();
   const match = shareUrl === null ? null : shareUrl.match(/\/c\/[a-zA-Z0-9_-]+/);
@@ -38,7 +38,7 @@ test.describe('Public collection share page', () => {
 
     await visitor.goto(sharePath);
     await expect(visitor.locator('#page-title')).toContainText('RPG picks');
-    await expect(visitor.locator('#public-collection-title-0')).toHaveText('Bloodborne', { timeout: 10_000 });
+    await expect(visitor.locator('#public-collection-title-0')).toHaveText('Bloodborne');
     await expect(visitor.locator('#public-collection-sign-in')).toHaveText('Sign in to follow this collection');
   });
 
@@ -56,16 +56,16 @@ test.describe('Public collection share page', () => {
 
     await follower.goto(sharePath);
     const followButton = follower.locator('#public-collection-follow');
-    await expect(followButton).toHaveText('Follow this collection', { timeout: 10_000 });
+    await expect(followButton).toHaveText('Follow this collection');
     await followButton.click();
-    await expect(followButton).toHaveText('Unfollow', { timeout: 10_000 });
+    await expect(followButton).toHaveText('Unfollow');
 
     await follower.goto('/collections');
     await follower.locator('#collections-followed').click();
-    await expect(follower.locator('text=RPG picks')).toBeVisible({ timeout: 10_000 });
+    await expect(follower.locator('text=RPG picks')).toBeVisible();
 
     await follower.locator('#collection-followed-unfollow-0').click();
-    await expect(follower.locator("text=aren't following")).toBeVisible({ timeout: 10_000 });
+    await expect(follower.locator("text=aren't following")).toBeVisible();
   });
 
   test('setting a collection back to private immediately breaks its old share link', async ({

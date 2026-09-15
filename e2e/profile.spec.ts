@@ -6,7 +6,7 @@ test.describe('Profile — auth guard', () => {
     await store.reset();
 
     await page.goto('/profile');
-    await page.waitForURL('**/bff/login**', { timeout: 10_000 });
+    await page.waitForURL('**/bff/login**');
   });
 });
 
@@ -223,12 +223,12 @@ test.describe('Profile — follow / unfollow', () => {
     await expect(followToggle).toHaveText('Follow');
 
     await followToggle.click();
-    await expect(followToggle).toHaveText('Unfollow', { timeout: 10_000 });
+    await expect(followToggle).toHaveText('Unfollow');
     await expect(followerCount).toHaveText('1');
     await expect(viewerPage.locator('#profile-stat-followers')).toHaveAttribute('aria-label', '1 follower');
 
     await followToggle.click();
-    await expect(followToggle).toHaveText('Follow', { timeout: 10_000 });
+    await expect(followToggle).toHaveText('Follow');
     await expect(followerCount).toHaveText('0');
   });
 
@@ -255,7 +255,7 @@ test.describe('Profile — followers / following pages', () => {
     const link = page.locator('#follow-link-0');
     await expect(link).toBeVisible();
     await link.click();
-    await page.waitForURL(new RegExp(`/u/${SECOND_E2E_SUB}$`), { timeout: 10_000 });
+    await page.waitForURL(new RegExp(`/u/${SECOND_E2E_SUB}$`));
   });
 
   test('following page renders entries', async ({ authedPage: page, secondAuthedPage: otherPage, store }) => {
@@ -281,7 +281,7 @@ test.describe('Profile — settings', () => {
 
     await page.goto('/profile/settings');
     await page.locator('#setting-is-public').check();
-    await expect(page.locator('#setting-is-public')).toBeChecked({ timeout: 10_000 });
+    await expect(page.locator('#setting-is-public')).toBeChecked();
 
     await page.reload();
     await expect(page.locator('#setting-is-public')).toBeChecked();
@@ -303,11 +303,7 @@ test.describe('Profile — settings', () => {
     await page.goto('/profile/settings');
     await page.locator('#profile-link-handle-0').fill('e2e_curator');
     await page.locator('#profile-link-save-0').click();
-    await expect(page.locator('#profile-link-url-0')).toHaveAttribute(
-      'href',
-      'https://psnprofiles.com/e2e_curator',
-      { timeout: 10_000 },
-    );
+    await expect(page.locator('#profile-link-url-0')).toHaveAttribute('href', 'https://psnprofiles.com/e2e_curator');
 
     await page.reload();
     await expect(page.locator('#profile-link-handle-0')).toHaveValue('e2e_curator');
@@ -320,7 +316,7 @@ test.describe('Profile — settings', () => {
     await page.goto('/profile/settings');
     await page.locator('#profile-link-handle-0').fill('e2e_curator');
     await page.locator('#profile-link-save-0').click();
-    await expect(page.locator('#profile-link-url-0')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#profile-link-url-0')).toBeVisible();
 
     await page.locator('#profile-link-remove-0').click();
     await expect(page.locator('#profile-link-url-0')).toHaveCount(0);
@@ -352,7 +348,7 @@ test.describe('Profile — declared PlayStation profile links', () => {
     await page.goto('/profile/settings');
     await page.locator('#profile-link-handle-0').fill('e2e_curator');
     await page.locator('#profile-link-save-0').click();
-    await expect(page.locator('#profile-link-url-0')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#profile-link-url-0')).toBeVisible();
 
     await page.goto('/profile');
     await expect(page.locator('#profile-stat-profile-links')).toBeVisible();
@@ -442,35 +438,35 @@ test.describe('Profile — own-sub canonicalization redirects', () => {
     await store.reset();
 
     await page.goto(`/u/${DEFAULT_E2E_SUB}`);
-    await page.waitForURL('**/profile', { timeout: 10_000 });
+    await page.waitForURL('**/profile');
   });
 
   test('/u/{own sub}/followers silently redirects to /profile/followers', async ({ authedPage: page, store }) => {
     await store.reset();
 
     await page.goto(`/u/${DEFAULT_E2E_SUB}/followers`);
-    await page.waitForURL('**/profile/followers', { timeout: 10_000 });
+    await page.waitForURL('**/profile/followers');
   });
 
   test('/u/{own sub}/following silently redirects to /profile/following', async ({ authedPage: page, store }) => {
     await store.reset();
 
     await page.goto(`/u/${DEFAULT_E2E_SUB}/following`);
-    await page.waitForURL('**/profile/following', { timeout: 10_000 });
+    await page.waitForURL('**/profile/following');
   });
 
   test('/library/{own sub} silently redirects to /library', async ({ authedPage: page, store }) => {
     await store.reset();
 
     await page.goto(`/library/${DEFAULT_E2E_SUB}`);
-    await page.waitForURL('**/library', { timeout: 10_000 });
+    await page.waitForURL('**/library');
   });
 
   test('/collections/{own sub} silently redirects to /collections', async ({ authedPage: page, store }) => {
     await store.reset();
 
     await page.goto(`/collections/${DEFAULT_E2E_SUB}`);
-    await page.waitForURL('**/collections', { timeout: 10_000 });
+    await page.waitForURL('**/collections');
   });
 
   test('navigating with a DIFFERENT user\'s sub does not redirect and renders viewer mode', async ({
