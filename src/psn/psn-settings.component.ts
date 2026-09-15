@@ -20,6 +20,7 @@ import {
   RefreshScheduleResponse,
   TrophySummaryResponse,
 } from '../curator/curator.models';
+import { nullIfEmpty } from '../shared/control-value';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
 import { PsnStatus, ResolvedPsnStatus } from './psn-status.resolver';
 
@@ -380,8 +381,9 @@ export class PsnSettingsComponent implements OnInit {
     return linked?.name ?? device.linked_console_id;
   }
 
-  protected linkDevice(device: DeviceResponse, consoleId: string): void {
-    if (!consoleId) {
+  protected linkDevice(device: DeviceResponse, selectedValue: string): void {
+    const consoleId = nullIfEmpty(selectedValue);
+    if (consoleId === null) {
       return;
     }
     this.deviceLinkPending.set(device.device_id);

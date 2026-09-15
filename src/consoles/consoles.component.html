@@ -279,7 +279,7 @@
                 (ngModelChange)="attachTargetConsoleId.set($event)"
                 name="attachTarget"
               >
-                <option value="">Select a console&hellip;</option>
+                <option [ngValue]="null">Select a console&hellip;</option>
                 @for (console of consoles(); track console.console_id) {
                   <option [value]="console.console_id">{{ console.name }}</option>
                 }
@@ -366,7 +366,7 @@
 
       <label for="deviceConsoleId">Attach to (optional)</label>
       <select id="deviceConsoleId" name="deviceConsoleId" [ngModel]="deviceConsoleId()" (ngModelChange)="deviceConsoleId.set($event)">
-        <option value="">Not attached</option>
+        <option [ngValue]="null">Not attached</option>
         @for (console of consoles(); track console.console_id) {
           <option [value]="console.console_id">{{ console.name }}</option>
         }

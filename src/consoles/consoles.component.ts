@@ -70,7 +70,7 @@ export class ConsolesComponent {
   protected readonly deviceKind = signal<StorageKind>('m2');
   protected readonly deviceCapacityGb = signal<number | null>(null);
   protected readonly deviceBufferGb = signal(0);
-  protected readonly deviceConsoleId = signal('');
+  protected readonly deviceConsoleId = signal<string | null>(null);
   protected readonly creatingDevice = signal(false);
   protected readonly deviceFormError = signal<string | null>(null);
 
@@ -82,7 +82,7 @@ export class ConsolesComponent {
   protected readonly deviceEditError = signal<string | null>(null);
 
   protected readonly attachingDeviceId = signal<string | null>(null);
-  protected readonly attachTargetConsoleId = signal<string>('');
+  protected readonly attachTargetConsoleId = signal<string | null>(null);
   protected readonly attachError = signal<string | null>(null);
 
   protected readonly confirmingDeleteDeviceId = signal<string | null>(null);
@@ -245,7 +245,7 @@ export class ConsolesComponent {
     this.deviceKind.set('m2');
     this.deviceCapacityGb.set(null);
     this.deviceBufferGb.set(0);
-    this.deviceConsoleId.set('');
+    this.deviceConsoleId.set(null);
     this.deviceFormError.set(null);
     this.showDeviceForm.set(true);
   }
@@ -274,7 +274,7 @@ export class ConsolesComponent {
         kind: this.deviceKind(),
         capacity_gb: capacityGb,
         buffer_gb: this.deviceBufferGb(),
-        console_id: this.deviceConsoleId() || null,
+        console_id: this.deviceConsoleId(),
       })
       .subscribe({
         next: (device) => {
@@ -331,7 +331,7 @@ export class ConsolesComponent {
 
   protected startAttaching(deviceId: string): void {
     this.attachingDeviceId.set(deviceId);
-    this.attachTargetConsoleId.set('');
+    this.attachTargetConsoleId.set(null);
     this.attachError.set(null);
   }
 
@@ -341,7 +341,7 @@ export class ConsolesComponent {
 
   protected attachDevice(deviceId: string): void {
     const consoleId = this.attachTargetConsoleId();
-    if (!consoleId) {
+    if (consoleId === null) {
       this.attachError.set('Choose a console to attach this device to.');
       return;
     }

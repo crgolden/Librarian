@@ -61,7 +61,7 @@ interface ConsolesHarness {
   editDeviceBufferGb: { set(value: number): void };
   saveDevice(deviceId: string): void;
   startAttaching(deviceId: string): void;
-  attachTargetConsoleId: { set(value: string): void };
+  attachTargetConsoleId: { set(value: string | null): void };
   attachDevice(deviceId: string): void;
   detachDevice(deviceId: string): void;
   confirmDeleteDevice(deviceId: string): void;
