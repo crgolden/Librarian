@@ -5,6 +5,7 @@ import { GameSummaryResponse, PublicCollectionSummaryResponse } from '../curator
 import { RawgAttributionComponent } from '../app/shared/attribution/rawg-attribution.component';
 import { ResolvedCatalogGame } from './catalog-detail.resolver';
 import { priceLine } from './catalog.component';
+import { contentKindLabel } from './content-kind-labels';
 import { storeProductUrl } from './store-links';
 
 @Component({
@@ -43,6 +44,10 @@ export class CatalogDetailComponent implements OnInit {
 
   protected metaLine(game: GameSummaryResponse): string {
     return [game.franchise, game.genre, game.aaa_tier].filter((part) => !!part).join(' · ');
+  }
+
+  protected kindLabel(game: GameSummaryResponse): string | null {
+    return contentKindLabel(game.content_kind);
   }
 
   protected storeUrl(game: GameSummaryResponse): string | null {

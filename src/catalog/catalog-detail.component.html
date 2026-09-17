@@ -14,6 +14,10 @@
         <img class="cover-art max-w-[320px]" [src]="current.cover_image_url" [alt]="current.canonical_title" />
       }
 
+      @if (kindLabel(current); as kind) {
+        <span class="spine-label" id="catalog-detail-kind">{{ kind }}</span>
+      }
+
       @if (metaLine(current); as meta) {
         <p class="catalog-meta">{{ meta }}</p>
       }

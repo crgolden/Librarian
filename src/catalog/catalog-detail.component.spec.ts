@@ -80,6 +80,19 @@ describe('CatalogDetailComponent', () => {
     expect(ratings).toContain('PS Store —');
   });
 
+  it('labels an entry that is not a game, and labels a game as nothing at all', () => {
+    const mediaApp = render(ok(game({ content_kind: 'media_app' })));
+    expect((mediaApp.nativeElement as HTMLElement).querySelector('#catalog-detail-kind')?.textContent).toContain(
+      'Media app',
+    );
+
+    const plainGame = render(ok(game({ content_kind: 'game' })));
+    expect((plainGame.nativeElement as HTMLElement).querySelector('#catalog-detail-kind')).toBeNull();
+
+    const unclassified = render(ok(game({ content_kind: null })));
+    expect((unclassified.nativeElement as HTMLElement).querySelector('#catalog-detail-kind')).toBeNull();
+  });
+
   it('offers the PlayStation Store link only when a store product id exists', () => {
     const withId = render(ok(game({ store_product_id: 'UP9000-CUSA00207_00-X' })));
     const link = (withId.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('#catalog-detail-store-link');

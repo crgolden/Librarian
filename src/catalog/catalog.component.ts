@@ -37,15 +37,7 @@ export {
   DEFAULT_CATALOG_KIND,
   DEFAULT_CATALOG_SORT,
 } from './catalog.query';
-
-const CONTENT_KIND_LABELS: Readonly<Record<string, string>> = {
-  media_app: 'Media app',
-  add_on: 'Add-on',
-  demo: 'Demo',
-  soundtrack: 'Soundtrack',
-  theme: 'Theme',
-  subscription: 'Subscription',
-};
+import { contentKindLabel } from './content-kind-labels';
 
 const CENTS_PER_DOLLAR = 100;
 const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
@@ -163,7 +155,7 @@ export class CatalogComponent {
   }
 
   protected kindLabel(game: GameSummaryResponse): string | null {
-    return game.content_kind ? (CONTENT_KIND_LABELS[game.content_kind] ?? null) : null;
+    return contentKindLabel(game.content_kind);
   }
 
   protected pageParams(page: number): Params {

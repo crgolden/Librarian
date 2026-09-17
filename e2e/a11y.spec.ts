@@ -15,6 +15,8 @@ const ANONYMOUS_ROUTES = ['/', '/catalog', '/faq', '/privacy'] as const;
 
 const ADMIN_ROUTE_LANDMARK = new Map<string, string>([['/admin/enrichment', '#enrichment-no-run']]);
 
+const ROUTE_NAMED_CONTROL = new Map<string, string>([['/account', '#schedule-save']]);
+
 const DESKTOP = { width: 1440, height: 900 };
 const MOBILE = { width: 390, height: 844 };
 
@@ -72,6 +74,14 @@ test.describe('Accessibility — signed in, desktop rail', () => {
           page.locator(landmark),
           `${route} never rendered — an error paragraph or a redirect scans just as clean as the page`,
         ).toBeVisible();
+      }
+
+      const namedControl = ROUTE_NAMED_CONTROL.get(route);
+      if (namedControl !== undefined) {
+        await expect(
+          page.locator(namedControl),
+          `${route} scanned before ${namedControl} carried its label, or it never does`,
+        ).toHaveAccessibleName(/\S/);
       }
 
       expectNoViolationsAndNothingUnevaluated(await scan(page), `signed in, desktop, ${route}`);
