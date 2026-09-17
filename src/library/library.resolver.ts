@@ -51,11 +51,11 @@ function ownerScheduleAndPsPlus(curator: CuratorService): Observable<ScheduleAnd
   );
 }
 
-function trophyProgressOf(page: LibraryPageResponse | ProfileLibraryPageResponse): TrophyProgressResponse | null {
+export function trophyProgressOf(page: LibraryPageResponse | ProfileLibraryPageResponse): TrophyProgressResponse | null {
   return 'trophy_progress' in page ? (page.trophy_progress ?? null) : null;
 }
 
-function hiddenCountOf(page: LibraryPageResponse | ProfileLibraryPageResponse): number {
+export function hiddenCountOf(page: LibraryPageResponse | ProfileLibraryPageResponse): number {
   return 'hidden_count' in page ? (page.hidden_count ?? 0) : 0;
 }
 

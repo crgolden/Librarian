@@ -44,11 +44,9 @@ import { CuratorService, LibraryQuery, LibrarySortField } from '../curator/curat
 import {
   GameSummaryResponse,
   LibraryGameResponse,
-  LibraryPageResponse,
   LibraryRefreshResultSummary,
   LibraryRefreshStatusResponse,
   ProfileLibraryGameResponse,
-  ProfileLibraryPageResponse,
   PsPlusRotationSummaryResponse,
   RefreshScheduleResponse,
   StoreSearchResultResponse,
@@ -56,7 +54,7 @@ import {
 } from '../curator/curator.models';
 import { RawgAttributionComponent } from '../app/shared/attribution/rawg-attribution.component';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
-import { LIBRARY_PAGE_SIZE, ResolvedLibrary } from './library.resolver';
+import { LIBRARY_PAGE_SIZE, ResolvedLibrary, hiddenCountOf, trophyProgressOf } from './library.resolver';
 import {
   DEFAULT_LIBRARY_SORT,
   LIBRARY_PAGE_SIZE_CEILING,
@@ -114,14 +112,6 @@ const TROPHY_PROGRESS_TITLES: Readonly<Record<string, string>> = {
 const TROPHY_PENDING_TITLE = 'Trophy completion appears after your next library refresh.';
 const TROPHY_UNMATCHED_TITLE = 'No PlayStation trophy title matched this game, so its completion cannot be shown.';
 const VIEWER_TROPHY_TITLE = "Trophy completion isn't shown for other users' libraries yet.";
-
-function trophyProgressOf(page: LibraryPageResponse | ProfileLibraryPageResponse): TrophyProgressResponse | null {
-  return 'trophy_progress' in page ? (page.trophy_progress ?? null) : null;
-}
-
-function hiddenCountOf(page: LibraryPageResponse | ProfileLibraryPageResponse): number {
-  return 'hidden_count' in page ? (page.hidden_count ?? 0) : 0;
-}
 
 const LIBRARY_TABLE_FEATURES = tableFeatures({ rowSortingFeature, rowPaginationFeature });
 
