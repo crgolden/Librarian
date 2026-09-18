@@ -34,6 +34,9 @@ function game(overrides: Partial<GameSummaryResponse> = {}): GameSummaryResponse
     critical_score: null,
     oc_score: null,
     psn_rating: null,
+    percent_completed: null,
+    content_kind: null,
+    price: null,
     ...overrides,
   };
 }
@@ -91,6 +94,27 @@ describe('CatalogDetailComponent', () => {
 
     const unclassified = render(ok(game({ content_kind: null })));
     expect((unclassified.nativeElement as HTMLElement).querySelector('#catalog-detail-kind')).toBeNull();
+  });
+
+  it('states the caller\'s trophy progress when Curator reports one, a zero included', () => {
+    const percentCompleted = Math.floor(Math.random() * 100) + 1;
+
+    const progressed = render(ok(game({ percent_completed: percentCompleted })));
+    expect((progressed.nativeElement as HTMLElement).querySelector('#catalog-detail-progress')?.textContent).toContain(
+      `${percentCompleted}%`,
+    );
+
+    const started = render(ok(game({ percent_completed: 0 })));
+    expect(
+      (started.nativeElement as HTMLElement).querySelector('#catalog-detail-progress')?.textContent,
+      'zero percent is a real figure, so a truthiness check that hides it is the regression this pins',
+    ).toContain('0%');
+  });
+
+  it('says nothing about trophy progress when Curator has none for this caller', () => {
+    const fixture = render(ok(game({ percent_completed: null })));
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('#catalog-detail-progress')).toBeNull();
   });
 
   it('offers the PlayStation Store link only when a store product id exists', () => {

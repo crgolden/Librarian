@@ -212,7 +212,7 @@
       @if (!viewerMode() && (hiddenCount() > 0 || showingHidden())) {
         <a
           id="library-show-hidden"
-          class="btn-ghost btn-sm"
+          class="btn-ghost btn-sm self-start"
           [routerLink]="[]"
           [queryParams]="hiddenViewParams()"
           queryParamsHandling="merge"
@@ -280,6 +280,7 @@
                       <th
                         [attr.id]="'library-header-' + header.column.id"
                         [class.library-sortable]="header.column.getCanSort()"
+                        [class.md:max-xl:hidden]="header.column.id === 'cover'"
                         [attr.aria-sort]="
                           header.column.getIsSorted() === 'asc'
                             ? 'ascending'
@@ -300,7 +301,11 @@
                           {{ headerLabel(header) }}
                         }
                         @if (header.column.id === 'percent_completed' && trophyLinkNeeded()) {
-                          <a id="library-header-percent_completed-link" routerLink="/account" fragment="pref-trophies"
+                          <a
+                            id="library-header-percent_completed-link"
+                            class="block"
+                            routerLink="/account"
+                            fragment="pref-trophies"
                             >Turn on trophies</a
                           >
                         }
@@ -317,49 +322,53 @@
               <tbody>
                 @for (row of table.getRowModel().rows; track row.original.game_id; let rowIndex = $index) {
                   <tr [attr.id]="'library-row-' + row.original.game_id">
-                    <td class="library-cover-cell">
+                    <td class="library-cover-cell md:max-xl:hidden">
                       @if (row.original.cover_image_url) {
                         <img class="cover-art" [src]="row.original.cover_image_url" [alt]="row.original.title" loading="lazy" />
                       }
                     </td>
                     <td class="min-w-56" data-label="Title">
-                      <span [attr.id]="'library-title-' + $index">{{ row.original.title }}</span>
-                      @if (isManual(row.original)) {
-                        <span class="spine-label" [attr.id]="'library-manual-badge-' + $index">Added by hand</span>
-                        @if (!viewerMode()) {
-                          <button
-                            type="button"
-                            class="btn-ghost btn-sm"
-                            [attr.id]="'library-manual-remove-' + $index"
-                            [disabled]="manualPending() !== null"
-                            (click)="removeManualGame(row.original)"
-                          >
-                            Remove
-                          </button>
-                        }
-                      }
-                      @if (!viewerMode()) {
-                        @if (showingHidden()) {
-                          <button
-                            type="button"
-                            class="btn-ghost btn-sm"
-                            [attr.id]="'library-unhide-' + row.original.game_id"
-                            [disabled]="hidePending() !== null"
-                            (click)="unhideGame(row.original)"
-                          >
-                            Show again
-                          </button>
-                        } @else {
-                          <button
-                            type="button"
-                            class="btn-ghost btn-sm"
-                            [attr.id]="'library-hide-' + row.original.game_id"
-                            [disabled]="hidePending() !== null"
-                            (click)="hideGame(row.original)"
-                          >
-                            Hide
-                          </button>
-                        }
+                      <span class="block" [attr.id]="'library-title-' + $index">{{ row.original.title }}</span>
+                      @if (isManual(row.original) || !viewerMode()) {
+                        <div class="flex flex-wrap items-center gap-2 mt-1">
+                          @if (isManual(row.original)) {
+                            <span class="spine-label" [attr.id]="'library-manual-badge-' + $index">Added by hand</span>
+                            @if (!viewerMode()) {
+                              <button
+                                type="button"
+                                class="btn-ghost btn-sm"
+                                [attr.id]="'library-manual-remove-' + $index"
+                                [disabled]="manualPending() !== null"
+                                (click)="removeManualGame(row.original)"
+                              >
+                                Remove
+                              </button>
+                            }
+                          }
+                          @if (!viewerMode()) {
+                            @if (showingHidden()) {
+                              <button
+                                type="button"
+                                class="btn-ghost btn-sm"
+                                [attr.id]="'library-unhide-' + row.original.game_id"
+                                [disabled]="hidePending() !== null"
+                                (click)="unhideGame(row.original)"
+                              >
+                                Show again
+                              </button>
+                            } @else {
+                              <button
+                                type="button"
+                                class="btn-ghost btn-sm"
+                                [attr.id]="'library-hide-' + row.original.game_id"
+                                [disabled]="hidePending() !== null"
+                                (click)="hideGame(row.original)"
+                              >
+                                Hide
+                              </button>
+                            }
+                          }
+                        </div>
                       }
                     </td>
                     <td data-label="Platforms">

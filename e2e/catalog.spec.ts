@@ -145,6 +145,31 @@ test.describe('Catalog — anonymous', () => {
     expect(await response.text()).toContain('Bloodborne');
   });
 
+  test('the catalog list is server-rendered, so a crawler sees the titles rather than an empty shell', async ({
+    request,
+    store,
+  }) => {
+    await store.reset();
+    await store.seedCatalogGames([
+      { game_id: 'g1', canonical_title: 'Bloodborne', franchise: null, genre: 'RPG', aaa_tier: 'AAA' },
+    ]);
+
+    const response = await request.get('/catalog');
+
+    expect(response.status()).toBe(200);
+    expect(await response.text()).toContain('Bloodborne');
+  });
+
+  test('a deep link into the list is server-rendered on the page it names', async ({ request, store }) => {
+    await store.reset();
+    await store.seedCatalogGames(MANY_GAMES);
+
+    const body = await (await request.get(`/catalog?page=2&pageSize=${CATALOG_DEFAULT_PAGE_SIZE}`)).text();
+
+    expect(body).toContain('Game 50');
+    expect(body).not.toContain('Game 00');
+  });
+
   test('the server-rendered body names the game in the title and social tags, not the route default', async ({
     request,
     store,

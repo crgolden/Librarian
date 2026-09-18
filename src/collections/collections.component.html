@@ -210,7 +210,7 @@
         @if (preview.used_gb !== null) {
           <p class="catalog-meta">Estimated size: {{ preview.used_gb }} GB</p>
         }
-        @if (preview.ignored_filters?.length) {
+        @if (preview.ignored_filters.length > 0) {
           <p id="preview-ignored-filters" class="text-warning">
             The completion floor was ignored: no trophy data has been harvested for your library yet, so every
             title passed it. Turn on trophy harvesting on your account page and refresh to apply it.
@@ -327,7 +327,7 @@
   }
 
   @if (view() === 'detail') {
-    <a id="collections-back" class="btn-ghost" routerLink="/collections">&larr; Back to collections</a>
+    <a id="collections-back" class="btn-ghost self-start" routerLink="/collections">&larr; Back to collections</a>
 
     @if (detailError()) {
       <p class="text-error">{{ detailError() }}</p>
@@ -364,7 +364,7 @@
           @if (definition.description) {
             <p class="catalog-meta">{{ definition.description }}</p>
           }
-          <button id="collection-edit-meta" type="button" class="btn-ghost" (click)="startEditingMeta()">
+          <button id="collection-edit-meta" type="button" class="btn-ghost self-start" (click)="startEditingMeta()">
             Rename / edit description
           </button>
         }
@@ -581,7 +581,7 @@
           <p class="text-error">{{ runError() }}</p>
         }
 
-        <button type="button" class="btn-primary" [disabled]="running()" (click)="runSelected()">
+        <button id="collection-run" type="button" class="btn-primary self-start" [disabled]="running()" (click)="runSelected()">
           {{ running() ? 'Running...' : 'Propose a fresh list' }}
         </button>
 
@@ -590,7 +590,7 @@
             @if (result.used_gb !== null) {
               <p class="catalog-meta">Estimated size: {{ result.used_gb }} GB</p>
             }
-            @if (result.ignored_filters?.length) {
+            @if (result.ignored_filters.length > 0) {
               <p id="run-ignored-filters" class="text-warning">
                 The completion floor was ignored: no trophy data has been harvested for your library yet, so
                 every title passed it.
@@ -697,7 +697,7 @@
             </div>
           </div>
         } @else {
-          <button id="collection-delete" type="button" class="btn-ghost btn-ghost-danger" (click)="confirmDelete()">
+          <button id="collection-delete" type="button" class="btn-ghost btn-ghost-danger self-start" (click)="confirmDelete()">
             Delete collection
           </button>
         }

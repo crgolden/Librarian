@@ -144,7 +144,7 @@ test.describe('Library — manual add, Store cross-check', () => {
     expect(inks.dialog).toBe(inks.expected);
   });
 
-  test('the proposal dialog is centred and fits the viewport, which Preflight otherwise breaks', async ({
+  test('the proposal dialog is centred, measured and bounded to the viewport, which Preflight otherwise breaks', async ({
     authedPage: page,
     store,
   }) => {
@@ -160,18 +160,34 @@ test.describe('Library — manual add, Store cross-check', () => {
       if (dialog === null) {
         throw new Error('The Store-match dialog is not rendered.');
       }
+      const probe = document.createElement('div');
+      probe.style.width = 'min(var(--container-narrow), calc(100vw - 2 * var(--space-4)))';
+      document.body.appendChild(probe);
+      const expectedWidth = probe.getBoundingClientRect().width;
+      probe.remove();
       const rect = dialog.getBoundingClientRect();
       return {
         left: rect.left,
         rightGap: document.documentElement.clientWidth - rect.right,
         top: rect.top,
         bottomGap: document.documentElement.clientHeight - rect.bottom,
+        width: rect.width,
+        expectedWidth,
+        maxHeight: getComputedStyle(dialog).maxHeight,
       };
     });
 
-    expect(Math.abs(box.left - box.rightGap)).toBeLessThanOrEqual(2);
+    expect(Math.abs(box.left - box.rightGap), 'a modal dialog is centred by margin: auto, which Preflight zeroes').toBeLessThanOrEqual(2);
     expect(box.top).toBeGreaterThan(0);
     expect(box.bottomGap).toBeGreaterThan(0);
+    expect(
+      Math.abs(box.width - box.expectedWidth),
+      'a dialog is width: fit-content, so without its own measure it sizes to the longest candidate title',
+    ).toBeLessThanOrEqual(1);
+    expect(
+      box.maxHeight,
+      'a long Store proposal runs past the bottom edge of the viewport unless the dialog bounds its own height',
+    ).not.toBe('none');
   });
 
   test('declining the proposal adds nothing', async ({ authedPage: page, store }) => {

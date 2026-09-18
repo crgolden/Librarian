@@ -85,7 +85,16 @@ function game(
 const previewUrl = (r: { url: string }): boolean => r.url === '/curator/api/collections/preview';
 
 function emptyPreview(): CollectionPreviewResponse {
-  return { included: [], excluded: [], included_total: 0, excluded_total: 0, included_game_ids: [], used_gb: null };
+  return {
+    included: [],
+    excluded: [],
+    included_total: 0,
+    excluded_total: 0,
+    included_game_ids: [],
+    used_gb: null,
+    ignored_filters: [],
+    excluded_for_missing_trophy_data: 0,
+  };
 }
 
 interface CollectionsHarness {
@@ -242,6 +251,78 @@ describe('CollectionsComponent', () => {
     });
   });
 
+  describe('completion floor notices', () => {
+    function ignoredCompletionFloor(): { filter: string; reason: string }[] {
+      return [{ filter: 'min_percent_completed', reason: crypto.randomUUID() }];
+    }
+
+    function previewAnswering(answer: CollectionPreviewResponse): ComponentFixture<CollectionsComponent> {
+      const fixture = createAndLoad([]);
+      const h = harness(fixture);
+      h.showCreate();
+      fixture.detectChanges();
+
+      h.preview();
+      httpMock.expectOne(previewUrl).flush(answer);
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    function runAnswering(answer: CollectionPreviewResponse): ComponentFixture<CollectionsComponent> {
+      const fixture = createDetail(definitionDetail({ kind: 'filter_list' }, [item('g0')]));
+      fixture.detectChanges();
+
+      harness(fixture).runSelected();
+      httpMock
+        .expectOne((r) => r.url === '/curator/api/collections/d1/runs')
+        .flush({ run_id: crypto.randomUUID(), ...answer });
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    it('warns that a preview ignored the completion floor, and counts the titles it dropped for having no trophy data', () => {
+      const dropped = Math.floor(Math.random() * 50) + 1;
+      const fixture = previewAnswering({
+        ...emptyPreview(),
+        ignored_filters: ignoredCompletionFloor(),
+        excluded_for_missing_trophy_data: dropped,
+      });
+
+      const compiled: HTMLElement = fixture.nativeElement;
+      expect(compiled.querySelector('#preview-ignored-filters')?.textContent).toContain('completion floor was ignored');
+      expect(compiled.querySelector('#preview-excluded-missing-trophy')?.textContent).toContain(`${dropped} title(s)`);
+    });
+
+    it('says neither thing about a preview that ignored nothing and dropped nothing', () => {
+      const fixture = previewAnswering(emptyPreview());
+
+      const compiled: HTMLElement = fixture.nativeElement;
+      expect(compiled.querySelector('#preview-ignored-filters')).toBeNull();
+      expect(compiled.querySelector('#preview-excluded-missing-trophy')).toBeNull();
+    });
+
+    it('warns and counts the same way for a run result', () => {
+      const dropped = Math.floor(Math.random() * 50) + 1;
+      const fixture = runAnswering({
+        ...emptyPreview(),
+        ignored_filters: ignoredCompletionFloor(),
+        excluded_for_missing_trophy_data: dropped,
+      });
+
+      const compiled: HTMLElement = fixture.nativeElement;
+      expect(compiled.querySelector('#run-ignored-filters')?.textContent).toContain('completion floor was ignored');
+      expect(compiled.querySelector('#run-excluded-missing-trophy')?.textContent).toContain(`${dropped} title(s)`);
+    });
+
+    it('says neither thing about a run that ignored nothing and dropped nothing', () => {
+      const fixture = runAnswering(emptyPreview());
+
+      const compiled: HTMLElement = fixture.nativeElement;
+      expect(compiled.querySelector('#run-ignored-filters')).toBeNull();
+      expect(compiled.querySelector('#run-excluded-missing-trophy')).toBeNull();
+    });
+  });
+
   describe('size provenance', () => {
     function previewWith(included: CollectionGameResponse[]): ComponentFixture<CollectionsComponent> {
       const fixture = createAndLoad([]);
@@ -257,6 +338,8 @@ describe('CollectionsComponent', () => {
         excluded_total: 0,
         included_game_ids: included.map((g) => g.game_id),
         used_gb: included.length * 40,
+        ignored_filters: [],
+        excluded_for_missing_trophy_data: 0,
       });
       fixture.detectChanges();
       return fixture;
@@ -336,6 +419,8 @@ describe('CollectionsComponent', () => {
         excluded_total: 0,
         included_game_ids: included.map((g) => g.game_id),
         used_gb: included.length * 40,
+        ignored_filters: [],
+        excluded_for_missing_trophy_data: 0,
       });
       fixture.detectChanges();
       return fixture;
@@ -403,6 +488,7 @@ describe('CollectionsComponent', () => {
         routing_genres: [],
         fill_order: 0,
         capacity_is_default: false,
+        device_link: null,
       },
     ];
     const fixture = createDetail(definitionDetail({ kind: 'capacity_fill', console_id: 'c1' }, [item('g1')]), consoles);
@@ -527,6 +613,8 @@ describe('CollectionsComponent', () => {
       excluded_total: 0,
       included_game_ids: allIncludedIds,
       used_gb: 40,
+      ignored_filters: [],
+      excluded_for_missing_trophy_data: 0,
     });
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(`1–${RESULT_PAGE_SIZE} of ${includedTotal}`);
@@ -541,6 +629,8 @@ describe('CollectionsComponent', () => {
       excluded_total: 0,
       included_game_ids: allIncludedIds,
       used_gb: 40,
+      ignored_filters: [],
+      excluded_for_missing_trophy_data: 0,
     });
     fixture.detectChanges();
 
@@ -563,6 +653,8 @@ describe('CollectionsComponent', () => {
       excluded_total: 0,
       included_game_ids: ['g1', 'g2', 'g3'],
       used_gb: 40,
+      ignored_filters: [],
+      excluded_for_missing_trophy_data: 0,
     });
     fixture.detectChanges();
 
@@ -590,6 +682,8 @@ describe('CollectionsComponent', () => {
       excluded_total: 0,
       included_game_ids: ['g1'],
       used_gb: 40,
+      ignored_filters: [],
+      excluded_for_missing_trophy_data: 0,
     });
     fixture.detectChanges();
 
@@ -771,6 +865,8 @@ describe('CollectionsComponent', () => {
       excluded_total: 0,
       included_game_ids: ['g1'],
       used_gb: 40,
+      ignored_filters: [],
+      excluded_for_missing_trophy_data: 0,
     });
     fixture.detectChanges();
 
@@ -804,6 +900,8 @@ describe('CollectionsComponent', () => {
       excluded_total: 0,
       included_game_ids: allIncludedIds,
       used_gb: 40,
+      ignored_filters: [],
+      excluded_for_missing_trophy_data: 0,
     });
     fixture.detectChanges();
 

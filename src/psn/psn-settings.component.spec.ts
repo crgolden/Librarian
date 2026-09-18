@@ -741,6 +741,7 @@ describe('PsnSettingsComponent', () => {
       routing_genres: [],
       fill_order: 1,
       capacity_is_default: false,
+      device_link: null,
     };
 
     function createWithAnUnlinkedDevice(): ComponentFixture<PsnSettingsComponent> {

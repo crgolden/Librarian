@@ -579,6 +579,26 @@ that genuinely floats over the page rather than sitting in it.
   table's stacked layout below `md` keeps that relationship: its row is a two-column grid with the
   cover in the first column and the title beside it, and the cover cell carries no `data-label`
   because it is provenance rather than a captioned field.
+- **Library table column priority.** Measured 2026-09-17 at 1280px, the content column is 992px, the
+  `max-w-data` card 960 and its scroll container 910, and the nine columns needed 1154, so the Catalog
+  column hid behind a scrollbar at the most common laptop width. Three decisions close it, in priority
+  order, and `e2e/layout.spec.ts` asserts the fit with every column at its widest. A control never
+  widens a column past its label: the `% Completed` header's "Turn on trophies" link is `block`, so it
+  takes a second line inside the header instead of 130px beside it. Between `md` and `xl` the Cover
+  column yields first (`md:max-xl:hidden` on its cell and header), because it is provenance rather than
+  data and the stacked layout below `md` keeps it as the row's first cell. And in that same band the
+  cells take the tighter `--space-2` padding step, a hand-written `@media` rule in
+  `library.component.css` because that stylesheet's un-layered `padding` outranks any utility (see
+  "The cascade, not specificity"). Horizontal scroll is the fallback below that, which WCAG 1.4.10
+  permits for a data table, never the design. The row controls (Hide, Show again, Remove) take a row of
+  their own under a `block` title so a short and a long title lay out alike, and a control inside the
+  `align-items: stretch` table card opts out with `self-start`, as `#library-show-hidden` does; the same
+  `self-start` is what keeps the collection detail's back link and its rename, run and delete buttons
+  content-sized inside their flex columns.
+- **The game page is a two-column card above `md`.** The cover (`#catalog-detail-cover`, 320px) sits
+  beside the metadata column rather than above it, so the card holds its content instead of stretching
+  a 320px image across a 977px surface; below `md` it stacks. Utilities only (`md:flex-row`,
+  `md:shrink-0`, `min-w-0` on the text column).
 - **`.item-unavailable`** — the one de-emphasis treatment (`opacity: 0.6`) for a catalogued entry that
   is present but not part of the result: an entry the owner no longer has access to, and a collection
   preview's *excluded* list. Composed onto `.catalog-card`, never a replacement for it — the entry still
@@ -940,10 +960,9 @@ survive. **A justification written about the group is worth nothing** — "they 
 `@media` query" is true of most of them and false of some, and once written nobody re-reads the files.
 So the reason is recorded per file, and where the reason is weak this says so rather than dressing it up.
 
-Measured over `src/**/*.component.css` **after the `.library-genre` cap above was added**:
-**545 lines across 9 files**, 471 excluding blanks (re-measured 2026-08-29, after the `page-size`
-control run took its dead `width: auto` out and added a line of comment). Re-measure before quoting
-either figure; a count of this shape is a timestamp, not a fact.
+No line counts are recorded here: a count of this shape is a timestamp, not a fact, and the figures
+this section once carried had already drifted from the files they described. Measure
+`src/**/*.component.css` when a size matters.
 
 **The cascade, not specificity, is what decides whether a utility can replace a rule here — check it
 before proposing a deletion.** `styles.css` authors its element defaults *outside* any cascade layer,
@@ -966,17 +985,17 @@ component rule that targets a class, a `label`, an `li`, or a checkbox competes 
 and **can** be a utility — which is why the bottom three rows below stay "None — a finding" rather than
 being reclassified by this note.
 
-| File | Lines | What Tailwind cannot express here | Strength |
-|---|---|---|---|
-| `shared/avatar/avatar.component.css` | 14 | **`:host`.** A component cannot put a class on its own host element from its own template. The box pinned to `size` with `overflow: hidden` is what makes eager loading safe (see Components → `app-site-nav`), so it has to exist somewhere. | Definitive |
-| `app/nav/site-nav.component.css` | 168 | **`::backdrop`.** The sheet's backdrop is not an element, so no class can reach it; the `<dialog>`'s own rules sit beside it. | Definitive |
-| `library/library.component.css` | 185 | **The responsive table**, plus **`::backdrop`**. Below `md` the whole table is restructured — `thead` hidden, `table`/`tbody` to `block`, `tr` to a two-column grid — and those are bare structural elements the `@for` emits with no class to hang a variant on. `td[data-label]::before { content: attr(data-label) }` is the caption that replaces the hidden header. Ten rules that only mean anything read together. The Store-match dialog adds the sheet's own argument (`.store-match::backdrop` reaches something that is not an element) and one more a utility cannot express: a `<dialog>` is `width: fit-content` and centres by UA `margin: auto`, so its measure has to sit on the element rather than on a wrapper inside it. Also holds `.library-genre` (above) and the two cancellations below. | Strong |
-| `shared/page-size/page-size.component.css` | 17 | **A cancellation of an un-layered global, plus `:host`.** `styles.css`'s bare `select` rule (un-layered) sets the **body font size**, and a Tailwind utility in `@layer utilities` cannot outrank it — see the cascade note above. Remove the `font-size` line and the control renders 16px beside the pager's 13.6px count; `e2e/layout.spec.ts` asserts the two match, and that assertion was proven red by deleting the line. **The same rule's `width: 100%` needs no cancelling here, which is measured rather than assumed** — a `width: auto` was carried for it and deleted once the control run showed the select is 49px either way: it is a flex item of the `:host` box, so the percentage already resolves to content width. Contrast `.library-genre-filter` below, where the identical global *does* bite because that select is not a direct flex item. The `:host` block is `avatar`'s argument: a component cannot class its own host, and both callers drop this into a flex pager. `whitespace-nowrap` on the label fights no global and so lives in the template. | Definitive |
-| `app/app.component.css` | 55 | **`z-index: var(--z-header)`.** Everything else in this file is expressible as utilities on elements the template already owns. `lint:css` reads `src/**/*.css` only, so a `z-[var(--z-header)]` utility in a template would leave the stacking-ladder gate entirely. Three of the four rungs are held this way. | Narrow — the z-rung only |
-| `app/shared/toc/page-toc.component.css` | 12 | **`z-index: var(--z-back-to-top)`**, same argument. The `bottom: calc(… env(safe-area-inset-bottom) …)` beside it is the whole rest of the file, and nothing about it needs a stylesheet's reach. | Narrow — the z-rung only |
-| `psn/psn-settings.component.css` | 62 | **Nothing.** Descendant rules over the section's 13 `<label>`s, its `<input>`s and the action-history `<li>`s. Every one has a utility equivalent; the file buys DRY, not reach. | None — kept for DRY |
-| `consoles/consoles.component.css` | 16 | **Nothing.** One rule gives every label inside the page's four `.entity-form`/`.entity-edit-form`s its `flex flex-col gap-1 font-semibold` shape, each one wrapping its own control. Same trade. | None — kept for DRY |
-| `collections/collections.component.css` | 16 | **Nothing.** The form's layout and its labels' weight, plus `.sort-active`'s two colour tokens, which a pair of `[class.…]` bindings could carry. | None — kept for DRY |
+| File | What Tailwind cannot express here | Strength |
+|---|---|---|
+| `shared/avatar/avatar.component.css` | **`:host`.** A component cannot put a class on its own host element from its own template. The box pinned to `size` with `overflow: hidden` is what makes eager loading safe (see Components → `app-site-nav`), so it has to exist somewhere. | Definitive |
+| `app/nav/site-nav.component.css` | **`::backdrop`.** The sheet's backdrop is not an element, so no class can reach it; the `<dialog>`'s own rules sit beside it. | Definitive |
+| `library/library.component.css` | **The responsive table**, plus **`::backdrop`**. Between `md` and `xl` the cells take the `--space-2` padding step (Components → Library table column priority), which no utility can express because this file's un-layered `padding` outranks `@layer utilities`. Below `md` the whole table is restructured — `thead` hidden, `table`/`tbody` to `block`, `tr` to a two-column grid — and those are bare structural elements the `@for` emits with no class to hang a variant on. `td[data-label]::before { content: attr(data-label) }` is the caption that replaces the hidden header. Ten rules that only mean anything read together. The Store-match dialog adds the sheet's own argument (`.store-match::backdrop` reaches something that is not an element) and one more a utility cannot express: a `<dialog>` is `width: fit-content` and centres by UA `margin: auto`, so its measure has to sit on the element rather than on a wrapper inside it. Also holds `.library-genre` (above) and the two cancellations below. | Strong |
+| `shared/page-size/page-size.component.css` | **A cancellation of an un-layered global, plus `:host`.** `styles.css`'s bare `select` rule (un-layered) sets the **body font size**, and a Tailwind utility in `@layer utilities` cannot outrank it — see the cascade note above. Remove the `font-size` line and the control renders 16px beside the pager's 13.6px count; `e2e/layout.spec.ts` asserts the two match, and that assertion was proven red by deleting the line. **The same rule's `width: 100%` needs no cancelling here, which is measured rather than assumed** — a `width: auto` was carried for it and deleted once the control run showed the select is 49px either way: it is a flex item of the `:host` box, so the percentage already resolves to content width. Contrast `.library-genre-filter` below, where the identical global *does* bite because that select is not a direct flex item. The `:host` block is `avatar`'s argument: a component cannot class its own host, and both callers drop this into a flex pager. `whitespace-nowrap` on the label fights no global and so lives in the template. | Definitive |
+| `app/app.component.css` | **`z-index: var(--z-header)`.** Everything else in this file is expressible as utilities on elements the template already owns. `lint:css` reads `src/**/*.css` only, so a `z-[var(--z-header)]` utility in a template would leave the stacking-ladder gate entirely. Three of the four rungs are held this way. | Narrow — the z-rung only |
+| `app/shared/toc/page-toc.component.css` | **`z-index: var(--z-back-to-top)`**, same argument. The `bottom: calc(… env(safe-area-inset-bottom) …)` beside it is the whole rest of the file, and nothing about it needs a stylesheet's reach. | Narrow — the z-rung only |
+| `psn/psn-settings.component.css` | **Nothing.** Descendant rules over the section's 13 `<label>`s, its `<input>`s and the action-history `<li>`s. Every one has a utility equivalent; the file buys DRY, not reach. | None — kept for DRY |
+| `consoles/consoles.component.css` | **Nothing.** One rule gives every label inside the page's four `.entity-form`/`.entity-edit-form`s its `flex flex-col gap-1 font-semibold` shape, each one wrapping its own control. Same trade. | None — kept for DRY |
+| `collections/collections.component.css` | **Nothing.** The form's layout and its labels' weight, plus `.sort-active`'s two colour tokens, which a pair of `[class.…]` bindings could carry. | None — kept for DRY |
 
 **The bottom three are a finding, not a justification.** They can be removed: each rule has a utility
 equivalent, and the only thing lost is a single declaration standing in for a dozen repetitions of the
@@ -1012,11 +1031,14 @@ exploratory pass, and it is the reason the global rule is safe to keep.
 - **`.store-match { margin: auto; max-height: calc(100vh - 2 * var(--space-4)) }`.** **A modal `<dialog>`
   is centred by `margin: auto` in the UA stylesheet, and Tailwind's Preflight resets every element's
   margin to `0`** — so a `<dialog>` in this app is *not* centred by default and lands jammed against the
-  top-left inset. That shipped to production and was caught by eye, not by a spec: the E2E suite asserted
-  the dialog was visible and took its ink from the palette, and both were true of a dialog in the wrong
+  top-left inset. That shipped to production and was caught by eye, because the E2E suite then asserted
+  only that the dialog was visible and took its ink from the palette, both true of a dialog in the wrong
   place. `max-height` is the companion — a ten-candidate Store proposal otherwise runs past the bottom
-  edge of the viewport. **Any future `<dialog>` here needs both**; `.nav-sheet` escapes it only because it
-  is deliberately edge-anchored rather than centred.
+  edge of the viewport — and `width` is the measure, since a `<dialog>` is `width: fit-content` and would
+  otherwise size to its longest candidate title. `library.spec.ts` now pins all three: the dialog is
+  centred, its width matches a probe carrying the same `min(...)` expression, and its computed
+  `max-height` is not `none`. **Any future `<dialog>` here needs all three**; `.nav-sheet` escapes it only
+  because it is deliberately edge-anchored rather than centred.
 - **`.library-table th { white-space: nowrap }`.** The sort arrow is a separate `<span>` after a space,
   so a narrow column orphans it onto its own line and doubles the header row's height.
   `.library-table-scroll` already has `overflow-x: auto`, so a header row that no longer fits scrolls

@@ -25,6 +25,7 @@ export interface CatalogGameFixture {
   critical_score?: number | null;
   oc_score?: number | null;
   psn_rating?: number | null;
+  cover_image_url?: string | null;
   size_source?: SizeSource;
   content_kind?: ContentKind | null;
   price?: CatalogPrice | null;

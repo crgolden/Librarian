@@ -47,12 +47,15 @@ function game(id: string, title: string, overrides: Partial<GameSummaryResponse>
     critical_score: null,
     oc_score: null,
     psn_rating: null,
+    percent_completed: null,
+    content_kind: null,
+    price: null,
     ...overrides,
   };
 }
 
 function fullPage(total: number): CatalogGamesResponse {
-  return { games: Array.from({ length: 50 }, (_, i) => game(`g${i}`, `Game ${i}`)), total };
+  return { games: Array.from({ length: 50 }, (_, i) => game(`g${i}`, `Game ${i}`)), total, excluded_owned: 0 };
 }
 
 interface CatalogHarness {
@@ -92,11 +95,11 @@ describe('CatalogComponent', () => {
   }
 
   function render(
-    resolved: CatalogGamesResponse | null,
+    resolved: Pick<CatalogGamesResponse, 'games' | 'total'> | null,
     genres: string[] = [],
     params: Params = {},
   ): ComponentFixture<CatalogComponent> {
-    routeData.catalog = resolved;
+    routeData.catalog = resolved === null ? null : { ...resolved, excluded_owned: 0 };
     routeData.genres = genres;
     currentParams = { ...params };
     snapshot.queryParams = currentParams;
@@ -117,7 +120,7 @@ describe('CatalogComponent', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    routeData.catalog = { games: [], total: 0 };
+    routeData.catalog = { games: [], total: 0, excluded_owned: 0 };
     routeData.genres = [];
     currentParams = {};
     snapshot.queryParams = {};

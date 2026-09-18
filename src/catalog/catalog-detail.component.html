@@ -9,37 +9,44 @@
   } @else if (game(); as current) {
     <h1 id="page-title">{{ current.canonical_title }}</h1>
 
-    <div class="card p-6 flex flex-col gap-2 items-start">
+    <div class="card p-6 flex flex-col md:flex-row gap-6 items-start">
       @if (current.cover_image_url) {
-        <img class="cover-art max-w-[320px]" [src]="current.cover_image_url" [alt]="current.canonical_title" />
+        <img
+          id="catalog-detail-cover"
+          class="cover-art max-w-[320px] md:shrink-0"
+          [src]="current.cover_image_url"
+          [alt]="current.canonical_title"
+        />
       }
 
-      @if (kindLabel(current); as kind) {
-        <span class="spine-label" id="catalog-detail-kind">{{ kind }}</span>
-      }
+      <div class="flex flex-col gap-2 items-start min-w-0">
+        @if (kindLabel(current); as kind) {
+          <span class="spine-label" id="catalog-detail-kind">{{ kind }}</span>
+        }
 
-      @if (metaLine(current); as meta) {
-        <p class="catalog-meta">{{ meta }}</p>
-      }
+        @if (metaLine(current); as meta) {
+          <p class="catalog-meta">{{ meta }}</p>
+        }
 
-      <p class="catalog-meta" id="catalog-detail-ratings">
-        RAWG {{ current.critical_score ?? '—' }} &middot; OpenCritic {{ current.oc_score ?? '—' }} &middot; PS Store
-        {{ current.psn_rating ?? '—' }}
-      </p>
+        <p class="catalog-meta" id="catalog-detail-ratings">
+          RAWG {{ current.critical_score ?? '—' }} &middot; OpenCritic {{ current.oc_score ?? '—' }} &middot; PS Store
+          {{ current.psn_rating ?? '—' }}
+        </p>
 
-      @if (current.percent_completed !== null && current.percent_completed !== undefined) {
-        <p class="catalog-meta" id="catalog-detail-progress">Your trophy progress: {{ current.percent_completed }}%</p>
-      }
+        @if (current.percent_completed !== null) {
+          <p class="catalog-meta" id="catalog-detail-progress">Your trophy progress: {{ current.percent_completed }}%</p>
+        }
 
-      @if (priceLine(current); as price) {
-        <p class="catalog-meta" id="catalog-detail-price">{{ price }}</p>
-      }
+        @if (priceLine(current); as price) {
+          <p class="catalog-meta" id="catalog-detail-price">{{ price }}</p>
+        }
 
-      @if (storeUrl(current); as url) {
-        <a id="catalog-detail-store-link" [href]="url" target="_blank" rel="noopener noreferrer">
-          View on PlayStation Store
-        </a>
-      }
+        @if (storeUrl(current); as url) {
+          <a id="catalog-detail-store-link" [href]="url" target="_blank" rel="noopener noreferrer">
+            View on PlayStation Store
+          </a>
+        }
+      </div>
     </div>
 
     @if (collections().length > 0) {

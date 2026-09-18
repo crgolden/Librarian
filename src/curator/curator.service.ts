@@ -69,9 +69,7 @@ export interface CatalogGamesQuery {
   franchise?: string;
   genre?: string;
   aaaTier?: string;
-  /** Drop games the signed-in caller already has a library entry for. Ignored for an anonymous caller. */
   excludeOwned?: boolean;
-  /** Curator defaults to `game`; `all` lists every classified kind and the unclassified rows. */
   kind?: CatalogKind;
   sort?: CatalogSortField;
   sortDir?: 'asc' | 'desc';
@@ -94,7 +92,6 @@ export interface LibraryQuery {
   sortDir?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
-  /** Owner mode only: `only` lists the hidden games instead of excluding them. */
   hidden?: LibraryHiddenFilter;
 }
 

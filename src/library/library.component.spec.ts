@@ -70,7 +70,7 @@ function buttonById(root: HTMLElement, id: string): HTMLButtonElement {
 }
 
 function page(games: LibraryGameResponse[], total = games.length): LibraryPageResponse {
-  return { games, total };
+  return { games, total, trophy_progress: { state: 'on', reason: null }, hidden_count: 0 };
 }
 
 function generatedToken(): string {
@@ -202,6 +202,7 @@ const FULL_GAME: LibraryGameResponse = {
   source: 'psn',
   cover_image_url: 'https://cdn.example/elden-ring.jpg',
   platforms: ['PS5', 'PS4'],
+  trophy_match: 'matched',
 };
 
 const MANUAL_GAME: LibraryGameResponse = {
@@ -1454,7 +1455,7 @@ describe('LibraryComponent', () => {
       expect(compiled.querySelector('#library-forbidden')?.textContent).toContain('keeps their library private');
     });
 
-    it('offers no hide control and no hidden view on another user\'s library', async () => {
+    it('offers no hide control and no hidden view on another user\'s library, even from a hidden=only URL', async () => {
       configureForViewer('other-sub', null, okLibrary([FULL_GAME], 1, [], null, { hiddenCount: 3 }));
 
       const fixture = TestBed.createComponent(LibraryComponent);
@@ -1469,6 +1470,16 @@ describe('LibraryComponent', () => {
         'hidden_count is the owner\'s own figure; offering a viewer the hidden view would ask Curator for '
           + 'rows it will refuse and tell the viewer how many titles the owner has hidden',
       ).toBeNull();
+
+      setQueryParams({ hidden: 'only' });
+      fixture.detectChanges();
+
+      const viewerLoad = httpMock.expectOne((r) => r.url === '/curator/api/users/other-sub/library');
+      expect(
+        viewerLoad.request.params.get('hidden'),
+        'the hidden filter is an owner-only query; a typed URL must not carry it onto another user\'s library',
+      ).toBeNull();
+      viewerLoad.flush({ games: [FULL_GAME], total: 1 });
     });
 
     it('shows a generic error message when the resolver reports a non-403 failure', async () => {

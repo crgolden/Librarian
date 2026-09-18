@@ -25,6 +25,9 @@ const GAME: GameSummaryResponse = {
   critical_score: null,
   oc_score: null,
   psn_rating: null,
+  percent_completed: null,
+  content_kind: null,
+  price: null,
 };
 
 function resolve(curator: Partial<CuratorService>, gameId: string | null): Promise<ResolvedCatalogGame> {

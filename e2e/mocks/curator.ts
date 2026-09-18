@@ -121,6 +121,7 @@ export interface GameSummary {
   critical_score?: number | null;
   oc_score?: number | null;
   psn_rating?: number | null;
+  cover_image_url?: string | null;
   size_source?: SizeSource;
   content_kind?: ContentKind | null;
   price?: CatalogPrice | null;
@@ -505,11 +506,12 @@ const STORE_ONLY_GAMES: StoreSearchHit[] = [
 function toCatalogSummary(game: GameSummary) {
   return {
     ...game,
-    cover_image_url: null,
+    cover_image_url: game.cover_image_url ?? null,
     store_product_id: null,
     critical_score: game.critical_score ?? null,
     oc_score: game.oc_score ?? null,
     psn_rating: game.psn_rating ?? null,
+    percent_completed: null,
     content_kind: game.content_kind ?? null,
     price: game.price ?? null,
   };
@@ -873,6 +875,8 @@ function pageCollectionResult(
   excluded_total: number;
   included_game_ids: string[];
   used_gb: number | null;
+  ignored_filters: { filter: string; reason: string }[];
+  excluded_for_missing_trophy_data: number;
 } {
   const limit = Number(req.query['limit'] ?? 50);
   const offset = Number(req.query['offset'] ?? 0);
@@ -883,6 +887,8 @@ function pageCollectionResult(
     excluded_total: result.excluded.length,
     included_game_ids: result.included.map((game) => game.game_id),
     used_gb: result.used_gb,
+    ignored_filters: [],
+    excluded_for_missing_trophy_data: 0,
   };
 }
 

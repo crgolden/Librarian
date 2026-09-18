@@ -18,6 +18,7 @@ function console_(overrides: Partial<ConsoleResponse> = {}): ConsoleResponse {
     routing_genres: [],
     fill_order: 0,
     capacity_is_default: false,
+    device_link: null,
     ...overrides,
   };
 }

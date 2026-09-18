@@ -6,6 +6,7 @@ import { libraryResolver, initialLibraryQuery, ResolvedLibrary } from './library
 import { CuratorService, LibraryQuery } from '../curator/curator.service';
 import {
   LibraryGameResponse,
+  LibraryPageResponse,
   PsPlusRotationSummaryResponse,
   RefreshScheduleResponse,
   TrophyProgressResponse,
@@ -21,6 +22,12 @@ const SCHEDULE = {
   consecutive_failures: 0,
   paused_reason: null,
 } satisfies RefreshScheduleResponse;
+
+const HARVESTING = { state: 'on', reason: null } satisfies TrophyProgressResponse;
+
+function ownerPage(total: number): LibraryPageResponse {
+  return { games: GAMES, total, trophy_progress: HARVESTING, hidden_count: 0 };
+}
 
 function run(curator: Partial<CuratorService>, sub: string | null): Promise<ResolvedLibrary> {
   TestBed.resetTestingModule();
@@ -41,7 +48,7 @@ describe('libraryResolver', () => {
   it('resolves the caller’s own library and its genres', async () => {
     const result = await run(
       {
-        getLibrary: () => of({ games: GAMES, total: 42 }),
+        getLibrary: () => of(ownerPage(42)),
         getLibraryGenres: () => of({ genres: ['RPG'] }),
         getRefreshSchedule: () => of(SCHEDULE),
       },
@@ -54,7 +61,7 @@ describe('libraryResolver', () => {
       total: 42,
       genres: ['RPG'],
       schedule: SCHEDULE,
-      trophyProgress: null,
+      trophyProgress: HARVESTING,
       hiddenCount: 0,
       psPlus: null,
     });
@@ -80,7 +87,7 @@ describe('libraryResolver', () => {
     let askedWhileUnwatched = false;
     const watched = await run(
       {
-        getLibrary: () => of({ games: GAMES, total: 1 }),
+        getLibrary: () => of(ownerPage(1)),
         getLibraryGenres: () => of({ genres: [] }),
         getRefreshSchedule: () => of({ ...SCHEDULE, ps_plus_watch: true }),
         getPsPlusRotationSummary: () => of(summary),
@@ -89,7 +96,7 @@ describe('libraryResolver', () => {
     );
     const unwatched = await run(
       {
-        getLibrary: () => of({ games: GAMES, total: 1 }),
+        getLibrary: () => of(ownerPage(1)),
         getLibraryGenres: () => of({ genres: [] }),
         getRefreshSchedule: () => of(SCHEDULE),
         getPsPlusRotationSummary: () => {
@@ -108,7 +115,7 @@ describe('libraryResolver', () => {
   it('treats the PS Plus summary as best-effort, keeping the schedule when the summary fails', async () => {
     const result = await run(
       {
-        getLibrary: () => of({ games: GAMES, total: 1 }),
+        getLibrary: () => of(ownerPage(1)),
         getLibraryGenres: () => of({ genres: [] }),
         getRefreshSchedule: () => of({ ...SCHEDULE, ps_plus_watch: true }),
         getPsPlusRotationSummary: fails(404),
@@ -157,14 +164,14 @@ describe('libraryResolver', () => {
   it('treats a schedule as best-effort, so a 404 for “no schedule yet” still resolves the library', async () => {
     const result = await run(
       {
-        getLibrary: () => of({ games: GAMES, total: 1 }),
+        getLibrary: () => of(ownerPage(1)),
         getLibraryGenres: () => of({ genres: [] }),
         getRefreshSchedule: fails(404),
       },
       null,
     );
 
-    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null, trophyProgress: null, hiddenCount: 0, psPlus: null });
+    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null, trophyProgress: HARVESTING, hiddenCount: 0, psPlus: null });
   });
 
   it('starts on title-ascending, first page, with no filters applied', async () => {
@@ -173,7 +180,7 @@ describe('libraryResolver', () => {
       {
         getLibrary: (query: LibraryQuery) => {
           queries.push(query);
-          return of({ games: GAMES, total: 1 });
+          return of(ownerPage(1));
         },
         getLibraryGenres: () => of({ genres: [] }),
         getRefreshSchedule: fails(404),
@@ -189,14 +196,14 @@ describe('libraryResolver', () => {
   it('treats genres as best-effort, still resolving the games', async () => {
     const result = await run(
       {
-        getLibrary: () => of({ games: GAMES, total: 1 }),
+        getLibrary: () => of(ownerPage(1)),
         getLibraryGenres: fails(500),
         getRefreshSchedule: fails(404),
       },
       null,
     );
 
-    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null, trophyProgress: null, hiddenCount: 0, psPlus: null });
+    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null, trophyProgress: HARVESTING, hiddenCount: 0, psPlus: null });
   });
 
   it('distinguishes a private library from a failed load', async () => {

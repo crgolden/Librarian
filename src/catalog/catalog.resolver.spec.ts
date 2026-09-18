@@ -39,9 +39,10 @@ describe('catalogResolver', () => {
     const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
     expect(req.request.params.get('limit')).toBe(String(CATALOG_PAGE_SIZE));
     expect(req.request.params.get('offset')).toBe('0');
-    req.flush({ games: [], total: 0 });
+    const answered: CatalogGamesResponse = { games: [], total: 0, excluded_owned: 0 };
+    req.flush(answered);
 
-    expect(resolved).toEqual({ games: [], total: 0 });
+    expect(resolved).toEqual(answered);
   });
 
   it('server-renders the page the URL asks for, so a shared deep link is not page one', () => {
