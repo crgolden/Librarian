@@ -3,32 +3,56 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute, provideRouter } from '@angular/router';
-import { CatalogDetailComponent } from './catalog-detail.component';
+import { CatalogDetailComponent, GAME_LOAD_ERROR } from './catalog-detail.component';
 import { ResolvedCatalogGame } from './catalog-detail.resolver';
-import { GameSummaryResponse, PublicCollectionSummaryResponse } from '../curator/curator.models';
+import {
+  CatalogPriceResponse,
+  ContentKinds,
+  GameSummaryResponse,
+  PublicCollectionSummaryResponse,
+} from '../curator/curator.models';
+import { CuratorApi } from '../curator/curator-api';
+import { RouteDataKeys, sharedCollectionUrl } from '../app/app-paths';
+import { PageTitles, pageTitle } from '../shared/page-title';
+import { MetaNames, MetaProperties, OgTypes } from '../shared/seo-contract';
+import { contentKindLabel } from './content-kind-labels';
+import { storeProductUrl } from './store-links';
+import { priceLine } from './catalog.component';
+import { FREE_WITH_PS_PLUS_LABEL } from './catalog.messages';
+import { LinkRelTokens } from '../testing/html-constants';
+import { ResolvedStatuses } from '../shared/resolved-status';
+import { newCount, newId, newPercent, newText, newUtcInstant, randomIntBetween } from '@crgolden/modules/testing';
 
 function ok(game: GameSummaryResponse, collections: PublicCollectionSummaryResponse[] = []): ResolvedCatalogGame {
-  return { status: 'ok', game, collections };
+  return { status: ResolvedStatuses.ok, game, collections };
 }
 
 function publicCollection(overrides: Partial<PublicCollectionSummaryResponse> = {}): PublicCollectionSummaryResponse {
   return {
-    definition_id: 'd1',
-    name: 'Weekend picks',
-    share_slug: 'weekend-picks',
-    item_count: 3,
-    updated_at: '2026-09-01T00:00:00Z',
+    definition_id: newId(),
+    name: newText(),
+    share_slug: newId(),
+    item_count: newCount(),
+    updated_at: newUtcInstant(),
     ...overrides,
   };
 }
 
+function soleAmountLine(price: CatalogPriceResponse, cents: number): string {
+  const line = priceLine({ ...price, base_cents: cents, discounted_cents: cents });
+  if (line === null) {
+    throw new Error('A price carrying an amount must render a line.');
+  }
+  return line;
+}
+
 function game(overrides: Partial<GameSummaryResponse> = {}): GameSummaryResponse {
   return {
-    game_id: 'g1',
-    canonical_title: 'Bloodborne',
-    franchise: 'Souls',
-    genre: 'Action',
-    aaa_tier: 'AAA',
+    game_id: newId(),
+    canonical_title: newText(),
+    franchise: newText(),
+    genre: newText(),
+    aaa_tier: newText(),
     cover_image_url: null,
     store_product_id: null,
     critical_score: null,
@@ -52,7 +76,7 @@ describe('CatalogDetailComponent', () => {
         provideHttpClient(withXhr()),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: ActivatedRoute, useValue: { snapshot: { data: { game: resolved } } } },
+        { provide: ActivatedRoute, useValue: { snapshot: { data: { [RouteDataKeys.game]: resolved } } } },
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);
@@ -66,30 +90,31 @@ describe('CatalogDetailComponent', () => {
   });
 
   it('renders the resolved game with no request of its own', () => {
-    const fixture = render(ok(game({ psn_rating: 4.7 })));
+    const rated = game({ psn_rating: newPercent() });
+    const fixture = render(ok(rated));
 
     const compiled: HTMLElement = fixture.nativeElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Bloodborne');
-    expect(compiled.querySelector('#catalog-detail-ratings')?.textContent).toContain('PS Store 4.7');
-    httpMock.expectNone((r) => r.url.startsWith('/curator/api/catalog/games'));
+    expect(compiled.querySelector('h1')?.textContent).toContain(rated.canonical_title);
+    expect(compiled.querySelector('#catalog-detail-ratings')?.textContent).toContain(`PS Store ${rated.psn_rating}`);
+    httpMock.expectNone((r) => r.url.startsWith(CuratorApi.catalogGames));
   });
 
-  it('shows a dash for each rating the catalog has no value for', () => {
+  it('renders each rating the catalog has no value for without a score', () => {
     const fixture = render(ok(game()));
 
-    const ratings = (fixture.nativeElement as HTMLElement).querySelector('#catalog-detail-ratings')?.textContent;
-    expect(ratings).toContain('RAWG —');
-    expect(ratings).toContain('OpenCritic —');
-    expect(ratings).toContain('PS Store —');
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.querySelector('#catalog-detail-rawg-score')?.hasAttribute('data-score')).toBe(false);
+    expect(compiled.querySelector('#catalog-detail-opencritic-score')?.hasAttribute('data-score')).toBe(false);
+    expect(compiled.querySelector('#catalog-detail-psn-rating')?.hasAttribute('data-score')).toBe(false);
   });
 
   it('labels an entry that is not a game, and labels a game as nothing at all', () => {
-    const mediaApp = render(ok(game({ content_kind: 'media_app' })));
+    const mediaApp = render(ok(game({ content_kind: ContentKinds.mediaApp })));
     expect((mediaApp.nativeElement as HTMLElement).querySelector('#catalog-detail-kind')?.textContent).toContain(
-      'Media app',
+      contentKindLabel(ContentKinds.mediaApp),
     );
 
-    const plainGame = render(ok(game({ content_kind: 'game' })));
+    const plainGame = render(ok(game({ content_kind: ContentKinds.game })));
     expect((plainGame.nativeElement as HTMLElement).querySelector('#catalog-detail-kind')).toBeNull();
 
     const unclassified = render(ok(game({ content_kind: null })));
@@ -97,7 +122,7 @@ describe('CatalogDetailComponent', () => {
   });
 
   it('states the caller\'s trophy progress when Curator reports one, a zero included', () => {
-    const percentCompleted = Math.floor(Math.random() * 100) + 1;
+    const percentCompleted = newPercent();
 
     const progressed = render(ok(game({ percent_completed: percentCompleted })));
     expect((progressed.nativeElement as HTMLElement).querySelector('#catalog-detail-progress')?.textContent).toContain(
@@ -118,42 +143,42 @@ describe('CatalogDetailComponent', () => {
   });
 
   it('offers the PlayStation Store link only when a store product id exists', () => {
-    const withId = render(ok(game({ store_product_id: 'UP9000-CUSA00207_00-X' })));
+    const storeProductId = newId();
+    const withId = render(ok(game({ store_product_id: storeProductId })));
     const link = (withId.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('#catalog-detail-store-link');
-    expect(link?.href).toContain('store.playstation.com/product/');
-    expect(link?.rel).toContain('noopener');
+    expect(link?.href).toBe(storeProductUrl(storeProductId));
+    expect(link?.rel).toContain(LinkRelTokens.noopener);
 
     const withoutId = render(ok(game({ store_product_id: null })));
     expect((withoutId.nativeElement as HTMLElement).querySelector('#catalog-detail-store-link')).toBeNull();
   });
 
   it('links to RAWG only when this game carries their score', () => {
-    const scored = render(ok(game({ critical_score: 92 })));
+    const scored = render(ok(game({ critical_score: newPercent() })));
     expect((scored.nativeElement as HTMLElement).querySelector('#rawg-attribution')).not.toBeNull();
 
-    const unscored = render(ok(game({ critical_score: null, oc_score: 91 })));
+    const unscored = render(ok(game({ critical_score: null, oc_score: newPercent() })));
     expect((unscored.nativeElement as HTMLElement).querySelector('#rawg-attribution')).toBeNull();
   });
 
   it('states the price the storefront published, and says nothing when it published none', () => {
-    const priced = render(
-      ok(
-        game({
-          price: {
-            is_free: false,
-            tied_to_subscription: false,
-            base_cents: 6999,
-            discounted_cents: 4899,
-            discount_text: '-30%',
-            fetched_at: '2026-09-01T00:00:00Z',
-          },
-        }),
-      ),
-    );
+    const baseCents = randomIntBetween(2, 100_000);
+    const discountedCents = randomIntBetween(1, baseCents);
+    const discountText = newText();
+    const price: CatalogPriceResponse = {
+      is_free: false,
+      tied_to_subscription: false,
+      base_cents: baseCents,
+      discounted_cents: discountedCents,
+      discount_text: discountText,
+      fetched_at: newUtcInstant(),
+    };
+    const priced = render(ok(game({ price })));
     const line = (priced.nativeElement as HTMLElement).querySelector('#catalog-detail-price')?.textContent;
-    expect(line).toContain('$48.99');
-    expect(line).toContain('$69.99');
-    expect(line).toContain('-30%');
+    expect(line?.trim()).toBe(priceLine(price));
+    expect(line).toContain(soleAmountLine(price, discountedCents));
+    expect(line).toContain(soleAmountLine(price, baseCents));
+    expect(line).toContain(discountText);
 
     const unpriced = render(ok(game({ price: null })));
     expect((unpriced.nativeElement as HTMLElement).querySelector('#catalog-detail-price')).toBeNull();
@@ -169,32 +194,28 @@ describe('CatalogDetailComponent', () => {
             base_cents: null,
             discounted_cents: null,
             discount_text: null,
-            fetched_at: '2026-09-01T00:00:00Z',
+            fetched_at: newUtcInstant(),
           },
         }),
       ),
     );
 
     expect((fixture.nativeElement as HTMLElement).querySelector('#catalog-detail-price')?.textContent).toContain(
-      'PlayStation Plus',
+      FREE_WITH_PS_PLUS_LABEL,
     );
   });
 
   it('lists the public collections holding this game, each linking to its share slug', () => {
-    const fixture = render(
-      ok(game(), [
-        publicCollection({ definition_id: 'd1', name: 'Weekend picks', share_slug: 'weekend-picks' }),
-        publicCollection({ definition_id: 'd2', name: 'Souls run', share_slug: 'souls-run', item_count: 8 }),
-      ]),
-    );
+    const collections = [publicCollection(), publicCollection()];
+    const fixture = render(ok(game(), collections));
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.querySelector('#catalog-detail-collections')).not.toBeNull();
     const links = compiled.querySelectorAll<HTMLAnchorElement>('[id^="catalog-detail-collection-"]');
-    expect(links).toHaveLength(2);
-    expect(links[0]?.getAttribute('href')).toBe('/c/weekend-picks');
-    expect(links[0]?.textContent?.trim()).toBe('Weekend picks');
-    expect(links[1]?.getAttribute('href')).toBe('/c/souls-run');
+    expect(links).toHaveLength(collections.length);
+    expect(links[0]?.getAttribute('href')).toBe(sharedCollectionUrl(collections[0].share_slug));
+    expect(links[0]?.textContent?.trim()).toBe(collections[0].name);
+    expect(links[1]?.getAttribute('href')).toBe(sharedCollectionUrl(collections[1].share_slug));
   });
 
   it('renders no collections section at all when no public collection holds the game', () => {
@@ -204,39 +225,40 @@ describe('CatalogDetailComponent', () => {
   });
 
   it('names no source on a game it could not load', () => {
-    const fixture = render({ status: 'not-found' });
+    const fixture = render({ status: ResolvedStatuses.notFound });
 
     expect((fixture.nativeElement as HTMLElement).querySelector('#rawg-attribution')).toBeNull();
   });
 
   it('shows a not-found page for an unknown game id', () => {
-    const fixture = render({ status: 'not-found' });
+    const fixture = render({ status: ResolvedStatuses.notFound });
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Game not found');
+    expect((fixture.nativeElement as HTMLElement).querySelector('#page-title')?.textContent).toBe(PageTitles.gameNotFound);
   });
 
   it('shows an error message when the resolver could not load the game', () => {
-    const fixture = render({ status: 'error' });
+    const fixture = render({ status: ResolvedStatuses.error });
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load this game.');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(GAME_LOAD_ERROR);
   });
 
   it('names the game in the document title and the social metadata', () => {
-    render(ok(game()));
+    const named = game();
+    render(ok(named));
 
-    expect(TestBed.inject(Title).getTitle()).toBe('Bloodborne — Librarian');
+    expect(TestBed.inject(Title).getTitle()).toBe(pageTitle(named.canonical_title));
     const meta = TestBed.inject(Meta);
-    expect(meta.getTag('name="description"')?.content).toContain('Souls · Action · AAA');
-    expect(meta.getTag('property="og:title"')?.content).toBe('Bloodborne — Librarian');
-    expect(meta.getTag('property="og:description"')?.content).toContain('Bloodborne');
-    expect(meta.getTag('property="og:type"')?.content).toBe('article');
+    expect(meta.getTag(`name="${MetaNames.description}"`)?.content).toContain(`${named.franchise} · ${named.genre} · ${named.aaa_tier}`);
+    expect(meta.getTag(`property="${MetaProperties.ogTitle}"`)?.content).toBe(pageTitle(named.canonical_title));
+    expect(meta.getTag(`property="${MetaProperties.ogDescription}"`)?.content).toContain(named.canonical_title);
+    expect(meta.getTag(`property="${MetaProperties.ogType}"`)?.content).toBe(OgTypes.article);
   });
 
   it('gives the not-found and error branches their own titles rather than the route default', () => {
-    render({ status: 'not-found' });
-    expect(TestBed.inject(Title).getTitle()).toBe('Game not found — Librarian');
+    render({ status: ResolvedStatuses.notFound });
+    expect(TestBed.inject(Title).getTitle()).toBe(pageTitle(PageTitles.gameNotFound));
 
-    render({ status: 'error' });
-    expect(TestBed.inject(Title).getTitle()).toBe('Game unavailable — Librarian');
+    render({ status: ResolvedStatuses.error });
+    expect(TestBed.inject(Title).getTitle()).toBe(pageTitle(PageTitles.gameUnavailable));
   });
 });

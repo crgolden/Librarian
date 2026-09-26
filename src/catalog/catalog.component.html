@@ -1,16 +1,16 @@
-<section class="page-section flex flex-col gap-4">
+<section crgPageSection class="flex flex-col gap-4">
   <app-loading-overlay [visible]="loading()" />
 
   <h1 id="page-title">Catalog</h1>
-  <p class="text-muted">Browse the shared game catalog Curator has canonicalized across all libraries.</p>
+  <p class="text-meta text-text-muted">Browse the shared game catalog Curator has canonicalized across all libraries.</p>
 
-  <form class="card p-6 flex flex-wrap gap-3 items-end" (submit)="$event.preventDefault(); applyFilters()">
+  <form crgCard class="p-6 flex flex-wrap gap-3 items-end" (submit)="$event.preventDefault(); applyFilters()">
     <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
       <label class="block font-semibold" for="catalog-search">Title</label>
       <input
         id="catalog-search"
         class="w-full"
-        name="catalogSearch"
+        name="q"
         type="search"
         placeholder="Search the catalog"
         [ngModel]="search()"
@@ -34,7 +34,7 @@
     <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
       <label class="block font-semibold" for="genre">Genre</label>
       <select id="genre" name="genre" class="w-full" [ngModel]="genre()" (ngModelChange)="genre.set($event)">
-        <option [ngValue]="null">Any</option>
+        <option [ngValue]="null">{{ anyOptionLabel }}</option>
         @for (option of genreOptions(); track option) {
           <option [value]="option">{{ option }}</option>
         }
@@ -44,7 +44,7 @@
     <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
       <label class="block font-semibold" for="aaaTier">Tier</label>
       <select id="aaaTier" name="aaaTier" class="w-full" [ngModel]="aaaTier()" (ngModelChange)="aaaTier.set($event)">
-        <option [ngValue]="null">Any</option>
+        <option [ngValue]="null">{{ anyOptionLabel }}</option>
         <option value="AAA">AAA</option>
         <option value="AA">AA</option>
         <option value="Indie">Indie</option>
@@ -53,7 +53,13 @@
 
     <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
       <label class="block font-semibold" for="catalog-kind">Kind</label>
-      <select id="catalog-kind" name="kind" class="w-full" [ngModel]="kind()" (ngModelChange)="onKindChange($event)">
+      <select
+        id="catalog-kind"
+        class="w-full"
+        [ngModel]="kind()"
+        [ngModelOptions]="{ standalone: true }"
+        (ngModelChange)="onKindChange($event)"
+      >
         @for (option of kindOptions; track option.value) {
           <option [value]="option.value">{{ option.label }}</option>
         }
@@ -62,49 +68,55 @@
 
     <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
       <label class="block font-semibold" for="catalog-sort">Sort</label>
-      <select id="catalog-sort" name="sort" class="w-full" [ngModel]="sortValue()" (ngModelChange)="onSortChange($event)">
+      <select
+        id="catalog-sort"
+        class="w-full"
+        [ngModel]="sortValue()"
+        [ngModelOptions]="{ standalone: true }"
+        (ngModelChange)="onSortChange($event)"
+      >
         @for (option of sortOptions; track option.value) {
           <option [value]="option.value">{{ option.label }}</option>
         }
       </select>
     </div>
 
-    <button id="catalog-apply" type="submit" class="btn-primary">Apply</button>
+    <button id="catalog-apply" type="submit" crgButtonPrimary>Apply</button>
   </form>
 
   @if (error()) {
-    <p class="text-error">{{ error() }}</p>
+    <p class="m-0 text-meta text-danger">{{ error() }}</p>
   } @else {
     @if (games().length === 0) {
-      <p class="text-muted">No titles match these filters.</p>
+      <p class="text-meta text-text-muted">{{ emptyMessage }}</p>
     } @else {
-    <ul class="catalog-list">
+    <ul class="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 p-0">
       @for (game of games(); track $index) {
-        <li class="card p-6 flex flex-col gap-2 transition hover:-translate-y-0.5 hover:bg-surface-2 motion-reduce:hover:translate-y-0" [class.card-accent]="game.aaa_tier === 'AAA'">
+        <li crgCard class="p-6 flex flex-col gap-2 transition hover:-translate-y-0.5 hover:bg-surface-2 motion-reduce:hover:translate-y-0" [class.border-t-accent]="game.aaa_tier === accentedTier">
           @if (game.cover_image_url) {
-            <img class="cover-art" [src]="game.cover_image_url" [alt]="game.canonical_title" loading="lazy" />
+            <img [attr.id]="'catalog-cover-' + $index" class="block aspect-square w-full rounded-sm object-cover" [src]="game.cover_image_url" [alt]="game.canonical_title" loading="lazy" />
           }
           <a
-            class="catalog-title"
-            [attr.id]="'catalog-title-' + $index"
-            [routerLink]="['/catalog', game.game_id]"
+            appCatalogTitle
+            [attr.id]="catalogTitleId($index)"
+            [routerLink]="[appUrls.catalog, game.game_id]"
             >{{ game.canonical_title }}</a
           >
           @if (kindLabel(game); as kind) {
-            <span class="spine-label" [attr.id]="'catalog-kind-' + $index">{{ kind }}</span>
+            <span appSpineLabel [attr.id]="'catalog-kind-' + $index">{{ kind }}</span>
           }
           @if (game.genre) {
-            <span class="spine-label" [attr.id]="'catalog-genre-' + $index">{{ game.genre }}</span>
+            <span appSpineLabel [attr.id]="'catalog-genre-' + $index" [attr.data-genre]="game.genre">{{ game.genre }}</span>
           }
           @if (metaLine(game); as meta) {
-            <span class="catalog-meta">{{ meta }}</span>
+            <span appCatalogMeta>{{ meta }}</span>
           }
           @if (priceLine(game); as price) {
-            <span class="catalog-meta" [attr.id]="'catalog-price-' + $index">{{ price }}</span>
+            <span appCatalogMeta [attr.id]="'catalog-price-' + $index">{{ price }}</span>
           }
-          <span class="catalog-meta" [attr.id]="'catalog-ratings-' + $index">
-            RAWG {{ game.critical_score ?? '—' }} &middot; OpenCritic {{ game.oc_score ?? '—' }} &middot; PS Store
-            {{ game.psn_rating ?? '—' }}
+          <span appCatalogMeta [attr.id]="'catalog-ratings-' + $index">
+            RAWG <span [attr.id]="'catalog-rawg-score-' + $index" [attr.data-score]="game.critical_score">{{ game.critical_score ?? '—' }}</span> &middot; OpenCritic <span [attr.id]="'catalog-opencritic-score-' + $index" [attr.data-score]="game.oc_score">{{ game.oc_score ?? '—' }}</span> &middot; PS Store
+            <span [attr.id]="'catalog-psn-rating-' + $index" [attr.data-score]="game.psn_rating">{{ game.psn_rating ?? '—' }}</span>
           </span>
           @if (storeUrl(game); as url) {
             <a
@@ -121,11 +133,11 @@
     </ul>
     }
 
-    <div class="pager">
+    <div class="mt-3 flex flex-wrap items-center justify-center gap-3">
       @if (hasPrevPage()) {
         <a
           id="catalog-prev"
-          class="btn-ghost"
+          crgButtonGhost
           [routerLink]="[]"
           [queryParams]="pageParams(page() - 1)"
           queryParamsHandling="merge"
@@ -133,11 +145,11 @@
           Previous
         </a>
       } @else {
-        <button id="catalog-prev" type="button" class="btn-ghost" disabled>Previous</button>
+        <button id="catalog-prev" type="button" crgButtonGhost disabled>Previous</button>
       }
-      <span id="catalog-page-range" class="text-muted">
+      <span id="catalog-page-range" class="text-meta text-text-muted">
         @if (total() === 0) {
-          0 of 0
+          {{ emptyPageRange }}
         } @else {
           {{ offset() + 1 }}&ndash;{{ offset() + games().length }} of {{ total() }}
         }
@@ -145,7 +157,7 @@
       @if (hasNextPage()) {
         <a
           id="catalog-next"
-          class="btn-ghost"
+          crgButtonGhost
           [routerLink]="[]"
           [queryParams]="pageParams(page() + 1)"
           queryParamsHandling="merge"
@@ -153,7 +165,7 @@
           Next
         </a>
       } @else {
-        <button id="catalog-next" type="button" class="btn-ghost" disabled>Next</button>
+        <button id="catalog-next" type="button" crgButtonGhost disabled>Next</button>
       }
       <app-page-size
         controlId="catalog-page-size"

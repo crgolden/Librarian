@@ -1,8 +1,13 @@
 import { TestBed } from '@angular/core/testing';
-import { provideHttpClient, withXhr } from '@angular/common/http';
+import { HttpStatusCode, provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { AdminService, ADMIN_CLAIM_TYPE } from './admin.service';
 import { AuthService } from '../auth/auth.service';
+import { CuratorApi } from '../curator/curator-api';
+import { ADMIN_CLAIM_VALUE, BFF_USER_RELATIVE_PATH, ClaimTypes } from '../shared/bff-contract';
+import { newId } from '@crgolden/modules/testing';
+
+const SUB = newId();
 
 function configure(): { service: AdminService; httpMock: HttpTestingController; auth: AuthService } {
   TestBed.resetTestingModule();
@@ -18,7 +23,7 @@ function configure(): { service: AdminService; httpMock: HttpTestingController; 
 
 function signIn(auth: AuthService, httpMock: HttpTestingController, claims: { type: string; value: string }[]): void {
   auth.initialize().subscribe();
-  httpMock.expectOne('bff/user').flush(claims);
+  httpMock.expectOne(BFF_USER_RELATIVE_PATH).flush(claims);
 }
 
 describe('AdminService', () => {
@@ -26,26 +31,26 @@ describe('AdminService', () => {
     const { service, httpMock } = configure();
 
     expect(service.isAdmin()).toBe(false);
-    httpMock.expectNone('/curator/api/me');
+    httpMock.expectNone(CuratorApi.me);
   });
 
   it('derives isAdmin from the session claim, with no request of its own', () => {
     const { service, httpMock, auth } = configure();
 
     signIn(auth, httpMock, [
-      { type: 'sub', value: 'user-1' },
-      { type: ADMIN_CLAIM_TYPE, value: 'true' },
+      { type: ClaimTypes.sub, value: SUB },
+      { type: ADMIN_CLAIM_TYPE, value: ADMIN_CLAIM_VALUE },
     ]);
 
     expect(service.isAdmin()).toBe(true);
-    httpMock.expectNone('/curator/api/me');
+    httpMock.expectNone(CuratorApi.me);
     httpMock.verify();
   });
 
   it('reports isAdmin false for a signed-in user whose session carries no admin claim', () => {
     const { service, httpMock, auth } = configure();
 
-    signIn(auth, httpMock, [{ type: 'sub', value: 'user-1' }]);
+    signIn(auth, httpMock, [{ type: ClaimTypes.sub, value: SUB }]);
 
     expect(service.isAdmin()).toBe(false);
     httpMock.verify();
@@ -55,8 +60,8 @@ describe('AdminService', () => {
     const { service, httpMock, auth } = configure();
 
     signIn(auth, httpMock, [
-      { type: 'sub', value: 'user-1' },
-      { type: ADMIN_CLAIM_TYPE, value: 'false' },
+      { type: ClaimTypes.sub, value: SUB },
+      { type: ADMIN_CLAIM_TYPE, value: String(false) },
     ]);
 
     expect(service.isAdmin()).toBe(false);
@@ -67,8 +72,8 @@ describe('AdminService', () => {
     const { service, httpMock, auth } = configure();
 
     signIn(auth, httpMock, [
-      { type: 'sub', value: 'user-1' },
-      { type: ADMIN_CLAIM_TYPE, value: 'True' },
+      { type: ClaimTypes.sub, value: SUB },
+      { type: ADMIN_CLAIM_TYPE, value: ADMIN_CLAIM_VALUE.toUpperCase() },
     ]);
 
     expect(service.isAdmin()).toBe(true);
@@ -80,12 +85,12 @@ describe('AdminService', () => {
 
     expect(service.isAdmin()).toBe(false);
     signIn(auth, httpMock, [
-      { type: 'sub', value: 'user-1' },
-      { type: ADMIN_CLAIM_TYPE, value: 'true' },
+      { type: ClaimTypes.sub, value: SUB },
+      { type: ADMIN_CLAIM_TYPE, value: ADMIN_CLAIM_VALUE },
     ]);
 
     expect(service.isAdmin()).toBe(true);
-    httpMock.expectNone('/curator/api/me');
+    httpMock.expectNone(CuratorApi.me);
     httpMock.verify();
   });
 
@@ -93,7 +98,7 @@ describe('AdminService', () => {
     const { service, httpMock, auth } = configure();
 
     auth.initialize().subscribe();
-    httpMock.expectOne('bff/user').flush(null, { status: 401, statusText: 'Unauthorized' });
+    httpMock.expectOne(BFF_USER_RELATIVE_PATH).flush(null, { status: HttpStatusCode.Unauthorized, statusText: HttpStatusCode[HttpStatusCode.Unauthorized] });
 
     expect(service.isAdmin()).toBe(false);
     httpMock.verify();

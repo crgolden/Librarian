@@ -1,0 +1,95 @@
+{
+  "ports": {
+    "ssr": 4100,
+    "mockCurator": 4101,
+    "mockOidc": 4102
+  },
+  "oidcTlsFileNames": {
+    "certificate": "librarian-e2e-oidc-cert.pem",
+    "key": "librarian-e2e-oidc-key.pem"
+  },
+  "mockTimings": {
+    "tokenLifetimeSeconds": 3600,
+    "libraryRunStartsAfterMs": 300,
+    "libraryRunSettlesAfterMs": 900,
+    "enrichmentRunLeavesQueueAfterMs": 250,
+    "enrichmentRunSettlesAfterPollMs": 1000
+  },
+  "viewports": {
+    "desktop": { "width": 1440, "height": 900 },
+    "mobile": { "width": 390, "height": 844 },
+    "xl": { "width": 1280, "height": 900 },
+    "shortCatalog": { "width": 1280, "height": 400 },
+    "shortDialog": { "width": 1280, "height": 400 },
+    "tableBetweenMdAndData": { "width": 800, "height": 900 }
+  },
+  "library": {
+    "ordinaryGenreLengthCeiling": 7,
+    "overflowingStoreHitCount": 10,
+    "shortProposalStoreHitCount": 2,
+    "tolerancesPx": {
+      "searchRowCentre": 4,
+      "searchButtonMinimumGap": 8,
+      "dialogCentring": 2,
+      "dialogMeasure": 1,
+      "sameLineTop": 2
+    }
+  },
+  "catalogGridMinimumTrackPx": 220,
+  "layout": {
+    "longTitleWordPairs": 4,
+    "coverSideMinimumPx": 240,
+    "coverSideCeilingPx": 480,
+    "sharedRowTopTolerancePx": 2,
+    "contentSizedWidthFraction": 0.5,
+    "midlineFraction": 0.5,
+    "profileStatGridTracks": [
+      { "width": 1280, "expectedTracks": 4 },
+      { "width": 800, "expectedTracks": 3 },
+      { "width": 520, "expectedTracks": 2 },
+      { "width": 380, "expectedTracks": 1 }
+    ],
+    "homeActions": {
+      "count": 4,
+      "rows": 2
+    },
+    "sweptWidths": [390, 768, 1024, 1440]
+  },
+  "contrastRatioDecimals": 2,
+  "contrastPairs": [
+    { "name": "text on canvas", "foreground": "--color-text", "background": "--color-canvas", "minimum": "text" },
+    { "name": "text on surface", "foreground": "--color-text", "background": "--color-surface", "minimum": "text" },
+    { "name": "text on surface-2", "foreground": "--color-text", "background": "--color-surface-2", "minimum": "text" },
+    { "name": "text-muted on canvas", "foreground": "--color-text-muted", "background": "--color-canvas", "minimum": "text" },
+    { "name": "text-muted on surface", "foreground": "--color-text-muted", "background": "--color-surface", "minimum": "text" },
+    { "name": "accent on canvas", "foreground": "--color-accent", "background": "--color-canvas", "minimum": "text" },
+    { "name": "accent on surface", "foreground": "--color-accent", "background": "--color-surface", "minimum": "text" },
+    { "name": "danger on surface", "foreground": "--color-danger", "background": "--color-surface", "minimum": "text" },
+    { "name": "on-fill ink on the accent fill", "foreground": "--color-on-fill", "background": "--color-accent", "minimum": "text" },
+    { "name": "on-fill ink on the danger fill", "foreground": "--color-on-fill", "background": "--color-danger", "minimum": "text" },
+    { "name": "on-fill ink on the warn fill", "foreground": "--color-on-fill", "background": "--color-warn", "minimum": "text" },
+    { "name": "on-fill ink on the danger HOVER fill", "foreground": "--color-on-fill", "background": "--color-danger-hover", "minimum": "text" },
+    { "name": "accent-hover fill under its own ink", "foreground": "--color-on-fill", "background": "--color-accent-hover", "minimum": "text" },
+    { "name": "line-strong on canvas (control edge, 1.4.11)", "foreground": "--color-line-strong", "background": "--color-canvas", "minimum": "nonText" },
+    { "name": "line-strong on surface (control edge, 1.4.11)", "foreground": "--color-line-strong", "background": "--color-surface", "minimum": "nonText" },
+    { "name": "line-strong on surface-2 (control edge, 1.4.11)", "foreground": "--color-line-strong", "background": "--color-surface-2", "minimum": "nonText" },
+    { "name": "focus ring on canvas (1.4.11)", "foreground": "--color-focus", "background": "--color-canvas", "minimum": "nonText" },
+    { "name": "focus ring on surface (1.4.11)", "foreground": "--color-focus", "background": "--color-surface", "minimum": "nonText" },
+    { "name": "focus ring on surface-2 (1.4.11)", "foreground": "--color-focus", "background": "--color-surface-2", "minimum": "nonText" },
+    { "name": "psn on surface (1.4.11)", "foreground": "--color-psn", "background": "--color-surface", "minimum": "nonText" }
+  ],
+  "nav": {
+    "railHeightsPx": [900, 700],
+    "stickyRailViewportHeightPx": 640,
+    "stickyTravelViewportMultiple": 2,
+    "avatarAltOverflowLength": 20,
+    "avatarMaximumWidthPx": 40
+  },
+  "theme": {
+    "midLightness": 0.5,
+    "neutralChromaCeiling": 0.02
+  },
+  "scrollRestoration": {
+    "scrollDistancePx": 200
+  }
+}

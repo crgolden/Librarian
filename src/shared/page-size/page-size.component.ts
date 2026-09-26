@@ -3,7 +3,6 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
 @Component({
   selector: 'app-page-size',
   templateUrl: './page-size.component.html',
-  styleUrl: './page-size.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex items-center shrink-0' },
 })

@@ -1,17 +1,17 @@
-<section class="page-section flex flex-col gap-4 max-w-narrow mx-auto">
+<section crgPageSection class="flex flex-col gap-4 max-w-narrow mx-auto">
   <app-breadcrumb [items]="breadcrumbItems" />
   <h1 id="page-title">Profile Settings</h1>
-  <p class="text-muted">
+  <p class="text-meta text-text-muted">
     Control what other Librarian users can see on your public profile. Everything here is private by
     default.
   </p>
 
   @if (loadError()) {
-    <p class="text-error">{{ loadError() }}</p>
+    <p class="m-0 text-meta text-danger">{{ loadError() }}</p>
   } @else if (settings(); as current) {
-    <div class="card p-6 flex flex-col items-start gap-4 w-full">
+    <div crgCard class="p-6 flex flex-col items-start gap-4 w-full">
       @if (saveError()) {
-        <p class="text-error">{{ saveError() }}</p>
+        <p class="m-0 text-meta text-danger">{{ saveError() }}</p>
       }
 
       <div class="flex flex-col gap-1 self-stretch">
@@ -20,12 +20,12 @@
             id="setting-is-public"
             type="checkbox"
             [ngModel]="current.is_public"
-            (ngModelChange)="onToggle('is_public', $event)"
+            (ngModelChange)="onToggle(settingKeys.isPublic, $event)"
             [disabled]="saving() !== null"
           />
           Make my profile public
         </label>
-        <span class="text-muted"
+        <span class="text-meta text-text-muted"
           >Lets other users see the sections below. Your follower/following lists and counts are always
           visible, regardless of this setting.</span
         >
@@ -37,7 +37,7 @@
             id="setting-show-library"
             type="checkbox"
             [ngModel]="current.show_library"
-            (ngModelChange)="onToggle('show_library', $event)"
+            (ngModelChange)="onToggle(settingKeys.showLibrary, $event)"
             [disabled]="saving() !== null"
           />
           Show my library
@@ -50,7 +50,7 @@
             id="setting-show-collections"
             type="checkbox"
             [ngModel]="current.show_collections"
-            (ngModelChange)="onToggle('show_collections', $event)"
+            (ngModelChange)="onToggle(settingKeys.showCollections, $event)"
             [disabled]="saving() !== null"
           />
           Show my collections
@@ -63,7 +63,7 @@
             id="setting-show-trophies"
             type="checkbox"
             [ngModel]="current.show_trophies"
-            (ngModelChange)="onToggle('show_trophies', $event)"
+            (ngModelChange)="onToggle(settingKeys.showTrophies, $event)"
             [disabled]="saving() !== null"
           />
           Show my trophy summary
@@ -76,28 +76,28 @@
             id="setting-show-identity"
             type="checkbox"
             [ngModel]="current.show_identity"
-            (ngModelChange)="onToggle('show_identity', $event)"
+            (ngModelChange)="onToggle(settingKeys.showIdentity, $event)"
             [disabled]="saving() !== null"
           />
           Show my PSN identity (online ID)
         </label>
       </div>
 
-      <p class="text-muted">
+      <p id="profile-settings-harvest-note" class="text-meta text-text-muted">
         Trophies and identity only show on your public profile if you've also enabled harvesting them on
-        the <a id="profile-settings-psn-link" routerLink="/account">PlayStation settings page</a>.
+        the <a id="profile-settings-psn-link" [routerLink]="appUrls.account">PlayStation settings page</a>.
       </p>
     </div>
 
-    <div class="card p-6 flex flex-col items-start gap-4 w-full">
+    <div crgCard class="p-6 flex flex-col items-start gap-4 w-full">
       <h2>PlayStation profiles</h2>
-      <p class="text-muted">
+      <p class="text-meta text-text-muted">
         Your handle on other PlayStation sites. These appear on your public profile alongside everything
         else it shows.
       </p>
 
       @if (linkError()) {
-        <p class="text-error">{{ linkError() }}</p>
+        <p class="m-0 text-meta text-danger">{{ linkError() }}</p>
       }
 
       @for (site of linkSites(); track site.site_key; let i = $index) {
@@ -117,7 +117,7 @@
           <div class="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              class="btn-ghost btn-sm"
+              crgButtonGhostSmall
               [attr.id]="'profile-link-save-' + i"
               [attr.aria-label]="'Save your ' + site.display_name + ' handle'"
               [disabled]="savingLink() !== null || !isHandleValid(site.site_key) || isHandleUnchanged(site.site_key)"
@@ -128,7 +128,7 @@
             @if (linkFor(site.site_key); as link) {
               <button
                 type="button"
-                class="btn-ghost btn-sm"
+                crgButtonGhostSmall
                 [attr.id]="'profile-link-remove-' + i"
                 [attr.aria-label]="'Remove your ' + site.display_name + ' handle'"
                 [disabled]="savingLink() !== null"
@@ -147,7 +147,7 @@
             }
           </div>
           @if (handleFor(site.site_key) && !isHandleValid(site.site_key)) {
-            <span class="text-error" [attr.id]="'profile-link-invalid-' + i"
+            <span class="m-0 text-meta text-danger" [attr.id]="'profile-link-invalid-' + i"
               >3–16 characters: letters, digits, - or _.</span
             >
           }

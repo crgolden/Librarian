@@ -1,15 +1,15 @@
-const PAGE_SIZE_CHOICES = [20, 50, 100, 200];
+import { environment } from '../../environments/environment';
 
-const STORAGE_PREFIX = 'librarian.page-size.';
+export const PAGE_SIZE_STORAGE_PREFIX = 'librarian.page-size.';
 
 export function pageSizeChoicesUpTo(ceiling: number, fallback: number): number[] {
-  const withinCeiling = PAGE_SIZE_CHOICES.filter((choice) => choice <= ceiling);
+  const withinCeiling = environment.pageSizeChoices.filter((choice) => choice <= ceiling);
   return withinCeiling.includes(fallback) ? withinCeiling : [...withinCeiling, fallback].sort((a, b) => a - b);
 }
 
 export function readPageSize(key: string, choices: readonly number[], fallback: number): number {
   try {
-    const stored = Number(localStorage.getItem(STORAGE_PREFIX + key));
+    const stored = Number(localStorage.getItem(PAGE_SIZE_STORAGE_PREFIX + key));
     return choices.includes(stored) ? stored : fallback;
   } catch {
     return fallback;
@@ -18,7 +18,7 @@ export function readPageSize(key: string, choices: readonly number[], fallback: 
 
 export function writePageSize(key: string, value: number): void {
   try {
-    localStorage.setItem(STORAGE_PREFIX + key, String(value));
+    localStorage.setItem(PAGE_SIZE_STORAGE_PREFIX + key, String(value));
   } catch {
     return;
   }

@@ -1,4 +1,4 @@
-import { HttpErrorResponse, provideHttpClient, withXhr } from '@angular/common/http';
+import { HttpErrorResponse, HttpStatusCode, provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Observable, of, throwError } from 'rxjs';
@@ -12,21 +12,27 @@ import {
   IdentityResponse,
   PresenceResponse,
   PsnPreferencesResponse,
+  RefreshCadences,
   RefreshScheduleResponse,
   TrophySummaryResponse,
 } from '../curator/curator.models';
+import { CuratorApi } from '../curator/curator-api';
+import { newCount, newEmailAddress, newId, newText } from '@crgolden/modules/testing';
 
-const LINKED: PsnStatus = { sub: 'u1', email: 'chris@example.com', linked: true, psn: null };
-const UNLINKED: PsnStatus = { sub: 'u1', email: 'chris@example.com', linked: false, psn: null };
+const SUB = newId();
+const EMAIL = newEmailAddress();
+
+const LINKED: PsnStatus = { sub: SUB, email: EMAIL, linked: true, psn: null };
+const UNLINKED: PsnStatus = { sub: SUB, email: EMAIL, linked: false, psn: null };
 
 const ENRICHMENT_KEYS = { rawg_configured: true } as unknown as EnrichmentKeyStatusResponse;
-const SCHEDULE = { cadence: 'weekly', ps_plus_watch: false } as unknown as RefreshScheduleResponse;
-const TROPHY_SUMMARY = { level: 42 } as unknown as TrophySummaryResponse;
-const IDENTITY = { online_id: 'chris' } as unknown as IdentityResponse;
-const PRESENCE = { availability: 'availableToPlay' } as unknown as PresenceResponse;
+const SCHEDULE = { cadence: RefreshCadences.weekly, ps_plus_watch: false } as unknown as RefreshScheduleResponse;
+const TROPHY_SUMMARY = { level: newCount() } as unknown as TrophySummaryResponse;
+const IDENTITY = { online_id: newText() } as unknown as IdentityResponse;
+const PRESENCE = { availability: newText() } as unknown as PresenceResponse;
 const DEVICES = { devices: [] } as unknown as DevicesResponse;
-const CONSOLES = [{ console_id: 'c1' }] as unknown as ConsoleResponse[];
-const FRIEND_REQUEST = { online_id: 'someone', account_id: 'a1' };
+const CONSOLES = [{ console_id: newId() }] as unknown as ConsoleResponse[];
+const FRIEND_REQUEST = { online_id: newText(), account_id: newId() };
 const FRIEND_REQUESTS: FriendRequestsResponse = { requests: [FRIEND_REQUEST] };
 
 const ALL_PREFERENCES_OFF: PsnPreferencesResponse = {
@@ -47,8 +53,8 @@ const EVERY_PREFERENCE_ON: PsnPreferencesResponse = {
   allow_chat_writes: true,
 };
 
-const fails = () => throwError(() => new HttpErrorResponse({ status: 500 }));
-const notFound = () => throwError(() => new HttpErrorResponse({ status: 404 }));
+const fails = () => throwError(() => new HttpErrorResponse({ status: HttpStatusCode.InternalServerError }));
+const notFound = () => throwError(() => new HttpErrorResponse({ status: HttpStatusCode.NotFound }));
 
 function stubs(overrides: Partial<CuratorService> = {}): Partial<CuratorService> {
   return {
@@ -82,9 +88,9 @@ function run(me: PsnStatus | null, curator: Partial<CuratorService>): Promise<Re
     });
   });
 
-  const request = httpMock.expectOne('/curator/api/me');
+  const request = httpMock.expectOne(CuratorApi.me);
   if (me === null) {
-    request.flush(null, { status: 500, statusText: 'Server Error' });
+    request.flush(null, { status: HttpStatusCode.InternalServerError, statusText: HttpStatusCode[HttpStatusCode.InternalServerError] });
   } else {
     request.flush(me);
   }
@@ -103,52 +109,28 @@ describe('psnStatusResolver', () => {
   });
 
   it('spends no PSN category call on an account that is not linked', async () => {
-    const asked: string[] = [];
-    const result = await run(
-      UNLINKED,
-      stubs({
-        getPsnPreferences: () => {
-          asked.push('preferences');
-          return of(ALL_PREFERENCES_OFF);
-        },
-        getTrophySummary: () => {
-          asked.push('trophies');
-          return of(TROPHY_SUMMARY);
-        },
-      }),
-    );
+    const getPsnPreferences = vi.fn(() => of(ALL_PREFERENCES_OFF));
+    const getTrophySummary = vi.fn(() => of(TROPHY_SUMMARY));
+    const result = await run(UNLINKED, stubs({ getPsnPreferences, getTrophySummary }));
 
-    expect(asked).toEqual([]);
+    expect(getPsnPreferences).not.toHaveBeenCalled();
+    expect(getTrophySummary).not.toHaveBeenCalled();
     expect(result.preferences).toBeNull();
     expect(result.trophySummary).toBeNull();
     expect(result.status).toEqual(UNLINKED);
   });
 
   it('spends no PSN category call on a category the user has switched off', async () => {
-    const asked: string[] = [];
-    const result = await run(
-      LINKED,
-      stubs({
-        getTrophySummary: () => {
-          asked.push('trophies');
-          return of(TROPHY_SUMMARY);
-        },
-        getIdentity: () => {
-          asked.push('identity');
-          return of(IDENTITY);
-        },
-        getPresence: () => {
-          asked.push('presence');
-          return of(PRESENCE);
-        },
-        getDevices: () => {
-          asked.push('devices');
-          return of(DEVICES);
-        },
-      }),
-    );
+    const getTrophySummary = vi.fn(() => of(TROPHY_SUMMARY));
+    const getIdentity = vi.fn(() => of(IDENTITY));
+    const getPresence = vi.fn(() => of(PRESENCE));
+    const getDevices = vi.fn(() => of(DEVICES));
+    const result = await run(LINKED, stubs({ getTrophySummary, getIdentity, getPresence, getDevices }));
 
-    expect(asked).toEqual([]);
+    expect(getTrophySummary).not.toHaveBeenCalled();
+    expect(getIdentity).not.toHaveBeenCalled();
+    expect(getPresence).not.toHaveBeenCalled();
+    expect(getDevices).not.toHaveBeenCalled();
     expect(result.preferences).toBe(ALL_PREFERENCES_OFF);
     expect(result.identity).toBeNull();
     expect(result.presence).toBeNull();

@@ -1,6 +1,13 @@
 
+import { constants } from 'node:http2';
 import express, { type Express, type Request, type Response } from 'express';
 import { generateKeyPair, exportJWK, SignJWT, type JWK } from 'jose';
+import { newId, newPathSegment, newText } from '@crgolden/modules/testing';
+import { ADMIN_CLAIM_VALUE, ClaimTypes, IdentityRoutes, OIDC_SCOPES } from '../../src/shared/bff-contract';
+import { e2eContract } from './e2e-identity-contract';
+import { TransparentGif } from './gif-constants';
+import { JoseConstants, OidcConstants } from '../oidc-constants';
+import e2eSettings from '../e2e-settings.json';
 
 function readCookie(req: Request, name: string): string | undefined {
   const header = req.headers.cookie;
@@ -15,6 +22,22 @@ function readCookie(req: Request, name: string): string | undefined {
   return undefined;
 }
 
+function newEndpointPath(): string {
+  return `/${newPathSegment()}`;
+}
+
+const OidcEndpointPaths = {
+  authorize: newEndpointPath(),
+  token: newEndpointPath(),
+  userinfo: newEndpointPath(),
+  jwks: newEndpointPath(),
+  endSession: newEndpointPath(),
+} as const;
+
+const AVATAR_SUB_PARAMETER = newText();
+
+const E2eIdentityCookies = e2eContract().identityCookies;
+
 interface AuthorizationCodeRecord {
   redirectUri: string;
   sub: string;
@@ -24,12 +47,12 @@ interface AuthorizationCodeRecord {
 }
 
 export async function createOidcApp(issuer: string): Promise<Express> {
-  const { publicKey, privateKey } = await generateKeyPair('RS256');
-  const kid = 'e2e-mock-key';
+  const { publicKey, privateKey } = await generateKeyPair(JoseConstants.algorithms.rs256);
+  const kid = newId();
   const jwk: JWK = await exportJWK(publicKey);
   jwk.kid = kid;
-  jwk.alg = 'RS256';
-  jwk.use = 'sig';
+  jwk.alg = JoseConstants.algorithms.rs256;
+  jwk.use = JoseConstants.keyUses.signature;
 
   const codes = new Map<string, AuthorizationCodeRecord>();
   const sessions = new Map<string, AuthorizationCodeRecord>();
@@ -37,110 +60,107 @@ export async function createOidcApp(issuer: string): Promise<Express> {
   const app = express();
   app.use(express.urlencoded({ extended: false }));
 
-  app.get('/.well-known/openid-configuration', (_req: Request, res: Response) => {
+  app.get(OidcConstants.discoveryPath, (_req: Request, res: Response) => {
     res.json({
       issuer,
-      authorization_endpoint: `${issuer}/authorize`,
-      token_endpoint: `${issuer}/token`,
-      userinfo_endpoint: `${issuer}/userinfo`,
-      jwks_uri: `${issuer}/jwks`,
-      end_session_endpoint: `${issuer}/end-session`,
-      response_types_supported: ['code'],
-      subject_types_supported: ['public'],
-      id_token_signing_alg_values_supported: ['RS256'],
-      scopes_supported: ['openid', 'profile', 'email', 'offline_access', 'curator'],
-      token_endpoint_auth_methods_supported: ['client_secret_post'],
-      code_challenge_methods_supported: ['S256'],
-      claims_supported: ['sub', 'email', 'name', 'curator.admin'],
+      authorization_endpoint: `${issuer}${OidcEndpointPaths.authorize}`,
+      token_endpoint: `${issuer}${OidcEndpointPaths.token}`,
+      userinfo_endpoint: `${issuer}${OidcEndpointPaths.userinfo}`,
+      jwks_uri: `${issuer}${OidcEndpointPaths.jwks}`,
+      end_session_endpoint: `${issuer}${OidcEndpointPaths.endSession}`,
+      response_types_supported: [OidcConstants.responseTypes.code],
+      id_token_signing_alg_values_supported: [JoseConstants.algorithms.rs256],
+      scopes_supported: OIDC_SCOPES.split(' '),
+      token_endpoint_auth_methods_supported: [OidcConstants.tokenEndpointAuthMethods.clientSecretPost],
+      code_challenge_methods_supported: [OidcConstants.codeChallengeMethods.s256],
+      claims_supported: [ClaimTypes.sub, ClaimTypes.email, ClaimTypes.name, ClaimTypes.admin],
     });
   });
 
-  app.get('/jwks', (_req: Request, res: Response) => {
+  app.get(OidcEndpointPaths.jwks, (_req: Request, res: Response) => {
     res.json({ keys: [jwk] });
   });
 
-  app.get('/authorize', (req: Request, res: Response) => {
-    const redirectUri = req.query['redirect_uri'];
-    const state = req.query['state'];
-    const sub = readCookie(req, 'e2e_identity');
+  app.get(OidcEndpointPaths.authorize, (req: Request, res: Response) => {
+    const redirectUri = req.query[OidcConstants.parameters.redirectUri];
+    const state = req.query[OidcConstants.parameters.state];
+    const sub = readCookie(req, E2eIdentityCookies.sub);
     if (!sub || typeof redirectUri !== 'string' || typeof state !== 'string') {
-      res.status(400).json({ error: 'missing e2e_identity cookie, redirect_uri or state' });
+      res.status(constants.HTTP_STATUS_BAD_REQUEST).json({ error: OidcConstants.errors.invalidRequest });
       return;
     }
-    const email = readCookie(req, 'e2e_email') ?? `${sub}@test.invalid`;
-    const name = readCookie(req, 'e2e_name') ?? email;
-    const isAdmin = readCookie(req, 'e2e_admin') === 'true';
+    const email = readCookie(req, E2eIdentityCookies.email) ?? `${sub}@test.invalid`;
+    const name = readCookie(req, E2eIdentityCookies.name) ?? email;
+    const isAdmin = readCookie(req, E2eIdentityCookies.admin) === String(true);
 
-    const code = `mock-code-${Math.random().toString(36).slice(2)}`;
+    const code = newId();
     codes.set(code, { redirectUri, sub, email, name, isAdmin });
 
     const redirectUrl = new URL(redirectUri);
-    redirectUrl.searchParams.set('code', code);
-    redirectUrl.searchParams.set('state', state);
+    redirectUrl.searchParams.set(OidcConstants.parameters.code, code);
+    redirectUrl.searchParams.set(OidcConstants.parameters.state, state);
     res.redirect(redirectUrl.href);
   });
 
-  app.post('/token', async (req: Request, res: Response) => {
+  app.post(OidcEndpointPaths.token, async (req: Request, res: Response) => {
     const body = req.body as Record<string, string>;
-    const grantCode = body['code'];
+    const grantCode = body[OidcConstants.parameters.code];
     const record = grantCode === undefined ? undefined : codes.get(grantCode);
     if (record === undefined || grantCode === undefined) {
-      res.status(400).json({ error: 'invalid_grant' });
+      res.status(constants.HTTP_STATUS_BAD_REQUEST).json({ error: OidcConstants.errors.invalidGrant });
       return;
     }
     codes.delete(grantCode);
 
-    const clientId = body['client_id'] ?? null;
-    const now = Math.floor(Date.now() / 1000);
-    const accessToken = `mock-access-${record.sub}-${Math.random().toString(36).slice(2)}`;
+    const clientId = body[OidcConstants.parameters.clientId] ?? null;
+    const tokenLifetimeSeconds = e2eSettings.mockTimings.tokenLifetimeSeconds;
+    const accessToken = newId();
     sessions.set(accessToken, record);
 
     const idToken = await new SignJWT({
       email: record.email,
       name: record.name,
-      ...(record.isAdmin ? { 'curator.admin': 'true' } : {}),
+      ...(record.isAdmin ? { [ClaimTypes.admin]: ADMIN_CLAIM_VALUE } : {}),
     })
-      .setProtectedHeader({ alg: 'RS256', kid })
+      .setProtectedHeader({ alg: JoseConstants.algorithms.rs256, kid })
       .setSubject(record.sub)
-      .setIssuedAt(now)
+      .setIssuedAt()
       .setIssuer(issuer)
       .setAudience(clientId)
-      .setExpirationTime(now + 3600)
+      .setExpirationTime(`${tokenLifetimeSeconds}${JoseConstants.durationUnits.seconds}`)
       .sign(privateKey);
 
     res.json({
       access_token: accessToken,
-      refresh_token: `mock-refresh-${record.sub}`,
+      refresh_token: newId(),
       id_token: idToken,
-      token_type: 'Bearer',
-      expires_in: 3600,
+      token_type: OidcConstants.tokenTypes.bearer,
+      expires_in: tokenLifetimeSeconds,
     });
   });
 
-  app.get('/userinfo', (req: Request, res: Response) => {
+  app.get(OidcEndpointPaths.userinfo, (req: Request, res: Response) => {
     const authorization = req.headers.authorization;
     const record =
       authorization === undefined ? undefined : sessions.get(authorization.replace(/^Bearer\s+/i, ''));
     if (record === undefined) {
-      res.status(401).end();
+      res.status(constants.HTTP_STATUS_UNAUTHORIZED).end();
       return;
     }
     res.json({
       sub: record.sub,
       email: record.email,
       name: record.name,
-      ...(record.isAdmin ? { 'curator.admin': 'true' } : {}),
+      ...(record.isAdmin ? { [ClaimTypes.admin]: ADMIN_CLAIM_VALUE } : {}),
     });
   });
 
-  app.get('/avatar/:sub', (_req: Request, res: Response) => {
-    res.type('gif').send(
-      Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64'),
-    );
+  app.get(IdentityRoutes.avatar(`:${AVATAR_SUB_PARAMETER}`), (_req: Request, res: Response) => {
+    res.type(TransparentGif.expressType).send(Buffer.from(TransparentGif.base64, TransparentGif.encoding));
   });
 
-  app.get('/end-session', (_req: Request, res: Response) => {
-    res.status(200).send('<html><body><p>Logged out (mock)</p></body></html>');
+  app.get(OidcEndpointPaths.endSession, (_req: Request, res: Response) => {
+    res.status(constants.HTTP_STATUS_OK).send(newText());
   });
 
   return app;

@@ -1,27 +1,34 @@
-<header class="site-header">
-  <div id="header-inner" class="page-container header-inner">
-    <a id="brand" routerLink="/" class="brand">Librarian</a>
+<header class="sticky top-0 z-(--z-header) border-b border-line bg-surface">
+  <div id="header-inner" crgPageContainer class="flex h-[var(--header-height)] items-center justify-between gap-4 lg:max-w-none">
+    <a id="brand" [routerLink]="appUrls.home" class="font-heading text-subsection font-bold text-text no-underline hover:text-accent">Librarian</a>
     @if (auth.isAuthenticated()) {
-      <div id="user-chip" class="user-chip">
+      <div id="user-chip" class="flex items-center gap-2">
         @if (auth.sub(); as sub) {
           <app-avatar
             id="nav-avatar"
             [sub]="sub"
             [pictureUrl]="auth.picture()"
-            [alt]="auth.email() ?? auth.username() ?? 'Signed-in account'"
+            [alt]="auth.email() ?? auth.username() ?? signedInAccountLabel"
           />
         }
-        <span id="user-email" class="user-email" [title]="auth.email() ?? auth.username() ?? 'you'">{{
-          auth.email() ?? auth.username() ?? 'you'
+        <span
+          id="user-email"
+          class="max-w-[16ch] truncate font-mono text-meta text-text-muted sm:max-w-[22ch]"
+          [title]="auth.email() ?? auth.username() ?? anonymousUserLabel">{{
+          auth.email() ?? auth.username() ?? anonymousUserLabel
         }}</span>
       </div>
     }
   </div>
 </header>
-<div class="app-shell">
+<div class="flex">
   <app-site-nav />
-  <div class="app-body">
-    <main id="page-main" class="page-container">
+  <div class="min-w-0 flex-auto">
+    <main
+      id="page-main"
+      crgPageContainer
+      class="min-h-[calc(100dvh_-_var(--header-height))] pb-[calc(--spacing(12)_+_var(--tabbar-height)_+_env(safe-area-inset-bottom))] pt-8 lg:pb-12"
+    >
       <router-outlet />
     </main>
   </div>

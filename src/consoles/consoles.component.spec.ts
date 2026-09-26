@@ -1,20 +1,56 @@
-import { provideHttpClient, withXhr } from '@angular/common/http';
+import { HttpStatusCode, provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import { ConsolesComponent, DEVICE_LINK_LABELS } from './consoles.component';
 import { ConsolesPageData } from './consoles.resolver';
-import { ConsoleDeviceLinkState, ConsoleResponse, StorageDeviceResponse } from '../curator/curator.models';
+import {
+  CONSOLE_PLATFORM_OPTIONS,
+  ConsoleDeviceLinkState,
+  ConsoleDeviceLinkStates,
+  ConsolePlatforms,
+  ConsoleResponse,
+  StorageDeviceResponse,
+  StorageKinds,
+} from '../curator/curator.models';
+import { CuratorApi } from '../curator/curator-api';
+import { AppUrls } from '../app/app-paths';
+import {
+  CONSOLE_NAME_REQUIRED_ERROR,
+  CONSOLE_PLATFORM_ERROR,
+  DEVICE_CAPACITY_REQUIRED_ERROR,
+  defaultCapacityNoteFor,
+} from './consoles.messages';
+import { HttpMethods } from '../bff/http-headers';
+import { newCount, newId, newMemberOf, newText } from '@crgolden/modules/testing';
+
+const CONSOLE_ID = newId();
+const CONSOLE_NAME = newText();
+const CONSOLE_CAPACITY_GB = newCount();
+const DEVICE_ID = newId();
+const DEVICE_NAME = newText();
+const DEVICE_CAPACITY_GB = newCount();
+const LINKED_DEVICE_ID = newId();
+const NEW_CONSOLE_NAME = newText();
+const EDITED_CONSOLE_NAME = newText();
+const EDITED_CONSOLE_CAPACITY_GB = newCount();
+const EDITED_CONSOLE_BUFFER_GB = newCount();
+const NEW_DEVICE_NAME = newText();
+const NEW_DEVICE_CAPACITY_GB = newCount();
+const EDITED_DEVICE_NAME = newText();
+const EDITED_DEVICE_CAPACITY_GB = newCount();
+const EDITED_DEVICE_BUFFER_GB = newCount();
+const ROUTING_GENRES = [newText(), newText()];
 
 function console_(overrides: Partial<ConsoleResponse> = {}): ConsoleResponse {
   return {
-    console_id: 'c1',
-    name: 'Living room PS5',
-    platform: 'PS5',
-    raw_capacity_gb: 825,
+    console_id: CONSOLE_ID,
+    name: CONSOLE_NAME,
+    platform: ConsolePlatforms.ps5,
+    raw_capacity_gb: CONSOLE_CAPACITY_GB,
     model: null,
     update_buffer_gb: 0,
-    effective_capacity_gb: 825,
+    effective_capacity_gb: CONSOLE_CAPACITY_GB,
     routing_genres: [],
     fill_order: 0,
     capacity_is_default: false,
@@ -25,13 +61,13 @@ function console_(overrides: Partial<ConsoleResponse> = {}): ConsoleResponse {
 
 function device(overrides: Partial<StorageDeviceResponse> = {}): StorageDeviceResponse {
   return {
-    device_id: 'sd1',
+    device_id: DEVICE_ID,
     console_id: null,
-    name: 'Samsung T7',
-    kind: 'm2',
-    capacity_gb: 1000,
+    name: DEVICE_NAME,
+    kind: StorageKinds.m2,
+    capacity_gb: DEVICE_CAPACITY_GB,
     buffer_gb: 0,
-    effective_capacity_gb: 1000,
+    effective_capacity_gb: DEVICE_CAPACITY_GB,
     ...overrides,
   };
 }
@@ -73,16 +109,13 @@ function harness(fixture: ComponentFixture<ConsolesComponent>): ConsolesHarness 
   return fixture.componentInstance as unknown as ConsolesHarness;
 }
 
-let nextGeneratedGenre = 0;
-const aGenre = (): string => `Genre ${(nextGeneratedGenre += 1)}`;
-
 describe('ConsolesComponent', () => {
   let httpMock: HttpTestingController;
   const routeData: { consoles: ConsolesPageData | null; genres: string[] } = { consoles: null, genres: [] };
 
   beforeEach(() => {
     routeData.consoles = { consoles: [], devices: [] };
-    routeData.genres = [aGenre(), aGenre()];
+    routeData.genres = [newText(), newText()];
     TestBed.configureTestingModule({
       imports: [ConsolesComponent],
       providers: [
@@ -108,9 +141,9 @@ describe('ConsolesComponent', () => {
 
   it('shows empty states for consoles and storage devices', () => {
     const fixture = createAndLoad([], []);
-    const text = (fixture.nativeElement as HTMLElement).textContent;
-    expect(text).toContain('No consoles yet.');
-    expect(text).toContain('No storage devices yet.');
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.querySelector('#consoles-empty')).not.toBeNull();
+    expect(compiled.querySelector('#devices-empty')).not.toBeNull();
   });
 
   it('says nothing about a PSN device link on a console that has none', () => {
@@ -120,16 +153,16 @@ describe('ConsolesComponent', () => {
   });
 
   it('names a healthy device link and offers the page that manages it', () => {
-    const fixture = createAndLoad([console_({ device_link: { device_id: 'dev-1', state: 'linked' } })], []);
+    const fixture = createAndLoad([console_({ device_link: { device_id: LINKED_DEVICE_ID, state: ConsoleDeviceLinkStates.linked } })], []);
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.querySelector('#console-device-link-0')?.textContent).toContain(DEVICE_LINK_LABELS.linked);
-    expect(compiled.querySelector('#console-device-link-account-0')?.getAttribute('href')).toBe('/account');
+    expect(compiled.querySelector('#console-device-link-account-0')?.getAttribute('href')).toBe(AppUrls.account);
   });
 
   it('reports a deactivated PSN device in words rather than as the raw state', () => {
-    const state: ConsoleDeviceLinkState = 'device_deactivated';
-    const fixture = createAndLoad([console_({ device_link: { device_id: 'dev-1', state } })], []);
+    const state: ConsoleDeviceLinkState = ConsoleDeviceLinkStates.deviceDeactivated;
+    const fixture = createAndLoad([console_({ device_link: { device_id: LINKED_DEVICE_ID, state } })], []);
 
     const rendered = (fixture.nativeElement as HTMLElement).querySelector('#console-device-link-0')?.textContent;
     expect(rendered).toContain(DEVICE_LINK_LABELS[state]);
@@ -138,14 +171,14 @@ describe('ConsolesComponent', () => {
 
   it('says a link went unchecked rather than claiming the device is gone', () => {
     const unchecked = createAndLoad(
-      [console_({ device_link: { device_id: 'dev-1', state: 'not_checked' } })],
+      [console_({ device_link: { device_id: LINKED_DEVICE_ID, state: ConsoleDeviceLinkStates.notChecked } })],
       [],
     );
     expect((unchecked.nativeElement as HTMLElement).querySelector('#console-device-link-0')?.textContent).toContain(
       DEVICE_LINK_LABELS.not_checked,
     );
 
-    const missing = createAndLoad([console_({ device_link: { device_id: 'dev-1', state: 'device_missing' } })], []);
+    const missing = createAndLoad([console_({ device_link: { device_id: LINKED_DEVICE_ID, state: ConsoleDeviceLinkStates.deviceMissing } })], []);
     expect((missing.nativeElement as HTMLElement).querySelector('#console-device-link-0')?.textContent).toContain(
       DEVICE_LINK_LABELS.device_missing,
     );
@@ -162,34 +195,84 @@ describe('ConsolesComponent', () => {
     expect(labels).toEqual(routeData.genres);
   });
 
+  it('offers every platform Curator accepts, not only PS5 and PS4', () => {
+    const fixture = createAndLoad([], []);
+    harness(fixture).startCreatingConsole();
+    fixture.detectChanges();
+
+    const select = (fixture.nativeElement as HTMLElement).querySelector('#consolePlatform');
+    const labels = Array.from(select?.querySelectorAll('option') ?? []).map((option) => option.textContent?.trim());
+
+    expect(labels).toEqual(CONSOLE_PLATFORM_OPTIONS);
+  });
+
+  it('creates a console on a legacy platform', () => {
+    const platform = newMemberOf([
+      ConsolePlatforms.ps3,
+      ConsolePlatforms.psvita,
+      ConsolePlatforms.psp,
+      ConsolePlatforms.ps2,
+      ConsolePlatforms.ps1,
+    ]);
+    const fixture = createAndLoad([], []);
+    const h = harness(fixture);
+    h.startCreatingConsole();
+    h.consoleName.set(NEW_CONSOLE_NAME);
+    h.consolePlatform.set(platform);
+
+    h.createConsole();
+
+    const req = httpMock.expectOne(CuratorApi.consoles);
+    expect(req.request.body).toEqual(expect.objectContaining({ name: NEW_CONSOLE_NAME, platform }));
+    req.flush(console_({ console_id: newId(), name: NEW_CONSOLE_NAME, platform }));
+  });
+
+  it('answers a rejected platform with the platform message rather than the generic create error', () => {
+    const fixture = createAndLoad([], []);
+    const h = harness(fixture);
+    h.startCreatingConsole();
+    h.consoleName.set(NEW_CONSOLE_NAME);
+
+    h.createConsole();
+    httpMock
+      .expectOne(CuratorApi.consoles)
+      .flush(null, { status: HttpStatusCode.BadRequest, statusText: HttpStatusCode[HttpStatusCode.BadRequest] });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('#console-form-error')?.textContent?.trim()).toBe(
+      CONSOLE_PLATFORM_ERROR,
+    );
+  });
+
   it('lists consoles and storage devices with derived usable capacity', () => {
-    const fixture = createAndLoad([console_()], [device({ console_id: 'c1' })]);
+    const fixture = createAndLoad([console_()], [device({ console_id: CONSOLE_ID })]);
     const text = (fixture.nativeElement as HTMLElement).textContent;
-    expect(text).toContain('Living room PS5');
-    expect(text).toContain('825 GB usable of 825 GB');
-    expect(text).toContain('Samsung T7');
-    expect(text).toContain('Attached to Living room PS5');
+    expect(text).toContain(CONSOLE_NAME);
+    expect(text).toContain(`${CONSOLE_CAPACITY_GB} GB usable of ${CONSOLE_CAPACITY_GB} GB`);
+    expect(text).toContain(DEVICE_NAME);
+    expect(text).toContain(`Attached to ${CONSOLE_NAME}`);
   });
 
   it('creates a console and flags an auto-assigned default capacity', () => {
     const fixture = createAndLoad([], []);
     const h = harness(fixture);
     h.startCreatingConsole();
-    h.consoleName.set('New PS5');
+    h.consoleName.set(NEW_CONSOLE_NAME);
     fixture.detectChanges();
 
     h.createConsole();
-    const req = httpMock.expectOne('/curator/api/consoles');
-    expect(req.request.method).toBe('POST');
+    const req = httpMock.expectOne(CuratorApi.consoles);
+    expect(req.request.method).toBe(HttpMethods.post);
     expect(req.request.body).toEqual(
-      expect.objectContaining({ name: 'New PS5', platform: 'PS5', raw_capacity_gb: null }),
+      expect.objectContaining({ name: NEW_CONSOLE_NAME, platform: ConsolePlatforms.ps5, raw_capacity_gb: null }),
     );
-    req.flush(console_({ console_id: 'c2', name: 'New PS5', capacity_is_default: true }));
+    const created = console_({ console_id: newId(), name: NEW_CONSOLE_NAME, capacity_is_default: true });
+    req.flush(created);
     fixture.detectChanges();
 
-    const text = (fixture.nativeElement as HTMLElement).textContent;
-    expect(text).toContain('New PS5');
-    expect(text).toContain('We guessed');
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.textContent).toContain(NEW_CONSOLE_NAME);
+    expect(compiled.querySelector('#console-default-capacity-note')?.textContent?.trim()).toBe(defaultCapacityNoteFor(created));
   });
 
   it('shows a validation error and makes no request when the console name is blank', () => {
@@ -200,136 +283,136 @@ describe('ConsolesComponent', () => {
     h.createConsole();
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Enter a name for this console.');
-    httpMock.expectNone('/curator/api/consoles');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(CONSOLE_NAME_REQUIRED_ERROR);
+    httpMock.expectNone(CuratorApi.consoles);
   });
 
   it('edits a console via PATCH', () => {
     const fixture = createAndLoad([console_()], []);
     const h = harness(fixture);
     h.startEditingConsole(console_());
-    h.editConsoleName.set('Bedroom PS5');
-    h.editConsoleCapacityGb.set(700);
-    h.editConsoleUpdateBufferGb.set(10);
-    h.editConsoleRoutingGenres.set(['RPG', 'Action']);
+    h.editConsoleName.set(EDITED_CONSOLE_NAME);
+    h.editConsoleCapacityGb.set(EDITED_CONSOLE_CAPACITY_GB);
+    h.editConsoleUpdateBufferGb.set(EDITED_CONSOLE_BUFFER_GB);
+    h.editConsoleRoutingGenres.set(ROUTING_GENRES);
     h.editConsoleFillOrder.set(1);
 
-    h.saveConsole('c1');
-    const req = httpMock.expectOne('/curator/api/consoles/c1');
-    expect(req.request.method).toBe('PATCH');
+    h.saveConsole(CONSOLE_ID);
+    const req = httpMock.expectOne(CuratorApi.consolesByConsoleId(CONSOLE_ID));
+    expect(req.request.method).toBe(HttpMethods.patch);
     expect(req.request.body).toEqual({
-      name: 'Bedroom PS5',
-      raw_capacity_gb: 700,
-      update_buffer_gb: 10,
-      routing_genres: ['RPG', 'Action'],
+      name: EDITED_CONSOLE_NAME,
+      raw_capacity_gb: EDITED_CONSOLE_CAPACITY_GB,
+      update_buffer_gb: EDITED_CONSOLE_BUFFER_GB,
+      routing_genres: ROUTING_GENRES,
       fill_order: 1,
     });
-    req.flush(console_({ name: 'Bedroom PS5', raw_capacity_gb: 700 }));
+    req.flush(console_({ name: EDITED_CONSOLE_NAME, raw_capacity_gb: EDITED_CONSOLE_CAPACITY_GB }));
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Bedroom PS5');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(EDITED_CONSOLE_NAME);
   });
 
   it('deletes a console and refreshes the storage-device list (a device may have just been detached)', () => {
     const fixture = createAndLoad([console_()], []);
     const h = harness(fixture);
-    h.confirmDeleteConsole('c1');
-    h.deleteConsole('c1');
+    h.confirmDeleteConsole(CONSOLE_ID);
+    h.deleteConsole(CONSOLE_ID);
 
-    httpMock.expectOne({ url: '/curator/api/consoles/c1', method: 'DELETE' }).flush(null);
-    httpMock.expectOne('/curator/api/storage-devices').flush([]);
+    httpMock.expectOne({ url: CuratorApi.consolesByConsoleId(CONSOLE_ID), method: HttpMethods.delete }).flush(null);
+    httpMock.expectOne(CuratorApi.storageDevices).flush([]);
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('No consoles yet.');
+    expect((fixture.nativeElement as HTMLElement).querySelector('#consoles-empty')).not.toBeNull();
   });
 
   it('creates a storage device', () => {
     const fixture = createAndLoad([console_()], []);
     const h = harness(fixture);
     h.startCreatingDevice();
-    h.deviceName.set('USB Drive');
-    h.deviceKind.set('usb');
-    h.deviceCapacityGb.set(500);
+    h.deviceName.set(NEW_DEVICE_NAME);
+    h.deviceKind.set(StorageKinds.usb);
+    h.deviceCapacityGb.set(NEW_DEVICE_CAPACITY_GB);
     fixture.detectChanges();
 
     h.createDevice();
-    const req = httpMock.expectOne('/curator/api/storage-devices');
-    expect(req.request.method).toBe('POST');
+    const req = httpMock.expectOne(CuratorApi.storageDevices);
+    expect(req.request.method).toBe(HttpMethods.post);
     expect(req.request.body).toEqual(
-      expect.objectContaining({ name: 'USB Drive', kind: 'usb', capacity_gb: 500 }),
+      expect.objectContaining({ name: NEW_DEVICE_NAME, kind: StorageKinds.usb, capacity_gb: NEW_DEVICE_CAPACITY_GB }),
     );
-    req.flush(device({ device_id: 'sd2', name: 'USB Drive', kind: 'usb', capacity_gb: 500 }));
+    req.flush(device({ device_id: newId(), name: NEW_DEVICE_NAME, kind: StorageKinds.usb, capacity_gb: NEW_DEVICE_CAPACITY_GB }));
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('USB Drive');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(NEW_DEVICE_NAME);
   });
 
   it('shows a validation error and makes no request when the device capacity is missing', () => {
     const fixture = createAndLoad([], []);
     const h = harness(fixture);
     h.startCreatingDevice();
-    h.deviceName.set('USB Drive');
+    h.deviceName.set(NEW_DEVICE_NAME);
 
     h.createDevice();
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain("Enter this device's capacity in GB.");
-    httpMock.expectNone('/curator/api/storage-devices');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(DEVICE_CAPACITY_REQUIRED_ERROR);
+    httpMock.expectNone(CuratorApi.storageDevices);
   });
 
   it('edits a storage device via PATCH', () => {
     const fixture = createAndLoad([], [device()]);
     const h = harness(fixture);
     h.startEditingDevice(device());
-    h.editDeviceName.set('Renamed drive');
-    h.editDeviceCapacityGb.set(2000);
-    h.editDeviceBufferGb.set(50);
+    h.editDeviceName.set(EDITED_DEVICE_NAME);
+    h.editDeviceCapacityGb.set(EDITED_DEVICE_CAPACITY_GB);
+    h.editDeviceBufferGb.set(EDITED_DEVICE_BUFFER_GB);
 
-    h.saveDevice('sd1');
-    const req = httpMock.expectOne('/curator/api/storage-devices/sd1');
-    expect(req.request.method).toBe('PATCH');
-    expect(req.request.body).toEqual({ name: 'Renamed drive', capacity_gb: 2000, buffer_gb: 50 });
-    req.flush(device({ name: 'Renamed drive', capacity_gb: 2000 }));
+    h.saveDevice(DEVICE_ID);
+    const req = httpMock.expectOne(CuratorApi.storageDevicesByDeviceId(DEVICE_ID));
+    expect(req.request.method).toBe(HttpMethods.patch);
+    expect(req.request.body).toEqual({ name: EDITED_DEVICE_NAME, capacity_gb: EDITED_DEVICE_CAPACITY_GB, buffer_gb: EDITED_DEVICE_BUFFER_GB });
+    req.flush(device({ name: EDITED_DEVICE_NAME, capacity_gb: EDITED_DEVICE_CAPACITY_GB }));
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Renamed drive');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(EDITED_DEVICE_NAME);
   });
 
   it('attaches a storage device to a console', () => {
     const fixture = createAndLoad([console_()], [device()]);
     const h = harness(fixture);
-    h.startAttaching('sd1');
-    h.attachTargetConsoleId.set('c1');
+    h.startAttaching(DEVICE_ID);
+    h.attachTargetConsoleId.set(CONSOLE_ID);
 
-    h.attachDevice('sd1');
-    const req = httpMock.expectOne({ url: '/curator/api/storage-devices/sd1/attach/c1', method: 'PUT' });
-    req.flush(device({ console_id: 'c1' }));
+    h.attachDevice(DEVICE_ID);
+    const req = httpMock.expectOne({ url: CuratorApi.storageDevicesByDeviceIdAttachByConsoleId(DEVICE_ID, CONSOLE_ID), method: HttpMethods.put });
+    req.flush(device({ console_id: CONSOLE_ID }));
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Attached to Living room PS5');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(`Attached to ${CONSOLE_NAME}`);
   });
 
   it('detaches a storage device from its console', () => {
-    const fixture = createAndLoad([console_()], [device({ console_id: 'c1' })]);
+    const fixture = createAndLoad([console_()], [device({ console_id: CONSOLE_ID })]);
     const h = harness(fixture);
-    h.detachDevice('sd1');
+    h.detachDevice(DEVICE_ID);
 
-    const req = httpMock.expectOne({ url: '/curator/api/storage-devices/sd1/attach', method: 'DELETE' });
+    const req = httpMock.expectOne({ url: CuratorApi.storageDevicesByDeviceIdAttach(DEVICE_ID), method: HttpMethods.delete });
     req.flush(device({ console_id: null }));
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Not attached');
+    expect((fixture.nativeElement as HTMLElement).querySelector('#device-attachment-0')?.hasAttribute('data-console-id')).toBe(false);
   });
 
   it('deletes a storage device', () => {
     const fixture = createAndLoad([], [device()]);
     const h = harness(fixture);
-    h.confirmDeleteDevice('sd1');
-    h.deleteDevice('sd1');
+    h.confirmDeleteDevice(DEVICE_ID);
+    h.deleteDevice(DEVICE_ID);
 
-    httpMock.expectOne({ url: '/curator/api/storage-devices/sd1', method: 'DELETE' }).flush(null);
+    httpMock.expectOne({ url: CuratorApi.storageDevicesByDeviceId(DEVICE_ID), method: HttpMethods.delete }).flush(null);
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('No storage devices yet.');
+    expect((fixture.nativeElement as HTMLElement).querySelector('#devices-empty')).not.toBeNull();
   });
 });

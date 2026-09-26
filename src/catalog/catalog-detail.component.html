@@ -1,19 +1,19 @@
-<section class="page-section">
+<section crgPageSection>
   @if (notFound()) {
-    <h1 id="page-title">Game not found</h1>
-    <p class="text-muted">No game in the catalog has that id.</p>
-    <a routerLink="/catalog" class="inline-block mt-4">Back to the catalog</a>
+    <h1 id="page-title">{{ pageTitles.gameNotFound }}</h1>
+    <p id="catalog-detail-not-found" class="text-meta text-text-muted">{{ notFoundDescription }}</p>
+    <a [routerLink]="appUrls.catalog" class="inline-block mt-4">Back to the catalog</a>
   } @else if (error()) {
-    <p class="text-error">{{ error() }}</p>
-    <a routerLink="/catalog" class="inline-block mt-4">Back to the catalog</a>
+    <p class="m-0 text-meta text-danger">{{ error() }}</p>
+    <a [routerLink]="appUrls.catalog" class="inline-block mt-4">Back to the catalog</a>
   } @else if (game(); as current) {
     <h1 id="page-title">{{ current.canonical_title }}</h1>
 
-    <div class="card p-6 flex flex-col md:flex-row gap-6 items-start">
+    <div crgCard class="p-6 flex flex-col md:flex-row gap-6 items-start">
       @if (current.cover_image_url) {
         <img
           id="catalog-detail-cover"
-          class="cover-art max-w-[320px] md:shrink-0"
+          class="block aspect-square w-full rounded-sm object-cover max-w-[320px] md:shrink-0"
           [src]="current.cover_image_url"
           [alt]="current.canonical_title"
         />
@@ -21,24 +21,31 @@
 
       <div class="flex flex-col gap-2 items-start min-w-0">
         @if (kindLabel(current); as kind) {
-          <span class="spine-label" id="catalog-detail-kind">{{ kind }}</span>
+          <span appSpineLabel id="catalog-detail-kind">{{ kind }}</span>
         }
 
         @if (metaLine(current); as meta) {
-          <p class="catalog-meta">{{ meta }}</p>
+          <p appCatalogMeta>{{ meta }}</p>
         }
 
-        <p class="catalog-meta" id="catalog-detail-ratings">
-          RAWG {{ current.critical_score ?? '—' }} &middot; OpenCritic {{ current.oc_score ?? '—' }} &middot; PS Store
-          {{ current.psn_rating ?? '—' }}
+        <p appCatalogMeta id="catalog-detail-ratings">
+          RAWG <span id="catalog-detail-rawg-score" [attr.data-score]="current.critical_score">{{ current.critical_score ?? '—' }}</span> &middot; OpenCritic <span id="catalog-detail-opencritic-score" [attr.data-score]="current.oc_score">{{ current.oc_score ?? '—' }}</span> &middot; PS Store
+          <span id="catalog-detail-psn-rating" [attr.data-score]="current.psn_rating">{{ current.psn_rating ?? '—' }}</span>
         </p>
 
         @if (current.percent_completed !== null) {
-          <p class="catalog-meta" id="catalog-detail-progress">Your trophy progress: {{ current.percent_completed }}%</p>
+          <p appCatalogMeta id="catalog-detail-progress">Your trophy progress: {{ current.percent_completed }}%</p>
         }
 
         @if (priceLine(current); as price) {
-          <p class="catalog-meta" id="catalog-detail-price">{{ price }}</p>
+          <p
+            appCatalogMeta
+            id="catalog-detail-price"
+            [attr.data-is-free]="current.price?.is_free"
+            [attr.data-tied-to-subscription]="current.price?.tied_to_subscription"
+          >
+            {{ price }}
+          </p>
         }
 
         @if (storeUrl(current); as url) {
@@ -50,15 +57,15 @@
     </div>
 
     @if (collections().length > 0) {
-      <section id="catalog-detail-collections" class="card p-6 flex flex-col gap-2 items-start">
+      <section id="catalog-detail-collections" crgCard class="p-6 flex flex-col gap-2 items-start">
         <h2>In public collections</h2>
         <ul class="list-none m-0 p-0 flex flex-col gap-2">
           @for (collection of collections(); track collection.definition_id) {
             <li>
-              <a [attr.id]="'catalog-detail-collection-' + $index" [routerLink]="['/c', collection.share_slug]">{{
+              <a [attr.id]="'catalog-detail-collection-' + $index" [attr.data-definition-id]="collection.definition_id" [routerLink]="[appUrls.sharedCollections, collection.share_slug]">{{
                 collection.name
               }}</a>
-              <span class="catalog-meta"> · {{ collection.item_count }} titles</span>
+              <span appCatalogMeta> · {{ collection.item_count }} titles</span>
             </li>
           }
         </ul>
@@ -69,6 +76,6 @@
       <app-rawg-attribution />
     }
 
-    <a routerLink="/catalog" class="inline-block mt-4">Back to the catalog</a>
+    <a [routerLink]="appUrls.catalog" class="inline-block mt-4">Back to the catalog</a>
   }
 </section>

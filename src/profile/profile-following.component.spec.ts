@@ -5,16 +5,24 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { ProfileFollowingComponent } from './profile-following.component';
 import { ResolvedFollowList } from './follow-list.resolver';
 import { FollowListEntryResponse } from '../curator/curator.models';
+import { FollowListKinds, RouteDataKeys, RouteParams, userProfileUrl } from '../app/app-paths';
+import { FOLLOWING_LOAD_ERROR, SIGNED_IN_USER_UNKNOWN_ERROR } from './profile.messages';
+import { ResolvedStatuses } from '../shared/resolved-status';
+import { newId, newUtcInstant } from '@crgolden/modules/testing';
+
+const OTHER_SUB = newId();
+const FOLLOWED_SUB = newId();
+const FOLLOWED_PSN_ACCOUNT_ID = newId();
 
 function ok(entries: FollowListEntryResponse[] = [], total = entries.length): ResolvedFollowList {
-  return { status: 'ok', entries, total };
+  return { status: ResolvedStatuses.ok, entries, total };
 }
 
 function activatedRoute(sub: string | null, resolved: ResolvedFollowList): ActivatedRoute {
   return {
     snapshot: {
-      paramMap: convertToParamMap(sub !== null ? { sub } : {}),
-      data: { following: resolved },
+      paramMap: convertToParamMap(sub !== null ? { [RouteParams.sub]: sub } : {}),
+      data: { [RouteDataKeys.following]: resolved },
     },
   } as unknown as ActivatedRoute;
 }
@@ -45,37 +53,37 @@ describe('ProfileFollowingComponent', () => {
     const fixture = TestBed.createComponent(ProfileFollowingComponent);
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Not following anyone yet.');
-    httpMock.expectNone((r) => r.url.endsWith('/following'));
+    expect((fixture.nativeElement as HTMLElement).querySelector('#following-empty')).not.toBeNull();
+    httpMock.expectNone((r) => r.url.endsWith(`/${FollowListKinds.following}`));
   });
 
   it('viewer mode renders another user\'s following list, each entry linking to /u/{sub}', () => {
     configure(
-      'other-sub',
-      ok([{ sub: 'followed-1', psn_account_id: 'psn-followed-1', followed_at: '2026-01-01T00:00:00Z' }], 1),
+      OTHER_SUB,
+      ok([{ sub: FOLLOWED_SUB, psn_account_id: FOLLOWED_PSN_ACCOUNT_ID, followed_at: newUtcInstant() }], 1),
     );
     const fixture = TestBed.createComponent(ProfileFollowingComponent);
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    expect(compiled.textContent).toContain('1 total');
-    expect(compiled.textContent).toContain('psn-followed-1');
-    expect(compiled.querySelector('a[href="/u/followed-1"]')).not.toBeNull();
+    expect(compiled.querySelector('#following-total')?.getAttribute('data-total')).toBe(String(1));
+    expect(compiled.textContent).toContain(FOLLOWED_PSN_ACCOUNT_ID);
+    expect(compiled.querySelector(`a[href="${userProfileUrl(FOLLOWED_SUB)}"]`)).not.toBeNull();
   });
 
   it('shows an error message when the resolver could not load the following list', () => {
-    configure('other-sub', { status: 'error' });
+    configure(OTHER_SUB, { status: ResolvedStatuses.error });
     const fixture = TestBed.createComponent(ProfileFollowingComponent);
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load following.');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(FOLLOWING_LOAD_ERROR);
   });
 
   it('shows an error message when nobody is signed in and no :sub was given', () => {
-    configure(null, { status: 'no-user' });
+    configure(null, { status: ResolvedStatuses.noUser });
     const fixture = TestBed.createComponent(ProfileFollowingComponent);
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to determine the signed-in user.');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(SIGNED_IN_USER_UNKNOWN_ERROR);
   });
 });

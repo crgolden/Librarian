@@ -4,71 +4,100 @@ import {
   isMainModule,
   writeResponseToNodeResponse,
 } from '@angular/ssr/node';
-import express from 'express';
+import { startOnceRetryingFailures } from '@crgolden/modules/server-startup';
+import express, { type Express } from 'express';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { join } from 'node:path';
 import { applySession } from './bff/session';
+import {
+  BffSettingKeys,
+  assertRequiredBffSettings,
+  isProductionEnvironment,
+  requiredIntegerSetting,
+} from './bff/settings';
 import { buildBffRouter } from './bff/routes';
 import { csrfForMutating, createCuratorProxy } from './bff/proxy';
 import { getOidcConfig } from './bff/oidc';
 import { robotsHandler, createSitemapHandler } from './bff/sitemap';
+import { ROBOTS_PATH, SITEMAP_PATH } from './bff/sitemap-contract';
 import { logger, requestLogger } from './telemetry/logging';
+import { HEALTH_PATH, HEALTHY_BODY } from './shared/health';
 import { exposeTraceParentToBrowser } from './telemetry/server-timing';
 import { nameSpansByRoute } from './telemetry/span-route-name';
 import { environment } from './environments/environment';
+import { CURATOR_API_PREFIX } from './curator/curator-api';
+import { BFF_PREFIX } from './shared/bff-contract';
+import { ContentTypes } from './shared/content-types';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
-const app = express();
+export const STARTUP_FAILED_LOG = '[Server] Startup failed';
 
-app.set('trust proxy', 1);
+async function createApp(): Promise<Express> {
+  assertRequiredBffSettings();
 
-const angularApp = new AngularNodeAppEngine({
-  allowedHosts: environment.allowedHosts,
-  trustProxyHeaders: ['x-forwarded-for', 'x-forwarded-host', 'x-forwarded-port', 'x-forwarded-proto', 'x-forwarded-tlsversion'],
-});
+  const app = express();
 
-app.get('/health', (_req, res) => {
-  res.type('text/plain').send('Healthy');
-});
+  app.set('trust proxy', 1);
 
-app.use(nameSpansByRoute);
+  const angularApp = new AngularNodeAppEngine({
+    allowedHosts: environment.allowedHosts,
+    trustProxyHeaders: ['x-forwarded-for', 'x-forwarded-host', 'x-forwarded-port', 'x-forwarded-proto', 'x-forwarded-tlsversion'],
+  });
 
-app.use(exposeTraceParentToBrowser);
+  app.get(HEALTH_PATH, (_req, res) => {
+    res.type(ContentTypes.plainText).send(HEALTHY_BODY);
+  });
 
-app.use(requestLogger);
+  app.use(nameSpansByRoute);
 
-applySession(app, {
-  isProduction: process.env['NODE_ENV'] === 'production',
-  logger,
-});
+  app.use(exposeTraceParentToBrowser);
 
-app.use('/bff', buildBffRouter({ getOidcConfig, logger }));
+  app.use(requestLogger);
 
-app.use('/curator/api', csrfForMutating, createCuratorProxy({ getOidcConfig, logger }));
+  const sessionReady = applySession(app, {
+    isProduction: isProductionEnvironment(),
+    logger,
+  });
 
-app.get('/sitemap.xml', createSitemapHandler({ logger }));
+  app.use(BFF_PREFIX, buildBffRouter({ getOidcConfig, logger }));
 
-app.get('/robots.txt', robotsHandler);
+  app.use(CURATOR_API_PREFIX, csrfForMutating, createCuratorProxy({ getOidcConfig, logger }));
 
-app.use(
-  express.static(browserDistFolder, {
-    maxAge: '1y',
-    index: false,
-    redirect: false,
-  }),
-);
+  app.get(SITEMAP_PATH, createSitemapHandler({ logger }));
 
-app.use((req, res, next) => {
-  angularApp
-    .handle(req)
-    .then((response) =>
-      response ? writeResponseToNodeResponse(response, res) : next(),
-    )
-    .catch(next);
-});
+  app.get(ROBOTS_PATH, robotsHandler);
+
+  app.use(
+    express.static(browserDistFolder, {
+      maxAge: '1y',
+      index: false,
+      redirect: false,
+    }),
+  );
+
+  app.use((req, res, next) => {
+    if (req.session?.claims) {
+      res.setHeader('Cache-Control', 'no-store');
+    }
+
+    angularApp
+      .handle(req)
+      .then((response) =>
+        response ? writeResponseToNodeResponse(response, res) : next(),
+      )
+      .catch(next);
+  });
+
+  await sessionReady;
+  return app;
+}
+
+const startApp = startOnceRetryingFailures(createApp);
 
 if (isMainModule(import.meta.url) || process.env['pm_id']) {
-  const port = process.env['PORT'] ?? 4100;
+  const app = await startApp();
+  const port = requiredIntegerSetting(BffSettingKeys.Port);
   app.listen(port, (error) => {
     if (error) {
       throw error;
@@ -77,4 +106,19 @@ if (isMainModule(import.meta.url) || process.env['pm_id']) {
   });
 }
 
-export const reqHandler = createNodeRequestHandler(app);
+export const reqHandler = createNodeRequestHandler(
+  (req: IncomingMessage, res: ServerResponse, next?: (error?: unknown) => void) =>
+    startApp()
+      .then((app) => {
+        app(req, res);
+      })
+      .catch((error: unknown) => {
+        if (next) {
+          next(error);
+          return;
+        }
+        logger.error({ err: error }, STARTUP_FAILED_LOG);
+        res.statusCode = 500;
+        res.end();
+      }),
+);

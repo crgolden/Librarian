@@ -2,26 +2,40 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { Meta } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ButtonGhostSmallDirective, CardDirective, PageSectionDirective } from '@crgolden/modules/primitives';
 import { CuratorService } from '../curator/curator.service';
-import { ProfileLinkResponse, ProfileLinkSiteResponse, ProfileSettingsResponse } from '../curator/curator.models';
+import {
+  ProfileLinkResponse,
+  ProfileLinkSiteResponse,
+  ProfileSettingKeys,
+  ProfileSettingsResponse,
+} from '../curator/curator.models';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
 import { ResolvedProfileSettings } from './profile-settings.resolver';
+import { AppUrls, RouteDataKeys } from '../app/app-paths';
+import { MetaNames, RobotsDirectives } from '../shared/seo-contract';
+import { LINK_SAVE_ERROR, PROFILE_SETTINGS_LOAD_ERROR, SETTING_UPDATE_ERROR } from './profile.messages';
+import { PageTitles } from '../shared/page-title';
+import { ResolvedStatuses } from '../shared/resolved-status';
 
 const HANDLE_PATTERN = /^[A-Za-z0-9_-]{3,16}$/;
 
 @Component({
   selector: 'app-profile-settings',
-  imports: [FormsModule, RouterLink, BreadcrumbComponent],
+  imports: [FormsModule, RouterLink, BreadcrumbComponent, ButtonGhostSmallDirective, CardDirective, PageSectionDirective],
   templateUrl: './profile-settings.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ProfileSettingsComponent implements OnInit {
+  protected readonly appUrls = AppUrls;
+  protected readonly settingKeys = ProfileSettingKeys;
+
   private readonly curator = inject(CuratorService);
   private readonly meta = inject(Meta);
   private readonly route = inject(ActivatedRoute);
 
   protected readonly breadcrumbItems: BreadcrumbItem[] = [
-    { label: 'Profile', link: ['/profile'] },
+    { label: PageTitles.profile, link: [AppUrls.profile] },
     { label: 'Settings' },
   ];
 
@@ -37,11 +51,11 @@ export class ProfileSettingsComponent implements OnInit {
   protected readonly handleDrafts = signal<Record<string, string>>({});
 
   ngOnInit(): void {
-    this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
+    this.meta.updateTag({ name: MetaNames.robots, content: RobotsDirectives.noIndexNoFollow });
 
-    const resolved = this.route.snapshot.data['settings'] as ResolvedProfileSettings;
-    if (resolved.status === 'error') {
-      this.loadError.set('Unable to load profile settings.');
+    const resolved = this.route.snapshot.data[RouteDataKeys.settings] as ResolvedProfileSettings;
+    if (resolved.status === ResolvedStatuses.error) {
+      this.loadError.set(PROFILE_SETTINGS_LOAD_ERROR);
       return;
     }
     this.settings.set(resolved.settings);
@@ -96,7 +110,7 @@ export class ProfileSettingsComponent implements OnInit {
       },
       error: () => {
         this.savingLink.set(null);
-        this.linkError.set('Failed to save the link. Please try again.');
+        this.linkError.set(LINK_SAVE_ERROR);
       },
     });
   }
@@ -145,7 +159,7 @@ export class ProfileSettingsComponent implements OnInit {
           this.settings.set({ ...reverted, [field]: previous });
         }
         this.saving.set(null);
-        this.saveError.set('Failed to update setting. Please try again.');
+        this.saveError.set(SETTING_UPDATE_ERROR);
       },
     });
   }

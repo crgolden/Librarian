@@ -1,22 +1,37 @@
 import { isPlatformBrowser } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import {
+  ButtonGhostDangerDirective,
+  ButtonGhostDirective,
+  CardDirective,
+  PageSectionDirective,
+} from '@crgolden/modules/primitives';
 import { Subscription, interval, retry, switchMap, takeWhile } from 'rxjs';
 import { CuratorService } from '../curator/curator.service';
-import { EnrichmentPassSummary, EnrichmentRunStatusResponse } from '../curator/curator.models';
+import { EnrichmentPassSummary, EnrichmentRunStatusResponse, JobStatuses } from '../curator/curator.models';
 import { ResolvedEnrichmentRun } from './admin-enrichment.resolver';
+import { RouteDataKeys } from '../app/app-paths';
+import { LATEST_RUN_LOAD_ERROR, LOST_RUN_ERROR } from './admin-enrichment.messages';
+import { environment } from '../environments/environment';
+import { ResolvedStatuses } from '../shared/resolved-status';
+import { ProviderNames } from '../shared/provider-names';
+import { CatalogMetaDirective } from '../shared/primitives/typography';
 
-const POLL_INTERVAL_MS = 2500;
-const POLL_ERROR_RETRY_COUNT = 3;
-const POLL_ERROR_RETRY_DELAY_MS = 2000;
-const TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'cancelled']);
-const KNOWN_STATUSES = new Set(['queued', 'running', 'succeeded', 'failed', 'cancelled']);
+const TERMINAL_STATUSES = new Set<string>([JobStatuses.succeeded, JobStatuses.failed, JobStatuses.cancelled]);
+const KNOWN_STATUSES = new Set<string>([
+  JobStatuses.queued,
+  JobStatuses.running,
+  JobStatuses.succeeded,
+  JobStatuses.failed,
+  JobStatuses.cancelled,
+]);
 
 const PROCESSED_COUNT_KEY = 'enriched_count';
 const REMAINING_COUNT_KEY = 'remaining_count';
 const PROVIDER_GAIN_KEYS: readonly (readonly [key: string, label: string])[] = [
   ['rawg_enriched_count', 'RAWG'],
-  ['opencritic_enriched_count', 'OpenCritic'],
+  ['opencritic_enriched_count', ProviderNames.openCritic],
   ['psn_enriched_count', 'PSN'],
 ];
 
@@ -56,7 +71,13 @@ export function readEnrichmentPassCounts(pass: EnrichmentPassSummary): Enrichmen
 
 @Component({
   selector: 'app-admin-enrichment',
-  imports: [],
+  imports: [
+    PageSectionDirective,
+    CardDirective,
+    ButtonGhostDirective,
+    ButtonGhostDangerDirective,
+    CatalogMetaDirective,
+  ],
   templateUrl: './admin-enrichment.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -65,6 +86,7 @@ export class AdminEnrichmentComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
+  protected readonly jobStatuses = JobStatuses;
   protected readonly loadError = signal<string | null>(null);
   protected readonly run = signal<EnrichmentRunStatusResponse | null>(null);
 
@@ -75,12 +97,12 @@ export class AdminEnrichmentComponent implements OnInit, OnDestroy {
   private pollSubscription: Subscription | null = null;
 
   ngOnInit(): void {
-    const resolved = this.route.snapshot.data['latestRun'] as ResolvedEnrichmentRun;
-    if (resolved.status === 'error') {
-      this.loadError.set('Unable to load the latest enrichment run.');
+    const resolved = this.route.snapshot.data[RouteDataKeys.latestRun] as ResolvedEnrichmentRun;
+    if (resolved.status === ResolvedStatuses.error) {
+      this.loadError.set(LATEST_RUN_LOAD_ERROR);
       return;
     }
-    if (resolved.status === 'ok') {
+    if (resolved.status === ResolvedStatuses.ok) {
       this.run.set(resolved.run);
     }
   }
@@ -124,15 +146,19 @@ export class AdminEnrichmentComponent implements OnInit, OnDestroy {
     }
 
     this.pollSubscription?.unsubscribe();
-    this.pollSubscription = interval(POLL_INTERVAL_MS)
+    this.pollSubscription = interval(environment.adminEnrichmentPollIntervalMs)
       .pipe(
         switchMap(() => this.curator.getEnrichmentRunStatus(runId)),
-        retry({ count: POLL_ERROR_RETRY_COUNT, delay: POLL_ERROR_RETRY_DELAY_MS, resetOnSuccess: true }),
+        retry({
+          count: environment.adminEnrichmentPollErrorRetryCount,
+          delay: environment.adminEnrichmentPollErrorRetryDelayMs,
+          resetOnSuccess: true,
+        }),
         takeWhile((response) => !TERMINAL_STATUSES.has(response.status) && KNOWN_STATUSES.has(response.status), true),
       )
       .subscribe({
         next: (response) => this.run.set(response),
-        error: () => this.startError.set('Lost track of the enrichment run.'),
+        error: () => this.startError.set(LOST_RUN_ERROR),
       });
   }
 }

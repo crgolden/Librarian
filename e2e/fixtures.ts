@@ -1,5 +1,6 @@
 
 import { test as base, type Page } from '@playwright/test';
+import { newId, newText } from '@crgolden/modules/testing';
 import type {
   CatalogPrice,
   ConsoleDeviceLinkState,
@@ -7,14 +8,38 @@ import type {
   FriendRequest,
   PsPlusRotation,
   SizeSource,
+  StoreSearchHit,
   TrophyMatch,
+  TrophySummary,
 } from './mocks/curator.js';
+import { ControlRoutes } from './mocks/control-routes';
+import { e2eContract } from './mocks/e2e-identity-contract';
+import { BffPaths } from '../src/shared/bff-contract';
+import { CURATOR_API_PREFIX } from '../src/curator/curator-api';
+import { CONTENT_TYPE_HEADER, HttpMethods } from '../src/bff/http-headers';
+import { ContentTypes } from '../src/shared/content-types';
+import { type CollectionVisibility, JobStatuses, type RefreshCadence } from '../src/curator/curator.models';
+import { MOCK_CURATOR_ORIGIN, MOCK_OIDC_COOKIE_URL } from './mocks/mock-endpoints';
 
-const MOCK_BASE = 'http://localhost:4101';
-const MOCK_OIDC_BASE = 'http://localhost:4102';
+export {
+  newAaaTier,
+  newCatalogGame,
+  newFutureInstant,
+  newLibraryGame,
+  newPsnRating,
+  newScore,
+  newStoreHit,
+  newTrophySummary,
+} from './mocks/curator-records';
 
-export const DEFAULT_E2E_SUB = 'e2e-user-id';
-export const SECOND_E2E_SUB = 'e2e-user-2-id';
+const MOCK_BASE = MOCK_CURATOR_ORIGIN;
+const MOCK_OIDC_BASE = MOCK_OIDC_COOKIE_URL;
+
+const E2E_CONTRACT = e2eContract();
+const E2eIdentityCookies = E2E_CONTRACT.identityCookies;
+
+export const DEFAULT_E2E_SUB = E2E_CONTRACT.defaultSub;
+export const SECOND_E2E_SUB = newId();
 
 export interface CatalogGameFixture {
   game_id: string;
@@ -32,7 +57,7 @@ export interface CatalogGameFixture {
 }
 
 export interface RefreshScheduleFixture {
-  cadence?: 'daily' | 'weekly' | 'monthly';
+  cadence?: RefreshCadence;
   ps_plus_watch?: boolean;
   next_run_at?: string;
   last_run_at?: string | null;
@@ -86,7 +111,7 @@ export interface EnrichmentRunFixture {
   result_summary?: Record<string, unknown> | null;
 }
 
-export type EnrichmentRunTerminalStatusFixture = 'succeeded' | 'failed' | 'cancelled';
+export type EnrichmentRunTerminalStatusFixture = typeof JobStatuses.succeeded | typeof JobStatuses.failed | typeof JobStatuses.cancelled;
 
 export interface ProfileSettingsFixture {
   is_public?: boolean;
@@ -101,7 +126,7 @@ export interface DefinitionFixture {
   name: string;
   kind: string;
   console_id?: string | null;
-  visibility?: 'private' | 'unlisted' | 'public';
+  visibility?: CollectionVisibility;
   install_target_console_id?: string | null;
   game_ids?: string[];
 }
@@ -115,11 +140,12 @@ export interface TestStore {
   seedPsnPreferences(prefs: PsnPreferencesFixture): Promise<void>;
   seedEnrichmentKeys(status: EnrichmentKeyStatusFixture): Promise<void>;
   seedCatalogGames(games: CatalogGameFixture[]): Promise<void>;
+  seedStoreSearchHits(hits: StoreSearchHit[]): Promise<void>;
   seedAdmin(isAdmin?: boolean): Promise<void>;
   seedConsoles(consoleIds: string[]): Promise<void>;
   seedLibraryGames(games: LibraryGameFixture[]): Promise<void>;
   setLibraryRefreshOutcome(
-    outcome: 'succeeded' | 'failed',
+    outcome: typeof JobStatuses.succeeded | typeof JobStatuses.failed,
     error?: string,
     resultSummary?: LibraryRefreshResultSummaryFixture,
   ): Promise<void>;
@@ -140,6 +166,7 @@ export interface TestStore {
     },
   ): Promise<void>;
   seedUserPsnPreferences(sub: string, prefs: PsnPreferencesFixture): Promise<void>;
+  seedUserPsnProfile(sub: string, profile: { online_id?: string; trophy_summary?: TrophySummary }): Promise<void>;
   seedUserRefreshSchedule(sub: string, schedule?: RefreshScheduleFixture): Promise<void>;
   seedUserProfileSettings(sub: string, settings: ProfileSettingsFixture): Promise<void>;
   seedUserLibraryGames(sub: string, games: LibraryGameFixture[]): Promise<void>;
@@ -153,8 +180,8 @@ export interface TestStore {
 
 async function fetchControl(path: string, body?: unknown): Promise<void> {
   const res = await fetch(`${MOCK_BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: HttpMethods.post,
+    headers: { [CONTENT_TYPE_HEADER]: ContentTypes.json },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
@@ -162,45 +189,40 @@ async function fetchControl(path: string, body?: unknown): Promise<void> {
   }
 }
 
-interface IdentityConfig {
+export interface IdentityConfig {
   sub: string;
   email?: string;
   name?: string;
 }
 
 async function applyAnonymousRoutes(page: Page): Promise<void> {
-  await page.route('**/bff/user**', route =>
-    route.fulfill({ status: 401 }),
-  );
-  await page.route('**/bff/login**', route =>
-    route.fulfill({
-      status: 200,
-      contentType: 'text/html',
-      body: '<html><body><p>Login page (mock)</p></body></html>',
-    }),
-  );
+  await page.route(`**${BffPaths.user}**`, route => route.fulfill({ json: null }));
+  await page.route(`**${BffPaths.login}**`, route => route.fulfill({ body: newText() }));
+}
+
+export function identityCookies(identity: IdentityConfig): { name: string; value: string; url: string }[] {
+  const email = identity.email ?? `${identity.sub}@test.invalid`;
+  const name = identity.name ?? email;
+  return [
+    { name: E2eIdentityCookies.sub, value: identity.sub, url: MOCK_OIDC_BASE },
+    { name: E2eIdentityCookies.email, value: email, url: MOCK_OIDC_BASE },
+    { name: E2eIdentityCookies.name, value: name, url: MOCK_OIDC_BASE },
+  ];
 }
 
 async function applyAuthRoutes(page: Page, identity: IdentityConfig): Promise<void> {
-  const email = identity.email ?? `${identity.sub}@test.invalid`;
-  const name = identity.name ?? email;
+  await page.context().addCookies(identityCookies(identity));
 
-  await page.context().addCookies([
-    { name: 'e2e_identity', value: identity.sub, url: MOCK_OIDC_BASE },
-    { name: 'e2e_email', value: email, url: MOCK_OIDC_BASE },
-    { name: 'e2e_name', value: name, url: MOCK_OIDC_BASE },
-  ]);
-
-  await page.route('**/curator/api/**', route =>
-    route.continue({ headers: { ...route.request().headers(), 'x-e2e-sub': identity.sub } }),
+  await page.route(`**${CURATOR_API_PREFIX}/**`, route =>
+    route.continue({ headers: { ...route.request().headers(), [E2E_CONTRACT.subHeader]: identity.sub } }),
   );
 
-  await page.goto('/bff/login');
+  await page.goto(BffPaths.login);
 }
 
 export async function signInAsAdmin(page: Page): Promise<void> {
-  await page.context().addCookies([{ name: 'e2e_admin', value: 'true', url: MOCK_OIDC_BASE }]);
-  await page.goto('/bff/login');
+  await page.context().addCookies([{ name: E2eIdentityCookies.admin, value: String(true), url: MOCK_OIDC_BASE }]);
+  await page.goto(BffPaths.login);
 }
 
 type LibrarianFixtures = {
@@ -215,41 +237,44 @@ export const test = base.extend<LibrarianFixtures>({
   store: async ({}, use) => {
     const s: TestStore = {
       async reset() {
-        await fetchControl('/_test/reset');
+        await fetchControl(ControlRoutes.reset);
       },
       async seedPsnLink(link) {
-        await fetchControl('/_test/psn-link', link ?? {});
+        await fetchControl(ControlRoutes.psnLink, link ?? {});
       },
       async seedPsnPreferences(prefs) {
-        await fetchControl('/_test/psn-preferences', prefs);
+        await fetchControl(ControlRoutes.psnPreferences, prefs);
       },
       async seedEnrichmentKeys(status) {
-        await fetchControl('/_test/enrichment-keys', status);
+        await fetchControl(ControlRoutes.enrichmentKeys, status);
       },
       async seedCatalogGames(games) {
-        await fetchControl('/_test/catalog-games', { games });
+        await fetchControl(ControlRoutes.catalogGames, { games });
+      },
+      async seedStoreSearchHits(hits) {
+        await fetchControl(ControlRoutes.storeSearchHits, { hits });
       },
       async seedAdmin(isAdmin = true) {
-        await fetchControl('/_test/admin', { isAdmin });
+        await fetchControl(ControlRoutes.admin, { isAdmin });
       },
       async seedConsoles(consoleIds) {
-        await fetchControl('/_test/consoles', { consoleIds });
+        await fetchControl(ControlRoutes.consoles, { consoleIds });
       },
       async seedLibraryGames(games) {
-        await fetchControl('/_test/library-games', { games });
+        await fetchControl(ControlRoutes.libraryGames, { games });
       },
       async setLibraryRefreshOutcome(outcome, error, resultSummary) {
-        await fetchControl('/_test/library-refresh-outcome', {
+        await fetchControl(ControlRoutes.libraryRefreshOutcome, {
           status: outcome,
           error,
           result_summary: resultSummary,
         });
       },
       async seedEnrichmentRun(run) {
-        await fetchControl('/_test/enrichment-run', run);
+        await fetchControl(ControlRoutes.enrichmentRun, run);
       },
       async setEnrichmentRunOutcome(outcome, error, resultSummary) {
-        await fetchControl('/_test/enrichment-run-outcome', {
+        await fetchControl(ControlRoutes.enrichmentRunOutcome, {
           status: outcome,
           error,
           result_summary: resultSummary,
@@ -257,40 +282,43 @@ export const test = base.extend<LibrarianFixtures>({
       },
 
       async seedUser(sub) {
-        await fetchControl('/_test/seed-user', { sub });
+        await fetchControl(ControlRoutes.seedUser, { sub });
       },
       async seedUserPsnLink(sub, link) {
-        await fetchControl('/_test/user/psn-link', { sub, ...(link ?? {}) });
+        await fetchControl(ControlRoutes.userPsnLink, { sub, ...(link ?? {}) });
       },
       async seedUserPsnPreferences(sub, prefs) {
-        await fetchControl('/_test/user/psn-preferences', { sub, ...prefs });
+        await fetchControl(ControlRoutes.userPsnPreferences, { sub, ...prefs });
+      },
+      async seedUserPsnProfile(sub, profile) {
+        await fetchControl(ControlRoutes.userPsnProfile, { sub, ...profile });
       },
       async seedUserRefreshSchedule(sub, schedule) {
-        await fetchControl('/_test/user/refresh-schedule', { sub, ...(schedule ?? {}) });
+        await fetchControl(ControlRoutes.userRefreshSchedule, { sub, ...(schedule ?? {}) });
       },
       async seedUserProfileSettings(sub, settings) {
-        await fetchControl('/_test/user/profile-settings', { sub, ...settings });
+        await fetchControl(ControlRoutes.userProfileSettings, { sub, ...settings });
       },
       async seedUserLibraryGames(sub, games) {
-        await fetchControl('/_test/user/library-games', { sub, games });
+        await fetchControl(ControlRoutes.userLibraryGames, { sub, games });
       },
       async seedUserCollections(sub, definitions) {
-        await fetchControl('/_test/user/collections', { sub, definitions });
+        await fetchControl(ControlRoutes.userCollections, { sub, definitions });
       },
       async seedFollow(followerSub, followedSub) {
-        await fetchControl('/_test/follow', { follower_sub: followerSub, followed_sub: followedSub });
+        await fetchControl(ControlRoutes.follow, { follower_sub: followerSub, followed_sub: followedSub });
       },
       async seedUserPsPlusRotation(sub, rotation) {
-        await fetchControl('/_test/user/ps-plus-rotation', { sub, ...rotation });
+        await fetchControl(ControlRoutes.userPsPlusRotation, { sub, ...rotation });
       },
       async seedUserFriendRequests(sub, requests) {
-        await fetchControl('/_test/user/friend-requests', { sub, requests });
+        await fetchControl(ControlRoutes.userFriendRequests, { sub, requests });
       },
       async seedConsoleDeviceLink(consoleId, link) {
-        await fetchControl('/_test/console-device-link', { console_id: consoleId, ...(link ?? {}) });
+        await fetchControl(ControlRoutes.consoleDeviceLink, { console_id: consoleId, ...(link ?? {}) });
       },
       async seedHiddenLibraryGames(gameIds) {
-        await fetchControl('/_test/hidden-library-games', { game_ids: gameIds });
+        await fetchControl(ControlRoutes.hiddenLibraryGames, { game_ids: gameIds });
       },
     };
     await use(s);

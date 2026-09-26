@@ -1,12 +1,17 @@
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRouteSnapshot } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { publicCollectionResolver, ResolvedPublicCollection } from './public-collection.resolver';
 import { CuratorService } from '../curator/curator.service';
 import { DefinitionResponse, PublicCollectionResponse } from '../curator/curator.models';
+import { ResolvedStatuses } from '../shared/resolved-status';
+import { newId, newText } from '@crgolden/modules/testing';
 
-const COLLECTION = { name: 'Backlog', games: [], definition_id: 'd1' } as unknown as PublicCollectionResponse;
+const DEFINITION_ID = newId();
+const SHARE_SLUG = newId();
+
+const COLLECTION = { name: newText(), games: [], definition_id: DEFINITION_ID } as unknown as PublicCollectionResponse;
 
 const followed = (...ids: string[]) => () =>
   of(ids.map((id) => ({ definition_id: id })) as unknown as DefinitionResponse[]);
@@ -30,40 +35,40 @@ describe('publicCollectionResolver', () => {
   it('resolves the shared collection the slug names', async () => {
     const result = await run(
       { getPublicCollection: () => of(COLLECTION), listFollowedCollections: followed() },
-      'slug1',
+      SHARE_SLUG,
     );
 
-    expect(result).toEqual({ status: 'ok', collection: COLLECTION, following: false });
+    expect(result).toEqual({ status: ResolvedStatuses.ok, collection: COLLECTION, following: false });
   });
 
   it('resolves the follow state, so the component never fetches it', async () => {
     const result = await run(
-      { getPublicCollection: () => of(COLLECTION), listFollowedCollections: followed('d1') },
-      'slug1',
+      { getPublicCollection: () => of(COLLECTION), listFollowedCollections: followed(DEFINITION_ID) },
+      SHARE_SLUG,
     );
 
-    expect(result).toEqual({ status: 'ok', collection: COLLECTION, following: true });
+    expect(result).toEqual({ status: ResolvedStatuses.ok, collection: COLLECTION, following: true });
   });
 
   it('still renders the collection for a signed-out viewer, whose follow lookup is refused', async () => {
     const result = await run(
-      { getPublicCollection: () => of(COLLECTION), listFollowedCollections: fails(401) },
-      'slug1',
+      { getPublicCollection: () => of(COLLECTION), listFollowedCollections: fails(HttpStatusCode.Unauthorized) },
+      SHARE_SLUG,
     );
 
-    expect(result).toEqual({ status: 'ok', collection: COLLECTION, following: false });
+    expect(result).toEqual({ status: ResolvedStatuses.ok, collection: COLLECTION, following: false });
   });
 
   it('reports not-found for a revoked or unknown slug, never an error page', async () => {
-    const result = await run({ getPublicCollection: fails(404) }, 'slug1');
+    const result = await run({ getPublicCollection: fails(HttpStatusCode.NotFound) }, SHARE_SLUG);
 
-    expect(result).toEqual({ status: 'not-found' });
+    expect(result).toEqual({ status: ResolvedStatuses.notFound });
   });
 
   it('distinguishes a failed load from a revoked link', async () => {
-    const result = await run({ getPublicCollection: fails(500) }, 'slug1');
+    const result = await run({ getPublicCollection: fails(HttpStatusCode.InternalServerError) }, SHARE_SLUG);
 
-    expect(result).toEqual({ status: 'error' });
+    expect(result).toEqual({ status: ResolvedStatuses.error });
   });
 
   it('treats an empty slug as not-found without calling the api', async () => {
@@ -78,7 +83,7 @@ describe('publicCollectionResolver', () => {
       null,
     );
 
-    expect(result).toEqual({ status: 'not-found' });
+    expect(result).toEqual({ status: ResolvedStatuses.notFound });
     expect(called).toBe(false);
   });
 });

@@ -1,15 +1,19 @@
-import { provideHttpClient, withXhr } from '@angular/common/http';
+import { HttpStatusCode, provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
 import { AdminEnrichmentComponent } from './admin-enrichment.component';
 import { ResolvedEnrichmentRun } from './admin-enrichment.resolver';
-import { EnrichmentPassSummary, EnrichmentRunStatusResponse } from '../curator/curator.models';
+import { EnrichmentPassSummary, EnrichmentRunStatusResponse, JobStatuses } from '../curator/curator.models';
+import { CuratorApi } from '../curator/curator-api';
+import { RouteDataKeys } from '../app/app-paths';
+import { LATEST_RUN_LOAD_ERROR, LOST_RUN_ERROR } from './admin-enrichment.messages';
+import { ResolvedStatuses } from '../shared/resolved-status';
+import { environment } from '../environments/environment';
+import { newCount, newId, newText } from '@crgolden/modules/testing';
 
-let nextGeneratedCount = 0;
-const aCount = (): number => (nextGeneratedCount += 7);
-let nextGeneratedId = 0;
-const anId = (prefix: string): string => `${prefix}-${(nextGeneratedId += 1)}`;
+const STARTED_RUN_ID = newId();
+const CANCELLED_RUN_ID = newId();
 
 interface PassCounts {
   processed: number;
@@ -31,8 +35,8 @@ function enrichmentPass(counts: PassCounts): EnrichmentPassSummary {
 
 function runWith(enrichment: EnrichmentPassSummary): EnrichmentRunStatusResponse {
   return {
-    run_id: anId('run'),
-    status: 'succeeded',
+    run_id: newId(),
+    status: JobStatuses.succeeded,
     error: null,
     result_summary: { enrichment },
   };
@@ -55,14 +59,14 @@ describe('AdminEnrichmentComponent', () => {
     vi.useRealTimers();
   });
 
-  function create(resolved: ResolvedEnrichmentRun = { status: 'none' }): ComponentFixture<AdminEnrichmentComponent> {
+  function create(resolved: ResolvedEnrichmentRun = { status: ResolvedStatuses.none }): ComponentFixture<AdminEnrichmentComponent> {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [AdminEnrichmentComponent],
       providers: [
         provideHttpClient(withXhr()),
         provideHttpClientTesting(),
-        { provide: ActivatedRoute, useValue: { snapshot: { data: { latestRun: resolved } } } },
+        { provide: ActivatedRoute, useValue: { snapshot: { data: { [RouteDataKeys.latestRun]: resolved } } } },
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);
@@ -71,58 +75,60 @@ describe('AdminEnrichmentComponent', () => {
     return fixture;
   }
 
-  function clickButtonByText(root: HTMLElement, text: string): void {
-    const button = Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.includes(text));
-    if (button === undefined) {
-      throw new Error(`No button whose text includes "${text}" is rendered`);
+  function clickButton(root: HTMLElement, selector: string): void {
+    const button = root.querySelector<HTMLButtonElement>(selector);
+    if (button === null) {
+      throw new Error(`No button matched "${selector}"`);
     }
     button.click();
   }
 
   it('shows "no run yet" (not an error) when no run has ever been started', () => {
-    const fixture = create({ status: 'none' });
+    const fixture = create({ status: ResolvedStatuses.none });
 
-    const text = (fixture.nativeElement as HTMLElement).textContent;
-    expect(text).toContain('No enrichment run has been started yet.');
-    expect(text).not.toContain('Unable to load');
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.querySelector('#enrichment-no-run')).not.toBeNull();
+    expect(compiled.querySelector('#enrichment-load-error')).toBeNull();
+    expect(compiled.textContent).not.toContain(LATEST_RUN_LOAD_ERROR);
   });
 
   it('shows an error message when the resolver could not load the latest run', () => {
-    const fixture = create({ status: 'error' });
+    const fixture = create({ status: ResolvedStatuses.error });
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load the latest enrichment run.');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(LATEST_RUN_LOAD_ERROR);
   });
 
   it('renders the latest run and its per-pass result summary on load', () => {
-    const counts: PassCounts = { processed: aCount(), remaining: aCount() };
+    const counts: PassCounts = { processed: newCount(), remaining: newCount() };
     const run: EnrichmentRunStatusResponse = {
-      run_id: anId('run'),
-      status: 'succeeded',
+      run_id: newId(),
+      status: JobStatuses.succeeded,
       error: null,
       result_summary: {
-        opencritic_cache_refresh: { status: 'ok', games_fetched: aCount() },
-        franchise_reclassification: { status: 'skipped_unchanged' },
-        tier_reclassification: { status: 'ran', updated_count: aCount() },
+        opencritic_cache_refresh: { status: newText(), games_fetched: newCount() },
+        franchise_reclassification: { status: newText() },
+        tier_reclassification: { status: newText(), updated_count: newCount() },
         enrichment: enrichmentPass(counts),
       },
     };
-    const fixture = create({ status: 'ok', run });
+    const fixture = create({ status: ResolvedStatuses.ok, run });
 
-    const text = (fixture.nativeElement as HTMLElement).textContent;
+    const compiled: HTMLElement = fixture.nativeElement;
+    const text = compiled.textContent;
     expect(text).toContain(run.run_id);
     expect(text).toContain(run.status);
-    expect(text).toContain('OpenCritic cache refresh');
+    expect(compiled.querySelector('#enrichment-pass-opencritic-cache-refresh')).not.toBeNull();
     expect(text).toContain(`${counts.processed} processed, ${counts.remaining} remaining`);
   });
 
   it('reports what each provider actually stored, not just how many games were processed', () => {
     const counts: PassCounts = {
-      processed: aCount(),
-      remaining: aCount(),
-      rawg: aCount(),
-      opencritic: aCount(),
+      processed: newCount(),
+      remaining: newCount(),
+      rawg: newCount(),
+      opencritic: newCount(),
     };
-    const fixture = create({ status: 'ok', run: runWith(enrichmentPass(counts)) });
+    const fixture = create({ status: ResolvedStatuses.ok, run: runWith(enrichmentPass(counts)) });
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.querySelector('#enrichment-processed-count')?.textContent).toContain(
@@ -136,13 +142,13 @@ describe('AdminEnrichmentComponent', () => {
 
   it('renders a psn provider count once the backend starts emitting one', () => {
     const counts: PassCounts = {
-      processed: aCount(),
-      remaining: aCount(),
-      rawg: aCount(),
-      opencritic: aCount(),
-      psn: aCount(),
+      processed: newCount(),
+      remaining: newCount(),
+      rawg: newCount(),
+      opencritic: newCount(),
+      psn: newCount(),
     };
-    const fixture = create({ status: 'ok', run: runWith(enrichmentPass(counts)) });
+    const fixture = create({ status: ResolvedStatuses.ok, run: runWith(enrichmentPass(counts)) });
 
     expect((fixture.nativeElement as HTMLElement).querySelector('#enrichment-provider-gains')?.textContent).toContain(
       `PSN ${counts.psn}`,
@@ -150,20 +156,19 @@ describe('AdminEnrichmentComponent', () => {
   });
 
   it('calls out a run that processed every game and stored nothing', () => {
-    const counts: PassCounts = { processed: aCount(), remaining: 0, rawg: 0, opencritic: 0 };
-    const fixture = create({ status: 'ok', run: runWith(enrichmentPass(counts)) });
+    const counts: PassCounts = { processed: newCount(), remaining: 0, rawg: 0, opencritic: 0 };
+    const fixture = create({ status: ResolvedStatuses.ok, run: runWith(enrichmentPass(counts)) });
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.querySelector('#enrichment-processed-count')?.textContent).toContain(
       `${counts.processed} processed`,
     );
     expect(compiled.querySelector('#enrichment-no-gain')).not.toBeNull();
-    expect(compiled.querySelector('#enrichment-no-gain')?.textContent).toContain('stored nothing');
   });
 
   it('claims nothing about provider gains when the payload carries no per-provider counts', () => {
-    const counts: PassCounts = { processed: aCount(), remaining: aCount() };
-    const fixture = create({ status: 'ok', run: runWith(enrichmentPass(counts)) });
+    const counts: PassCounts = { processed: newCount(), remaining: newCount() };
+    const fixture = create({ status: ResolvedStatuses.ok, run: runWith(enrichmentPass(counts)) });
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.querySelector('#enrichment-processed-count')).not.toBeNull();
@@ -172,7 +177,7 @@ describe('AdminEnrichmentComponent', () => {
   });
 
   it('renders no enrichment counts at all when the pass reports neither', () => {
-    const fixture = create({ status: 'ok', run: runWith({ status: 'skipped' }) });
+    const fixture = create({ status: ResolvedStatuses.ok, run: runWith({ status: newText() }) });
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.querySelector('#enrichment-processed-count')).toBeNull();
@@ -183,99 +188,97 @@ describe('AdminEnrichmentComponent', () => {
     const fixture = create();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    clickButtonByText(compiled, 'Start enrichment run');
+    clickButton(compiled, '#enrichment-start');
     fixture.detectChanges();
 
-    expect(compiled.textContent).toContain('Are you sure?');
-    httpMock.expectNone('/curator/api/enrichment/runs');
+    expect(compiled.querySelector('#enrichment-confirm-prompt')).not.toBeNull();
+    httpMock.expectNone(CuratorApi.enrichmentRuns);
 
-    clickButtonByText(compiled, 'Cancel');
+    clickButton(compiled, '#enrichment-cancel');
     fixture.detectChanges();
 
-    expect(compiled.textContent).not.toContain('Are you sure?');
-    httpMock.expectNone('/curator/api/enrichment/runs');
+    expect(compiled.querySelector('#enrichment-confirm-prompt')).toBeNull();
+    httpMock.expectNone(CuratorApi.enrichmentRuns);
   });
 
   it('starts a run on confirm and polls until succeeded', async () => {
     const fixture = create();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    clickButtonByText(compiled, 'Start enrichment run');
+    clickButton(compiled, '#enrichment-start');
     fixture.detectChanges();
-    clickButtonByText(compiled, 'Yes, start a run');
-    fixture.detectChanges();
-
-    httpMock.expectOne('/curator/api/enrichment/runs').flush({ run_id: 'run-2' });
+    clickButton(compiled, '#enrichment-confirm');
     fixture.detectChanges();
 
-    await vi.advanceTimersByTimeAsync(2500);
+    httpMock.expectOne(CuratorApi.enrichmentRuns).flush({ run_id: STARTED_RUN_ID });
+    fixture.detectChanges();
+
+    await vi.advanceTimersByTimeAsync(environment.adminEnrichmentPollIntervalMs);
     httpMock
-      .expectOne('/curator/api/enrichment/runs/run-2')
-      .flush({ run_id: 'run-2', status: 'running', error: null, result_summary: null });
+      .expectOne(CuratorApi.enrichmentRunsByRunId(STARTED_RUN_ID))
+      .flush({ run_id: STARTED_RUN_ID, status: JobStatuses.running, error: null, result_summary: null });
     fixture.detectChanges();
 
-    await vi.advanceTimersByTimeAsync(2500);
+    await vi.advanceTimersByTimeAsync(environment.adminEnrichmentPollIntervalMs);
     httpMock
-      .expectOne('/curator/api/enrichment/runs/run-2')
-      .flush({ run_id: 'run-2', status: 'succeeded', error: null, result_summary: null });
+      .expectOne(CuratorApi.enrichmentRunsByRunId(STARTED_RUN_ID))
+      .flush({ run_id: STARTED_RUN_ID, status: JobStatuses.succeeded, error: null, result_summary: null });
     fixture.detectChanges();
 
-    expect(compiled.textContent).toContain('run-2');
-    expect(compiled.textContent).toContain('succeeded');
+    expect(compiled.textContent).toContain(STARTED_RUN_ID);
+    expect(compiled.textContent).toContain(JobStatuses.succeeded);
 
-    await vi.advanceTimersByTimeAsync(2500);
-    httpMock.expectNone('/curator/api/enrichment/runs/run-2');
+    await vi.advanceTimersByTimeAsync(environment.adminEnrichmentPollIntervalMs);
+    httpMock.expectNone(CuratorApi.enrichmentRunsByRunId(STARTED_RUN_ID));
   });
 
   it('stops polling a cancelled run and explains the terminal state', async () => {
     const fixture = create();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    clickButtonByText(compiled, 'Start enrichment run');
+    clickButton(compiled, '#enrichment-start');
     fixture.detectChanges();
-    clickButtonByText(compiled, 'Yes, start a run');
-    fixture.detectChanges();
-
-    httpMock.expectOne('/curator/api/enrichment/runs').flush({ run_id: 'run-3' });
+    clickButton(compiled, '#enrichment-confirm');
     fixture.detectChanges();
 
-    await vi.advanceTimersByTimeAsync(2500);
+    httpMock.expectOne(CuratorApi.enrichmentRuns).flush({ run_id: CANCELLED_RUN_ID });
+    fixture.detectChanges();
+
+    await vi.advanceTimersByTimeAsync(environment.adminEnrichmentPollIntervalMs);
     httpMock
-      .expectOne('/curator/api/enrichment/runs/run-3')
-      .flush({ run_id: 'run-3', status: 'cancelled', error: null, result_summary: null });
+      .expectOne(CuratorApi.enrichmentRunsByRunId(CANCELLED_RUN_ID))
+      .flush({ run_id: CANCELLED_RUN_ID, status: JobStatuses.cancelled, error: null, result_summary: null });
     fixture.detectChanges();
 
-    expect(compiled.querySelector('#enrichment-run-cancelled')?.textContent).toContain(
-      'This run was cancelled before it finished.',
-    );
+    expect(compiled.querySelector('#enrichment-run-cancelled')).not.toBeNull();
 
-    await vi.advanceTimersByTimeAsync(2500);
-    httpMock.expectNone('/curator/api/enrichment/runs/run-3');
+    await vi.advanceTimersByTimeAsync(environment.adminEnrichmentPollIntervalMs);
+    httpMock.expectNone(CuratorApi.enrichmentRunsByRunId(CANCELLED_RUN_ID));
   });
 
   it('retries a single transient poll failure instead of losing track of the run', async () => {
     const fixture = create();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    clickButtonByText(compiled, 'Start enrichment run');
+    clickButton(compiled, '#enrichment-start');
     fixture.detectChanges();
-    clickButtonByText(compiled, 'Yes, start a run');
+    clickButton(compiled, '#enrichment-confirm');
     fixture.detectChanges();
-    httpMock.expectOne('/curator/api/enrichment/runs').flush({ run_id: 'run-3' });
-    fixture.detectChanges();
-
-    await vi.advanceTimersByTimeAsync(2500);
-    httpMock.expectOne('/curator/api/enrichment/runs/run-3').flush(null, { status: 502, statusText: 'Bad Gateway' });
+    httpMock.expectOne(CuratorApi.enrichmentRuns).flush({ run_id: CANCELLED_RUN_ID });
     fixture.detectChanges();
 
-    expect(compiled.textContent).not.toContain('Lost track of the enrichment run.');
+    await vi.advanceTimersByTimeAsync(environment.adminEnrichmentPollIntervalMs);
+    httpMock.expectOne(CuratorApi.enrichmentRunsByRunId(CANCELLED_RUN_ID)).flush(null, { status: HttpStatusCode.BadGateway, statusText: HttpStatusCode[HttpStatusCode.BadGateway] });
+    fixture.detectChanges();
 
-    await vi.advanceTimersByTimeAsync(4500);
+    expect(compiled.textContent).not.toContain(LOST_RUN_ERROR);
+
+    await vi.advanceTimersByTimeAsync(environment.adminEnrichmentPollIntervalMs + environment.adminEnrichmentPollErrorRetryDelayMs);
     httpMock
-      .expectOne('/curator/api/enrichment/runs/run-3')
-      .flush({ run_id: 'run-3', status: 'succeeded', error: null, result_summary: null });
+      .expectOne(CuratorApi.enrichmentRunsByRunId(CANCELLED_RUN_ID))
+      .flush({ run_id: CANCELLED_RUN_ID, status: JobStatuses.succeeded, error: null, result_summary: null });
     fixture.detectChanges();
 
-    expect(compiled.textContent).toContain('succeeded');
+    expect(compiled.textContent).toContain(JobStatuses.succeeded);
   });
 });

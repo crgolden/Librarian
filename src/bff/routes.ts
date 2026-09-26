@@ -1,3 +1,4 @@
+import { HttpStatusCode } from '@angular/common/http';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import {
   buildAuthorizationUrl,
@@ -10,18 +11,38 @@ import {
   type Configuration,
 } from 'openid-client';
 import type { AppLogger } from '../telemetry/logging';
+import {
+  BffPaths,
+  BffRoutes,
+  ClaimTypes,
+  CSRF_HEADER,
+  MISSING_CSRF_ERROR,
+  IdentityRoutes,
+  OIDC_SCOPES,
+  RETURN_TO_PARAMETER,
+  SID_QUERY_PARAMETER,
+} from '../shared/bff-contract';
+import { LOCAL_HOST } from '../shared/local-host';
 
 export interface BffRouterDependencies {
   getOidcConfig: () => Promise<Configuration>;
   logger: AppLogger;
 }
 
-const SCOPES = 'offline_access openid profile email curator';
 
-const CALLBACK_PATH =
-  process.env['OidcCallbackPath'] ?? '/bff/callback';
+export const BffErrors = {
+  loginFailed: 'Login initiation failed',
+  invalidSessionState: 'Invalid or expired session state',
+  missingSub: 'Missing sub claim in ID token',
+  callbackFailed: 'Callback processing failed',
+  invalidSubject: 'Invalid subject identifier',
+  avatarUnavailable: 'Avatar unavailable',
+  invalidSessionIdentifier: 'Invalid session identifier',
+} as const;
 
-const ACCESS_TOKEN_CLAIM_ALLOWLIST = ['curator.admin'] as const;
+export const ID_TOKEN_HINT_PARAMETER = 'id_token_hint';
+
+const ACCESS_TOKEN_CLAIM_ALLOWLIST = [ClaimTypes.admin] as const;
 
 function accessTokenClaims(accessToken: string | undefined): Record<string, unknown> {
   const payload = accessToken?.split('.')[1];
@@ -68,7 +89,7 @@ function getOrigin(req: Request): string {
   const host =
     (req.headers['x-forwarded-host'] as string | undefined) ??
     (req.headers.host) ??
-    'localhost';
+    LOCAL_HOST;
   return `${proto}://${host}`;
 }
 
@@ -88,13 +109,23 @@ function destroySession(req: Request): Promise<void> {
   );
 }
 
+function providerSessionId(req: Request): string | null {
+  return req.session.claims?.find((claim) => claim.type === ClaimTypes.sid)?.value ?? null;
+}
+
+function buildLogoutUrl(providerSid: string | null): string {
+  return providerSid === null
+    ? BffPaths.logout
+    : `${BffPaths.logout}?${SID_QUERY_PARAMETER}=${encodeURIComponent(providerSid)}`;
+}
+
 export function requireCsrf(
   req: Request,
   res: Response,
   next: NextFunction,
 ): void {
-  if (!req.headers['x-csrf']) {
-    res.status(403).json({ error: 'Missing X-CSRF header' });
+  if (!req.headers[CSRF_HEADER.toLowerCase()]) {
+    res.status(HttpStatusCode.Forbidden).json({ error: MISSING_CSRF_ERROR });
     return;
   }
   next();
@@ -103,7 +134,7 @@ export function requireCsrf(
 export function buildBffRouter({ getOidcConfig, logger }: BffRouterDependencies): Router {
   const router = Router();
 
-  router.get('/login', async (req: Request, res: Response) => {
+  router.get(BffRoutes.login, async (req: Request, res: Response) => {
     try {
       const config = await getOidcConfig();
       const codeVerifier = randomPKCECodeVerifier();
@@ -112,12 +143,12 @@ export function buildBffRouter({ getOidcConfig, logger }: BffRouterDependencies)
 
       req.session.pkceCodeVerifier = codeVerifier;
       req.session.oauthState = state;
-      req.session.returnTo = safeReturnTo(req.query['returnTo']);
+      req.session.returnTo = safeReturnTo(req.query[RETURN_TO_PARAMETER]);
       await saveSession(req);
 
       const redirectUrl = buildAuthorizationUrl(config, {
-        redirect_uri: `${getOrigin(req)}${CALLBACK_PATH}`,
-        scope: SCOPES,
+        redirect_uri: `${getOrigin(req)}${BffPaths.callback}`,
+        scope: OIDC_SCOPES,
         code_challenge: codeChallenge,
         code_challenge_method: 'S256',
         state,
@@ -126,17 +157,17 @@ export function buildBffRouter({ getOidcConfig, logger }: BffRouterDependencies)
       res.redirect(redirectUrl.href);
     } catch (err) {
       logger.error({ err }, '[BFF /login]');
-      res.status(500).json({ error: 'Login initiation failed' });
+      res.status(HttpStatusCode.InternalServerError).json({ error: BffErrors.loginFailed });
     }
   });
 
-  router.get('/callback', async (req: Request, res: Response) => {
+  router.get(BffRoutes.callback, async (req: Request, res: Response) => {
     try {
       const config = await getOidcConfig();
       const { pkceCodeVerifier, oauthState } = req.session;
 
       if (!pkceCodeVerifier || !oauthState) {
-        res.status(400).json({ error: 'Invalid or expired session state' });
+        res.status(HttpStatusCode.BadRequest).json({ error: BffErrors.invalidSessionState });
         return;
       }
 
@@ -156,7 +187,7 @@ export function buildBffRouter({ getOidcConfig, logger }: BffRouterDependencies)
           : null;
 
       if (!sub) {
-        res.status(500).json({ error: 'Missing sub claim in ID token' });
+        res.status(HttpStatusCode.InternalServerError).json({ error: BffErrors.missingSub });
         return;
       }
 
@@ -199,48 +230,48 @@ export function buildBffRouter({ getOidcConfig, logger }: BffRouterDependencies)
       res.redirect(returnTo);
     } catch (err) {
       logger.error({ err }, '[BFF /callback]');
-      res.status(500).json({ error: 'Callback processing failed' });
+      res.status(HttpStatusCode.InternalServerError).json({ error: BffErrors.callbackFailed });
     }
   });
 
-  router.get('/user', requireCsrf, (req: Request, res: Response) => {
+  router.get(BffRoutes.user, requireCsrf, (req: Request, res: Response) => {
     if (!req.session.claims) {
-      res.status(401).end();
+      res.json(null);
       return;
     }
 
     const claims = [
       ...req.session.claims,
       {
-        type: 'bff:logout_url',
-        value: `/bff/logout?sid=${req.sessionID}`,
+        type: ClaimTypes.logoutUrl,
+        value: buildLogoutUrl(providerSessionId(req)),
       },
     ];
 
     res.json(claims);
   });
 
-  router.get('/avatar/:sub', async (req: Request, res: Response) => {
+  router.get(BffRoutes.avatar(':sub'), async (req: Request, res: Response) => {
     const sub = req.params['sub'];
     if (typeof sub !== 'string' || !/^[A-Za-z0-9-]{1,64}$/.test(sub)) {
-      res.status(400).json({ error: 'Invalid subject identifier' });
+      res.status(HttpStatusCode.BadRequest).json({ error: BffErrors.invalidSubject });
       return;
     }
 
     try {
       const config = await getOidcConfig();
       const issuer = config.serverMetadata().issuer.replace(/\/$/, '');
-      res.redirect(`${issuer}/avatar/${encodeURIComponent(sub)}`);
+      res.redirect(`${issuer}${IdentityRoutes.avatar(encodeURIComponent(sub))}`);
     } catch (err) {
       logger.error({ err }, 'Avatar redirect failed');
-      res.status(502).json({ error: 'Avatar unavailable' });
+      res.status(HttpStatusCode.BadGateway).json({ error: BffErrors.avatarUnavailable });
     }
   });
 
-  router.get('/logout', async (req: Request, res: Response) => {
-    const sid = req.query['sid'];
-    if (!sid || sid !== req.sessionID) {
-      res.status(400).json({ error: 'Invalid session identifier' });
+  router.get(BffRoutes.logout, async (req: Request, res: Response) => {
+    const providerSid = providerSessionId(req);
+    if (providerSid !== null && req.query[SID_QUERY_PARAMETER] !== providerSid) {
+      res.status(HttpStatusCode.BadRequest).json({ error: BffErrors.invalidSessionIdentifier });
       return;
     }
 
@@ -256,7 +287,7 @@ export function buildBffRouter({ getOidcConfig, logger }: BffRouterDependencies)
       };
 
       if (idToken) {
-        params['id_token_hint'] = idToken;
+        params[ID_TOKEN_HINT_PARAMETER] = idToken;
       }
 
       const endSessionUrl = buildEndSessionUrl(config, params);

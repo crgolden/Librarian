@@ -1,7 +1,11 @@
 import { isSpanContextValid, trace } from '@opentelemetry/api';
 import type { Request, Response, NextFunction } from 'express';
 
-const TRACE_PARENT_VERSION = '00';
+export const TRACE_PARENT_VERSION = '00';
+
+export const SERVER_TIMING_HEADER = 'Server-Timing';
+
+export const TRACE_PARENT_ENTRY = 'traceparent';
 
 export function exposeTraceParentToBrowser(
   _req: Request,
@@ -18,10 +22,10 @@ export function exposeTraceParentToBrowser(
       spanContext.spanId,
       flags,
     ].join('-');
-    const entry = `traceparent;desc="${traceParent}"`;
-    const existing = res.getHeader('Server-Timing');
+    const entry = `${TRACE_PARENT_ENTRY};desc="${traceParent}"`;
+    const existing = res.getHeader(SERVER_TIMING_HEADER);
 
-    res.setHeader('Server-Timing', existing ? `${existing.toString()}, ${entry}` : entry);
+    res.setHeader(SERVER_TIMING_HEADER, existing ? `${existing.toString()}, ${entry}` : entry);
   }
 
   next();

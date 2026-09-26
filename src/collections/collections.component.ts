@@ -1,4 +1,4 @@
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
 import { isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -13,29 +13,48 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
+import {
+  ButtonDangerDirective,
+  ButtonGhostDangerDirective,
+  ButtonGhostDirective,
+  ButtonGhostSmallDirective,
+  ButtonPrimaryDirective,
+  CardDirective,
+  PageSectionDirective,
+} from '@crgolden/modules/primitives';
 import { Subject, catchError, map, of, switchMap } from 'rxjs';
 import { CollectionItemsQuery, CuratorService } from '../curator/curator.service';
 import {
   CollectionGameResponse,
   CollectionItemResponse,
   CollectionItemSortField,
+  CollectionItemSortFields,
   CollectionItemsPageResponse,
+  CollectionKind,
+  CollectionKinds,
   CollectionPreviewResponse,
   CollectionRunResponse,
   CollectionSpecRequest,
+  CollectionVisibilities,
   CollectionVisibility,
+  CONSOLE_PLATFORM_OPTIONS,
+  ConsolePlatform,
+  ConsolePlatforms,
   ConsoleResponse,
   DefinitionDetailResponse,
   DefinitionResponse,
   MeasuredSizeResponse,
   ProfileDefinitionResponse,
   SizeSource,
+  SortDirection,
+  SortDirections,
   StorageDeviceResponse,
+  UNMEASURED_SIZE_SOURCE,
 } from '../curator/curator.models';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
 import { nullIfEmpty } from '../shared/control-value';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
-import { installConsoleIdFor, ResolvedCollections, ResolvedInstalls } from './collections.resolver';
+import { CollectionsModes, installConsoleIdFor, ResolvedCollections, ResolvedInstalls } from './collections.resolver';
 import {
   DEFAULT_ITEM_SORT,
   ITEMS_PAGE_SIZE,
@@ -46,13 +65,31 @@ import {
   itemsSortDirFrom,
   itemsSortFrom,
 } from './collection-items.query';
+import { AppUrls, RouteDataKeys, RouteParams, sharedCollectionUrl } from '../app/app-paths';
+import {
+  CAPACITY_FILL_LABEL,
+  COLLECTION_DETAIL_LOAD_ERROR,
+  COLLECTION_NAME_REQUIRED_ERROR,
+  COLLECTIONS_FORBIDDEN_MESSAGE,
+  CONSOLE_REQUIRED_ERROR,
+  FILTER_LIST_LABEL,
+  SAVED_COLLECTIONS_LOAD_ERROR,
+  USER_COLLECTIONS_LOAD_ERROR,
+} from './collections.messages';
+import { PageTitles } from '../shared/page-title';
+import { ProviderNames } from '../shared/provider-names';
+import { AriaRoles } from '../shared/aria-roles';
+import {
+  CatalogMetaDirective,
+  CatalogTitleDirective,
+  SpineLabelDirective,
+  StampLabelDirective,
+} from '../shared/primitives/typography';
+import { statusCodeOf } from '../shared/http-status';
 
-type CollectionKind = 'filter_list' | 'capacity_fill';
 type View = 'list' | 'create' | 'detail' | 'followed';
 
 export const RESULT_PAGE_SIZE = 50;
-
-export const UNMEASURED_SIZE_SOURCE: SizeSource = 'default';
 
 export const SIZE_SOURCE_LABELS: Record<SizeSource, string> = {
   measured: 'measured',
@@ -64,12 +101,38 @@ export const SIZE_SOURCE_LABELS: Record<SizeSource, string> = {
 
 @Component({
   selector: 'app-collections',
-  imports: [FormsModule, RouterLink, BreadcrumbComponent, LoadingOverlayComponent],
+  imports: [
+    FormsModule,
+    RouterLink,
+    BreadcrumbComponent,
+    LoadingOverlayComponent,
+    PageSectionDirective,
+    CardDirective,
+    ButtonPrimaryDirective,
+    ButtonGhostDirective,
+    ButtonGhostSmallDirective,
+    ButtonGhostDangerDirective,
+    ButtonDangerDirective,
+    CatalogMetaDirective,
+    CatalogTitleDirective,
+    SpineLabelDirective,
+    StampLabelDirective,
+  ],
   templateUrl: './collections.component.html',
-  styleUrl: './collections.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CollectionsComponent implements OnInit {
+  protected readonly ariaRoles = AriaRoles;
+
+  protected readonly appUrls = AppUrls;
+  protected readonly forbiddenMessage = COLLECTIONS_FORBIDDEN_MESSAGE;
+  protected readonly collectionKinds = CollectionKinds;
+  protected readonly collectionVisibilities = CollectionVisibilities;
+  protected readonly consolePlatformOptions = CONSOLE_PLATFORM_OPTIONS;
+  protected readonly sortDirections = SortDirections;
+  protected readonly capacityFillLabel = CAPACITY_FILL_LABEL;
+  protected readonly filterListLabel = FILTER_LIST_LABEL;
+
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly curator = inject(CuratorService);
@@ -117,7 +180,7 @@ export class CollectionsComponent implements OnInit {
   protected readonly followedError = signal<string | null>(null);
   protected readonly unfollowingIds = signal<ReadonlySet<string>>(new Set());
 
-  protected readonly kind = signal<CollectionKind>('filter_list');
+  protected readonly kind = signal<CollectionKind>(CollectionKinds.filterList);
   protected readonly consoleId = signal<string | null>(null);
   protected readonly consoles = signal<ConsoleResponse[]>([]);
   protected readonly genreFilter = signal<string[]>([]);
@@ -165,18 +228,18 @@ export class CollectionsComponent implements OnInit {
   protected readonly itemsTotal = signal(0);
   protected readonly itemsLoading = signal(false);
   protected readonly itemSearch = signal<string | null>(null);
-  protected readonly itemSort = signal<CollectionItemSortField>('rank');
-  protected readonly itemSortDir = signal<'asc' | 'desc'>('asc');
+  protected readonly itemSort = signal<CollectionItemSortField>(CollectionItemSortFields.rank);
+  protected readonly itemSortDir = signal<SortDirection>(SortDirections.asc);
 
   protected readonly itemSortOptions: readonly {
     id: string;
     field: CollectionItemSortField;
     label: string;
   }[] = [
-    { id: 'rank', field: 'rank', label: 'Rank' },
-    { id: 'title', field: 'title', label: 'Title' },
-    { id: 'oc', field: 'oc_score', label: 'OpenCritic' },
-    { id: 'psn', field: 'psn_rating', label: 'PSN' },
+    { id: 'rank', field: CollectionItemSortFields.rank, label: 'Rank' },
+    { id: 'title', field: CollectionItemSortFields.title, label: 'Title' },
+    { id: 'oc', field: CollectionItemSortFields.ocScore, label: ProviderNames.openCritic },
+    { id: 'psn', field: CollectionItemSortFields.psnRating, label: 'PSN' },
   ];
   protected readonly itemOffset = signal(0);
   protected readonly itemPage = signal(1);
@@ -213,7 +276,7 @@ export class CollectionsComponent implements OnInit {
   protected readonly expandedSizeGameId = signal<string | null>(null);
   protected readonly measuredSizesByGame = signal<ReadonlyMap<string, MeasuredSizeResponse[]>>(new Map());
   protected readonly measuredSizesLoading = signal(false);
-  protected readonly measuredSizePlatform = signal<'PS5' | 'PS4'>('PS5');
+  protected readonly measuredSizePlatform = signal<ConsolePlatform>(ConsolePlatforms.ps5);
   protected readonly measuredSizeValue = signal<number | null>(null);
   protected readonly measuredSizeSaving = signal(false);
   protected readonly measuredSizeError = signal<string | null>(null);
@@ -230,37 +293,37 @@ export class CollectionsComponent implements OnInit {
   );
 
   ngOnInit(): void {
-    this.genreOptions.set((this.route.snapshot.data['genres'] as string[] | undefined) ?? []);
-    const resolved = this.route.snapshot.data['collections'] as ResolvedCollections;
+    this.genreOptions.set((this.route.snapshot.data[RouteDataKeys.genres] as string[] | undefined) ?? []);
+    const resolved = this.route.snapshot.data[RouteDataKeys.collections] as ResolvedCollections;
 
     if (resolved.mode.startsWith('viewer')) {
-      const sub = this.route.snapshot.paramMap.get('sub');
+      const sub = this.route.snapshot.paramMap.get(RouteParams.sub);
       this.viewerMode.set(true);
       if (sub !== null) {
-        this.breadcrumbItems.set([{ label: 'Profile', link: ['/u', sub] }, { label: 'Collections' }]);
+        this.breadcrumbItems.set([{ label: PageTitles.profile, link: [AppUrls.users, sub] }, { label: PageTitles.collections }]);
       }
     }
 
     switch (resolved.mode) {
-      case 'viewer':
+      case CollectionsModes.viewer:
         this.viewerDefinitions.set(resolved.definitions);
         this.viewerFollowedIds.set(new Set(resolved.followedIds));
         return;
-      case 'viewer-forbidden':
+      case CollectionsModes.viewerForbidden:
         this.viewerForbidden.set(true);
         return;
-      case 'viewer-error':
-        this.viewerDefinitionsError.set("Unable to load this user's collections.");
+      case CollectionsModes.viewerError:
+        this.viewerDefinitionsError.set(USER_COLLECTIONS_LOAD_ERROR);
         return;
-      case 'list':
+      case CollectionsModes.list:
         this.consoles.set(resolved.consoles);
         this.definitions.set(resolved.definitions);
         return;
-      case 'list-error':
+      case CollectionsModes.listError:
         this.consoles.set(resolved.consoles);
-        this.definitionsError.set('Unable to load your saved collections.');
+        this.definitionsError.set(SAVED_COLLECTIONS_LOAD_ERROR);
         return;
-      case 'detail': {
+      case CollectionsModes.detail: {
         this.consoles.set(resolved.consoles);
         this.view.set('detail');
         this.applyDefinition(resolved.definition);
@@ -270,10 +333,10 @@ export class CollectionsComponent implements OnInit {
         this.watchItemQueryParams(resolved.definition.definition_id);
         return;
       }
-      case 'detail-error':
+      case CollectionsModes.detailError:
         this.consoles.set(resolved.consoles);
         this.view.set('detail');
-        this.detailError.set('Unable to load this collection.');
+        this.detailError.set(COLLECTION_DETAIL_LOAD_ERROR);
         return;
     }
   }
@@ -299,7 +362,7 @@ export class CollectionsComponent implements OnInit {
   }
 
   protected kindLabel(kind: string): string {
-    return kind === 'capacity_fill' ? 'Capacity fill' : kind === 'filter_list' ? 'Filter list' : kind;
+    return kind === CollectionKinds.capacityFill ? CAPACITY_FILL_LABEL : kind === CollectionKinds.filterList ? FILTER_LIST_LABEL : kind;
   }
 
   protected consoleName(consoleId: string): string {
@@ -352,14 +415,14 @@ export class CollectionsComponent implements OnInit {
         this.reloadingDefinitions.set(false);
       },
       error: () => {
-        this.definitionsError.set('Unable to load your saved collections.');
+        this.definitionsError.set(SAVED_COLLECTIONS_LOAD_ERROR);
         this.reloadingDefinitions.set(false);
       },
     });
   }
 
   protected showCreate(): void {
-    this.kind.set('filter_list');
+    this.kind.set(CollectionKinds.filterList);
     this.consoleId.set(null);
     this.genreFilter.set([]);
     this.minScore.set(null);
@@ -417,18 +480,18 @@ export class CollectionsComponent implements OnInit {
   }
 
   protected shareUrlFor(shareSlug: string): string | null {
-    return this.isBrowser ? `${window.location.origin}/c/${shareSlug}` : null;
+    return this.isBrowser ? `${window.location.origin}${sharedCollectionUrl(shareSlug)}` : null;
   }
 
   private buildSpec(): CollectionSpecRequest | null {
-    if (this.kind() === 'capacity_fill' && this.consoleId() === null) {
-      this.createError.set('A console is required for a capacity-fill collection.');
+    if (this.kind() === CollectionKinds.capacityFill && this.consoleId() === null) {
+      this.createError.set(CONSOLE_REQUIRED_ERROR);
       return null;
     }
 
     return {
       kind: this.kind(),
-      console_id: this.kind() === 'capacity_fill' ? this.consoleId() : null,
+      console_id: this.kind() === CollectionKinds.capacityFill ? this.consoleId() : null,
       genre_filter: this.genreFilter(),
       min_score: this.minScore(),
       aaa_tier_filter: this.aaaTierFilter(),
@@ -475,7 +538,7 @@ export class CollectionsComponent implements OnInit {
   protected saveDefinition(): void {
     const trimmedName = this.name().trim();
     if (!trimmedName) {
-      this.saveError.set('Enter a name for this collection.');
+      this.saveError.set(COLLECTION_NAME_REQUIRED_ERROR);
       return;
     }
 
@@ -499,7 +562,7 @@ export class CollectionsComponent implements OnInit {
         error: (err: HttpErrorResponse) => {
           this.saving.set(false);
           this.saveError.set(
-            err.status === 409 ? `You already have a collection named "${trimmedName}".` : 'Unable to save this collection.',
+            statusCodeOf(err) === HttpStatusCode.Conflict ? `You already have a collection named "${trimmedName}".` : 'Unable to save this collection.',
           );
         },
       });
@@ -542,10 +605,10 @@ export class CollectionsComponent implements OnInit {
   }
 
   protected itemSortParams(field: CollectionItemSortField): Params {
-    const sortDir = this.itemSort() === field && this.itemSortDir() === 'asc' ? 'desc' : 'asc';
+    const sortDir = this.itemSort() === field && this.itemSortDir() === SortDirections.asc ? SortDirections.desc : SortDirections.asc;
     return {
       itemSort: field === DEFAULT_ITEM_SORT ? null : field,
-      itemSortDir: sortDir === 'asc' ? null : sortDir,
+      itemSortDir: sortDir === SortDirections.asc ? null : sortDir,
       itemPage: null,
     };
   }
@@ -608,7 +671,7 @@ export class CollectionsComponent implements OnInit {
     }
     const trimmedName = this.editName().trim();
     if (!trimmedName) {
-      this.metaError.set('Enter a name for this collection.');
+      this.metaError.set(COLLECTION_NAME_REQUIRED_ERROR);
       return;
     }
 
@@ -627,7 +690,7 @@ export class CollectionsComponent implements OnInit {
         error: (err: HttpErrorResponse) => {
           this.savingMeta.set(false);
           this.metaError.set(
-            err.status === 409 ? `You already have a collection named "${trimmedName}".` : 'Unable to update this collection.',
+            statusCodeOf(err) === HttpStatusCode.Conflict ? `You already have a collection named "${trimmedName}".` : 'Unable to update this collection.',
           );
         },
       });
@@ -684,7 +747,7 @@ export class CollectionsComponent implements OnInit {
 
   protected copyShareLink(): void {
     const definition = this.selectedDefinition();
-    if (!definition?.share_slug || definition.visibility === 'private' || !this.isBrowser) {
+    if (!definition?.share_slug || definition.visibility === CollectionVisibilities.private || !this.isBrowser) {
       return;
     }
     const url = this.shareUrlFor(definition.share_slug);
@@ -716,7 +779,7 @@ export class CollectionsComponent implements OnInit {
       next: () => {
         this.deleting.set(false);
         this.confirmingDelete.set(false);
-        void this.router.navigate(['/collections']);
+        void this.router.navigate([AppUrls.collections]);
       },
       error: () => {
         this.deleting.set(false);
@@ -816,7 +879,7 @@ export class CollectionsComponent implements OnInit {
           return next;
         });
         const message =
-          response.status === 404
+          statusCodeOf(response) === HttpStatusCode.NotFound
             ? `Console '${consoleId}' not found — install state can only be set for a console Curator already knows about.`
             : 'Unable to update install state.';
         const next = new Map(this.installErrors());
@@ -871,7 +934,7 @@ export class CollectionsComponent implements OnInit {
           return next;
         });
         const message =
-          response.status === 404
+          statusCodeOf(response) === HttpStatusCode.NotFound
             ? `Storage device '${deviceId}' not found — install state can only be set for a device Curator already knows about.`
             : 'Unable to update install state.';
         const next = new Map(this.deviceInstallErrors());
@@ -896,7 +959,7 @@ export class CollectionsComponent implements OnInit {
     }
 
     this.expandedSizeGameId.set(gameId);
-    this.measuredSizePlatform.set('PS5');
+    this.measuredSizePlatform.set(ConsolePlatforms.ps5);
     this.measuredSizeValue.set(null);
     this.measuredSizeError.set(null);
 

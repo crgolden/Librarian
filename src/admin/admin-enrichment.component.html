@@ -1,6 +1,6 @@
-<section class="page-section">
+<section crgPageSection>
   <h1 id="page-title">Enrichment Runs</h1>
-  <p class="text-muted">
+  <p class="text-meta text-text-muted">
     Runs a global catalog-wide re-enrichment pass: refreshes the OpenCritic cache, reclassifies franchise
     and AAA tier for the whole catalog against the current curation rules, and best-effort enriches any
     game nobody has enriched yet. Spends real RAWG/OpenCritic quota and rewrites catalog data shared by
@@ -8,49 +8,49 @@
   </p>
 
   @if (loadError()) {
-      <p id="enrichment-load-error" class="text-error">{{ loadError() }}</p>
+      <p id="enrichment-load-error" class="m-0 text-meta text-danger">{{ loadError() }}</p>
     }
 
-    <div class="card p-6 mt-4">
+    <div crgCard class="p-6 mt-4">
       <h2>Start a run</h2>
       @if (startError()) {
-        <p id="enrichment-start-error" class="text-error">{{ startError() }}</p>
+        <p id="enrichment-start-error" class="m-0 text-meta text-danger">{{ startError() }}</p>
       }
       @if (confirming()) {
         <p id="enrichment-confirm-prompt">
           Are you sure? This spends real provider quota and rewrites catalog data for every user.
         </p>
-        <div class="delete-confirm-actions">
+        <div class="flex gap-3">
           <button
             id="enrichment-confirm"
             type="button"
-            class="btn-ghost-danger btn-ghost"
+            crgButtonGhostDanger
             (click)="confirmRun()"
             [disabled]="starting()"
           >
             {{ starting() ? 'Starting...' : 'Yes, start a run' }}
           </button>
-          <button id="enrichment-cancel" type="button" class="btn-ghost" (click)="cancelRun()" [disabled]="starting()">
+          <button id="enrichment-cancel" type="button" crgButtonGhost (click)="cancelRun()" [disabled]="starting()">
             Cancel
           </button>
         </div>
       } @else {
-        <button id="enrichment-start" type="button" class="btn-ghost-danger btn-ghost" (click)="requestRun()">
+        <button id="enrichment-start" type="button" crgButtonGhostDanger (click)="requestRun()">
           Start enrichment run
         </button>
       }
     </div>
 
     @if (run(); as current) {
-      <div class="card p-6 mt-4">
+      <div crgCard class="p-6 mt-4">
         <h2>Latest run</h2>
-        <p id="enrichment-run-id" class="catalog-meta">Run id: {{ current.run_id }}</p>
-        <p id="enrichment-run-status" class="catalog-meta">Status: {{ current.status }}</p>
+        <p id="enrichment-run-id" appCatalogMeta [attr.data-run-id]="current.run_id">Run id: {{ current.run_id }}</p>
+        <p id="enrichment-run-status" appCatalogMeta [attr.data-status]="current.status">Status: {{ current.status }}</p>
         @if (current.error) {
-          <p id="enrichment-run-error" class="text-error">{{ current.error }}</p>
+          <p id="enrichment-run-error" class="m-0 text-meta text-danger">{{ current.error }}</p>
         }
-        @if (current.status === 'cancelled') {
-          <p id="enrichment-run-cancelled" class="catalog-meta">
+        @if (current.status === jobStatuses.cancelled) {
+          <p id="enrichment-run-cancelled" appCatalogMeta>
             This run was cancelled before it finished. Whatever it had already written stays; start another
             run when you want the rest.
           </p>
@@ -59,36 +59,36 @@
         @if (current.result_summary; as summary) {
           <div class="flex flex-col gap-3 mt-3">
             @if (summary.opencritic_cache_refresh; as pass) {
-              <div class="pt-2 border-t border-line">
+              <div id="enrichment-pass-opencritic-cache-refresh" class="pt-2 border-t border-line">
                 <h3 class="mt-0 mb-1">OpenCritic cache refresh</h3>
-                <p class="catalog-meta">Status: {{ pass.status }}</p>
+                <p appCatalogMeta>Status: {{ pass.status }}</p>
               </div>
             }
             @if (summary.franchise_reclassification; as pass) {
               <div class="pt-2 border-t border-line">
                 <h3 class="mt-0 mb-1">Franchise reclassification</h3>
-                <p class="catalog-meta">Status: {{ pass.status }}</p>
+                <p appCatalogMeta>Status: {{ pass.status }}</p>
               </div>
             }
             @if (summary.tier_reclassification; as pass) {
               <div class="pt-2 border-t border-line">
                 <h3 class="mt-0 mb-1">Tier reclassification</h3>
-                <p class="catalog-meta">Status: {{ pass.status }}</p>
+                <p appCatalogMeta>Status: {{ pass.status }}</p>
               </div>
             }
             @if (summary.enrichment; as pass) {
               <div class="pt-2 border-t border-line">
                 <h3 class="mt-0 mb-1">Enrichment</h3>
                 @if (passCounts(pass); as counts) {
-                  <p id="enrichment-processed-count" class="catalog-meta">
+                  <p id="enrichment-processed-count" appCatalogMeta>
                     {{ counts.processed }} processed, {{ counts.remaining }} remaining
                   </p>
                   @if (counts.hasProviderGains) {
-                    <p id="enrichment-provider-gains" class="catalog-meta">
+                    <p id="enrichment-provider-gains" appCatalogMeta>
                       Gained new data: {{ counts.providerGains }}
                     </p>
                     @if (!counts.gainedAnything) {
-                      <p id="enrichment-no-gain" class="catalog-meta">
+                      <p id="enrichment-no-gain" appCatalogMeta>
                         Every processed game was left unchanged: no provider returned new data for any of
                         them, so this run stored nothing.
                       </p>
@@ -96,7 +96,7 @@
                   }
                 }
                 @if (pass['stopped_provider']) {
-                  <p class="catalog-meta">Stopped: {{ pass['stopped_provider'] }} ({{ pass['stopped_reason'] }})</p>
+                  <p appCatalogMeta>Stopped: {{ pass['stopped_provider'] }} ({{ pass['stopped_reason'] }})</p>
                 }
               </div>
             }
@@ -104,6 +104,6 @@
         }
       </div>
   } @else if (!loadError()) {
-    <p id="enrichment-no-run" class="text-muted">No enrichment run has been started yet.</p>
+    <p id="enrichment-no-run" class="text-meta text-text-muted">No enrichment run has been started yet.</p>
   }
 </section>

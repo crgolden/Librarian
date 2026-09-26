@@ -36,7 +36,7 @@ code reaching a protected member by bracket notation is the defect the rule exis
 
 **`vitest run` type-checks the specs as well as running them, and the explicit `typecheck.tsconfig` is
 what makes that true.** Without a `typecheck` block, esbuild strips the types and a `TS2322` in a spec
-reaches `main` untouched: `ng lint`, `lint:css`, `lint:primitives`, `vitest run --coverage` and the
+reaches `main` untouched: `ng lint`, `lint:css`, `vitest run --coverage` and the
 production build all pass on it, and `ng test` — the one command CI does not run — is the only thing
 that fails. `vitest.config.ts` now sets `typecheck: { enabled: true, tsconfig: './tsconfig.spec.json',
 include: ['src/**/*.spec.ts'], ignoreSourceErrors: false }`. Naming the tsconfig is load-bearing rather
@@ -133,7 +133,7 @@ component *does* call throws across every test in the file.
 
 ## E2E tests (regression)
 
-Selectors follow the fleet-wide rule in [AGENTS/TESTING.md](../AGENTS/TESTING.md#e2e-selector-strategy--select-by-id-never-by-position): select by `id`, never by column position or CSS class. Rows built in an Angular `@for` get `[attr.id]="'<name>-' + $index"` and are matched by id prefix.
+Selectors follow the fleet-wide rule in [AGENTS/TESTING.md](../AGENTS/TESTING.md#e2e-selector-strategy-select-by-id-never-by-position): select by `id`, never by column position or CSS class. Rows built in an Angular `@for` get `[attr.id]="'<name>-' + $index"` and are matched by id prefix.
 
 No live servers needed. Playwright manages three local servers for the test run, started in this order
 — the mock Curator API and mock OIDC provider must both be up before the SSR server starts, since SSR's
@@ -146,7 +146,7 @@ against the mock authority on first use:
    backend), the profile/follow routes (`/me/profile-settings`, `/me/profile-link-sites`,
    `/me/profile-links[/{site_key}]`, `/users/{sub}/profile`,
    `/users/{sub}/follow`, `/users/{sub}/followers`, `/users/{sub}/following`, `/users/{sub}/library`,
-   `/users/{sub}/collections`), and the `/_test/*` control API used by test helpers (`e2e/fixtures.ts`,
+   `/users/{sub}/collections`), and the control API used by test helpers (`e2e/fixtures.ts`,
    including `seedPsnPreferences` and the multi-user profile/follow seed methods).
 
    **Never assert "this row did not wrap" from `offsetTop`, and read the failure screenshot in
@@ -267,17 +267,25 @@ against the mock authority on first use:
    So:
    - **`signInAsAdmin(page)`** supplies the OIDC `curator.admin` claim that `adminGuard` reads. Without
      it the route does not activate.
-   - **`store.seedAdmin()`** (`POST /_test/admin`) sets the *mock Curator's* own `isAdmin`, which is what
+   - **`store.seedAdmin()`** (`POST ControlRoutes.admin`) sets the *mock Curator's* own `isAdmin`, which is what
      the `/enrichment/runs*` routes gate on. Without it the route activates and renders
      "Unable to load the latest enrichment run" — **a green-looking page that tested nothing.**
 
-   Order: `reset()` → `seedAdmin()` → `signInAsAdmin()`. Like every other `/_test/*` seeder, `seedAdmin`
-   writes to `DEFAULT_SUB` regardless of the caller's `X-E2E-Sub`, so it cannot make `secondAuthedPage` an
+   Order: `reset()` → `seedAdmin()` → `signInAsAdmin()`. Like every other control-route seeder, `seedAdmin`
+   writes to `DEFAULT_SUB` regardless of the caller's identity header, so it cannot make `secondAuthedPage` an
    admin; granting a second identity would need a sub-aware handler that does not exist yet.
 
-   The mock has no real bearer-token validation, so it identifies "who is calling" via an `X-E2E-Sub`
-   header that each authenticated Playwright fixture injects on every `/curator/api/**` request (see
-   `e2e/fixtures.ts`'s module docstring). `authedPage` and `secondAuthedPage` (a second, distinct
+   The mock has no real bearer-token validation, so it identifies "who is calling" via an identity
+   header that each authenticated Playwright fixture injects on every `/curator/api/**` request
+   (`applyAuthRoutes` in `e2e/fixtures.ts`).
+
+   **Every name in this handshake is generated, once per run.** The default sub, the identity header's
+   name, the four identity cookie names the mock OIDC reads, and every control route are fields of the
+   E2E contract (`e2e/mocks/e2e-identity-contract.ts`). `playwright.config.ts` generates it with
+   `newE2eContract()` and stores it as JSON in the `E2E_CONTRACT` environment variable, which the
+   runner, its workers and both mock servers inherit, so every process reads the same values through
+   `e2eContract()`. A value generated inside any one process instead would differ from the others' and
+   the handshake would silently miss. `authedPage` and `secondAuthedPage` (a second, distinct
    identity, each on its own browser context) let a single test drive two simultaneously signed-in
    users — needed for follow/unfollow and cross-viewer profile tests.
 2. **Mock OIDC provider** (`e2e/mocks/oidc-server.ts`) — real discovery/authorize/token/userinfo/jwks
@@ -296,7 +304,7 @@ Playwright route mocks — no real Identity or Curator is contacted.
 **Curator is mocked as a real HTTP server rather than with `page.route()`, and it has to be.**
 `page.route()` intercepts *browser* requests only; the calls to Curator are outbound `fetch` calls made
 by the Node SSR/BFF process, which Playwright never sees. So `e2e/mocks/curator.ts` serves the real
-route shapes over HTTP and tests drive its state through the control API at `/_test/*`. It mounts those
+route shapes over HTTP and tests drive its state through the control API (`ControlRoutes`). It mounts those
 routes with **no path prefix**, because `curatorProxy` has already stripped `/curator/api` before
 forwarding (see `AGENTS/REPOS/Librarian.md`).
 
@@ -304,7 +312,7 @@ The `e2e` project runs single-worker, non-parallel (`fullyParallel: false`, `wor
 C# suites' xUnit `Collection` behavior): every spec file shares the same mock server's in-memory state,
 so concurrent spec files would race on it.
 
-The mock Curator server auto-registers the calling identity (from `X-E2E-Sub`) on every non-control
+The mock Curator server auto-registers the calling identity (from the identity header) on every non-control
 route — mirroring how a real bearer token always implies an existing `app_users` row by the time a
 call reaches Curator (Identity account creation + Curator's own upsert-on-first-authenticated-request
 precede it). This means a freshly-signed-in user's own `/me`/`/library`/`/users/{ownSub}/profile` call
@@ -391,7 +399,8 @@ SSR bundle — so a bare "30000ms" narrows it to a mock before you read anything
 implicated. Both mocks boot through `npx tsx`, which is fast on an idle box and **measured at 25.4s on
 2026-09-07** after an evening of builds and suites, leaving under five seconds of headroom. **Measure the
 bind time before concluding anything**: start `npx tsx e2e/mocks/curator-server.ts` with
-`MOCK_CURATOR_PORT` set and poll `Get-NetTCPConnection -LocalPort 4101 -State Listen` in a loop. If it is
+`MOCK_CURATOR_PORT` and `E2E_CONTRACT` set (the mock refuses to start without the contract
+`playwright.config.ts` otherwise generates; `JSON.stringify(newE2eContract())` produces one) and poll `Get-NetTCPConnection -LocalPort 4101 -State Listen` in a loop. If it is
 seconds, the timeout was a genuine anomaly worth chasing; if it is twenty-plus, the box is saturated and
 the fix is to run the suite when it is not — **do not raise the budget to make this go green**, because
 the number is currently the only thing that reports a machine too loaded to trust a timing-sensitive
@@ -464,18 +473,17 @@ it times out with no clue as to why.
 `TitleStrategy.updateTitle()` *after* component construction, so a `setTitle` in a constructor is
 silently overwritten by the route's own static `title`. A `TestBed` with `provideRouter([])` runs no
 `TitleStrategy`, and `page.title()` reads post-router DOM — **both pass either way**. The one
-discriminating assertion is an anonymous `request.get('/catalog/g1')` reading `<title>` out of the raw
-body, which is also the branch a crawler actually takes. Verified by moving
+discriminating assertion is an anonymous `request.get` of a seeded game's `/catalog/{game_id}` reading
+`<title>` out of the raw body, which is also the branch a crawler actually takes. Verified by moving
 `CatalogDetailComponent`'s title call back into the constructor: the unit spec stayed green and
 `e2e/catalog.spec.ts`'s SSR assertion went red, with the served body carrying `<title>Game</title>`.
 
-**A date fixture asserted as a rendered calendar date must sit at midday UTC.** `e2e/library.spec.ts`
-seeds `next_run_at`/`last_run_at` and then asserts the `date: 'medium'` output (`Jun 15, 2031`), which the
-browser formats in *its own* timezone. A midnight-UTC timestamp lands on the previous day for every
-negative offset and the assertion fails by one day on a US runner while passing locally in Europe; midday
-leaves twelve hours of slack in both directions, which covers every real offset. The constants carry
-`_MIDDAY_UTC` in their names so the choice is visible at the value rather than in a comment above it, and
-the two years are deliberately far apart so binding the summary to the wrong field fails the test.
+**An E2E spec asserts a timestamp through its attribute, never its rendered date.** `e2e/library.spec.ts`
+compares `#library-schedule-next`'s `data-next-run-at` with the seeded `next_run_at`, so the runner's
+timezone never enters. The `date: 'medium'` pipe formats in the *browser's* timezone, so a spec that
+must read a rendered calendar date generates its instant at midday UTC: a midnight-UTC timestamp lands on
+the previous day for every negative offset and fails on a US runner while passing in Europe, and midday
+leaves twelve hours of slack in both directions.
 
 ### Adding an FAQ or privacy section: append it, or retarget `#toc-link-3`
 
@@ -487,6 +495,12 @@ wrong thing until someone reads it. Appending at the end of the page leaves ever
 untouched; that is why the Sony non-affiliation cards were appended rather than grouped with the
 related trust questions. Privacy has no such coupling — `e2e/privacy.spec.ts` selects only authored
 ids — but the same rule applies to it by symmetry.
+
+Both pages' specs assert structure, never copy: every `<h2>` carries a unique authored id, the
+server-rendered HTML already holds those ids, and the cross-links, GitHub links and contact address
+resolve. A sentence on either page is a claim about live behaviour that only a reader can check, so a
+spec pinning its wording would fail on a rewording and pass on a false statement. A copy edit therefore
+needs no spec edit, and a new heading needs only its id.
 
 Give every new heading an authored `id`. `page-toc.component.ts:54` reads
 `const base = heading.id || slugify(label) || 'section'` and then **writes it back** at line 61
@@ -524,7 +538,7 @@ Environment contract:
 |---|---|
 | `WalkerBaseUrl` | Deployed app URL; also disables `webServer` |
 | `SYNTHETIC_SEED` | **Required** decimal uint32; the whole walk derives from it |
-| `SYNTHETIC_STEPS` | Optional step budget override (default 40) |
+| `SYNTHETIC_STEPS` | Optional step budget override; its default and ceiling are `stepBudget` in `e2e/synthetic/walker-settings.json` |
 | `PASSKEY_CREDENTIAL1` | The walker account's passkey, as the five-field JSON Playwright's virtual authenticator returns |
 
 **The walker signs in with a passkey, not a password.** Identity evaluates the passkey branch

@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { ButtonGhostSmallDirective, ButtonPrimarySmallDirective } from '@crgolden/modules/primitives';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCircleHelp,
@@ -29,6 +30,10 @@ import {
 import { filter } from 'rxjs';
 import { AuthService } from '../../auth/auth.service';
 import { AdminService } from '../../admin/admin.service';
+import { AppUrls } from '../app-paths';
+import { loginUrlReturningTo } from '../../shared/bff-contract';
+import { NavLabels, PageTitles } from '../../shared/page-title';
+import { NAV_RAIL_SIGNOUT_ID, SiteNavIdPrefixes } from './site-nav-ids';
 
 export type NavIcon =
   | 'lucideCircleHelp'
@@ -53,17 +58,19 @@ export interface NavLink {
 }
 
 export const PRIMARY_NAV_LINKS: NavLink[] = [
-  { path: '/', label: 'Home', icon: 'lucideHouse', exact: true, reachableWithoutSigningIn: true, tab: true },
-  { path: '/catalog', label: 'Catalog', icon: 'lucideLayoutGrid', reachableWithoutSigningIn: true, tab: true },
-  { path: '/library', label: 'Library', icon: 'lucideLibraryBig', tab: true },
-  { path: '/collections', label: 'Collections', icon: 'lucideFolderOpen', tab: true },
-  { path: '/profile', label: 'Profile', icon: 'lucideCircleUser' },
-  { path: '/account', label: 'Account', icon: 'lucideSettings' },
-  { path: '/consoles', label: 'Consoles & Storage', icon: 'lucideHardDrive' },
-  { path: '/admin/enrichment', label: 'Enrichment Runs', icon: 'lucideSparkles', adminOnly: true },
-  { path: '/faq', label: 'FAQ', icon: 'lucideCircleHelp', reachableWithoutSigningIn: true },
-  { path: '/privacy', label: 'Privacy', icon: 'lucideShield', reachableWithoutSigningIn: true },
+  { path: AppUrls.home, label: NavLabels.home, icon: 'lucideHouse', exact: true, reachableWithoutSigningIn: true, tab: true },
+  { path: AppUrls.catalog, label: PageTitles.catalog, icon: 'lucideLayoutGrid', reachableWithoutSigningIn: true, tab: true },
+  { path: AppUrls.library, label: PageTitles.library, icon: 'lucideLibraryBig', tab: true },
+  { path: AppUrls.collections, label: PageTitles.collections, icon: 'lucideFolderOpen', tab: true },
+  { path: AppUrls.profile, label: PageTitles.profile, icon: 'lucideCircleUser' },
+  { path: AppUrls.account, label: PageTitles.account, icon: 'lucideSettings' },
+  { path: AppUrls.consoles, label: PageTitles.consoles, icon: 'lucideHardDrive' },
+  { path: AppUrls.adminEnrichment, label: PageTitles.enrichmentRuns, icon: 'lucideSparkles', adminOnly: true },
+  { path: AppUrls.faq, label: PageTitles.faq, icon: 'lucideCircleHelp', reachableWithoutSigningIn: true },
+  { path: AppUrls.privacy, label: NavLabels.privacy, icon: 'lucideShield', reachableWithoutSigningIn: true },
 ];
+
+export const SIGN_OUT_FALLBACK_HREF = '#';
 
 export const ANONYMOUS_NAV_LINKS: NavLink[] = PRIMARY_NAV_LINKS.filter(
   (link) => link.reachableWithoutSigningIn === true,
@@ -71,9 +78,8 @@ export const ANONYMOUS_NAV_LINKS: NavLink[] = PRIMARY_NAV_LINKS.filter(
 
 @Component({
   selector: 'app-site-nav',
-  imports: [RouterLink, RouterLinkActive, NgIcon],
+  imports: [RouterLink, RouterLinkActive, NgIcon, ButtonPrimarySmallDirective, ButtonGhostSmallDirective],
   templateUrl: './site-nav.component.html',
-  styleUrl: './site-nav.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
   viewProviders: [
     provideIcons({
@@ -103,6 +109,13 @@ export class SiteNavComponent {
 
   protected readonly sheetOpen = signal(false);
 
+  protected readonly idPrefixes = SiteNavIdPrefixes;
+  protected readonly navLabels = NavLabels;
+
+  protected readonly railSignoutId = NAV_RAIL_SIGNOUT_ID;
+
+  protected readonly signOutHref = computed(() => this.auth.logoutUrl() ?? SIGN_OUT_FALLBACK_HREF);
+
   protected readonly visibleLinks = computed(() => {
     const isAdmin = this.admin.isAdmin();
     const signedIn = this.auth.isAuthenticated();
@@ -124,9 +137,7 @@ export class SiteNavComponent {
   protected readonly loginHref = computed(() => {
     this.lastNavigation();
     const current = this.router.url;
-    return current && current !== '/'
-      ? `${this.auth.loginUrl}?returnTo=${encodeURIComponent(current)}`
-      : this.auth.loginUrl;
+    return current && current !== AppUrls.home ? loginUrlReturningTo(current) : this.auth.loginUrl;
   });
 
   private urlWhereSheetOpened: string | null = null;

@@ -1,4 +1,4 @@
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
 import { DatePipe, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -16,6 +16,14 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
+import {
+  ButtonGhostDirective,
+  ButtonGhostSmallDirective,
+  ButtonPrimaryDirective,
+  ButtonPrimarySmallDirective,
+  CardDirective,
+  PageSectionDirective,
+} from '@crgolden/modules/primitives';
 import {
   ColumnDef,
   injectTable,
@@ -40,7 +48,7 @@ import {
   switchMap,
   takeWhile,
 } from 'rxjs';
-import { CuratorService, LibraryQuery, LibrarySortField } from '../curator/curator.service';
+import { CuratorService, LibraryQuery } from '../curator/curator.service';
 import {
   GameSummaryResponse,
   LibraryGameResponse,
@@ -49,8 +57,17 @@ import {
   ProfileLibraryGameResponse,
   PsPlusRotationSummaryResponse,
   RefreshScheduleResponse,
+  JobStatuses,
+  LibraryEntrySources,
+  LibraryHiddenFilters,
+  LibrarySortField,
+  LibrarySortFields,
+  SortDirections,
   StoreSearchResultResponse,
+  StoreUnavailableReasons,
+  TrophyMatches,
   TrophyProgressResponse,
+  TrophyProgressStates,
 } from '../curator/curator.models';
 import { RawgAttributionComponent } from '../app/shared/attribution/rawg-attribution.component';
 import { BreadcrumbComponent, BreadcrumbItem } from '../app/shared/breadcrumb/breadcrumb.component';
@@ -69,23 +86,47 @@ import {
   librarySortFrom,
 } from './library.query';
 import { nullIfEmpty } from '../shared/control-value';
+import { SUMMARY_TITLE_DISPLAY_CAP } from './library-summary';
+import { libraryHeaderId, libraryPlatformId, libraryRowId, librarySortArrowId, librarySortId } from './library-ids';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
 import { PageSizeComponent } from '../shared/page-size/page-size.component';
+import { CatalogMetaDirective, CatalogTitleDirective, SpineLabelDirective } from '../shared/primitives/typography';
 import { pageSizeChoicesUpTo, readPageSize, writePageSize } from '../shared/page-size/page-size.preference';
+import { AccountAnchors, AppUrls, RouteDataKeys, RouteParams } from '../app/app-paths';
+import {
+  ALL_GENRES_LABEL,
+  EMPTY_OWN_LIBRARY_MESSAGE,
+  EMPTY_VIEWED_LIBRARY_MESSAGE,
+  LIBRARY_FORBIDDEN_MESSAGE,
+  LIBRARY_LOAD_ERROR,
+  PS_PLUS_NOT_WALKED_MESSAGE,
+  REFRESH_JOB_LOST_ERROR,
+  REFRESH_START_ERROR,
+  STORE_MATCH_CATALOG_EMPTY_LEAD,
+  TROPHY_PENDING_TITLE,
+  TROPHY_PROGRESS_TITLES,
+  TROPHY_UNMATCHED_TITLE,
+  USER_LIBRARY_LOAD_ERROR,
+  VIEWER_TROPHY_TITLE,
+} from './library.messages';
+import { PageTitles } from '../shared/page-title';
+import { ResolvedStatuses } from '../shared/resolved-status';
+import { ProviderNames } from '../shared/provider-names';
+import { environment } from '../environments/environment';
+import { statusCodeOf } from '../shared/http-status';
 
 export { LIBRARY_PAGE_SIZE_CEILING, LIBRARY_PAGE_SIZE_KEY } from './library.query';
 
-const POLL_INTERVAL_MS = 2500;
-const POLL_ERROR_RETRY_COUNT = 3;
-const POLL_ERROR_RETRY_DELAY_MS = 2000;
-const TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'cancelled']);
-const PAUSED_STATUSES = new Set(['rate_limited']);
-const KNOWN_STATUSES = new Set(['queued', 'running', 'succeeded', 'failed', 'rate_limited', 'cancelled']);
-const SUMMARY_TITLE_DISPLAY_CAP = 10;
-const SEARCH_DEBOUNCE_MS = 300;
-const MANUAL_SEARCH_LIMIT = 10;
-const FORBIDDEN_STATUS = 403;
-const ALREADY_OWNED_STATUS = 409;
+const TERMINAL_STATUSES = new Set<string>([JobStatuses.succeeded, JobStatuses.failed, JobStatuses.cancelled]);
+const PAUSED_STATUSES = new Set<string>([JobStatuses.rateLimited]);
+const KNOWN_STATUSES = new Set<string>([
+  JobStatuses.queued,
+  JobStatuses.running,
+  JobStatuses.succeeded,
+  JobStatuses.failed,
+  JobStatuses.rateLimited,
+  JobStatuses.cancelled,
+]);
 
 type LibraryGame = LibraryGameResponse | ProfileLibraryGameResponse;
 
@@ -103,27 +144,17 @@ interface LibraryLoadOutcome {
   failure: 'forbidden' | 'failed' | null;
 }
 
-const TROPHY_PROGRESS_TITLES: Readonly<Record<string, string>> = {
-  no_link: 'Link a PlayStation Network account on your account page to see trophy completion.',
-  harvest_off: 'Trophy harvesting is off in your PSN preferences; turn it on to see completion.',
-  never_refreshed: 'Trophy completion appears after your next library refresh.',
-};
-
-const TROPHY_PENDING_TITLE = 'Trophy completion appears after your next library refresh.';
-const TROPHY_UNMATCHED_TITLE = 'No PlayStation trophy title matched this game, so its completion cannot be shown.';
-const VIEWER_TROPHY_TITLE = "Trophy completion isn't shown for other users' libraries yet.";
-
 const LIBRARY_TABLE_FEATURES = tableFeatures({ rowSortingFeature, rowPaginationFeature });
 
 const LIBRARY_COLUMNS: ColumnDef<typeof LIBRARY_TABLE_FEATURES, LibraryGame>[] = [
   { id: 'cover', header: 'Cover', enableSorting: false },
-  { id: 'title', accessorKey: 'title', header: 'Title' },
+  { id: LibrarySortFields.title, accessorKey: 'title', header: 'Title' },
   { id: 'platforms', accessorKey: 'platforms', header: 'Platforms', enableSorting: false },
-  { id: 'genre', accessorKey: 'genre', header: 'Genre', sortDescFirst: false },
-  { id: 'rawg_rating', accessorKey: 'rawg_rating', header: 'RAWG' },
-  { id: 'opencritic_rating', accessorKey: 'opencritic_rating', header: 'OpenCritic' },
-  { id: 'psn_rating', accessorKey: 'psn_rating', header: 'PS Store' },
-  { id: 'percent_completed', accessorKey: 'percent_completed', header: '% Completed' },
+  { id: LibrarySortFields.genre, accessorKey: 'genre', header: 'Genre', sortDescFirst: false },
+  { id: LibrarySortFields.rawgRating, accessorKey: 'rawg_rating', header: 'RAWG' },
+  { id: LibrarySortFields.opencriticRating, accessorKey: 'opencritic_rating', header: ProviderNames.openCritic },
+  { id: LibrarySortFields.psnRating, accessorKey: 'psn_rating', header: 'PS Store' },
+  { id: LibrarySortFields.percentCompleted, accessorKey: 'percent_completed', header: '% Completed' },
   { id: 'catalog_link', header: 'Catalog', enableSorting: false },
 ];
 
@@ -137,12 +168,35 @@ const LIBRARY_COLUMNS: ColumnDef<typeof LIBRARY_TABLE_FEATURES, LibraryGame>[] =
     PageSizeComponent,
     RawgAttributionComponent,
     RouterLink,
+    PageSectionDirective,
+    CardDirective,
+    ButtonPrimaryDirective,
+    ButtonPrimarySmallDirective,
+    ButtonGhostDirective,
+    ButtonGhostSmallDirective,
+    CatalogMetaDirective,
+    CatalogTitleDirective,
+    SpineLabelDirective,
   ],
   templateUrl: './library.component.html',
-  styleUrl: './library.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LibraryComponent implements OnInit, OnDestroy {
+  protected readonly appUrls = AppUrls;
+  protected readonly libraryRowId = libraryRowId;
+  protected readonly libraryPlatformId = libraryPlatformId;
+  protected readonly libraryHeaderId = libraryHeaderId;
+  protected readonly librarySortId = librarySortId;
+  protected readonly librarySortArrowId = librarySortArrowId;
+  protected readonly accountAnchors = AccountAnchors;
+  protected readonly forbiddenMessage = LIBRARY_FORBIDDEN_MESSAGE;
+  protected readonly emptyOwnLibraryMessage = EMPTY_OWN_LIBRARY_MESSAGE;
+  protected readonly emptyViewedLibraryMessage = EMPTY_VIEWED_LIBRARY_MESSAGE;
+  protected readonly allGenresLabel = ALL_GENRES_LABEL;
+  protected readonly psPlusNotWalkedMessage = PS_PLUS_NOT_WALKED_MESSAGE;
+  protected readonly storeMatchCatalogEmptyLead = STORE_MATCH_CATALOG_EMPTY_LEAD;
+  protected readonly jobStatuses = JobStatuses;
+
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -164,7 +218,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
   protected readonly schedule = signal<RefreshScheduleResponse | null>(null);
   protected readonly psPlus = signal<PsPlusRotationSummaryResponse | null>(null);
   protected readonly trophyProgress = signal<TrophyProgressResponse | null>(null);
-  protected readonly trophyLinkNeeded = computed(() => !this.viewerMode() && this.trophyProgress()?.state === 'off');
+  protected readonly trophyLinkNeeded = computed(() => !this.viewerMode() && this.trophyProgress()?.state === TrophyProgressStates.off);
   protected readonly hiddenCount = signal(0);
   protected readonly showingHidden = signal(false);
   protected readonly hidePending = signal<string | null>(null);
@@ -234,7 +288,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
       const first = next[0];
       this.writeListStateToUrl({
         sort: !first || first.id === DEFAULT_LIBRARY_SORT ? null : first.id,
-        sortDir: first?.desc ? 'desc' : null,
+        sortDir: first?.desc ? SortDirections.desc : null,
       });
     },
     onPaginationChange: (updater) => {
@@ -256,7 +310,9 @@ export class LibraryComponent implements OnInit, OnDestroy {
 
   protected readonly mobileSortValue = computed(() => {
     const current = this.sorting()[0];
-    return current ? `${current.id}:${current.desc ? 'desc' : 'asc'}` : 'title:asc';
+    return current
+      ? `${current.id}:${current.desc ? SortDirections.desc : SortDirections.asc}`
+      : `${LibrarySortFields.title}:${SortDirections.asc}`;
   });
 
   ngOnInit(): void {
@@ -265,7 +321,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
       .subscribe((outcome) => this.applyLibraryOutcome(outcome));
 
     this.searchCommitSubscription = this.searchCommit
-      .pipe(debounceTime(SEARCH_DEBOUNCE_MS), distinctUntilChanged())
+      .pipe(debounceTime(environment.librarySearchDebounceMs), distinctUntilChanged())
       .subscribe((value) => {
         void this.router.navigate([], {
           relativeTo: this.route,
@@ -275,21 +331,21 @@ export class LibraryComponent implements OnInit, OnDestroy {
         });
       });
 
-    const sub = this.route.snapshot.paramMap.get('sub');
+    const sub = this.route.snapshot.paramMap.get(RouteParams.sub);
     if (sub !== null) {
       this.viewerMode.set(true);
       this.sub.set(sub);
-      this.breadcrumbItems.set([{ label: 'Profile', link: ['/u', sub] }, { label: 'Library' }]);
+      this.breadcrumbItems.set([{ label: PageTitles.profile, link: [AppUrls.users, sub] }, { label: PageTitles.library }]);
     }
 
-    const resolved = this.route.snapshot.data['library'] as ResolvedLibrary;
-    if (resolved.status === 'forbidden') {
+    const resolved = this.route.snapshot.data[RouteDataKeys.library] as ResolvedLibrary;
+    if (resolved.status === ResolvedStatuses.forbidden) {
       this.viewerForbidden.set(true);
       return;
     }
-    if (resolved.status === 'error') {
+    if (resolved.status === ResolvedStatuses.error) {
       this.gamesError.set(
-        sub !== null ? "Unable to load this user's library." : 'Unable to load your library.',
+        sub !== null ? USER_LIBRARY_LOAD_ERROR : LIBRARY_LOAD_ERROR,
       );
       return;
     }
@@ -370,16 +426,16 @@ export class LibraryComponent implements OnInit, OnDestroy {
     return {
       q: this.committedSearch() ?? undefined,
       genre: this.genreFilter() ?? undefined,
-      sort: (sorting[0]?.id as LibrarySortField | undefined) ?? 'title',
-      sortDir: sorting[0]?.desc ? 'desc' : 'asc',
+      sort: (sorting[0]?.id as LibrarySortField | undefined) ?? LibrarySortFields.title,
+      sortDir: sorting[0]?.desc ? SortDirections.desc : SortDirections.asc,
       limit: pagination.pageSize,
       offset: pagination.pageIndex * pagination.pageSize,
-      hidden: !this.viewerMode() && this.showingHidden() ? 'only' : undefined,
+      hidden: !this.viewerMode() && this.showingHidden() ? LibraryHiddenFilters.only : undefined,
     };
   }
 
   protected hiddenViewParams(): Params {
-    return { hidden: this.showingHidden() ? null : 'only', page: null };
+    return { hidden: this.showingHidden() ? null : LibraryHiddenFilters.only, page: null };
   }
 
   protected hideGame(game: LibraryGame): void {
@@ -427,7 +483,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
   }
 
   protected isManual(game: LibraryGame): boolean {
-    return 'source' in game && game.source === 'manual';
+    return 'source' in game && game.source === LibraryEntrySources.manual;
   }
 
   protected toggleAddManual(): void {
@@ -467,14 +523,14 @@ export class LibraryComponent implements OnInit, OnDestroy {
   private askForCandidates(term: string, includeStore: boolean): void {
     this.storeUnlinked.set(false);
     this.allCatalogMatchesOwned.set(false);
-    this.curator.manualAddCandidates(term, includeStore, MANUAL_SEARCH_LIMIT).subscribe({
+    this.curator.manualAddCandidates(term, includeStore, environment.libraryManualSearchLimit).subscribe({
       next: (answer) => {
         this.manualSearching.set(false);
         this.manualResults.set(answer.catalog);
         this.allCatalogMatchesOwned.set(answer.catalog.length === 0 && answer.already_owned > 0);
-        this.storeUnlinked.set(answer.store_unavailable === 'no_psn_link');
+        this.storeUnlinked.set(answer.store_unavailable === StoreUnavailableReasons.noPsnLink);
 
-        if (answer.store_unavailable === 'psn_auth_failed') {
+        if (answer.store_unavailable === StoreUnavailableReasons.psnAuthFailed) {
           this.manualError.set('The PlayStation Store could not be checked — re-link your account.');
           return;
         }
@@ -533,7 +589,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
       error: (err: HttpErrorResponse) => {
         this.manualPending.set(null);
         this.manualError.set(
-          err.status === ALREADY_OWNED_STATUS
+          statusCodeOf(err) === HttpStatusCode.Conflict
             ? `${game.canonical_title} is already in your library from PlayStation Network.`
             : `Unable to add ${game.canonical_title}.`,
         );
@@ -559,7 +615,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
       error: (err: HttpErrorResponse) => {
         this.manualPending.set(null);
         this.storeMatchError.set(
-          err.status === ALREADY_OWNED_STATUS
+          statusCodeOf(err) === HttpStatusCode.Conflict
             ? `${candidate.name} is already in your library from PlayStation Network.`
             : `Unable to add ${candidate.name}.`,
         );
@@ -621,7 +677,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
           total: 0,
           trophyProgress: null,
           hiddenCount: 0,
-          failure: request.viewerMode && err.status === FORBIDDEN_STATUS ? 'forbidden' : 'failed',
+          failure: request.viewerMode && statusCodeOf(err) === HttpStatusCode.Forbidden ? 'forbidden' : 'failed',
         }),
       ),
     );
@@ -635,7 +691,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
     }
     if (outcome.failure === 'failed') {
       this.gamesError.set(
-        this.viewerMode() ? "Unable to load this user's library." : 'Unable to load your library.',
+        this.viewerMode() ? USER_LIBRARY_LOAD_ERROR : LIBRARY_LOAD_ERROR,
       );
       return;
     }
@@ -658,7 +714,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
 
   protected onMobileSortChange(value: string): void {
     const [id, dir] = value.split(':');
-    this.writeListStateToUrl({ sort: id === DEFAULT_LIBRARY_SORT ? null : id, sortDir: dir === 'desc' ? 'desc' : null });
+    this.writeListStateToUrl({ sort: id === DEFAULT_LIBRARY_SORT ? null : id, sortDir: dir === SortDirections.desc ? SortDirections.desc : null });
   }
 
   protected percentCompletedDisplay(percentCompleted: number | null): string {
@@ -670,17 +726,17 @@ export class LibraryComponent implements OnInit, OnDestroy {
       return VIEWER_TROPHY_TITLE;
     }
     const progress = this.trophyProgress();
-    if (progress === null || progress.state === 'on') {
+    if (progress === null || progress.state === TrophyProgressStates.on) {
       return undefined;
     }
-    if (progress.state === 'pending') {
+    if (progress.state === TrophyProgressStates.pending) {
       return TROPHY_PENDING_TITLE;
     }
     return progress.reason === null ? undefined : TROPHY_PROGRESS_TITLES[progress.reason];
   }
 
   protected percentCompletedCellTitle(game: LibraryGame): string | undefined {
-    if (!this.viewerMode() && 'trophy_match' in game && game.trophy_match === 'unmatched') {
+    if (!this.viewerMode() && 'trophy_match' in game && game.trophy_match === TrophyMatches.unmatched) {
       return TROPHY_UNMATCHED_TITLE;
     }
     return this.percentCompletedTitle();
@@ -699,7 +755,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
     const descending = header.column.getIsSorted() === 'asc';
     return {
       sort: id === DEFAULT_LIBRARY_SORT ? null : id,
-      sortDir: descending ? 'desc' : null,
+      sortDir: descending ? SortDirections.desc : null,
       page: null,
     };
   }
@@ -721,7 +777,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
       next: ({ run_id }) => this.startPolling(run_id),
       error: () => {
         this.refreshing.set(false);
-        this.error.set('Unable to start a library refresh.');
+        this.error.set(REFRESH_START_ERROR);
       },
     });
   }
@@ -733,10 +789,10 @@ export class LibraryComponent implements OnInit, OnDestroy {
     }
 
     this.pollSubscription?.unsubscribe();
-    this.pollSubscription = interval(POLL_INTERVAL_MS)
+    this.pollSubscription = interval(environment.libraryPollIntervalMs)
       .pipe(
         switchMap(() => this.curator.getLibraryRefreshStatus(runId)),
-        retry({ count: POLL_ERROR_RETRY_COUNT, delay: POLL_ERROR_RETRY_DELAY_MS, resetOnSuccess: true }),
+        retry({ count: environment.libraryPollErrorRetryCount, delay: environment.libraryPollErrorRetryDelayMs, resetOnSuccess: true }),
         takeWhile((response) => !this.pollingComplete(response.status), true),
       )
       .subscribe({
@@ -748,7 +804,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
           if (this.pollingComplete(response.status)) {
             this.refreshing.set(false);
           }
-          if (response.status === 'succeeded') {
+          if (response.status === JobStatuses.succeeded) {
             if (libraryPageFrom(this.routeParams()) === 1) {
               this.reload();
             } else {
@@ -759,7 +815,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
         },
         error: () => {
           this.refreshing.set(false);
-          this.error.set('Lost track of the refresh job.');
+          this.error.set(REFRESH_JOB_LOST_ERROR);
         },
       });
   }

@@ -1,8 +1,49 @@
-export type ContentKind = 'game' | 'media_app' | 'add_on' | 'demo' | 'soundtrack' | 'theme' | 'subscription';
+export const SortDirections = {
+  asc: 'asc',
+  desc: 'desc',
+} as const;
 
-export type CatalogKind = ContentKind | 'all';
+export type SortDirection = (typeof SortDirections)[keyof typeof SortDirections];
 
-export type CatalogSortField = 'title' | 'price';
+export const AaaTiers = {
+  aaa: 'AAA',
+  aa: 'AA',
+  indie: 'Indie',
+} as const;
+
+export const ContentKinds = {
+  game: 'game',
+  mediaApp: 'media_app',
+  addOn: 'add_on',
+  demo: 'demo',
+  soundtrack: 'soundtrack',
+  theme: 'theme',
+  subscription: 'subscription',
+} as const;
+
+export type ContentKind = (typeof ContentKinds)[keyof typeof ContentKinds];
+
+export const ALL_CATALOG_KINDS = 'all';
+
+export type CatalogKind = ContentKind | typeof ALL_CATALOG_KINDS;
+
+export const LibrarySortFields = {
+  title: 'title',
+  genre: 'genre',
+  rawgRating: 'rawg_rating',
+  opencriticRating: 'opencritic_rating',
+  psnRating: 'psn_rating',
+  percentCompleted: 'percent_completed',
+} as const;
+
+export type LibrarySortField = (typeof LibrarySortFields)[keyof typeof LibrarySortFields];
+
+export const CatalogSortFields = {
+  title: 'title',
+  price: 'price',
+} as const;
+
+export type CatalogSortField = (typeof CatalogSortFields)[keyof typeof CatalogSortFields];
 
 export interface CatalogPriceResponse {
   is_free: boolean | null;
@@ -52,6 +93,34 @@ export interface CatalogGenresResponse {
   genres: string[];
 }
 
+export const CollectionKinds = {
+  filterList: 'filter_list',
+  capacityFill: 'capacity_fill',
+} as const;
+
+export type CollectionKind = (typeof CollectionKinds)[keyof typeof CollectionKinds];
+
+export const ConsolePlatforms = {
+  ps5: 'PS5',
+  ps4: 'PS4',
+  ps3: 'PS3',
+  psvita: 'PSVITA',
+  psp: 'PSP',
+  ps2: 'PS2',
+  ps1: 'PS1',
+} as const;
+
+export type ConsolePlatform = (typeof ConsolePlatforms)[keyof typeof ConsolePlatforms];
+
+export const CONSOLE_PLATFORM_OPTIONS: readonly ConsolePlatform[] = Object.values(ConsolePlatforms);
+
+export const StorageKinds = {
+  m2: 'm2',
+  usb: 'usb',
+} as const;
+
+export type StorageKind = (typeof StorageKinds)[keyof typeof StorageKinds];
+
 export interface CollectionSpecRequest {
   kind: string;
   console_id?: string | null;
@@ -66,7 +135,17 @@ export interface CollectionSpecRequest {
   install_target_console_id?: string | null;
 }
 
-export type SizeSource = 'measured' | 'download' | 'estimated' | 'capped_default' | 'default';
+export const SizeSources = {
+  measured: 'measured',
+  download: 'download',
+  estimated: 'estimated',
+  cappedDefault: 'capped_default',
+  default: 'default',
+} as const;
+
+export type SizeSource = (typeof SizeSources)[keyof typeof SizeSources];
+
+export const UNMEASURED_SIZE_SOURCE: SizeSource = SizeSources.default;
 
 export interface IgnoredFilterResponse {
   filter: string;
@@ -109,7 +188,13 @@ export interface UpdateDefinitionRequest {
   game_ids?: string[];
 }
 
-export type CollectionVisibility = 'private' | 'unlisted' | 'public';
+export const CollectionVisibilities = {
+  private: 'private',
+  unlisted: 'unlisted',
+  public: 'public',
+} as const;
+
+export type CollectionVisibility = (typeof CollectionVisibilities)[keyof typeof CollectionVisibilities];
 
 export interface VisibilityUpdateRequest {
   visibility: CollectionVisibility;
@@ -154,7 +239,15 @@ export interface DefinitionDetailResponse extends DefinitionResponse {
   items: CollectionItemResponse[];
 }
 
-export type CollectionItemSortField = 'rank' | 'title' | 'critical_score' | 'oc_score' | 'psn_rating';
+export const CollectionItemSortFields = {
+  rank: 'rank',
+  title: 'title',
+  criticalScore: 'critical_score',
+  ocScore: 'oc_score',
+  psnRating: 'psn_rating',
+} as const;
+
+export type CollectionItemSortField = (typeof CollectionItemSortFields)[keyof typeof CollectionItemSortFields];
 
 export interface CollectionItemsPageResponse {
   items: CollectionItemResponse[];
@@ -210,20 +303,48 @@ export interface LibraryRefreshStatusResponse {
   result_summary: LibraryRefreshResultSummary | null;
 }
 
-export type LibraryEntrySource = 'psn' | 'manual';
+export const LibraryEntrySources = {
+  psn: 'psn',
+  manual: 'manual',
+} as const;
 
-export type TrophyMatch = 'matched' | 'unmatched' | 'not_attempted';
+export type LibraryEntrySource = (typeof LibraryEntrySources)[keyof typeof LibraryEntrySources];
 
-export type TrophyProgressState = 'off' | 'pending' | 'on';
+export const TrophyMatches = {
+  matched: 'matched',
+  unmatched: 'unmatched',
+  notAttempted: 'not_attempted',
+} as const;
 
-export type TrophyProgressReason = 'no_link' | 'harvest_off' | 'never_refreshed';
+export type TrophyMatch = (typeof TrophyMatches)[keyof typeof TrophyMatches];
+
+export const TrophyProgressStates = {
+  off: 'off',
+  pending: 'pending',
+  on: 'on',
+} as const;
+
+export type TrophyProgressState = (typeof TrophyProgressStates)[keyof typeof TrophyProgressStates];
+
+export const TrophyProgressReasons = {
+  noLink: 'no_link',
+  harvestOff: 'harvest_off',
+  neverRefreshed: 'never_refreshed',
+} as const;
+
+export type TrophyProgressReason = (typeof TrophyProgressReasons)[keyof typeof TrophyProgressReasons];
 
 export interface TrophyProgressResponse {
   state: TrophyProgressState;
   reason: TrophyProgressReason | null;
 }
 
-export type LibraryHiddenFilter = 'exclude' | 'only';
+export const LibraryHiddenFilters = {
+  exclude: 'exclude',
+  only: 'only',
+} as const;
+
+export type LibraryHiddenFilter = (typeof LibraryHiddenFilters)[keyof typeof LibraryHiddenFilters];
 
 export interface LibraryGameResponse {
   game_id: string;
@@ -263,12 +384,19 @@ export interface StoreSearchResultResponse {
   is_free: boolean | null;
 }
 
+export const StoreUnavailableReasons = {
+  noPsnLink: 'no_psn_link',
+  psnAuthFailed: 'psn_auth_failed',
+} as const;
+
+export type StoreUnavailableReason = (typeof StoreUnavailableReasons)[keyof typeof StoreUnavailableReasons];
+
 export interface ManualCandidatesResponse {
   catalog: GameSummaryResponse[];
   store: StoreSearchResultResponse[];
   already_owned: number;
   store_consulted: boolean;
-  store_unavailable: 'no_psn_link' | 'psn_auth_failed' | null;
+  store_unavailable: StoreUnavailableReason | null;
 }
 
 export interface ManualStoreHit {
@@ -347,6 +475,15 @@ export interface PsnPreferencesResponse {
   allow_chat_writes: boolean;
 }
 
+export const PsnPreferenceKeys = {
+  harvestTrophies: 'harvest_trophies',
+  harvestIdentity: 'harvest_identity',
+  harvestPresence: 'harvest_presence',
+  harvestDevices: 'harvest_devices',
+  allowFriendWrites: 'allow_friend_writes',
+  allowChatWrites: 'allow_chat_writes',
+} as const satisfies Record<string, keyof PsnPreferencesResponse>;
+
 export interface PsnPreferencesRequest {
   harvest_trophies: boolean;
   harvest_identity: boolean;
@@ -402,10 +539,19 @@ export interface DevicesResponse {
   devices: DeviceResponse[];
 }
 
+export const AccountActionOutcomes = {
+  started: 'started',
+  completed: 'completed',
+  failed: 'failed',
+} as const;
+
+export type AccountActionOutcome = (typeof AccountActionOutcomes)[keyof typeof AccountActionOutcomes];
+
 export interface AccountActionResponse {
   action: string;
   detail: string | null;
   occurred_at: string;
+  outcome: AccountActionOutcome;
 }
 
 export interface AccountActionsResponse {
@@ -420,9 +566,39 @@ export interface ProfileSettingsResponse {
   show_identity: boolean;
 }
 
+export const ProfileSettingKeys = {
+  isPublic: 'is_public',
+  showLibrary: 'show_library',
+  showCollections: 'show_collections',
+  showTrophies: 'show_trophies',
+  showIdentity: 'show_identity',
+} as const satisfies Record<string, keyof ProfileSettingsResponse>;
+
 export type ProfileSettingsRequest = ProfileSettingsResponse;
 
-export type RefreshCadence = 'daily' | 'weekly' | 'monthly';
+export const RefreshCadences = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+} as const;
+
+export const JobStatuses = {
+  queued: 'queued',
+  running: 'running',
+  succeeded: 'succeeded',
+  failed: 'failed',
+  cancelled: 'cancelled',
+  rateLimited: 'rate_limited',
+} as const;
+
+export type JobStatus = (typeof JobStatuses)[keyof typeof JobStatuses];
+
+export const SchedulePausedReasons = {
+  psnLinkExpired: 'psn-link-expired',
+  tooManyConsecutiveFailures: 'too-many-consecutive-failures',
+} as const;
+
+export type RefreshCadence =(typeof RefreshCadences)[keyof typeof RefreshCadences];
 
 export interface RefreshScheduleResponse {
   cadence: RefreshCadence;
@@ -438,7 +614,12 @@ export interface RefreshScheduleRequest {
   ps_plus_watch: boolean;
 }
 
-export type PsPlusTier = 'extra' | 'premium';
+export const PsPlusTiers = {
+  extra: 'extra',
+  premium: 'premium',
+} as const;
+
+export type PsPlusTier = (typeof PsPlusTiers)[keyof typeof PsPlusTiers];
 
 export interface PsPlusTitleResponse {
   title_id: string;
@@ -594,7 +775,14 @@ export interface ConsoleResponse {
   device_link: ConsoleDeviceLinkResponse | null;
 }
 
-export type ConsoleDeviceLinkState = 'linked' | 'device_deactivated' | 'device_missing' | 'not_checked';
+export const ConsoleDeviceLinkStates = {
+  linked: 'linked',
+  deviceDeactivated: 'device_deactivated',
+  deviceMissing: 'device_missing',
+  notChecked: 'not_checked',
+} as const;
+
+export type ConsoleDeviceLinkState = (typeof ConsoleDeviceLinkStates)[keyof typeof ConsoleDeviceLinkStates];
 
 export interface ConsoleDeviceLinkResponse {
   device_id: string;

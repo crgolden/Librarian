@@ -1,53 +1,54 @@
-<section class="page-section flex flex-col gap-4">
+<section crgPageSection class="flex flex-col gap-4">
   @if (notFound()) {
-    <h1 id="page-title">Collection not found</h1>
-    <p class="text-muted">This link is invalid, or the collection it pointed to is no longer shared.</p>
+    <h1 id="page-title">{{ notFoundTitle }}</h1>
+    <p id="public-collection-not-found" class="text-meta text-text-muted">This link is invalid, or the collection it pointed to is no longer shared.</p>
   } @else if (error()) {
-    <p class="text-error">{{ error() }}</p>
+    <p class="m-0 text-meta text-danger">{{ error() }}</p>
   } @else if (collection(); as collection) {
-    <h1 id="page-title">{{ collection.name }}</h1>
+    <h1 id="page-title" [attr.data-definition-id]="collection.definition_id">{{ collection.name }}</h1>
     @if (collection.description) {
-      <p class="text-muted">{{ collection.description }}</p>
+      <p class="text-meta text-text-muted">{{ collection.description }}</p>
     }
 
-    <div class="form-actions">
+    <div class="flex gap-3">
       @if (isAuthenticated()) {
         <button
           id="public-collection-follow"
           type="button"
-          class="btn-primary"
+          crgButtonPrimary
           [disabled]="followPending()"
+          [attr.data-following]="following()"
           (click)="toggleFollow()"
         >
           {{ following() ? 'Unfollow' : 'Follow this collection' }}
         </button>
       } @else {
-        <a id="public-collection-sign-in" class="btn-primary" [href]="returnToUrl()"
-          >Sign in to follow this collection</a
+        <a id="public-collection-sign-in" crgButtonPrimary [href]="returnToUrl()"
+          >{{ signInToFollowLabel }}</a
         >
       }
     </div>
     @if (followError()) {
-      <p class="text-error">{{ followError() }}</p>
+      <p class="m-0 text-meta text-danger">{{ followError() }}</p>
     }
 
     <h2>Games ({{ collection.items.length }})</h2>
     @if (collection.items.length === 0) {
-      <p class="text-muted">This collection is empty.</p>
+      <p class="text-meta text-text-muted">This collection is empty.</p>
     } @else {
-      <ul class="catalog-list">
+      <ul class="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 p-0">
         @for (item of collection.items; track item.game_id) {
-          <li class="card p-6 flex flex-col gap-2 items-start" [class.item-unavailable]="!item.owner_has_access">
+          <li crgCard class="p-6 flex flex-col gap-2 items-start" [class.opacity-60]="!item.owner_has_access">
             @if (item.cover_image_url) {
-              <img class="cover-art max-w-[180px]" [src]="item.cover_image_url" [alt]="item.title" loading="lazy" />
+              <img [attr.id]="'public-collection-cover-' + $index" class="block aspect-square w-full rounded-sm object-cover max-w-[180px]" [src]="item.cover_image_url" [alt]="item.title" loading="lazy" />
             }
-            <span class="catalog-title" [attr.id]="'public-collection-title-' + $index">{{ item.title }}</span>
+            <span appCatalogTitle [attr.id]="'public-collection-title-' + $index" [attr.data-game-id]="item.game_id">{{ item.title }}</span>
             @if (item.genre) {
-              <span class="spine-label">{{ item.genre }}</span>
+              <span appSpineLabel>{{ item.genre }}</span>
             }
-            <span class="catalog-meta">{{ item.franchise }} &middot; {{ item.aaa_tier }}</span>
+            <span appCatalogMeta>{{ item.franchise }} &middot; {{ item.aaa_tier }}</span>
             @if (!item.owner_has_access) {
-              <span class="text-muted">No longer in the owner's library</span>
+              <span class="text-meta text-text-muted">No longer in the owner's library</span>
             }
           </li>
         }

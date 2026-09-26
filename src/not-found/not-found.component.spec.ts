@@ -1,8 +1,10 @@
+import { HttpStatusCode } from '@angular/common/http';
 import { RESPONSE_INIT } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Meta } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { NotFoundComponent } from './not-found.component';
+import { MetaNames, RobotsDirectives } from '../shared/seo-contract';
 
 describe('NotFoundComponent', () => {
   it('sets the response status to 404 when RESPONSE_INIT is provided', () => {
@@ -15,7 +17,7 @@ describe('NotFoundComponent', () => {
     const fixture = TestBed.createComponent(NotFoundComponent);
     fixture.detectChanges();
 
-    expect(responseInit.status).toBe(404);
+    expect(responseInit.status).toBe(HttpStatusCode.NotFound);
   });
 
   it('does not throw when RESPONSE_INIT is null', () => {
@@ -40,8 +42,8 @@ describe('NotFoundComponent', () => {
     fixture.detectChanges();
 
     const meta = TestBed.inject(Meta);
-    const tag = meta.getTag('name="robots"');
-    expect(tag?.content).toBe('noindex');
+    const tag = meta.getTag(`name="${MetaNames.robots}"`);
+    expect(tag?.content).toBe(RobotsDirectives.noIndex);
   });
 
   it('renders a friendly message with a link back home', () => {
@@ -54,8 +56,8 @@ describe('NotFoundComponent', () => {
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    expect(compiled.textContent).toContain('Page not found');
-    const link = compiled.querySelector('a[routerLink="/"]');
+    expect(compiled.querySelector('#page-title')).not.toBeNull();
+    const link = compiled.querySelector('#not-found-home-link');
     expect(link).not.toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-<section class="page-section flex flex-col gap-4">
+<section crgPageSection class="flex flex-col gap-4">
   <app-loading-overlay [visible]="loading()" />
 
   @if (viewerMode()) {
@@ -8,28 +8,26 @@
 
   @if (viewerMode()) {
     @if (viewerForbidden()) {
-      <p id="collections-forbidden" class="text-muted">
-        This user keeps their collections private. Only they can change that, in their own profile
-        settings — following them does not grant access.
-      </p>
+      <p id="collections-forbidden" class="text-meta text-text-muted">{{ forbiddenMessage }}</p>
     } @else {
       @if (viewerDefinitionsError()) {
-        <p class="text-error">{{ viewerDefinitionsError() }}</p>
+        <p class="m-0 text-meta text-danger">{{ viewerDefinitionsError() }}</p>
       }
       @if (viewerDefinitions().length === 0) {
-        <p class="text-muted">No saved collections yet.</p>
+        <p id="collections-viewer-empty" class="text-meta text-text-muted">No saved collections yet.</p>
       } @else {
-        <ul class="catalog-list">
+        <ul class="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 p-0">
           @for (definition of viewerDefinitions(); track definition.definition_id) {
-            <li class="card p-6 flex flex-col gap-2 items-start">
-              <span class="catalog-title" [attr.id]="'collection-viewer-name-' + $index">{{ definition.name }}</span>
-              <span class="spine-label">{{ kindLabel(definition.kind) }}</span>
-              <span class="catalog-meta">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
+            <li crgCard class="p-6 flex flex-col gap-2 items-start">
+              <span appCatalogTitle [attr.id]="'collection-viewer-name-' + $index" [attr.data-definition-id]="definition.definition_id">{{ definition.name }}</span>
+              <span appSpineLabel>{{ kindLabel(definition.kind) }}</span>
+              <span appCatalogMeta>{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
               <button
                 [attr.id]="'collection-follow-' + $index"
                 type="button"
-                class="btn-ghost"
+                crgButtonGhost
                 [disabled]="isFollowPending(definition.definition_id)"
+                [attr.aria-pressed]="isFollowingViewerDefinition(definition.definition_id)"
                 (click)="toggleFollowViewerDefinition(definition.definition_id)"
               >
                 {{ isFollowingViewerDefinition(definition.definition_id) ? 'Unfollow' : 'Follow' }}
@@ -40,38 +38,38 @@
       }
     }
   } @else {
-  <p class="text-muted">
+  <p class="text-meta text-text-muted">
     Curate rule-based groupings of your catalog — a filtered list, or a capacity-fill pack sized to a
     console.
   </p>
 
   @if (view() === 'list') {
-    <div class="form-actions">
-      <button id="collections-new" type="button" class="btn-primary" (click)="showCreate()">New collection</button>
-      <button id="collections-followed" type="button" class="btn-ghost" (click)="showFollowed()">
+    <div class="flex gap-3">
+      <button id="collections-new" type="button" crgButtonPrimary (click)="showCreate()">New collection</button>
+      <button id="collections-followed" type="button" crgButtonGhost (click)="showFollowed()">
         Collections I follow
       </button>
     </div>
 
     @if (definitionsError()) {
-      <p class="text-error">{{ definitionsError() }}</p>
+      <p class="m-0 text-meta text-danger">{{ definitionsError() }}</p>
     }
     @if (definitions().length === 0) {
-      <p class="text-muted">You haven't saved any collections yet.</p>
+      <p id="collections-empty" class="text-meta text-text-muted">You haven't saved any collections yet.</p>
     } @else {
-      <ul class="catalog-list">
+      <ul class="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 p-0">
         @for (definition of definitions(); track definition.definition_id) {
-          <li class="card p-6 flex flex-col gap-2 items-start">
-            <span class="catalog-title" [attr.id]="'collection-name-' + $index">{{ definition.name }}</span>
-            <span class="spine-label">{{ kindLabel(definition.kind) }}</span>
-            <span class="catalog-meta">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
-            <span class="stamp-label" [class.text-accent]="definition.visibility !== 'private'">
+          <li crgCard class="p-6 flex flex-col gap-2 items-start">
+            <span appCatalogTitle [attr.id]="'collection-name-' + $index" [attr.data-definition-id]="definition.definition_id">{{ definition.name }}</span>
+            <span appSpineLabel>{{ kindLabel(definition.kind) }}</span>
+            <span appCatalogMeta [attr.id]="'collection-item-count-' + $index" [attr.data-item-count]="definition.item_count">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
+            <span appStampLabel class="data-[shared=true]:text-accent" [attr.id]="'collection-visibility-' + $index" [attr.data-visibility]="definition.visibility" [attr.data-shared]="definition.visibility !== collectionVisibilities.private">
               {{ definition.visibility }}
             </span>
             <a
-              class="btn-ghost"
+              crgButtonGhost
               [attr.id]="'collection-open-' + $index"
-              [routerLink]="['/collections/d', definition.definition_id]"
+              [routerLink]="[appUrls.collectionDefinitions, definition.definition_id]"
               >View / Edit</a
             >
           </li>
@@ -81,28 +79,28 @@
   }
 
   @if (view() === 'followed') {
-    <button type="button" class="btn-ghost" (click)="view.set('list')">&larr; Back to your collections</button>
+    <button type="button" crgButtonGhost (click)="view.set('list')">&larr; Back to your collections</button>
 
     @if (followedError()) {
-      <p class="text-error">{{ followedError() }}</p>
+      <p class="m-0 text-meta text-danger">{{ followedError() }}</p>
     }
     @if (followedDefinitions().length === 0) {
-      <p class="text-muted">You aren't following any collections yet.</p>
+      <p id="collections-followed-empty" class="text-meta text-text-muted">You aren't following any collections yet.</p>
     } @else {
-      <ul class="catalog-list">
+      <ul class="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 p-0">
         @for (definition of followedDefinitions(); track definition.definition_id) {
-          <li class="card p-6 flex flex-col gap-2 items-start">
-            <span class="catalog-title">{{ definition.name }}</span>
-            <span class="catalog-meta">{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
-            @if (definition.share_slug && definition.visibility !== 'private') {
-              <a class="btn-ghost" [href]="shareUrlFor(definition.share_slug)" target="_blank" rel="noopener">View</a>
+          <li crgCard class="p-6 flex flex-col gap-2 items-start">
+            <span appCatalogTitle [attr.id]="'collection-followed-name-' + $index" [attr.data-definition-id]="definition.definition_id">{{ definition.name }}</span>
+            <span appCatalogMeta>{{ definition.item_count }} {{ definition.item_count === 1 ? 'game' : 'games' }}</span>
+            @if (definition.share_slug && definition.visibility !== collectionVisibilities.private) {
+              <a crgButtonGhost [href]="shareUrlFor(definition.share_slug)" target="_blank" rel="noopener">View</a>
             } @else {
-              <span class="catalog-meta">No longer shared.</span>
+              <span appCatalogMeta>No longer shared.</span>
             }
             <button
               [attr.id]="'collection-followed-unfollow-' + $index"
               type="button"
-              class="btn-ghost"
+              crgButtonGhost
               [disabled]="unfollowingIds().has(definition.definition_id)"
               (click)="unfollow(definition.definition_id)"
             >
@@ -115,15 +113,15 @@
   }
 
   @if (view() === 'create') {
-    <form class="card collection-form" (submit)="$event.preventDefault(); preview()">
-      <label for="kind">Kind</label>
+    <form crgCard class="flex max-w-reading flex-col gap-3 p-6" (submit)="$event.preventDefault(); preview()">
+      <label class="font-semibold" for="kind">Kind</label>
       <select id="kind" name="kind" [ngModel]="kind()" (ngModelChange)="kind.set($event)">
-        <option value="filter_list">Filter list</option>
-        <option value="capacity_fill">Capacity fill</option>
+        <option [value]="collectionKinds.filterList">{{ filterListLabel }}</option>
+        <option [value]="collectionKinds.capacityFill">{{ capacityFillLabel }}</option>
       </select>
 
-      @if (kind() === 'capacity_fill') {
-        <label for="consoleId">Console</label>
+      @if (kind() === collectionKinds.capacityFill) {
+        <label class="font-semibold" for="consoleId">Console</label>
         <select id="consoleId" name="consoleId" [ngModel]="consoleId()" (ngModelChange)="consoleId.set($event)">
           <option [ngValue]="null">Select a console&hellip;</option>
           @for (console of consoles(); track console.console_id) {
@@ -131,12 +129,12 @@
           }
         </select>
         @if (consoles().length === 0) {
-          <p class="text-muted"><a routerLink="/consoles">Add a console first &rarr;</a></p>
+          <p class="text-meta text-text-muted"><a [routerLink]="appUrls.consoles">Add a console first &rarr;</a></p>
         }
-        <a class="catalog-meta" routerLink="/consoles">Manage consoles &amp; storage &rarr;</a>
+        <a appCatalogMeta [routerLink]="appUrls.consoles">Manage consoles &amp; storage &rarr;</a>
       }
 
-      <label for="genreFilter">Genres</label>
+      <label class="font-semibold" for="genreFilter">Genres</label>
       <select
         id="genreFilter"
         name="genreFilter"
@@ -145,11 +143,11 @@
         (ngModelChange)="genreFilter.set($event)"
       >
         @for (option of genreOptions(); track option) {
-          <option [value]="option">{{ option }}</option>
+          <option [value]="option" [attr.data-genre]="option">{{ option }}</option>
         }
       </select>
 
-      <label for="minScore">Minimum score</label>
+      <label class="font-semibold" for="minScore">Minimum score</label>
       <input
         id="minScore"
         name="minScore"
@@ -159,7 +157,7 @@
         (ngModelChange)="minScore.set($event)"
       />
 
-      <label for="aaaTierFilter">Tier</label>
+      <label class="font-semibold" for="aaaTierFilter">Tier</label>
       <select id="aaaTierFilter" name="aaaTierFilter" [ngModel]="aaaTierFilter()" (ngModelChange)="aaaTierFilter.set($event)">
         <option [ngValue]="null">Any</option>
         <option value="AAA">AAA</option>
@@ -167,7 +165,7 @@
         <option value="Indie">Indie</option>
       </select>
 
-      <label for="minPercentCompleted">Minimum % completed</label>
+      <label class="font-semibold" for="minPercentCompleted">Minimum % completed</label>
       <input
         id="minPercentCompleted"
         name="minPercentCompleted"
@@ -191,39 +189,44 @@
       </label>
 
       @if (createError()) {
-        <p class="text-error">{{ createError() }}</p>
+        <p id="collection-create-error" class="m-0 text-meta text-danger">{{ createError() }}</p>
       }
 
-      <div class="form-actions">
-        <button id="collection-create-cancel" type="button" class="btn-ghost" (click)="view.set('list')">
+      <div class="flex gap-3">
+        <button id="collection-create-cancel" type="button" crgButtonGhost (click)="view.set('list')">
           Cancel
         </button>
-        <button id="collection-preview" type="submit" class="btn-primary" [disabled]="previewing()">
+        <button id="collection-preview" type="submit" crgButtonPrimary [disabled]="previewing()">
           {{ previewing() ? 'Previewing...' : 'Preview' }}
         </button>
       </div>
     </form>
 
     @if (previewResult(); as preview) {
-      <div class="card p-6 flex flex-col gap-3 max-w-reading">
+      <div crgCard class="p-6 flex flex-col gap-3 max-w-reading">
         <h2>Preview</h2>
         @if (preview.used_gb !== null) {
-          <p class="catalog-meta">Estimated size: {{ preview.used_gb }} GB</p>
+          <p appCatalogMeta>Estimated size: {{ preview.used_gb }} GB</p>
         }
         @if (preview.ignored_filters.length > 0) {
-          <p id="preview-ignored-filters" class="text-warning">
+          <p id="preview-ignored-filters" class="text-warn">
             The completion floor was ignored: no trophy data has been harvested for your library yet, so every
             title passed it. Turn on trophy harvesting on your account page and refresh to apply it.
           </p>
         }
         @if (preview.excluded_for_missing_trophy_data; as dropped) {
-          <p id="preview-excluded-missing-trophy" class="text-muted">
+          <p id="preview-excluded-missing-trophy" class="text-meta text-text-muted">
             {{ dropped }} title(s) were left out because they carry no trophy data to measure against the
             completion floor.
           </p>
         }
         @if (unmeasuredSizeCount(preview.included); as unmeasured) {
-          <p id="preview-unmeasured-sizes" class="text-muted">
+          <p
+            id="preview-unmeasured-sizes"
+            class="text-meta text-text-muted"
+            [attr.data-unmeasured-count]="unmeasured"
+            [attr.data-shown-count]="preview.included.length"
+          >
             {{ unmeasured }} of the {{ preview.included.length }} titles shown pack at a placeholder size
             because nobody has reported a real one. Save this collection, then use "Measured size" on a
             title in its detail view — the figure is shared, so it improves every owner's fit.
@@ -231,26 +234,26 @@
         }
 
         <h3>Included ({{ preview.included_total }})</h3>
-        <ul class="catalog-list">
+        <ul class="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 p-0">
           @for (game of preview.included; track game.game_id) {
-            <li class="card p-6 flex flex-col gap-2 items-start">
-              <span class="catalog-title" [attr.id]="'preview-included-title-' + $index">{{ game.title }}</span>
-              <span class="spine-label">{{ game.genre }}</span>
-              <span class="catalog-meta">
+            <li crgCard class="p-6 flex flex-col gap-2 items-start">
+              <span appCatalogTitle [attr.id]="'preview-included-title-' + $index" [attr.data-game-id]="game.game_id">{{ game.title }}</span>
+              <span appSpineLabel>{{ game.genre }}</span>
+              <span appCatalogMeta>
                 {{ game.franchise }}
                 @if (game.aaa_tier) {
                   &middot; {{ game.aaa_tier }}
                 }
                 &middot; {{ game.size_gb }} GB
                 <span
-                  class="size-source"
+                  class="ml-2 inline-block font-mono text-label tracking-label text-text-muted uppercase data-[size-source=measured]:text-ok data-[size-source=download]:text-ok data-[size-source=estimated]:text-warn data-[size-source=capped_default]:text-warn"
                   [attr.id]="'preview-included-size-source-' + $index"
                   [attr.data-size-source]="game.size_source"
                   >{{ sizeSourceLabels[game.size_source] }}</span
                 >
               </span>
               @if (game.percent_completed !== null) {
-                <span class="catalog-meta">{{ game.percent_completed }}% complete</span>
+                <span appCatalogMeta>{{ game.percent_completed }}% complete</span>
               }
             </li>
           }
@@ -258,20 +261,20 @@
 
         @if (preview.excluded_total > 0) {
           <h3>Excluded ({{ preview.excluded_total }})</h3>
-          <p class="text-muted">These did not meet the filters and are not part of the collection.</p>
-          <ul class="catalog-list">
+          <p class="text-meta text-text-muted">These did not meet the filters and are not part of the collection.</p>
+          <ul class="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 p-0">
             @for (game of preview.excluded; track game.game_id) {
-              <li class="card p-6 flex flex-col gap-2 items-start item-unavailable">
-                <span class="catalog-title">{{ game.title }}</span>
-                <span class="spine-label">{{ game.genre }}</span>
-                <span class="catalog-meta">
+              <li crgCard class="p-6 flex flex-col gap-2 items-start opacity-60">
+                <span appCatalogTitle>{{ game.title }}</span>
+                <span appSpineLabel>{{ game.genre }}</span>
+                <span appCatalogMeta>
                   {{ game.franchise }}
                   @if (game.aaa_tier) {
                     &middot; {{ game.aaa_tier }}
                   }
                 </span>
                 @if (game.percent_completed !== null) {
-                  <span class="catalog-meta">{{ game.percent_completed }}% complete</span>
+                  <span appCatalogMeta>{{ game.percent_completed }}% complete</span>
                 }
               </li>
             }
@@ -279,23 +282,23 @@
         }
 
         @if (previewPageableTotal() > resultPageSize) {
-          <div class="pager">
+          <div class="mt-3 flex flex-wrap items-center justify-center gap-3">
             <button
               id="preview-prev"
               type="button"
-              class="btn-ghost"
+              crgButtonGhost
               [disabled]="previewOffset() === 0"
               (click)="pagePreview(-1)"
             >
               Previous
             </button>
-            <span class="text-muted">
+            <span class="text-meta text-text-muted">
               {{ previewOffset() + 1 }}&ndash;{{ previewPageEnd() }} of {{ previewPageableTotal() }}
             </span>
             <button
               id="preview-next"
               type="button"
-              class="btn-ghost"
+              crgButtonGhost
               [disabled]="previewOffset() + resultPageSize >= previewPageableTotal()"
               (click)="pagePreview(1)"
             >
@@ -306,35 +309,35 @@
       </div>
     }
 
-    <form class="card p-6 flex flex-col gap-2 items-start" (submit)="$event.preventDefault(); saveDefinition()">
+    <form crgCard class="p-6 flex flex-col gap-2 items-start" (submit)="$event.preventDefault(); saveDefinition()">
       <label for="name">Name this collection</label>
       <input id="name" name="name" type="text" [ngModel]="name()" (ngModelChange)="name.set($event)" />
       <label for="description">Description (optional)</label>
       <textarea id="description" name="description" rows="2" [ngModel]="description()" (ngModelChange)="description.set($event)"></textarea>
       @if (!previewResult()) {
-        <p class="text-muted">
+        <p class="text-meta text-text-muted">
           Saving now creates an empty collection with these settings recorded — add games afterward from the
           detail view, or run Preview first to save its results directly.
         </p>
       }
       @if (saveError()) {
-        <p class="text-error">{{ saveError() }}</p>
+        <p class="m-0 text-meta text-danger">{{ saveError() }}</p>
       }
-      <button id="collection-save" type="submit" class="btn-primary" [disabled]="saving()">
+      <button id="collection-save" type="submit" crgButtonPrimary [disabled]="saving()">
         {{ saving() ? 'Saving...' : previewResult() ? 'Save this collection' : 'Save empty collection' }}
       </button>
     </form>
   }
 
   @if (view() === 'detail') {
-    <a id="collections-back" class="btn-ghost self-start" routerLink="/collections">&larr; Back to collections</a>
+    <a id="collections-back" crgButtonGhost class="self-start" [routerLink]="appUrls.collections">&larr; Back to collections</a>
 
     @if (detailError()) {
-      <p class="text-error">{{ detailError() }}</p>
+      <p class="m-0 text-meta text-danger">{{ detailError() }}</p>
     }
 
     @if (selectedDefinition(); as definition) {
-      <div class="card p-6 flex flex-col gap-3 max-w-reading">
+      <div crgCard class="p-6 flex flex-col gap-3 max-w-reading">
         @if (editingMeta()) {
           <form class="flex flex-col gap-2 items-start w-full" (submit)="$event.preventDefault(); saveMeta()">
             <label for="editName">Name</label>
@@ -348,33 +351,33 @@
               (ngModelChange)="editDescription.set($event)"
             ></textarea>
             @if (metaError()) {
-              <p class="text-error">{{ metaError() }}</p>
+              <p class="m-0 text-meta text-danger">{{ metaError() }}</p>
             }
-            <div class="form-actions">
-              <button id="collection-meta-cancel" type="button" class="btn-ghost" (click)="cancelEditingMeta()">
+            <div class="flex gap-3">
+              <button id="collection-meta-cancel" type="button" crgButtonGhost (click)="cancelEditingMeta()">
                 Cancel
               </button>
-              <button id="collection-meta-save" type="submit" class="btn-primary" [disabled]="savingMeta()">
+              <button id="collection-meta-save" type="submit" crgButtonPrimary [disabled]="savingMeta()">
                 {{ savingMeta() ? 'Saving...' : 'Save' }}
               </button>
             </div>
           </form>
         } @else {
-          <h2 id="collection-detail-title" class="catalog-title">{{ definition.name }}</h2>
+          <h2 id="collection-detail-title" appCatalogTitle>{{ definition.name }}</h2>
           @if (definition.description) {
-            <p class="catalog-meta">{{ definition.description }}</p>
+            <p appCatalogMeta>{{ definition.description }}</p>
           }
-          <button id="collection-edit-meta" type="button" class="btn-ghost self-start" (click)="startEditingMeta()">
+          <button id="collection-edit-meta" type="button" crgButtonGhost class="self-start" (click)="startEditingMeta()">
             Rename / edit description
           </button>
         }
 
-        <span class="spine-label">{{ kindLabel(definition.kind) }}</span>
+        <span appSpineLabel>{{ kindLabel(definition.kind) }}</span>
         @if (definition.console_id) {
-          <p class="catalog-meta">Console: {{ consoleName(definition.console_id) }}</p>
+          <p appCatalogMeta>Console: {{ consoleName(definition.console_id) }}</p>
         }
         @if (definition.genre_filter.length > 0) {
-          <p class="catalog-meta">Genres: {{ definition.genre_filter.join(', ') }}</p>
+          <p appCatalogMeta>Genres: {{ definition.genre_filter.join(', ') }}</p>
         }
 
         <div class="flex flex-col items-start gap-2">
@@ -386,18 +389,18 @@
             (ngModelChange)="setVisibility($event)"
             [disabled]="visibilitySaving()"
           >
-            <option value="private">Private — only you</option>
-            <option value="unlisted">Unlisted — anyone with the link</option>
-            <option value="public">Public — anyone with the link, listed on your profile</option>
+            <option [value]="collectionVisibilities.private">Private — only you</option>
+            <option [value]="collectionVisibilities.unlisted">Unlisted — anyone with the link</option>
+            <option [value]="collectionVisibilities.public">Public — anyone with the link, listed on your profile</option>
           </select>
-          @if (definition.visibility !== 'private' && definition.share_slug) {
-            <button id="collection-copy-share-link" type="button" class="btn-ghost" (click)="copyShareLink()">
+          @if (definition.visibility !== collectionVisibilities.private && definition.share_slug) {
+            <button id="collection-copy-share-link" type="button" crgButtonGhost (click)="copyShareLink()">
               {{ shareLinkCopied() ? 'Copied!' : 'Copy share link' }}
             </button>
-            <p id="collection-share-url" class="catalog-meta break-all">{{ shareUrlFor(definition.share_slug) }}</p>
+            <p id="collection-share-url" appCatalogMeta class="break-all" [attr.data-share-slug]="definition.share_slug">{{ shareUrlFor(definition.share_slug) }}</p>
           }
           @if (visibilityError()) {
-            <p class="text-error">{{ visibilityError() }}</p>
+            <p class="m-0 text-meta text-danger">{{ visibilityError() }}</p>
           }
         </div>
 
@@ -411,13 +414,13 @@
             [value]="itemSearch()"
             (input)="searchItems($any($event.target).value)"
           />
-          <span id="collection-sort-label" class="stamp-label">Sort by</span>
-          <div class="flex flex-wrap gap-2" role="group" aria-labelledby="collection-sort-label">
+          <span id="collection-sort-label" appStampLabel>Sort by</span>
+          <div class="flex flex-wrap gap-2" [attr.role]="ariaRoles.group" aria-labelledby="collection-sort-label">
             @for (option of itemSortOptions; track option.field) {
               <a
                 [attr.id]="'collection-sort-' + option.id"
-                class="btn-ghost btn-sm"
-                [class.sort-active]="itemSort() === option.field"
+                crgButtonGhostSmall
+                class="aria-[current=true]:border-text-muted aria-[current=true]:text-text aria-[current=true]:hover:not-disabled:text-text"
                 [attr.aria-current]="itemSort() === option.field ? 'true' : null"
                 [routerLink]="[]"
                 [queryParams]="itemSortParams(option.field)"
@@ -425,72 +428,73 @@
               >
                 {{ option.label }}
                 @if (itemSort() === option.field) {
-                  <span aria-hidden="true">{{ itemSortDir() === 'asc' ? ' ▲' : ' ▼' }}</span>
-                  <span class="sr-only">{{ itemSortDir() === 'asc' ? ', sorted ascending' : ', sorted descending' }}</span>
+                  <span aria-hidden="true">{{ itemSortDir() === sortDirections.asc ? ' ▲' : ' ▼' }}</span>
+                  <span class="sr-only">{{ itemSortDir() === sortDirections.asc ? ', sorted ascending' : ', sorted descending' }}</span>
                 }
               </a>
             }
           </div>
         </div>
         @if (itemsError()) {
-          <p class="text-error">{{ itemsError() }}</p>
+          <p class="m-0 text-meta text-danger">{{ itemsError() }}</p>
         }
         @if (items().length === 0 && !itemsLoading()) {
-          <p class="text-muted">No games in this collection yet.</p>
+          <p class="text-meta text-text-muted">No games in this collection yet.</p>
         } @else {
-          <ul class="catalog-list">
+          <ul class="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 p-0">
             @for (item of items(); track item.game_id) {
-              <li class="card p-6 flex flex-col gap-2 items-start" [class.item-unavailable]="!item.owner_has_access">
+              <li crgCard class="p-6 flex flex-col gap-2 items-start" [class.opacity-60]="!item.owner_has_access">
                 @if (item.cover_image_url) {
-                  <img class="cover-art max-w-[180px]" [src]="item.cover_image_url" [alt]="item.title" loading="lazy" />
+                  <img [attr.id]="'collection-item-cover-' + $index" class="block aspect-square w-full max-w-[180px] rounded-sm object-cover" [src]="item.cover_image_url" [alt]="item.title" loading="lazy" />
                 }
-                <span class="catalog-title">{{ item.title }}</span>
+                <span appCatalogTitle>{{ item.title }}</span>
                 @if (item.genre) {
-                  <span class="spine-label">{{ item.genre }}</span>
+                  <span appSpineLabel>{{ item.genre }}</span>
                 }
-                <span class="catalog-meta">{{ item.franchise }} &middot; {{ item.aaa_tier }}</span>
+                <span appCatalogMeta>{{ item.franchise }} &middot; {{ item.aaa_tier }}</span>
                 @if (!item.owner_has_access) {
-                  <span class="text-muted">No longer in owner's library</span>
+                  <span class="text-meta text-text-muted" [attr.id]="'collection-item-inactive-' + $index">No longer in owner's library</span>
                 }
 
                 @if (canToggleInstall()) {
                   <button
                     [attr.id]="'collection-item-install-' + $index"
                     type="button"
-                    class="btn-ghost"
+                    crgButtonGhost
                     [disabled]="installingGameIds().has(item.game_id)"
+                    [attr.data-installed]="installedGameIds().has(item.game_id)"
                     (click)="toggleInstall(item.game_id)"
                   >
                     {{ installedGameIds().has(item.game_id) ? 'Installed' : 'Mark installed' }}
                   </button>
                   @if (installErrors().get(item.game_id); as installError) {
-                    <span class="text-error">{{ installError }}</span>
+                    <span class="m-0 text-meta text-danger" [attr.id]="'collection-item-install-error-' + $index">{{ installError }}</span>
                   }
                   @for (device of attachedDevices(); track device.device_id) {
                     <button
                       type="button"
-                      class="btn-ghost"
+                      crgButtonGhost
                       [disabled]="isDeviceInstallPending(device.device_id, item.game_id)"
                       (click)="toggleDeviceInstall(device.device_id, item.game_id)"
                     >
                       {{ isDeviceInstalled(device.device_id, item.game_id) ? 'On ' + device.name : 'Mark on ' + device.name }}
                     </button>
                     @if (deviceInstallError(device.device_id, item.game_id); as deviceInstallErrorMessage) {
-                      <span class="text-error">{{ deviceInstallErrorMessage }}</span>
+                      <span class="m-0 text-meta text-danger">{{ deviceInstallErrorMessage }}</span>
                     }
                   }
 
-                  <button type="button" class="btn-ghost" (click)="toggleMeasuredSizePanel(item.game_id)">
+                  <button type="button" crgButtonGhost (click)="toggleMeasuredSizePanel(item.game_id)">
                     {{ expandedSizeGameId() === item.game_id ? 'Hide measured size' : 'Measured size' }}
                   </button>
                   @if (expandedSizeGameId() === item.game_id) {
                     <div class="flex flex-col gap-2 items-start w-full">
                       @if (!measuredSizesLoading()) {
                         @if (measuredSizesFor(item.game_id).length === 0) {
-                          <p class="text-muted">Nobody has reported an install size for this game yet.</p>
+                          <p class="text-meta text-text-muted">Nobody has reported an install size for this game yet.</p>
                         } @else {
                           @for (size of measuredSizesFor(item.game_id); track size.platform) {
-                            <p class="catalog-meta">{{ size.platform }}: {{ size.size_gb }} GB</p>
+                            <p appCatalogMeta>{{ size.platform }}: {{ size.size_gb }} GB</p>
                           }
                         }
                       }
@@ -502,8 +506,9 @@
                         (ngModelChange)="measuredSizePlatform.set($event)"
                         name="measuredSizePlatform"
                       >
-                        <option value="PS5">PS5</option>
-                        <option value="PS4">PS4</option>
+                        @for (platform of consolePlatformOptions; track platform) {
+                          <option [value]="platform">{{ platform }}</option>
+                        }
                       </select>
                       <label [attr.for]="'measured-size-value-' + item.game_id" class="sr-only">Size in GB</label>
                       <input
@@ -518,14 +523,14 @@
                       />
                       <button
                         type="button"
-                        class="btn-ghost"
+                        crgButtonGhost
                         [disabled]="measuredSizeSaving()"
                         (click)="submitMeasuredSize(item.game_id)"
                       >
                         {{ measuredSizeSaving() ? 'Saving...' : 'Report size' }}
                       </button>
                       @if (measuredSizeError()) {
-                        <p class="text-error">{{ measuredSizeError() }}</p>
+                        <p class="m-0 text-meta text-danger">{{ measuredSizeError() }}</p>
                       }
                     </div>
                   }
@@ -533,7 +538,7 @@
 
                 <button
                   type="button"
-                  class="btn-ghost"
+                  crgButtonGhost
                   [disabled]="removingGameIds().has(item.game_id)"
                   (click)="removeItem(item.game_id)"
                 >
@@ -543,11 +548,11 @@
             }
           </ul>
           @if (itemsTotal() > itemsPageSize) {
-            <div class="pager">
+            <div class="mt-3 flex flex-wrap items-center justify-center gap-3">
               @if (itemOffset() > 0) {
                 <a
                   id="collection-items-prev"
-                  class="btn-ghost"
+                  crgButtonGhost
                   [routerLink]="[]"
                   [queryParams]="itemPageParams(itemPage() - 1)"
                   queryParamsHandling="merge"
@@ -555,15 +560,15 @@
                   Previous
                 </a>
               } @else {
-                <button id="collection-items-prev" type="button" class="btn-ghost" disabled>Previous</button>
+                <button id="collection-items-prev" type="button" crgButtonGhost disabled>Previous</button>
               }
-              <span class="text-muted">
+              <span class="text-meta text-text-muted">
                 {{ itemOffset() + 1 }}&ndash;{{ itemOffset() + items().length }} of {{ itemsTotal() }}
               </span>
               @if (hasNextItemPage()) {
                 <a
                   id="collection-items-next"
-                  class="btn-ghost"
+                  crgButtonGhost
                   [routerLink]="[]"
                   [queryParams]="itemPageParams(itemPage() + 1)"
                   queryParamsHandling="merge"
@@ -571,40 +576,45 @@
                   Next
                 </a>
               } @else {
-                <button id="collection-items-next" type="button" class="btn-ghost" disabled>Next</button>
+                <button id="collection-items-next" type="button" crgButtonGhost disabled>Next</button>
               }
             </div>
           }
         }
 
         @if (runError()) {
-          <p class="text-error">{{ runError() }}</p>
+          <p class="m-0 text-meta text-danger">{{ runError() }}</p>
         }
 
-        <button id="collection-run" type="button" class="btn-primary self-start" [disabled]="running()" (click)="runSelected()">
+        <button id="collection-run" type="button" crgButtonPrimary class="self-start" [disabled]="running()" (click)="runSelected()">
           {{ running() ? 'Running...' : 'Propose a fresh list' }}
         </button>
 
         @if (runResult(); as result) {
           <div class="flex flex-col gap-3 w-full">
             @if (result.used_gb !== null) {
-              <p class="catalog-meta">Estimated size: {{ result.used_gb }} GB</p>
+              <p appCatalogMeta>Estimated size: {{ result.used_gb }} GB</p>
             }
             @if (result.ignored_filters.length > 0) {
-              <p id="run-ignored-filters" class="text-warning">
+              <p id="run-ignored-filters" class="text-warn">
                 The completion floor was ignored: no trophy data has been harvested for your library yet, so
                 every title passed it.
               </p>
             }
             @if (result.excluded_for_missing_trophy_data; as dropped) {
-              <p id="run-excluded-missing-trophy" class="text-muted">
+              <p id="run-excluded-missing-trophy" class="text-meta text-text-muted">
                 {{ dropped }} title(s) were left out because they carry no trophy data to measure against the
                 completion floor.
               </p>
             }
 
             @if (unmeasuredSizeCount(result.included); as unmeasured) {
-              <p id="run-unmeasured-sizes" class="text-muted">
+              <p
+                id="run-unmeasured-sizes"
+                class="text-meta text-text-muted"
+                [attr.data-unmeasured-count]="unmeasured"
+                [attr.data-shown-count]="result.included.length"
+              >
                 {{ unmeasured }} of the {{ result.included.length }} titles shown pack at a placeholder size
                 because nobody has reported a real one. Use "Measured size" on a title in this collection to
                 report one — the figure is shared, so it improves every owner's fit.
@@ -612,26 +622,26 @@
             }
 
             <h3>Proposed ({{ result.included_total }})</h3>
-            <ul class="catalog-list">
+            <ul class="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 p-0">
               @for (game of result.included; track game.game_id) {
-                <li class="card p-6 flex flex-col gap-2 items-start">
-                  <span class="catalog-title">{{ game.title }}</span>
-                  <span class="spine-label">{{ game.genre }}</span>
-                  <span class="catalog-meta">
+                <li crgCard class="p-6 flex flex-col gap-2 items-start">
+                  <span appCatalogTitle>{{ game.title }}</span>
+                  <span appSpineLabel>{{ game.genre }}</span>
+                  <span appCatalogMeta>
                     {{ game.franchise }}
                     @if (game.aaa_tier) {
                       &middot; {{ game.aaa_tier }}
                     }
                     &middot; {{ game.size_gb }} GB
                     <span
-                      class="size-source"
+                      class="ml-2 inline-block font-mono text-label tracking-label text-text-muted uppercase data-[size-source=measured]:text-ok data-[size-source=download]:text-ok data-[size-source=estimated]:text-warn data-[size-source=capped_default]:text-warn"
                       [attr.id]="'run-included-size-source-' + $index"
                       [attr.data-size-source]="game.size_source"
                       >{{ sizeSourceLabels[game.size_source] }}</span
                     >
                   </span>
                   @if (game.percent_completed !== null) {
-                    <span class="catalog-meta">{{ game.percent_completed }}% complete</span>
+                    <span appCatalogMeta>{{ game.percent_completed }}% complete</span>
                   }
                 </li>
               }
@@ -639,20 +649,20 @@
 
             @if (result.excluded_total > 0) {
               <h3>Excluded ({{ result.excluded_total }})</h3>
-              <p class="text-muted">These did not meet the filters and are not part of the proposal.</p>
-              <ul class="catalog-list">
+              <p class="text-meta text-text-muted">These did not meet the filters and are not part of the proposal.</p>
+              <ul class="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 p-0">
                 @for (game of result.excluded; track game.game_id) {
-                  <li class="card p-6 flex flex-col gap-2 items-start item-unavailable">
-                    <span class="catalog-title">{{ game.title }}</span>
-                    <span class="spine-label">{{ game.genre }}</span>
-                    <span class="catalog-meta">
+                  <li crgCard class="p-6 flex flex-col gap-2 items-start opacity-60">
+                    <span appCatalogTitle>{{ game.title }}</span>
+                    <span appSpineLabel>{{ game.genre }}</span>
+                    <span appCatalogMeta>
                       {{ game.franchise }}
                       @if (game.aaa_tier) {
                         &middot; {{ game.aaa_tier }}
                       }
                     </span>
                     @if (game.percent_completed !== null) {
-                      <span class="catalog-meta">{{ game.percent_completed }}% complete</span>
+                      <span appCatalogMeta>{{ game.percent_completed }}% complete</span>
                     }
                   </li>
                 }
@@ -660,16 +670,16 @@
             }
 
             @if (runPageableTotal() > resultPageSize) {
-              <p id="run-truncation-note" class="text-muted">
+              <p id="run-truncation-note" class="text-meta text-text-muted">
                 Each list shows its first {{ resultPageSize }}. Adopting keeps every proposed title, not
                 just the ones listed here.
               </p>
             }
 
             @if (adoptError()) {
-              <p class="text-error">{{ adoptError() }}</p>
+              <p class="m-0 text-meta text-danger">{{ adoptError() }}</p>
             }
-            <button type="button" class="btn-primary" [disabled]="adopting()" (click)="adoptRunResult()">
+            <button type="button" crgButtonPrimary [disabled]="adopting()" (click)="adoptRunResult()">
               {{ adopting() ? 'Adopting...' : 'Adopt this list' }}
             </button>
           </div>
@@ -677,18 +687,18 @@
 
         @if (confirmingDelete()) {
           <div class="flex flex-col gap-2 items-start border-t border-line pt-3">
-            <p class="text-error">Delete "{{ definition.name }}"? This can't be undone.</p>
+            <p class="m-0 text-meta text-danger">Delete "{{ definition.name }}"? This can't be undone.</p>
             @if (deleteError()) {
-              <p class="text-error">{{ deleteError() }}</p>
+              <p class="m-0 text-meta text-danger">{{ deleteError() }}</p>
             }
-            <div class="form-actions">
-              <button id="collection-delete-cancel" type="button" class="btn-ghost" (click)="cancelDelete()">
+            <div class="flex gap-3">
+              <button id="collection-delete-cancel" type="button" crgButtonGhost (click)="cancelDelete()">
                 Cancel
               </button>
               <button
                 id="collection-delete-confirm"
                 type="button"
-                class="btn-danger"
+                crgButtonDanger
                 [disabled]="deleting()"
                 (click)="deleteDefinition()"
               >
@@ -697,7 +707,7 @@
             </div>
           </div>
         } @else {
-          <button id="collection-delete" type="button" class="btn-ghost btn-ghost-danger self-start" (click)="confirmDelete()">
+          <button id="collection-delete" type="button" crgButtonGhostDanger class="self-start" (click)="confirmDelete()">
             Delete collection
           </button>
         }

@@ -1,16 +1,16 @@
 import { Params } from '@angular/router';
-import { CollectionItemSortField } from '../curator/curator.models';
+import { CollectionItemSortField, CollectionItemSortFields, SortDirection, SortDirections } from '../curator/curator.models';
 import { trimmedOrNull } from '../shared/control-value';
 
 export const ITEMS_PAGE_SIZE = 50;
 
-export const DEFAULT_ITEM_SORT: CollectionItemSortField = 'rank';
+export const DEFAULT_ITEM_SORT: CollectionItemSortField = CollectionItemSortFields.rank;
 
 const SORT_FIELDS: ReadonlySet<string> = new Set<CollectionItemSortField>([
-  'rank',
-  'title',
-  'oc_score',
-  'psn_rating',
+  CollectionItemSortFields.rank,
+  CollectionItemSortFields.title,
+  CollectionItemSortFields.ocScore,
+  CollectionItemSortFields.psnRating,
 ]);
 
 export function itemsSearchFrom(params: Params): string | null {
@@ -25,8 +25,8 @@ export function itemsSortFrom(params: Params): CollectionItemSortField {
     : DEFAULT_ITEM_SORT;
 }
 
-export function itemsSortDirFrom(params: Params): 'asc' | 'desc' {
-  return params['itemSortDir'] === 'desc' ? 'desc' : 'asc';
+export function itemsSortDirFrom(params: Params): SortDirection {
+  return params['itemSortDir'] === SortDirections.desc ? SortDirections.desc : SortDirections.asc;
 }
 
 export function itemsPageFrom(params: Params): number {

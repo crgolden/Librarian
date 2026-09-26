@@ -1,9 +1,9 @@
 
 import { createCuratorApp } from './curator.js';
+import { MOCK_CURATOR_ORIGIN, MOCK_CURATOR_PORT } from './mock-endpoints.js';
 
-const PORT = parseInt(process.env['MOCK_CURATOR_PORT'] ?? '4101', 10);
 const app = createCuratorApp();
 
-app.listen(PORT, () => {
-  console.log(`[MockCurator] Listening on http://localhost:${PORT}`);
+app.listen(MOCK_CURATOR_PORT, () => {
+  console.log(`[MockCurator] Listening on ${MOCK_CURATOR_ORIGIN}`);
 });

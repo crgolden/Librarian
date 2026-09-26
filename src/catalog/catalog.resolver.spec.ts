@@ -1,12 +1,15 @@
-import { provideHttpClient, withXhr } from '@angular/common/http';
+import { HttpStatusCode, provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
 import { Observable } from 'rxjs';
 import { CATALOG_PAGE_SIZE, catalogGenresResolver, catalogResolver } from './catalog.resolver';
-import { CatalogGamesResponse } from '../curator/curator.models';
+import { CATALOG_PAGE_SIZE_CEILING, CatalogQueryParams } from './catalog.query';
+import { CatalogGamesResponse, CatalogSortFields, ContentKinds, SortDirections } from '../curator/curator.models';
+import { CuratorApi, CuratorQueryParams } from '../curator/curator-api';
+import { newCount, newText, randomIntBetween } from '@crgolden/modules/testing';
 
-function resolve(queryParams: Record<string, string> = {}): Observable<CatalogGamesResponse | null> {
+function resolve(queryParams: Record<string, string | number> = {}): Observable<CatalogGamesResponse | null> {
   return TestBed.runInInjectionContext(
     () => catalogResolver({ queryParams } as unknown as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
   ) as Observable<CatalogGamesResponse | null>;
@@ -36,9 +39,9 @@ describe('catalogResolver', () => {
     let resolved: CatalogGamesResponse | null | undefined;
     resolve().subscribe((value) => (resolved = value));
 
-    const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
-    expect(req.request.params.get('limit')).toBe(String(CATALOG_PAGE_SIZE));
-    expect(req.request.params.get('offset')).toBe('0');
+    const req = httpMock.expectOne((r) => r.url === CuratorApi.catalogGames);
+    expect(req.request.params.get(CuratorQueryParams.limit)).toBe(String(CATALOG_PAGE_SIZE));
+    expect(req.request.params.get(CuratorQueryParams.offset)).toBe('0');
     const answered: CatalogGamesResponse = { games: [], total: 0, excluded_owned: 0 };
     req.flush(answered);
 
@@ -46,31 +49,41 @@ describe('catalogResolver', () => {
   });
 
   it('server-renders the page the URL asks for, so a shared deep link is not page one', () => {
-    resolve({ page: '3', pageSize: '20', kind: 'media_app', sort: 'price', sortDir: 'desc', q: 'tomb' }).subscribe();
+    const page = randomIntBetween(2, CATALOG_PAGE_SIZE_CEILING);
+    const pageSize = randomIntBetween(1, CATALOG_PAGE_SIZE_CEILING + 1);
+    const search = newText();
+    resolve({
+      [CatalogQueryParams.page]: page,
+      [CatalogQueryParams.pageSize]: pageSize,
+      [CatalogQueryParams.kind]: ContentKinds.mediaApp,
+      [CatalogQueryParams.sort]: CatalogSortFields.price,
+      [CatalogQueryParams.sortDir]: SortDirections.desc,
+      [CatalogQueryParams.q]: search,
+    }).subscribe();
 
-    const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
-    expect(req.request.params.get('limit')).toBe('20');
-    expect(req.request.params.get('offset')).toBe('40');
-    expect(req.request.params.get('kind')).toBe('media_app');
-    expect(req.request.params.get('sort')).toBe('price');
-    expect(req.request.params.get('sortDir')).toBe('desc');
-    expect(req.request.params.get('q')).toBe('tomb');
+    const req = httpMock.expectOne((r) => r.url === CuratorApi.catalogGames);
+    expect(req.request.params.get(CuratorQueryParams.limit)).toBe(String(pageSize));
+    expect(req.request.params.get(CuratorQueryParams.offset)).toBe(String((page - 1) * pageSize));
+    expect(req.request.params.get(CuratorQueryParams.kind)).toBe(ContentKinds.mediaApp);
+    expect(req.request.params.get(CuratorQueryParams.sort)).toBe(CatalogSortFields.price);
+    expect(req.request.params.get(CuratorQueryParams.sortDir)).toBe(SortDirections.desc);
+    expect(req.request.params.get(CuratorQueryParams.q)).toBe(search);
     req.flush({ games: [], total: 0 });
   });
 
   it('ignores a page size above the ceiling rather than sending Curator a 422', () => {
-    resolve({ pageSize: '5000' }).subscribe();
+    resolve({ [CatalogQueryParams.pageSize]: CATALOG_PAGE_SIZE_CEILING + newCount() }).subscribe();
 
-    const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
-    expect(req.request.params.get('limit')).toBe('200');
+    const req = httpMock.expectOne((r) => r.url === CuratorApi.catalogGames);
+    expect(req.request.params.get(CuratorQueryParams.limit)).toBe(String(CATALOG_PAGE_SIZE_CEILING));
     req.flush({ games: [], total: 0 });
   });
 
   it('ignores a page that is not a positive whole number', () => {
-    resolve({ page: '-2' }).subscribe();
+    resolve({ [CatalogQueryParams.page]: -newCount() }).subscribe();
 
-    const req = httpMock.expectOne((r) => r.url === '/curator/api/catalog/games');
-    expect(req.request.params.get('offset')).toBe('0');
+    const req = httpMock.expectOne((r) => r.url === CuratorApi.catalogGames);
+    expect(req.request.params.get(CuratorQueryParams.offset)).toBe('0');
     req.flush({ games: [], total: 0 });
   });
 
@@ -79,8 +92,8 @@ describe('catalogResolver', () => {
     resolve().subscribe((value) => (resolved = value));
 
     httpMock
-      .expectOne((r) => r.url === '/curator/api/catalog/games')
-      .flush(null, { status: 500, statusText: 'Error' });
+      .expectOne((r) => r.url === CuratorApi.catalogGames)
+      .flush(null, { status: HttpStatusCode.InternalServerError, statusText: HttpStatusCode[HttpStatusCode.InternalServerError] });
 
     expect(resolved).toBeNull();
   });
@@ -104,11 +117,12 @@ describe('catalogGenresResolver', () => {
     let resolved: string[] | undefined;
     resolveGenres().subscribe((value) => (resolved = value));
 
+    const genres = [newText(), newText()];
     httpMock
-      .expectOne((r) => r.url === '/curator/api/catalog/genres')
-      .flush({ genres: ['Shooter', 'RPG'] });
+      .expectOne((r) => r.url === CuratorApi.catalogGenres)
+      .flush({ genres });
 
-    expect(resolved).toEqual(['Shooter', 'RPG']);
+    expect(resolved).toEqual(genres);
   });
 
   it('resolves to an empty list rather than taking the catalog page down with it', () => {
@@ -116,8 +130,8 @@ describe('catalogGenresResolver', () => {
     resolveGenres().subscribe((value) => (resolved = value));
 
     httpMock
-      .expectOne((r) => r.url === '/curator/api/catalog/genres')
-      .flush(null, { status: 500, statusText: 'Error' });
+      .expectOne((r) => r.url === CuratorApi.catalogGenres)
+      .flush(null, { status: HttpStatusCode.InternalServerError, statusText: HttpStatusCode[HttpStatusCode.InternalServerError] });
 
     expect(resolved).toEqual([]);
   });

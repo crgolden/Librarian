@@ -1,22 +1,22 @@
-<section class="page-section flex flex-col gap-4 max-w-narrow mx-auto">
+<section crgPageSection class="flex flex-col gap-4 max-w-narrow mx-auto">
   <app-breadcrumb [items]="breadcrumbItems()" />
   <h1 id="page-title">Followers</h1>
 
   @if (loadError()) {
-    <p class="text-error">{{ loadError() }}</p>
+    <p class="m-0 text-meta text-danger">{{ loadError() }}</p>
   } @else {
-    <p class="catalog-meta">{{ total() }} total</p>
+    <p id="followers-total" appCatalogMeta [attr.data-total]="total()">{{ total() }} total</p>
     @if (entries().length === 0) {
-      <p id="followers-empty" class="text-muted">No followers yet.</p>
+      <p id="followers-empty" class="text-meta text-text-muted">No followers yet.</p>
     } @else {
-      <ul class="follow-list">
+      <ul class="m-0 flex list-none flex-col gap-2 p-0">
         @for (entry of entries(); track entry.sub; let entryIndex = $index) {
-          <li class="card follow-list-entry" [attr.id]="'follow-entry-' + entryIndex">
+          <li crgCard class="flex items-center justify-start gap-3 p-6" [attr.id]="'follow-entry-' + entryIndex">
             <app-avatar [sub]="entry.sub" [size]="40" />
-            <a [attr.id]="'follow-link-' + entryIndex" [routerLink]="['/u', entry.sub]">{{
-              entry.psn_account_id ?? 'Unlinked user'
+            <a [attr.id]="'follow-link-' + entryIndex" [routerLink]="[appUrls.users, entry.sub]">{{
+              entry.psn_account_id ?? unlinkedUserName
             }}</a>
-            <span class="catalog-meta">Since {{ entry.followed_at | date: 'medium' }}</span>
+            <span appCatalogMeta class="ml-auto">Since {{ entry.followed_at | date: 'medium' }}</span>
           </li>
         }
       </ul>

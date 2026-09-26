@@ -3,6 +3,7 @@ import { computed, Injectable, Signal, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, map, Observable, of, shareReplay, Subject, switchMap, take } from 'rxjs';
 import { Claim } from './claim';
+import { BFF_USER_RELATIVE_PATH, BffPaths, ClaimTypes } from '../shared/bff-contract';
 
 export type { Claim } from './claim';
 export type Session = Claim[];
@@ -17,7 +18,7 @@ export class AuthService {
 
   private readonly _fetchResult$ = this._refresh$.pipe(
     switchMap(() =>
-      this.http.get<Claim[]>('bff/user').pipe(
+      this.http.get<Claim[] | null>(BFF_USER_RELATIVE_PATH).pipe(
         catchError(() => of(null))
       )
     ),
@@ -32,25 +33,25 @@ export class AuthService {
   public readonly isAnonymous: Signal<boolean> = computed(() => this._fetchResult() === null);
   public readonly session: Signal<Session> = computed(() => this._fetchResult() ?? []);
   public readonly sub: Signal<string | null> = computed(
-    () => this._fetchResult()?.find(x => x.type === 'sub')?.value ?? null
+    () => this._fetchResult()?.find(x => x.type === ClaimTypes.sub)?.value ?? null
   );
   public readonly username: Signal<string | null> = computed(
-    () => this._fetchResult()?.find(x => x.type === 'name')?.value ?? null
+    () => this._fetchResult()?.find(x => x.type === ClaimTypes.name)?.value ?? null
   );
   public readonly email: Signal<string | null> = computed(
-    () => this._fetchResult()?.find(x => x.type === 'email')?.value ?? null
+    () => this._fetchResult()?.find(x => x.type === ClaimTypes.email)?.value ?? null
   );
   public readonly picture: Signal<string | null> = computed(
-    () => this._fetchResult()?.find(x => x.type === 'picture')?.value ?? null
+    () => this._fetchResult()?.find(x => x.type === ClaimTypes.picture)?.value ?? null
   );
   public readonly logoutUrl: Signal<string | null> = computed(() => {
     const s = this._fetchResult();
     if (!s) return null;
-    return s.find(x => x.type === 'bff:logout_url')?.value ?? null;
+    return s.find(x => x.type === ClaimTypes.logoutUrl)?.value ?? null;
   });
 
-  public readonly silentLoginUrl: string = '/bff/silent-login';
-  public readonly loginUrl: string = '/bff/login';
+  public readonly silentLoginUrl: string = BffPaths.silentLogin;
+  public readonly loginUrl: string = BffPaths.login;
 
   public initialize(): Observable<Session> {
     this._refresh$.next();

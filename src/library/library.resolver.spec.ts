@@ -1,4 +1,4 @@
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRouteSnapshot } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
@@ -8,22 +8,35 @@ import {
   LibraryGameResponse,
   LibraryPageResponse,
   PsPlusRotationSummaryResponse,
+  RefreshCadences,
   RefreshScheduleResponse,
+  SortDirections,
+  TrophyProgressReasons,
   TrophyProgressResponse,
+  TrophyProgressStates,
 } from '../curator/curator.models';
+import { ResolvedStatuses } from '../shared/resolved-status';
+import { newCount, newId, newText, newUtcInstant } from '@crgolden/modules/testing';
 
-const GAMES = [{ game_id: 'g1', title: 'Bloodborne' }] as unknown as LibraryGameResponse[];
+const GAME_ID = newId();
+const GAME_TITLE = newText();
+const GENRE = newText();
+const OTHER_SUB = newId();
+const NEXT_RUN_AT = newUtcInstant();
+const OWNER_TOTAL = newCount();
+
+const GAMES = [{ game_id: GAME_ID, title: GAME_TITLE }] as unknown as LibraryGameResponse[];
 
 const SCHEDULE = {
-  cadence: 'daily',
+  cadence: RefreshCadences.daily,
   ps_plus_watch: false,
-  next_run_at: '2026-09-08T12:00:00Z',
+  next_run_at: NEXT_RUN_AT,
   last_run_at: null,
   consecutive_failures: 0,
   paused_reason: null,
 } satisfies RefreshScheduleResponse;
 
-const HARVESTING = { state: 'on', reason: null } satisfies TrophyProgressResponse;
+const HARVESTING = { state: TrophyProgressStates.on, reason: null } satisfies TrophyProgressResponse;
 
 function ownerPage(total: number): LibraryPageResponse {
   return { games: GAMES, total, trophy_progress: HARVESTING, hidden_count: 0 };
@@ -48,18 +61,18 @@ describe('libraryResolver', () => {
   it('resolves the caller’s own library and its genres', async () => {
     const result = await run(
       {
-        getLibrary: () => of(ownerPage(42)),
-        getLibraryGenres: () => of({ genres: ['RPG'] }),
+        getLibrary: () => of(ownerPage(OWNER_TOTAL)),
+        getLibraryGenres: () => of({ genres: [GENRE] }),
         getRefreshSchedule: () => of(SCHEDULE),
       },
       null,
     );
 
     expect(result).toEqual({
-      status: 'ok',
+      status: ResolvedStatuses.ok,
       games: GAMES,
-      total: 42,
-      genres: ['RPG'],
+      total: OWNER_TOTAL,
+      genres: [GENRE],
       schedule: SCHEDULE,
       trophyProgress: HARVESTING,
       hiddenCount: 0,
@@ -68,13 +81,13 @@ describe('libraryResolver', () => {
   });
 
   it('carries the owner page’s trophy progress and hidden count through to the component', async () => {
-    const trophyProgress = { state: 'off', reason: 'harvest_off' } satisfies TrophyProgressResponse;
-    const hiddenCount = Math.floor(Math.random() * 50) + 1;
+    const trophyProgress = { state: TrophyProgressStates.off, reason: TrophyProgressReasons.harvestOff } satisfies TrophyProgressResponse;
+    const hiddenCount = newCount();
     const result = await run(
       {
         getLibrary: () => of({ games: GAMES, total: 1, trophy_progress: trophyProgress, hidden_count: hiddenCount }),
         getLibraryGenres: () => of({ genres: [] }),
-        getRefreshSchedule: fails(404),
+        getRefreshSchedule: fails(HttpStatusCode.NotFound),
       },
       null,
     );
@@ -83,7 +96,7 @@ describe('libraryResolver', () => {
   });
 
   it('asks for the PS Plus rotation summary only when the schedule watches PS Plus', async () => {
-    const summary = { catalog_walked_at: '2026-09-01T00:00:00Z', unclaimed: 3, leaving: 1 } satisfies PsPlusRotationSummaryResponse;
+    const summary = { catalog_walked_at: newUtcInstant(), unclaimed: newCount(), leaving: newCount() } satisfies PsPlusRotationSummaryResponse;
     let askedWhileUnwatched = false;
     const watched = await run(
       {
@@ -118,7 +131,7 @@ describe('libraryResolver', () => {
         getLibrary: () => of(ownerPage(1)),
         getLibraryGenres: () => of({ genres: [] }),
         getRefreshSchedule: () => of({ ...SCHEDULE, ps_plus_watch: true }),
-        getPsPlusRotationSummary: fails(404),
+        getPsPlusRotationSummary: fails(HttpStatusCode.NotFound),
       },
       null,
     );
@@ -136,11 +149,11 @@ describe('libraryResolver', () => {
         },
         getUserLibraryGenres: () => of({ genres: [] }),
       },
-      'u1',
+      OTHER_SUB,
     );
 
-    expect(asked).toEqual(['u1']);
-    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null, trophyProgress: null, hiddenCount: 0, psPlus: null });
+    expect(asked).toEqual([OTHER_SUB]);
+    expect(result).toEqual({ status: ResolvedStatuses.ok, games: GAMES, total: 1, genres: [], schedule: null, trophyProgress: null, hiddenCount: 0, psPlus: null });
   });
 
   it('never asks for a schedule in viewer mode, because the schedule belongs to the library’s owner', async () => {
@@ -154,11 +167,11 @@ describe('libraryResolver', () => {
           return of(SCHEDULE);
         },
       },
-      'u1',
+      OTHER_SUB,
     );
 
     expect(asked).toBe(false);
-    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null, trophyProgress: null, hiddenCount: 0, psPlus: null });
+    expect(result).toEqual({ status: ResolvedStatuses.ok, games: GAMES, total: 1, genres: [], schedule: null, trophyProgress: null, hiddenCount: 0, psPlus: null });
   });
 
   it('treats a schedule as best-effort, so a 404 for “no schedule yet” still resolves the library', async () => {
@@ -166,12 +179,12 @@ describe('libraryResolver', () => {
       {
         getLibrary: () => of(ownerPage(1)),
         getLibraryGenres: () => of({ genres: [] }),
-        getRefreshSchedule: fails(404),
+        getRefreshSchedule: fails(HttpStatusCode.NotFound),
       },
       null,
     );
 
-    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null, trophyProgress: HARVESTING, hiddenCount: 0, psPlus: null });
+    expect(result).toEqual({ status: ResolvedStatuses.ok, games: GAMES, total: 1, genres: [], schedule: null, trophyProgress: HARVESTING, hiddenCount: 0, psPlus: null });
   });
 
   it('starts on title-ascending, first page, with no filters applied', async () => {
@@ -183,40 +196,40 @@ describe('libraryResolver', () => {
           return of(ownerPage(1));
         },
         getLibraryGenres: () => of({ genres: [] }),
-        getRefreshSchedule: fails(404),
+        getRefreshSchedule: fails(HttpStatusCode.NotFound),
       },
       null,
     );
 
     expect(queries).toEqual([initialLibraryQuery]);
     expect(initialLibraryQuery.offset).toBe(0);
-    expect(initialLibraryQuery.sortDir).toBe('asc');
+    expect(initialLibraryQuery.sortDir).toBe(SortDirections.asc);
   });
 
   it('treats genres as best-effort, still resolving the games', async () => {
     const result = await run(
       {
         getLibrary: () => of(ownerPage(1)),
-        getLibraryGenres: fails(500),
-        getRefreshSchedule: fails(404),
+        getLibraryGenres: fails(HttpStatusCode.InternalServerError),
+        getRefreshSchedule: fails(HttpStatusCode.NotFound),
       },
       null,
     );
 
-    expect(result).toEqual({ status: 'ok', games: GAMES, total: 1, genres: [], schedule: null, trophyProgress: HARVESTING, hiddenCount: 0, psPlus: null });
+    expect(result).toEqual({ status: ResolvedStatuses.ok, games: GAMES, total: 1, genres: [], schedule: null, trophyProgress: HARVESTING, hiddenCount: 0, psPlus: null });
   });
 
   it('distinguishes a private library from a failed load', async () => {
     const forbidden = await run(
-      { getUserLibrary: fails(403), getUserLibraryGenres: () => of({ genres: [] }) },
-      'u1',
+      { getUserLibrary: fails(HttpStatusCode.Forbidden), getUserLibraryGenres: () => of({ genres: [] }) },
+      OTHER_SUB,
     );
     const failed = await run(
-      { getUserLibrary: fails(500), getUserLibraryGenres: () => of({ genres: [] }) },
-      'u1',
+      { getUserLibrary: fails(HttpStatusCode.InternalServerError), getUserLibraryGenres: () => of({ genres: [] }) },
+      OTHER_SUB,
     );
 
-    expect(forbidden).toEqual({ status: 'forbidden' });
-    expect(failed).toEqual({ status: 'error' });
+    expect(forbidden).toEqual({ status: ResolvedStatuses.forbidden });
+    expect(failed).toEqual({ status: ResolvedStatuses.error });
   });
 });

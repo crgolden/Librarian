@@ -1,7 +1,7 @@
-<section id="profile-view" class="page-section flex flex-col gap-6 max-w-data mx-auto">
+<section id="profile-view" crgPageSection class="flex flex-col gap-6 max-w-data mx-auto">
   @if (loadError()) {
     <h1 id="page-title">Profile</h1>
-    <p id="profile-load-error" class="text-error">{{ loadError() }}</p>
+    <p id="profile-load-error" class="m-0 text-meta text-danger">{{ loadError() }}</p>
   } @else if (profile(); as current) {
     <header class="flex flex-col items-start gap-3">
       <app-avatar
@@ -10,22 +10,29 @@
         [pictureUrl]="ownPictureFor(current)"
         [size]="96"
       />
-      <h1 id="page-title">{{ displayName(current) }}</h1>
+      <h1
+        id="page-title"
+        [attr.data-online-id]="current.identity?.online_id"
+        [attr.data-has-psn-account]="!!current.psn_account_id"
+      >
+        {{ displayName(current) }}
+      </h1>
 
       @if (current.psn_account_id) {
-        <span id="profile-psn-badge" class="psn-badge">PlayStation Network linked</span>
+        <span id="profile-psn-badge" class="inline-flex items-center gap-[0.35rem] font-mono text-small text-psn before:size-2 before:rounded-full before:bg-psn before:content-['']">PlayStation Network linked</span>
       }
 
       @if (!current.viewer_is_owner) {
         @if (followError()) {
-          <p id="profile-follow-error" class="text-error">{{ followError() }}</p>
+          <p id="profile-follow-error" class="m-0 text-meta text-danger">{{ followError() }}</p>
         }
         @if (current.viewer_is_following) {
           <button
             id="profile-follow-toggle"
             type="button"
-            class="btn-ghost"
+            crgButtonGhost
             [disabled]="followBusy()"
+            [attr.data-following]="true"
             (click)="unfollow()"
           >
             {{ followBusy() ? 'Working...' : 'Unfollow' }}
@@ -34,8 +41,9 @@
           <button
             id="profile-follow-toggle"
             type="button"
-            class="btn-primary"
+            crgButtonPrimary
             [disabled]="followBusy()"
+            [attr.data-following]="false"
             (click)="follow()"
           >
             {{ followBusy() ? 'Working...' : 'Follow' }}
@@ -45,19 +53,19 @@
 
       @if (viewerMayAddFriend() && current.identity; as identity) {
         @if (friendRequestSent()) {
-          <p id="profile-add-psn-friend-sent" class="text-success">Friend request sent to {{ identity.online_id }}.</p>
+          <p id="profile-add-psn-friend-sent" class="text-ok">Friend request sent to {{ identity.online_id }}.</p>
         } @else if (confirmingFriendRequest()) {
-          <p id="profile-add-psn-friend-prompt" class="text-muted">
+          <p id="profile-add-psn-friend-prompt" class="text-meta text-text-muted">
             Send {{ identity.online_id }} a PlayStation Network friend request from your account?
           </p>
           @if (friendRequestError()) {
-            <p id="profile-add-psn-friend-error" class="text-error">{{ friendRequestError() }}</p>
+            <p id="profile-add-psn-friend-error" class="m-0 text-meta text-danger">{{ friendRequestError() }}</p>
           }
-          <div class="form-actions">
+          <div class="flex gap-3">
             <button
               id="profile-add-psn-friend-cancel"
               type="button"
-              class="btn-ghost"
+              crgButtonGhost
               [disabled]="friendRequestBusy()"
               (click)="cancelFriendRequest()"
             >
@@ -66,7 +74,7 @@
             <button
               id="profile-add-psn-friend-confirm"
               type="button"
-              class="btn-primary"
+              crgButtonPrimary
               [disabled]="friendRequestBusy()"
               (click)="sendFriendRequest()"
             >
@@ -74,7 +82,7 @@
             </button>
           </div>
         } @else {
-          <button id="profile-add-psn-friend" type="button" class="btn-ghost" (click)="startFriendRequest()">
+          <button id="profile-add-psn-friend" type="button" crgButtonGhost (click)="startFriendRequest()">
             Add as PSN friend
           </button>
         }
@@ -82,100 +90,101 @@
 
       <div id="profile-actions" class="flex flex-wrap gap-3">
         @if (current.viewer_is_owner || current.library_visible) {
-          <a id="profile-library-link" class="btn-ghost" [routerLink]="libraryLink()">View library</a>
+          <a id="profile-library-link" crgButtonGhost [routerLink]="libraryLink()">View library</a>
         }
         @if (current.viewer_is_owner || current.collections_visible) {
-          <a id="profile-collections-link" class="btn-ghost" [routerLink]="collectionsLink()">View collections</a>
+          <a id="profile-collections-link" crgButtonGhost [routerLink]="collectionsLink()">View collections</a>
         }
       </div>
     </header>
 
-    <div id="profile-stat-grid" class="stat-grid">
+    <div id="profile-stat-grid" class="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-x-4 gap-y-6">
       @if (current.library_count !== null) {
-        <div id="profile-stat-library" data-stat="library" class="stat">
-          <span class="stat-head">
+        <div id="profile-stat-library" data-stat="library" class="flex min-w-0 flex-col items-start gap-2 border-t border-line pt-3" [attr.data-count]="current.library_count">
+          <span class="inline-flex items-center gap-2">
             <ng-icon name="lucideLibraryBig" aria-hidden="true" />
-            <span class="stamp-label">Titles catalogued</span>
+            <span appStampLabel>Titles catalogued</span>
           </span>
-          <span class="stat-value">{{ current.library_count }}</span>
+          <span id="profile-stat-library-value" class="font-heading text-display font-bold leading-tight">{{ current.library_count }}</span>
         </div>
       }
 
       @if (current.collections_count !== null) {
-        <div id="profile-stat-collections" data-stat="collections" class="stat">
-          <span class="stat-head">
+        <div id="profile-stat-collections" data-stat="collections" class="flex min-w-0 flex-col items-start gap-2 border-t border-line pt-3">
+          <span class="inline-flex items-center gap-2">
             <ng-icon name="lucideFolderOpen" aria-hidden="true" />
-            <span class="stamp-label">Collections</span>
+            <span appStampLabel>Collections</span>
           </span>
-          <span class="stat-value">{{ current.collections_count }}</span>
+          <span id="profile-stat-collections-value" class="font-heading text-display font-bold leading-tight">{{ current.collections_count }}</span>
         </div>
       }
 
       @if (current.trophies; as trophies) {
-        <div id="profile-stat-trophy-level" data-stat="trophy-level" class="stat">
-          <span class="stat-head">
+        <div id="profile-stat-trophy-level" data-stat="trophy-level" class="flex min-w-0 flex-col items-start gap-2 border-t border-line pt-3">
+          <span class="inline-flex items-center gap-2">
             <ng-icon name="lucideTrophy" aria-hidden="true" />
-            <span class="stamp-label">Trophy level</span>
+            <span appStampLabel>Trophy level</span>
           </span>
-          <span class="stat-value">{{ trophies.level }}</span>
-          <span class="catalog-meta">Tier {{ trophies.tier }}</span>
+          <span id="profile-stat-trophy-level-value" class="font-heading text-display font-bold leading-tight">{{ trophies.level }}</span>
+          <span id="profile-stat-trophy-level-tier" appCatalogMeta>Tier {{ trophies.tier }}</span>
         </div>
 
-        <div id="profile-stat-trophies-earned" data-stat="trophies-earned" class="stat">
-          <span class="stat-head">
+        <div id="profile-stat-trophies-earned" data-stat="trophies-earned" class="flex min-w-0 flex-col items-start gap-2 border-t border-line pt-3">
+          <span class="inline-flex items-center gap-2">
             <ng-icon name="lucideMedal" aria-hidden="true" />
-            <span class="stamp-label">Trophies earned</span>
+            <span appStampLabel>Trophies earned</span>
           </span>
-          <span class="stat-value">{{ trophiesEarnedTotal(current) }}</span>
-          <span class="catalog-meta">
+          <span id="profile-stat-trophies-earned-value" class="font-heading text-display font-bold leading-tight">{{ trophiesEarnedTotal(current) }}</span>
+          <span appCatalogMeta>
             {{ trophies.earned.platinum }} platinum &middot; {{ trophies.earned.gold }} gold &middot;
             {{ trophies.earned.silver }} silver &middot; {{ trophies.earned.bronze }} bronze
           </span>
         </div>
       } @else if (current.trophies_hidden_by_owner_setting) {
-        <div id="profile-stat-trophies-off" data-stat="trophies-off" class="stat">
-          <span class="stat-head">
+        <div id="profile-stat-trophies-off" data-stat="trophies-off" class="flex min-w-0 flex-col items-start gap-2 border-t border-line pt-3">
+          <span class="inline-flex items-center gap-2">
             <ng-icon name="lucideMedal" aria-hidden="true" />
-            <span class="stamp-label">Trophies</span>
+            <span appStampLabel>Trophies</span>
           </span>
-          <span class="catalog-meta">Not catalogued — trophy data is switched off for your account.</span>
-          <a routerLink="/account">Turn it on in PlayStation settings</a>
+          <span appCatalogMeta>{{ trophiesOffNotice }}</span>
+          <a [routerLink]="appUrls.account">Turn it on in PlayStation settings</a>
         </div>
       }
 
       <a
         id="profile-stat-followers"
         data-stat="followers"
-        class="stat"
+        class="flex min-w-0 flex-col items-start gap-2 border-t border-line pt-3"
         [routerLink]="followersLink()"
-        [attr.aria-label]="current.follower_count + ' ' + followerLabel(current.follower_count)"
+        [attr.aria-label]="followersName(current.follower_count)"
+        [attr.data-count]="current.follower_count"
       >
-        <span class="stat-head">
+        <span class="inline-flex items-center gap-2">
           <ng-icon name="lucideUsers" aria-hidden="true" />
-          <span class="stamp-label">Followers</span>
+          <span appStampLabel>Followers</span>
         </span>
-        <span class="stat-value">{{ current.follower_count }}</span>
+        <span id="profile-stat-followers-value" class="font-heading text-display font-bold leading-tight">{{ current.follower_count }}</span>
       </a>
 
       <a
         id="profile-stat-following"
         data-stat="following"
-        class="stat"
+        class="flex min-w-0 flex-col items-start gap-2 border-t border-line pt-3"
         [routerLink]="followingLink()"
-        [attr.aria-label]="current.following_count + ' following'"
+        [attr.aria-label]="followingName(current.following_count)"
       >
-        <span class="stat-head">
+        <span class="inline-flex items-center gap-2">
           <ng-icon name="lucideUserPlus" aria-hidden="true" />
-          <span class="stamp-label">Following</span>
+          <span appStampLabel>Following</span>
         </span>
-        <span class="stat-value">{{ current.following_count }}</span>
+        <span id="profile-stat-following-value" class="font-heading text-display font-bold leading-tight">{{ current.following_count }}</span>
       </a>
 
       @if (current.profile_links.length > 0) {
-        <div id="profile-stat-profile-links" data-stat="profile-links" class="stat">
-          <span class="stat-head">
+        <div id="profile-stat-profile-links" data-stat="profile-links" class="flex min-w-0 flex-col items-start gap-2 border-t border-line pt-3">
+          <span class="inline-flex items-center gap-2">
             <ng-icon name="lucideLink" aria-hidden="true" />
-            <span class="stamp-label">Elsewhere</span>
+            <span appStampLabel>Elsewhere</span>
           </span>
           @for (link of current.profile_links; track link.site_key; let i = $index) {
             <a
@@ -190,12 +199,12 @@
       }
 
       @if (current.created_at !== null) {
-        <div id="profile-stat-member-since" data-stat="member-since" class="stat">
-          <span class="stat-head">
+        <div id="profile-stat-member-since" data-stat="member-since" class="flex min-w-0 flex-col items-start gap-2 border-t border-line pt-3">
+          <span class="inline-flex items-center gap-2">
             <ng-icon name="lucideStamp" aria-hidden="true" />
-            <span class="stamp-label">In the catalogue since</span>
+            <span appStampLabel>In the catalogue since</span>
           </span>
-          <span class="catalog-meta">{{ current.created_at | date: 'longDate' }}</span>
+          <span appCatalogMeta>{{ current.created_at | date: 'longDate' }}</span>
         </div>
       }
     </div>

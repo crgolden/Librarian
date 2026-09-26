@@ -1,14 +1,41 @@
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import {
+  ButtonDangerDirective,
+  ButtonGhostDangerDirective,
+  ButtonGhostDirective,
+  ButtonPrimaryDirective,
+  CardDirective,
+  PageSectionDirective,
+} from '@crgolden/modules/primitives';
 import { CuratorService } from '../curator/curator.service';
-import { ConsoleDeviceLinkState, ConsoleResponse, StorageDeviceResponse } from '../curator/curator.models';
+import {
+  CONSOLE_PLATFORM_OPTIONS,
+  ConsoleDeviceLinkState,
+  ConsolePlatform,
+  ConsolePlatforms,
+  ConsoleResponse,
+  StorageDeviceResponse,
+  StorageKind,
+  StorageKinds,
+} from '../curator/curator.models';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
 import { ConsolesPageData } from './consoles.resolver';
-
-type ConsolePlatform = 'PS5' | 'PS4';
-type StorageKind = 'm2' | 'usb';
+import { AppUrls, RouteDataKeys } from '../app/app-paths';
+import {
+  CONSOLE_CREATE_ERROR,
+  CONSOLE_NAME_REQUIRED_ERROR,
+  CONSOLE_PLATFORM_ERROR,
+  DEVICE_CAPACITY_REQUIRED_ERROR,
+  DEVICE_CREATE_ERROR,
+  DEVICE_KIND_ERROR,
+  DEVICE_NAME_REQUIRED_ERROR,
+  defaultCapacityNoteFor,
+} from './consoles.messages';
+import { CatalogMetaDirective, CatalogTitleDirective, SpineLabelDirective } from '../shared/primitives/typography';
+import { statusCodeOf } from '../shared/http-status';
 
 export const DEVICE_LINK_LABELS: Record<ConsoleDeviceLinkState, string> = {
   linked: 'Linked to a PSN device',
@@ -19,12 +46,28 @@ export const DEVICE_LINK_LABELS: Record<ConsoleDeviceLinkState, string> = {
 
 @Component({
   selector: 'app-consoles',
-  imports: [FormsModule, LoadingOverlayComponent, RouterLink],
+  imports: [
+    FormsModule,
+    LoadingOverlayComponent,
+    RouterLink,
+    PageSectionDirective,
+    CardDirective,
+    ButtonPrimaryDirective,
+    ButtonGhostDirective,
+    ButtonGhostDangerDirective,
+    ButtonDangerDirective,
+    CatalogMetaDirective,
+    CatalogTitleDirective,
+    SpineLabelDirective,
+  ],
   templateUrl: './consoles.component.html',
-  styleUrl: './consoles.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ConsolesComponent {
+  protected readonly appUrls = AppUrls;
+  protected readonly consolePlatformOptions = CONSOLE_PLATFORM_OPTIONS;
+  protected readonly storageKinds = StorageKinds;
+
   private readonly curator = inject(CuratorService);
   private readonly route = inject(ActivatedRoute);
 
@@ -39,7 +82,7 @@ export class ConsolesComponent {
 
   protected readonly showConsoleForm = signal(false);
   protected readonly consoleName = signal('');
-  protected readonly consolePlatform = signal<ConsolePlatform>('PS5');
+  protected readonly consolePlatform = signal<ConsolePlatform>(ConsolePlatforms.ps5);
   protected readonly consoleModel = signal('');
   protected readonly consoleCapacityGb = signal<number | null>(null);
   protected readonly consoleUpdateBufferGb = signal(0);
@@ -67,7 +110,7 @@ export class ConsolesComponent {
 
   protected readonly showDeviceForm = signal(false);
   protected readonly deviceName = signal('');
-  protected readonly deviceKind = signal<StorageKind>('m2');
+  protected readonly deviceKind = signal<StorageKind>(StorageKinds.m2);
   protected readonly deviceCapacityGb = signal<number | null>(null);
   protected readonly deviceBufferGb = signal(0);
   protected readonly deviceConsoleId = signal<string | null>(null);
@@ -89,8 +132,8 @@ export class ConsolesComponent {
   protected readonly deletingDeviceId = signal<string | null>(null);
 
   constructor() {
-    this.genreOptions.set((this.route.snapshot.data['genres'] as string[] | undefined) ?? []);
-    const resolved = this.route.snapshot.data['consoles'] as ConsolesPageData | null;
+    this.genreOptions.set((this.route.snapshot.data[RouteDataKeys.genres] as string[] | undefined) ?? []);
+    const resolved = this.route.snapshot.data[RouteDataKeys.consoles] as ConsolesPageData | null;
     if (resolved === null) {
       this.consolesError.set('Unable to load your consoles.');
       return;
@@ -120,7 +163,7 @@ export class ConsolesComponent {
 
   protected startCreatingConsole(): void {
     this.consoleName.set('');
-    this.consolePlatform.set('PS5');
+    this.consolePlatform.set(ConsolePlatforms.ps5);
     this.consoleModel.set('');
     this.consoleCapacityGb.set(null);
     this.consoleUpdateBufferGb.set(0);
@@ -138,7 +181,7 @@ export class ConsolesComponent {
   protected createConsole(): void {
     const trimmedName = this.consoleName().trim();
     if (!trimmedName) {
-      this.consoleFormError.set('Enter a name for this console.');
+      this.consoleFormError.set(CONSOLE_NAME_REQUIRED_ERROR);
       return;
     }
 
@@ -160,14 +203,12 @@ export class ConsolesComponent {
           this.showConsoleForm.set(false);
           this.consoles.update((consoles) => [...consoles, console]);
           if (console.capacity_is_default) {
-            this.defaultCapacityNote.set(
-              `We guessed ${console.raw_capacity_gb} GB for "${console.name}" from its platform/model — edit it below if that's wrong.`,
-            );
+            this.defaultCapacityNote.set(defaultCapacityNoteFor(console));
           }
         },
         error: (err: HttpErrorResponse) => {
           this.creatingConsole.set(false);
-          this.consoleFormError.set(err.status === 400 ? 'platform must be "PS5" or "PS4".' : 'Unable to create this console.');
+          this.consoleFormError.set(statusCodeOf(err) === HttpStatusCode.BadRequest ? CONSOLE_PLATFORM_ERROR : CONSOLE_CREATE_ERROR);
         },
       });
   }
@@ -189,7 +230,7 @@ export class ConsolesComponent {
   protected saveConsole(consoleId: string): void {
     const trimmedName = this.editConsoleName().trim();
     if (!trimmedName) {
-      this.consoleEditError.set('Enter a name for this console.');
+      this.consoleEditError.set(CONSOLE_NAME_REQUIRED_ERROR);
       return;
     }
 
@@ -242,7 +283,7 @@ export class ConsolesComponent {
 
   protected startCreatingDevice(): void {
     this.deviceName.set('');
-    this.deviceKind.set('m2');
+    this.deviceKind.set(StorageKinds.m2);
     this.deviceCapacityGb.set(null);
     this.deviceBufferGb.set(0);
     this.deviceConsoleId.set(null);
@@ -258,11 +299,11 @@ export class ConsolesComponent {
     const trimmedName = this.deviceName().trim();
     const capacityGb = this.deviceCapacityGb();
     if (!trimmedName) {
-      this.deviceFormError.set('Enter a name for this device.');
+      this.deviceFormError.set(DEVICE_NAME_REQUIRED_ERROR);
       return;
     }
     if (capacityGb === null || capacityGb <= 0) {
-      this.deviceFormError.set('Enter this device\'s capacity in GB.');
+      this.deviceFormError.set(DEVICE_CAPACITY_REQUIRED_ERROR);
       return;
     }
 
@@ -284,7 +325,7 @@ export class ConsolesComponent {
         },
         error: (err: HttpErrorResponse) => {
           this.creatingDevice.set(false);
-          this.deviceFormError.set(err.status === 400 ? 'kind must be "m2" or "usb".' : 'Unable to create this device.');
+          this.deviceFormError.set(statusCodeOf(err) === HttpStatusCode.BadRequest ? DEVICE_KIND_ERROR : DEVICE_CREATE_ERROR);
         },
       });
   }
@@ -304,7 +345,7 @@ export class ConsolesComponent {
   protected saveDevice(deviceId: string): void {
     const trimmedName = this.editDeviceName().trim();
     if (!trimmedName) {
-      this.deviceEditError.set('Enter a name for this device.');
+      this.deviceEditError.set(DEVICE_NAME_REQUIRED_ERROR);
       return;
     }
 

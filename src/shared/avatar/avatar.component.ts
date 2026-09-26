@@ -3,8 +3,8 @@ import { ChangeDetectionStrategy, Component, HostBinding, Input } from '@angular
 @Component({
   selector: 'app-avatar',
   templateUrl: './avatar.component.html',
-  styleUrl: './avatar.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'inline-flex shrink-0 overflow-hidden rounded-full' },
 })
 export class AvatarComponent {
   @Input({ required: true }) sub: string | null = null;

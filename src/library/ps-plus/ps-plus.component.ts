@@ -1,10 +1,16 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { CardDirective, PageSectionDirective } from '@crgolden/modules/primitives';
 import { PsPlusRotationResponse, PsPlusTitleResponse } from '../../curator/curator.models';
 import { BreadcrumbComponent, BreadcrumbItem } from '../../app/shared/breadcrumb/breadcrumb.component';
 import { storeProductUrl } from '../../catalog/store-links';
 import { ResolvedPsPlusRotation } from './ps-plus.resolver';
+import { AppUrls, RouteDataKeys } from '../../app/app-paths';
+import { PageTitles } from '../../shared/page-title';
+import { ResolvedStatuses } from '../../shared/resolved-status';
+import { PS_PLUS_ROTATION_LOAD_ERROR } from '../library.messages';
+import { CatalogMetaDirective, CatalogTitleDirective, SpineLabelDirective } from '../../shared/primitives/typography';
 
 export interface RotationList {
   id: string;
@@ -13,15 +19,26 @@ export interface RotationList {
   titles: PsPlusTitleResponse[];
 }
 
-const BREADCRUMB: BreadcrumbItem[] = [{ label: 'Library', link: ['/library'] }, { label: 'PlayStation Plus' }];
+const BREADCRUMB: BreadcrumbItem[] = [{ label: PageTitles.library, link: [AppUrls.library] }, { label: PageTitles.psPlus }];
 
 @Component({
   selector: 'app-ps-plus',
-  imports: [DatePipe, BreadcrumbComponent, RouterLink],
+  imports: [
+    DatePipe,
+    BreadcrumbComponent,
+    RouterLink,
+    PageSectionDirective,
+    CardDirective,
+    CatalogMetaDirective,
+    CatalogTitleDirective,
+    SpineLabelDirective,
+  ],
   templateUrl: './ps-plus.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PsPlusComponent implements OnInit {
+  protected readonly appUrls = AppUrls;
+
   private readonly route = inject(ActivatedRoute);
 
   protected readonly rotation = signal<PsPlusRotationResponse | null>(null);
@@ -31,13 +48,13 @@ export class PsPlusComponent implements OnInit {
   protected readonly breadcrumbItems = BREADCRUMB;
 
   ngOnInit(): void {
-    const resolved = this.route.snapshot.data['rotation'] as ResolvedPsPlusRotation;
-    if (resolved.status === 'not-linked') {
+    const resolved = this.route.snapshot.data[RouteDataKeys.rotation] as ResolvedPsPlusRotation;
+    if (resolved.status === ResolvedStatuses.notLinked) {
       this.notLinked.set(true);
       return;
     }
-    if (resolved.status === 'error') {
-      this.error.set('Unable to load the PlayStation Plus rotation.');
+    if (resolved.status === ResolvedStatuses.error) {
+      this.error.set(PS_PLUS_ROTATION_LOAD_ERROR);
       return;
     }
     this.rotation.set(resolved.rotation);

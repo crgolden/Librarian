@@ -1,4 +1,17 @@
+import { LOCAL_HOST } from '../shared/local-host';
+
 export const environment = {
   production: false,
-  allowedHosts: ['localhost'],
+  allowedHosts: [LOCAL_HOST],
+  followListPageSize: 50,
+  tokenRefreshWindowMs: 60000,
+  pageSizeChoices: [20, 50, 100, 200],
+  libraryPollIntervalMs: 2500,
+  libraryPollErrorRetryCount: 3,
+  libraryPollErrorRetryDelayMs: 2000,
+  librarySearchDebounceMs: 300,
+  libraryManualSearchLimit: 10,
+  adminEnrichmentPollIntervalMs: 2500,
+  adminEnrichmentPollErrorRetryCount: 3,
+  adminEnrichmentPollErrorRetryDelayMs: 2000,
 };

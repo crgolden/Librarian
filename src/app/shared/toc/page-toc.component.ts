@@ -8,6 +8,8 @@ import {
   signal,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { ButtonGhostSmallDirective, CardAccentDirective } from '@crgolden/modules/primitives';
+import { StampLabelDirective } from '../../../shared/primitives/typography';
 
 export interface TocItem {
   id: string;
@@ -23,8 +25,8 @@ function slugify(text: string): string {
 
 @Component({
   selector: 'app-page-toc',
+  imports: [CardAccentDirective, StampLabelDirective, ButtonGhostSmallDirective],
   templateUrl: './page-toc.component.html',
-  styleUrl: './page-toc.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PageTocComponent {

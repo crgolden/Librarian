@@ -1,6 +1,6 @@
 @if (items().length) {
-  <nav id="page-toc" class="card card-accent p-6 mb-8" aria-label="On this page">
-    <p class="stamp-label m-0 mb-2">On this page</p>
+  <nav id="page-toc" crgCardAccent class="p-6 mb-8" aria-label="On this page">
+    <p appStampLabel class="m-0 mb-2">On this page</p>
     <ul class="m-0 p-0 list-none flex flex-col gap-2">
       @for (item of items(); track item.id) {
         <li>
@@ -10,4 +10,4 @@
     </ul>
   </nav>
 }
-<a id="back-to-top" href="#page-title" class="back-to-top btn-ghost btn-sm" (click)="scrollToId('page-title', $event)">Back to top</a>
+<a id="back-to-top" href="#page-title" crgButtonGhostSmall class="fixed z-(--z-back-to-top) bottom-[calc(var(--tabbar-height)_+_env(safe-area-inset-bottom)_+_--spacing(4))] right-4 lg:bottom-4" (click)="scrollToId('page-title', $event)">Back to top</a>

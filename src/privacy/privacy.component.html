@@ -1,10 +1,10 @@
-<section id="privacy-content" class="page-section flex flex-col gap-6 max-w-reading mx-auto">
+<section id="privacy-content" crgPageSection class="flex flex-col gap-6 max-w-reading mx-auto">
   <h1 id="page-title">Privacy Policy</h1>
-  <p class="text-muted">Effective 2026-07-17. See the <a id="privacy-faq-link" routerLink="/faq">FAQ</a> for a plainer walkthrough of linking your account.</p>
+  <p class="text-meta text-text-muted">Effective 2026-09-20. See the <a id="privacy-faq-link" [routerLink]="appUrls.faq">FAQ</a> for a plainer walkthrough of linking your account.</p>
 
   <app-page-toc headingSelector="#privacy-content h2" />
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="privacy-collected">What we collect</h2>
     <p>When you link your PlayStation account, Curator stores:</p>
     <ul class="m-0 pl-5 space-y-2">
@@ -28,10 +28,27 @@
         library from PlayStation on every page load. Turning trophy harvesting back off erases those
         numbers, it doesn't just stop refreshing them.
       </li>
+      <li>
+        Your account preferences: which of the four PlayStation data toggles are on, whether you've
+        consented to friend or chat writes, your profile visibility settings, and your library refresh
+        schedule if you've set one (its cadence, next run and whether it's paused)
+      </li>
+      <li>
+        Games you've hidden from your library, games you've added by hand, the people you follow and the
+        collections you follow
+      </li>
+      <li>
+        The id of a PlayStation device you've deliberately linked to one of your consoles — nothing else
+        about your devices
+      </li>
+      <li>
+        Any install size you record for a game and platform. It's shared with every user as that title's
+        measured size; deleting your account keeps the number and removes the link to you.
+      </li>
     </ul>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="privacy-not-collected">What we never collect</h2>
     <ul class="m-0 pl-5 space-y-2">
       <li>
@@ -47,12 +64,16 @@
         PlayStation and cached for 15 minutes, never stored permanently. Your per-game completion
         percentage is stored, and only if you've asked for it; see "What we collect" above.
       </li>
-      <li>Your presence, friends list, devices, or chat — read live if at all, never stored</li>
+      <li>
+        Your presence, friends list, chat, or the details of your devices — read live when you've turned the
+        matching toggle on, never stored. The one exception is a device id you deliberately link to a
+        console (see "What we collect").
+      </li>
       <li>Your real name, address, phone number, or any payment information</li>
     </ul>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="privacy-protection">How it's protected</h2>
     <p>
       Access and refresh tokens are encrypted before they're stored; only Curator holds the key. If you
@@ -61,13 +82,28 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
+    <h2 id="privacy-cookies">Cookies and browser storage</h2>
+    <p>
+      Signing in sets one session cookie, <code>librarian.sid</code>, marked HTTP-only and same-site so
+      scripts and other sites can't read it; it identifies your sign-in to Librarian's own server and
+      nothing else, and Librarian strips it from every request it relays to Curator, so neither Curator nor
+      PlayStation ever receives it. Librarian sets no other cookie; signing in passes through the
+      crgolden identity server, which sets its own sign-in cookie on its own address.
+    </p>
+    <p>
+      Your browser's local storage holds one thing: the page size you last chose on a list, so the next
+      list opens at the same size. It never leaves your browser and Curator never sees it.
+    </p>
+  </div>
+
+  <div crgCard class="p-6">
     <h2 id="privacy-provider-keys">About RAWG/OpenCritic keys</h2>
     <p>
       Curator doesn't provision a shared RAWG or OpenCritic key for every user — it doesn't scale. If you
       choose to provide your own, it's stored encrypted and used only to enrich your own library; it's
       never shown back to you or anyone else after you save it, and you can remove it at any time from your
-      <a routerLink="/account">Account</a> page.
+      <a [routerLink]="appUrls.account">Account</a> page.
     </p>
     <p>
       If your key retrieves data Curator doesn't already have for a game (its genre, its critic score),
@@ -78,7 +114,7 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="privacy-sharing">Sharing and visibility</h2>
     <p>
       Every collection you create starts private — visible only to you. From a collection's own page you
@@ -109,13 +145,28 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
+    <h2 id="privacy-writes">Acting on your PlayStation account</h2>
+    <p>
+      Reading is the default; Curator changes nothing on your PlayStation account unless you've turned on a
+      consent for it. With friend writes on, you can send a friend request from another user's public
+      profile and accept requests listed on your Account page; with chat writes on, Curator may create or
+      change group chats on your behalf, which Librarian does not offer yet. Every such change is recorded
+      in your action history, Curator checks before each one that the account it holds a token for is still
+      yours, and it refuses more than 50 changes in any 24 hours. Turning a consent off stops the writes
+      immediately.
+    </p>
+  </div>
+
+  <div crgCard class="p-6">
     <h2 id="privacy-catalog">The public game catalog</h2>
     <p>
       The game catalog is public and needs no account to browse — it describes games, not people. It's built
       from the PlayStation Store's own public listings plus the titles that turn up in users' libraries, and
       a catalog page shows only facts about the game: its title, cover art, franchise, genre, tier, and
       review scores. It never names who owns a game, how many people own it, or whose library it came from.
+      A game you add by hand through a Store search joins the catalog the same way, carrying only what the
+      Store says about it.
     </p>
     <p>
       One thing on a catalog page is yours alone: if you're signed in and you own the game, the page shows
@@ -125,7 +176,7 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="privacy-advertising">Advertising and tracking</h2>
     <p>
       We don't run ads, and we never will. There is no ad network on this site, no ad-tracking or
@@ -135,7 +186,7 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="privacy-retention">How long we keep it</h2>
     <p>
       Your library, tokens, and account data are kept until you unlink or delete your account. Trophy reads
@@ -146,9 +197,9 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="privacy-controls">Your controls</h2>
-    <p>From your <a routerLink="/account">Account</a> page you can, at any time:</p>
+    <p>From your <a [routerLink]="appUrls.account">Account</a> page you can, at any time:</p>
     <ul class="m-0 pl-5 space-y-2">
       <li><strong>Unlink</strong> — immediately deletes your stored PlayStation tokens</li>
       <li>
@@ -160,18 +211,33 @@
         <strong>Remove a RAWG/OpenCritic key</strong> — independent of the above; removes just that key,
         immediately, without touching anything else in your account.
       </li>
+      <li>
+        <strong>Hide, unhide or remove</strong> a game from your library page; <strong>cancel</strong> a
+        refresh schedule, <strong>turn off</strong> any data toggle or consent, and <strong>unlink</strong> a
+        device from a console, each from the page that set it up.
+      </li>
     </ul>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="privacy-action-log">Your action history</h2>
     <p>
       If your PlayStation account were ever compromised by something unrelated to Curator and you needed
       to know exactly what Curator itself did with your account, this is how we — and you — can check.
-      Curator keeps a log of the high-level actions it takes on your behalf: linking attempts (and why one
-      failed, if it did), unlinking, library refresh requests, trophy fetches, and account deletion. It
-      never contains your NPSSO, your tokens, or raw data pulled from PlayStation — only which action
-      happened and when.
+      Curator keeps a log of every action it takes with your PlayStation account: linking attempts (and why
+      one failed, if it did), re-checking your link, unlinking, library refresh requests and each refresh
+      run, every live read of your PlayStation data (your identity, presence, devices, friend requests,
+      trophies, Store searches, device-link checks, and profile lookups made with your account), RAWG or
+      OpenCritic keys added, removed or rejected, users and collections followed or unfollowed, friend
+      requests sent, friends added or removed, chat groups created, renamed or changed, and account deletion.
+      It never contains your NPSSO, your tokens, or raw data pulled from PlayStation — only which action
+      happened, when, and whether it completed or failed.
+    </p>
+    <p>
+      Each entry is written before Curator uses your account, and marked completed or failed afterwards. If
+      the entry cannot be written, the action does not happen, so nothing is done with your account that
+      this log does not show. An entry that stays marked started is an attempt whose result was never
+      confirmed.
     </p>
     <p>
       You can view and download this history yourself at any time from your Account page. Because its
@@ -181,14 +247,14 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="privacy-open-source">Open source</h2>
     <p>
       Every claim on this page is verifiable in public code — we'd rather you check than take our word for
       it. Librarian (this site and its BFF) is at
-      <a href="https://github.com/crgolden/Librarian" target="_blank" rel="noopener">github.com/crgolden/Librarian</a>.
+      <a [href]="sourceRepositories.librarian" target="_blank" rel="noopener">github.com/crgolden/Librarian</a>.
       Curator (the API that handles your NPSSO, verifies your email, and stores your data) is at
-      <a href="https://github.com/crgolden/Curator" target="_blank" rel="noopener">github.com/crgolden/Curator</a>.
+      <a [href]="sourceRepositories.curator" target="_blank" rel="noopener">github.com/crgolden/Curator</a>.
       A few specific places worth pointing to directly: token encryption lives in
       <a href="https://github.com/crgolden/Curator/blob/main/src/curator/persistence/crypto.py" target="_blank" rel="noopener">persistence/crypto.py</a>,
       linking (including the never-persisted-NPSSO / in-memory email match) is in
@@ -196,7 +262,9 @@
       the no-email-column schema tenet is documented in
       <a href="https://github.com/crgolden/Curator/blob/main/db/migrations/0001_initial.sql" target="_blank" rel="noopener">db/migrations/0001_initial.sql</a>,
       the action-history log described above is
-      <a href="https://github.com/crgolden/Curator/blob/main/db/migrations/0003_account_action_log.sql" target="_blank" rel="noopener">db/migrations/0003_account_action_log.sql</a>,
+      <a href="https://github.com/crgolden/Curator/blob/main/db/migrations/0003_account_action_log.sql" target="_blank" rel="noopener">db/migrations/0003_account_action_log.sql</a>
+      and
+      <a href="https://github.com/crgolden/Curator/blob/main/src/curator/audit/recorded.py" target="_blank" rel="noopener">audit/recorded.py</a>,
       and the RAWG/OpenCritic key storage/routes described above are
       <a href="https://github.com/crgolden/Curator/blob/main/db/migrations/0004_user_enrichment_keys.sql" target="_blank" rel="noopener">db/migrations/0004_user_enrichment_keys.sql</a>
       and
@@ -213,15 +281,15 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="privacy-contact">Questions or data requests</h2>
     <p>
-      Email <a href="mailto:privacy@crgolden.com">privacy&#64;crgolden.com</a> for anything not covered by
+      Email <a [href]="'mailto:' + privacyContactEmail">{{ privacyContactEmail }}</a> for anything not covered by
       the self-service controls above.
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="privacy-not-affiliated">Not affiliated with Sony</h2>
     <p>
       Librarian is an independent, unofficial project and is not affiliated with Sony Interactive

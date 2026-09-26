@@ -133,20 +133,24 @@ page-slicing implementation.
 
 The full local stack needs the Identity server and the Curator API running, plus local config:
 
-**Environment variables (set in your shell):**
+**Environment variables (`.env.local`, gitignored; `npm start` and `serve:ssr` load it):**
 
 ```
+PORT=4100
 OidcAuthority=https://localhost:7261
 CuratorApiAddress=<local Curator API URL>
 LibrarianClientId=<dev client id>
 LibrarianClientSecret=<dev client secret>
 SessionSecret=<at-least-32-chars-dev-secret>
+SessionStore=memory
 ```
 
-Session storage defaults to an in-memory store (fine for local dev — sessions just don't survive a
-restart). To use a local Redis instance instead, export `RedisHost=localhost` and `RedisPort=6379`
-(the code's own default assumes Azure's TLS port, not a local non-TLS Redis) — `session.ts` picks
-Redis automatically once `RedisHost` is set.
+`PORT` and `SessionSecret` are required, and so are `RedisHost` and `RedisPort` unless
+`SessionStore=memory`; a missing one stops the process at startup. `SessionStore=memory` keeps sessions
+in process (they don't survive a restart). To use a local Redis instance instead, remove `SessionStore`
+and set `RedisHost=localhost`, `RedisPort=6379` and the five keepalive settings (`RedisSocketTimeoutMs`,
+`RedisPingIntervalMs`, `RedisReconnectStepMs`, `RedisReconnectMaxDelayMs`, `RedisReconnectJitterMs`;
+positive integers, with the ping interval shorter than the socket timeout).
 
 **Key Vault secrets required at runtime (production):**
 

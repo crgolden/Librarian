@@ -1,30 +1,52 @@
 import { Params } from '@angular/router';
 import { CatalogGamesQuery } from '../curator/curator.service';
-import { CatalogKind, CatalogSortField } from '../curator/curator.models';
+import {
+  ALL_CATALOG_KINDS,
+  CatalogKind,
+  CatalogSortField,
+  CatalogSortFields,
+  ContentKinds,
+  SortDirections,
+} from '../curator/curator.models';
 import { trimmedOrNull } from '../shared/control-value';
+import { catalogSortValue } from './catalog-sort';
+
+export { catalogSortValue };
 
 export const CATALOG_PAGE_SIZE = 50;
 export const CATALOG_PAGE_SIZE_CEILING = 200;
 export const CATALOG_PAGE_SIZE_KEY = 'catalog';
-export const DEFAULT_CATALOG_KIND: CatalogKind = 'game';
-export const DEFAULT_CATALOG_SORT = 'title:asc';
+export const CatalogQueryParams = {
+  q: 'q',
+  franchise: 'franchise',
+  genre: 'genre',
+  aaaTier: 'aaaTier',
+  kind: 'kind',
+  sort: 'sort',
+  sortDir: 'sortDir',
+  page: 'page',
+  pageSize: 'pageSize',
+} as const;
+
+export const DEFAULT_CATALOG_KIND: CatalogKind = ContentKinds.game;
+export const DEFAULT_CATALOG_SORT = catalogSortValue(CatalogSortFields.title, SortDirections.asc);
 
 export const CATALOG_KIND_OPTIONS: readonly { value: CatalogKind; label: string }[] = [
-  { value: 'game', label: 'Games' },
-  { value: 'media_app', label: 'Media apps' },
-  { value: 'add_on', label: 'Add-ons' },
-  { value: 'demo', label: 'Demos' },
-  { value: 'soundtrack', label: 'Soundtracks' },
-  { value: 'theme', label: 'Themes' },
-  { value: 'subscription', label: 'Subscriptions' },
-  { value: 'all', label: 'Everything' },
+  { value: ContentKinds.game, label: 'Games' },
+  { value: ContentKinds.mediaApp, label: 'Media apps' },
+  { value: ContentKinds.addOn, label: 'Add-ons' },
+  { value: ContentKinds.demo, label: 'Demos' },
+  { value: ContentKinds.soundtrack, label: 'Soundtracks' },
+  { value: ContentKinds.theme, label: 'Themes' },
+  { value: ContentKinds.subscription, label: 'Subscriptions' },
+  { value: ALL_CATALOG_KINDS, label: 'Everything' },
 ];
 
 export const CATALOG_SORT_OPTIONS: readonly { value: string; label: string }[] = [
-  { value: 'title:asc', label: 'Title (A–Z)' },
-  { value: 'title:desc', label: 'Title (Z–A)' },
-  { value: 'price:asc', label: 'Price (low to high)' },
-  { value: 'price:desc', label: 'Price (high to low)' },
+  { value: catalogSortValue(CatalogSortFields.title, SortDirections.asc), label: 'Title (A–Z)' },
+  { value: catalogSortValue(CatalogSortFields.title, SortDirections.desc), label: 'Title (Z–A)' },
+  { value: catalogSortValue(CatalogSortFields.price, SortDirections.asc), label: 'Price (low to high)' },
+  { value: catalogSortValue(CatalogSortFields.price, SortDirections.desc), label: 'Price (high to low)' },
 ];
 
 const KIND_VALUES: ReadonlySet<string> = new Set(CATALOG_KIND_OPTIONS.map((option) => option.value));
@@ -36,7 +58,7 @@ function text(params: Params, key: string): string | null {
 }
 
 export function catalogPageSizeFrom(params: Params): number {
-  const requested = Number(params['pageSize']);
+  const requested = Number(params[CatalogQueryParams.pageSize]);
   if (!Number.isInteger(requested) || requested < 1) {
     return CATALOG_PAGE_SIZE;
   }
@@ -44,20 +66,20 @@ export function catalogPageSizeFrom(params: Params): number {
 }
 
 export function catalogPageFrom(params: Params): number {
-  const requested = Number(params['page']);
+  const requested = Number(params[CatalogQueryParams.page]);
   return Number.isInteger(requested) && requested > 0 ? requested : 1;
 }
 
 export function catalogKindFrom(params: Params): CatalogKind {
-  const requested = text(params, 'kind');
+  const requested = text(params, CatalogQueryParams.kind);
   return requested !== null && KIND_VALUES.has(requested)
     ? (requested as CatalogKind)
     : DEFAULT_CATALOG_KIND;
 }
 
 export function catalogSortValueFrom(params: Params): string {
-  const field = text(params, 'sort');
-  const direction = text(params, 'sortDir');
+  const field = text(params, CatalogQueryParams.sort);
+  const direction = text(params, CatalogQueryParams.sortDir);
   if (field === null || direction === null) {
     return DEFAULT_CATALOG_SORT;
   }
@@ -66,19 +88,19 @@ export function catalogSortValueFrom(params: Params): string {
 }
 
 export function catalogSearchFrom(params: Params): string | null {
-  return text(params, 'q');
+  return text(params, CatalogQueryParams.q);
 }
 
 export function catalogFranchiseFrom(params: Params): string | null {
-  return text(params, 'franchise');
+  return text(params, CatalogQueryParams.franchise);
 }
 
 export function catalogGenreFrom(params: Params): string | null {
-  return text(params, 'genre');
+  return text(params, CatalogQueryParams.genre);
 }
 
 export function catalogTierFrom(params: Params): string | null {
-  return text(params, 'aaaTier');
+  return text(params, CatalogQueryParams.aaaTier);
 }
 
 export function catalogQueryFromParams(params: Params): CatalogGamesQuery {
@@ -92,7 +114,7 @@ export function catalogQueryFromParams(params: Params): CatalogGamesQuery {
     aaaTier: catalogTierFrom(params) ?? undefined,
     kind: catalogKindFrom(params),
     sort: sort as CatalogSortField,
-    sortDir: sortDir === 'desc' ? 'desc' : 'asc',
+    sortDir: sortDir === SortDirections.desc ? SortDirections.desc : SortDirections.asc,
     limit: pageSize,
     offset: (catalogPageFrom(params) - 1) * pageSize,
   };

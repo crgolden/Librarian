@@ -5,6 +5,8 @@ import { provideClientHydration, withEventReplay, withNoIncrementalHydration } f
 import { provideNgIconsConfig } from '@ng-icons/core';
 import { routes } from './app.routes';
 import { appInterceptor } from './app.interceptor';
+import { ssrAbsoluteUrlInterceptor } from './ssr-absolute-url.interceptor';
+import { provideBrowserScrollRestorationWhenLeavingTheDocument } from '@crgolden/modules/angular';
 import { AuthService } from '../auth/auth.service';
 
 export const appConfig: ApplicationConfig = {
@@ -12,7 +14,8 @@ export const appConfig: ApplicationConfig = {
     provideZonelessChangeDetection(),
     provideClientHydration(withEventReplay(), withNoIncrementalHydration()),
     provideRouter(routes, withInMemoryScrolling({ scrollPositionRestoration: 'enabled', anchorScrolling: 'enabled' })),
-    provideHttpClient(withFetch(), withInterceptors([appInterceptor])),
+    provideBrowserScrollRestorationWhenLeavingTheDocument(),
+    provideHttpClient(withFetch(), withInterceptors([ssrAbsoluteUrlInterceptor, appInterceptor])),
     provideAppInitializer(() => inject(AuthService).initialize()),
     provideNgIconsConfig({ size: '1.5rem' }),
   ],

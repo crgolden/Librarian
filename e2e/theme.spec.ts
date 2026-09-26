@@ -1,4 +1,12 @@
 import { test, expect } from './fixtures.js';
+import { CssValues } from './css-constants';
+import { HtmlElements } from './markup-constants';
+import { PlaywrightConstants } from './playwright-constants';
+import { WcagFocusAppearance } from './wcag-constants';
+import e2eSettings from './e2e-settings.json';
+import { AppUrls } from '../src/app/app-paths';
+
+const ThemeSettings = e2eSettings.theme;
 
 const SURFACE_TOKENS = ['--color-canvas', '--color-surface', '--color-surface-2'] as const;
 
@@ -22,7 +30,7 @@ function lightnessOf(token: string): number {
 }
 
 test.describe('Colour scheme — dark is the base', () => {
-  test.use({ colorScheme: 'dark' });
+  test.use({ colorScheme: PlaywrightConstants.colorSchemes.dark });
 
   test('every surface token is darker than mid, and the ground is the darkest of them', async ({ page }) => {
     await page.goto('/');
@@ -32,7 +40,7 @@ test.describe('Colour scheme — dark is the base', () => {
     const surface = lightnessOf(tokens['--color-surface']);
     const surfaceTwo = lightnessOf(tokens['--color-surface-2']);
 
-    expect(canvas, JSON.stringify(tokens)).toBeLessThan(0.5);
+    expect(canvas, JSON.stringify(tokens)).toBeLessThan(ThemeSettings.midLightness);
     expect(surface).toBeGreaterThan(canvas);
     expect(surfaceTwo).toBeGreaterThan(surface);
   });
@@ -47,7 +55,7 @@ test.describe('Colour scheme — dark is the base', () => {
       'prefers-color-scheme tells this stylesheet about the user; color-scheme tells the browser about ' +
         'this document. Without it the UA paints scrollbars, form controls and its own canvas light ' +
         'against a near-black page, and no token or contrast assertion can see it',
-    ).toContain('dark');
+    ).toContain(CssValues.darkColorScheme);
   });
 
   test('no surface, line or text token spends chroma — that is reserved for the accent', async ({ page }) => {
@@ -64,7 +72,7 @@ test.describe('Colour scheme — dark is the base', () => {
 
     const overChroma = Object.entries(neutral).filter(([, value]) => {
       const match = /oklch\(\s*[0-9.]+\s+([0-9.]+)/.exec(value);
-      return match !== null && Number.parseFloat(match[1]) > 0.02;
+      return match !== null && Number.parseFloat(match[1]) > ThemeSettings.neutralChromaCeiling;
     });
 
     expect(overChroma, `DESIGN.md: chroma above 0.02 on a ground token is a defect`).toEqual([]);
@@ -72,13 +80,13 @@ test.describe('Colour scheme — dark is the base', () => {
 });
 
 test.describe('Colour scheme — light re-binds the same tokens', () => {
-  test.use({ colorScheme: 'light' });
+  test.use({ colorScheme: PlaywrightConstants.colorSchemes.light });
 
   test('the ground inverts rather than a second design appearing', async ({ page }) => {
     await page.goto('/');
     const tokens = await tokenValues(page, SURFACE_TOKENS);
 
-    expect(lightnessOf(tokens['--color-canvas']), JSON.stringify(tokens)).toBeGreaterThan(0.5);
+    expect(lightnessOf(tokens['--color-canvas']), JSON.stringify(tokens)).toBeGreaterThan(ThemeSettings.midLightness);
   });
 });
 
@@ -86,18 +94,18 @@ test.describe('Colour scheme — the page actually repaints', () => {
   test('the same element paints a different background in each scheme, with no toggle in the UI', async ({
     browser,
   }) => {
-    const dark = await browser.newContext({ colorScheme: 'dark' });
-    const light = await browser.newContext({ colorScheme: 'light' });
+    const dark = await browser.newContext({ colorScheme: PlaywrightConstants.colorSchemes.dark });
+    const light = await browser.newContext({ colorScheme: PlaywrightConstants.colorSchemes.light });
 
     const darkPage = await dark.newPage();
     const lightPage = await light.newPage();
-    await darkPage.goto('/');
-    await lightPage.goto('/');
+    await darkPage.goto(AppUrls.home);
+    await lightPage.goto(AppUrls.home);
 
-    const darkBody = await paintedBackground(darkPage, 'body');
-    const lightBody = await paintedBackground(lightPage, 'body');
+    const darkBody = await paintedBackground(darkPage, HtmlElements.body);
+    const lightBody = await paintedBackground(lightPage, HtmlElements.body);
 
-    expect(darkBody).not.toBe('rgba(0, 0, 0, 0)');
+    expect(darkBody).not.toBe(CssValues.transparent);
     expect(
       lightBody,
       'both schemes painted the same background — the light re-binding is not taking effect',
@@ -109,7 +117,7 @@ test.describe('Colour scheme — the page actually repaints', () => {
 });
 
 function restoreLeadingZeros(value: string): string {
-  return value.replace(/(^|[^0-9])\.(?=[0-9])/g, '$10.').replace(/\s+/g, ' ').trim();
+  return value.replace(/(^|[^0-9])\.(?=[0-9])/g, (_match, prefix: string) => `${prefix}0.`).replace(/\s+/g, ' ').trim();
 }
 
 async function assertRing(
@@ -120,6 +128,22 @@ async function assertRing(
     getComputedStyle(document.documentElement).getPropertyValue('--color-focus').trim(),
   );
   expect(focusToken, '--color-focus resolves to nothing').not.toBe('');
+
+  const ringTokens = await page.evaluate(() => {
+    const root = getComputedStyle(document.documentElement);
+    return {
+      width: root.getPropertyValue('--focus-ring-width').trim(),
+      offset: root.getPropertyValue('--focus-ring-offset').trim(),
+    };
+  });
+  expect(
+    Number.parseFloat(ringTokens.width),
+    '--focus-ring-width is thinner than WCAG 2.4.13 allows a focus indicator to be',
+  ).toBeGreaterThanOrEqual(WcagFocusAppearance.minimumThicknessPx);
+  expect(
+    Number.parseFloat(ringTokens.offset),
+    'DESIGN.md: the offset is the contrast, so --focus-ring-offset must stand the ring off the control',
+  ).toBeGreaterThan(0);
 
   for (const selector of selectors) {
     const ring = await page.locator(selector).evaluate((element) => {
@@ -133,13 +157,13 @@ async function assertRing(
       };
     });
 
-    expect(ring.style, `${selector} has no focus outline`).not.toBe('none');
+    expect(ring.style, `${selector} has no focus outline`).not.toBe(CssValues.none);
     expect(
       ring.style,
       `${selector} shows Chromium's default 'auto' ring (measured auto/1px/1px), which ignores outline-color`,
-    ).toBe('solid');
-    expect(ring.offset, `DESIGN.md: outline-offset is mandatory on ${selector}`).toBe('2px');
-    expect(ring.width, `${selector} focus ring is not 2px`).toBe('2px');
+    ).toBe(CssValues.solid);
+    expect(ring.offset, `${selector} does not stand its ring off by --focus-ring-offset`).toBe(ringTokens.offset);
+    expect(ring.width, `${selector} does not draw its ring at --focus-ring-width`).toBe(ringTokens.width);
     expect(restoreLeadingZeros(ring.color), `${selector} focus ring is not --color-focus`).toBe(
       restoreLeadingZeros(focusToken),
     );
@@ -161,7 +185,7 @@ test.describe('Focus ring — the offset is the contrast', () => {
     store,
   }) => {
     await store.reset();
-    await page.setViewportSize({ width: 390, height: 844 });
+    await page.setViewportSize(e2eSettings.viewports.mobile);
     await page.goto('/');
     await expect(page.locator('#site-nav-tabbar')).toBeVisible();
     await assertRing(page, ['#nav-tab-more', '#nav-tab-0']);

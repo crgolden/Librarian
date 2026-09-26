@@ -6,6 +6,11 @@ import { profileResolver, ResolvedProfile } from './profile.resolver';
 import { AuthService } from '../auth/auth.service';
 import { CuratorService } from '../curator/curator.service';
 import { PsnPreferencesResponse, PublicProfileResponse } from '../curator/curator.models';
+import { ResolvedStatuses } from '../shared/resolved-status';
+import { newId, newText } from '@crgolden/modules/testing';
+
+const OTHER_SUB = newId();
+const SIGNED_IN_SUB = newId();
 
 const PROFILE = { is_public: true, viewer_is_owner: false } as unknown as PublicProfileResponse;
 const OWN_PROFILE = { is_public: true, viewer_is_owner: true } as unknown as PublicProfileResponse;
@@ -44,12 +49,12 @@ describe('profileResolver', () => {
         },
         getPsnPreferences: () => of(VIEWER_PREFERENCES),
       },
-      'other-user',
-      'me',
+      OTHER_SUB,
+      SIGNED_IN_SUB,
     );
 
-    expect(asked).toEqual(['other-user']);
-    expect(result).toEqual({ status: 'ok', profile: PROFILE, viewerPreferences: VIEWER_PREFERENCES });
+    expect(asked).toEqual([OTHER_SUB]);
+    expect(result).toEqual({ status: ResolvedStatuses.ok, profile: PROFILE, viewerPreferences: VIEWER_PREFERENCES });
   });
 
   it('falls back to the signed-in user when the route names nobody', async () => {
@@ -62,10 +67,10 @@ describe('profileResolver', () => {
         },
       },
       null,
-      'me',
+      SIGNED_IN_SUB,
     );
 
-    expect(asked).toEqual(['me']);
+    expect(asked).toEqual([SIGNED_IN_SUB]);
   });
 
   it("never asks for the viewer's own PSN preferences on their own profile", async () => {
@@ -79,24 +84,24 @@ describe('profileResolver', () => {
         },
       },
       null,
-      'me',
+      SIGNED_IN_SUB,
     );
 
     expect(askedForPreferences).toBe(false);
-    expect(result).toEqual({ status: 'ok', profile: OWN_PROFILE, viewerPreferences: null });
+    expect(result).toEqual({ status: ResolvedStatuses.ok, profile: OWN_PROFILE, viewerPreferences: null });
   });
 
   it("degrades the viewer's preferences to null rather than failing another user's profile", async () => {
     const result = await run(
       {
         getUserProfile: () => of(PROFILE),
-        getPsnPreferences: () => throwError(() => new Error('boom')),
+        getPsnPreferences: () => throwError(() => new Error(newText())),
       },
-      'other-user',
-      'me',
+      OTHER_SUB,
+      SIGNED_IN_SUB,
     );
 
-    expect(result).toEqual({ status: 'ok', profile: PROFILE, viewerPreferences: null });
+    expect(result).toEqual({ status: ResolvedStatuses.ok, profile: PROFILE, viewerPreferences: null });
   });
 
   it('reports no-user when nobody is named and nobody is signed in', async () => {
@@ -112,13 +117,13 @@ describe('profileResolver', () => {
       null,
     );
 
-    expect(result).toEqual({ status: 'no-user' });
+    expect(result).toEqual({ status: ResolvedStatuses.noUser });
     expect(called).toBe(false);
   });
 
   it('resolves to an error rather than throwing when the profile cannot be loaded', async () => {
-    const result = await run({ getUserProfile: () => throwError(() => new Error('boom')) }, 'u1', null);
+    const result = await run({ getUserProfile: () => throwError(() => new Error(newText())) }, OTHER_SUB, null);
 
-    expect(result).toEqual({ status: 'error' });
+    expect(result).toEqual({ status: ResolvedStatuses.error });
   });
 });

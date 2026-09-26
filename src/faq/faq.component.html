@@ -1,13 +1,13 @@
-<section id="faq-content" class="page-section flex flex-col gap-6 max-w-reading mx-auto">
+<section id="faq-content" crgPageSection class="flex flex-col gap-6 max-w-reading mx-auto">
   <h1 id="page-title">Frequently Asked Questions</h1>
-  <p class="text-muted">
+  <p class="text-meta text-text-muted">
     Linking your PlayStation account means giving Librarian a token called an NPSSO. That's a reasonable
     thing to be cautious about, so here's exactly what happens when you do it.
   </p>
 
   <app-page-toc headingSelector="#faq-content h2" />
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-who-for">Who is Librarian for?</h2>
     <p>
       Anyone with a PSN account that's been around for a while. Between everything you've bought over the
@@ -24,7 +24,7 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-npsso-token">What is an NPSSO token?</h2>
     <p>
       It's a session token Sony issues after you sign in at playstation.com. It works like a password —
@@ -33,32 +33,151 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-why-npsso">Why do you need this, when some other PlayStation trophy sites don't ask for anything?</h2>
     <p>
       Sites like that use one shared PlayStation account to look things up for everyone. That means they
       never see anything of yours — but it also means everyone is sharing that one account's speed limit,
       which is why those sites make you wait for updates, or charge extra to skip the wait. Librarian works
-      differently: because you give us your own token, Curator can check PlayStation using your account
-      instead of a shared one, so your library updates as fast as your own account allows, with nothing to
-      wait for and nothing to pay to skip it. That speed comes from trusting us with something more powerful
-      than those other sites ever ask for, and that's exactly why the rest of this page — and the actual
-      code behind it, which you can go read yourself — exists.
+      differently: because you give us your own token, Curator can read PlayStation as you, which is the
+      only way it can see your library at all; a shared account can look up public trophies but never
+      what you own. Curator still paces its PlayStation calls to one shared limit for everyone, so a
+      refresh that hits it pauses and resumes on its own rather than failing, and there is nothing to pay to
+      skip it. That access comes from trusting us with something more powerful than those other sites ever
+      ask for, and that's exactly why the rest of this page — and the actual code behind it, which you can
+      go read yourself — exists.
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-get-npsso">How do I get mine?</h2>
     <p>
       Sign in at <a href="https://playstation.com" target="_blank" rel="noopener">playstation.com</a>, then
       in that same browser (not a different one, not incognito) visit
       <code>https://ca.account.sony.com/api/v1/ssocookie</code>. The page returns a short block of JSON with
       an <code>npsso</code> field — that value is your token. Paste it into the PSN link form on your
-      <a routerLink="/account">Account</a> page.
+      <a [routerLink]="appUrls.account">Account</a> page.
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
+    <h2 id="faq-manual-add">Can I add a game Librarian didn't find?</h2>
+    <p>
+      Yes, from the <a [routerLink]="appUrls.library">library</a> page. Type a name and Librarian first offers
+      matches from the shared catalog, leaving out anything you already own; add one and it joins your
+      library as a hand-added entry with the platforms you pick. If the catalog doesn't have your game,
+      "Search the PlayStation Store" asks the Store using your own linked account, since the Store's search
+      needs a signed-in PlayStation session. When you accept a Store result, Curator runs the same search
+      again itself and admits only a title the Store actually returned, so nothing the page sends about a
+      game is taken on trust; the game then becomes a catalog entry that everyone can browse, carrying only
+      its title, cover and Store facts, never who added it.
+    </p>
+    <p>
+      A hand-added entry is yours to remove and is never overwritten by a library refresh. If PlayStation
+      already lists a game on your account, even as a lapsed entitlement you can no longer play, Librarian
+      says so instead of adding a second copy.
+    </p>
+  </div>
+
+  <div crgCard class="p-6">
+    <h2 id="faq-hidden-games">Can I hide a game I own?</h2>
+    <p>
+      Yes. Hide removes a game from your library view and from the pool a collection is built from, and it
+      stays hidden through every later refresh. The library page shows how many games you've hidden and
+      lets you view and unhide them. Hidden games are yours alone; a visitor to your profile never sees
+      which games you've hidden or that any are.
+    </p>
+  </div>
+
+  <div crgCard class="p-6">
+    <h2 id="faq-scheduled-refresh">Can Librarian refresh my library on its own?</h2>
+    <p>
+      Yes, from your <a [routerLink]="appUrls.account">Account</a> page: choose daily, weekly or monthly and
+      Curator refreshes your library on that schedule using the PlayStation tokens and any RAWG or
+      OpenCritic keys you've saved. Each provider meters its free plan differently: OpenCritic resets 200
+      requests each day and RAWG 20,000 each month, so a daily schedule uses RAWG's allowance about seven
+      times faster than a weekly one. A schedule pauses itself after three failed runs in a row, or as soon
+      as your PlayStation link expires, and the Account page says which and what to do; cancelling it takes
+      one click.
+    </p>
+  </div>
+
+  <div crgCard class="p-6">
+    <h2 id="faq-ps-plus">What does the PlayStation Plus page show?</h2>
+    <p>
+      Curator walks the Game Catalog and Classics Catalog listings about once a week and keeps a history of
+      what was in them, so the <a [routerLink]="appUrls.psPlus">PlayStation Plus</a> page can tell you which
+      catalog titles you haven't claimed, which are leaving, which were added since the last walk, and
+      which of your claimed titles have lapsed. It needs a linked account, because "unclaimed" is the
+      catalog minus what your account holds. The "Show which Game Catalog titles you haven't claimed and
+      which are leaving" toggle on a scheduled refresh adds a two-number summary of that to your library
+      page.
+    </p>
+  </div>
+
+  <div crgCard class="p-6">
+    <h2 id="faq-harvest-toggles">What do the PlayStation data toggles on my Account page do?</h2>
+    <p>
+      Linking reads nothing by itself. Four toggles, all off until you turn them on, each let Curator read
+      one more thing from your account: trophies (which also stores one completion number per game, see
+      the <a [routerLink]="appUrls.privacy">privacy policy</a>), identity (your online id and profile), presence, and
+      devices (the consoles registered to your account). Presence, identity and device details are read
+      live when you open the page that shows them and are not kept.
+    </p>
+    <p>
+      Two further consents cover things Curator would <em>do</em> rather than read: friend writes let you
+      send a friend request from someone's public profile and accept the requests listed on your Account
+      page, and chat writes cover group messaging, which Librarian doesn't offer yet. Both are off by
+      default, every such action is written to your action log, and Curator refuses more than 50 changes to
+      your account in any 24 hours.
+    </p>
+  </div>
+
+  <div crgCard class="p-6">
+    <h2 id="faq-device-link">What does linking a console to a PlayStation device do?</h2>
+    <p>
+      With the devices toggle on, your Account page lists the consoles registered to your PlayStation
+      account, and you can link one of them to a console you've set up on the
+      <a [routerLink]="appUrls.consoles">consoles &amp; storage</a> page so the two are known to be the same machine.
+      The only thing stored is that device's id beside your console. If PlayStation later reports the device
+      deactivated, the Account page says so and keeps the link until you unlink it, because a reset console
+      is usually still your console.
+    </p>
+  </div>
+
+  <div crgCard class="p-6">
+    <h2 id="faq-measured-sizes">Where do install sizes come from, and can I correct one?</h2>
+    <p>
+      In order of preference: a size someone measured on a real console, the download size Sony reported
+      for the title on your own account, an estimate from the game's tier, genre and platform, and finally
+      a flat default, capped at the media ceiling for platforms whose discs or cards can't hold a PS4-sized
+      game. A collection reports which of those each game used. Any signed-in user can record a measured
+      size for a game and platform, and it becomes the size everyone sees for that title; the number stays
+      in the shared catalog if you later delete your account, with nothing left pointing at you.
+    </p>
+  </div>
+
+  <div crgCard class="p-6">
+    <h2 id="faq-list-urls">Why do the page, sort and filters show up in the address bar?</h2>
+    <p>
+      So a list is shareable and Back works. The catalog, your library and a collection's items keep their
+      page, page size, sort and filters in the URL, so a link to page three sorted by price opens page
+      three sorted by price for whoever you send it to, and Back returns you to the list and scroll position
+      you left. The page size you last picked is remembered in your own browser only.
+    </p>
+  </div>
+
+  <div crgCard class="p-6">
+    <h2 id="faq-prices">Why do some catalog entries show a price and others none?</h2>
+    <p>
+      Prices come from Curator's walks of the PlayStation Store and are shown exactly as the Store reported
+      them at the time, including a PlayStation Plus discount or "Free with PlayStation Plus" where that
+      applies. An entry with no price hasn't been walked yet or wasn't priced by the Store on that walk; it
+      is never assumed to be free.
+    </p>
+  </div>
+
+  <div crgCard class="p-6">
     <h2 id="faq-npsso-handling">What does Librarian do with it?</h2>
     <p>
       Librarian passes your NPSSO to Curator, the API that actually talks to PlayStation. Curator uses it
@@ -67,7 +186,7 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-email-check">Why does linking need my email at all?</h2>
     <p>
       Before Curator keeps anything, it checks that the email PlayStation has on file for your account —
@@ -78,15 +197,15 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-token-storage">What happens to the access and refresh tokens?</h2>
     <p>
       They're encrypted before they're stored, and only Curator holds the key. You can see when they
-      expire on your <a routerLink="/account">Account</a> page.
+      expire on your <a [routerLink]="appUrls.account">Account</a> page.
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-revoke">How do I revoke access?</h2>
     <p>
       Two options, and you can use either or both. <strong>Unlink</strong> on your Account page
@@ -96,16 +215,17 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-action-log">Can I see everything Curator has done with my account?</h2>
     <p>
-      Yes. Every linking attempt, unlink, library refresh, and trophy fetch Curator performs on your behalf
-      is recorded in an action log you can view and download yourself — see the
-      <a id="faq-privacy-link" routerLink="/privacy">privacy policy</a> for what's in it and how long it's kept.
+      Yes. Every linking attempt, unlink, library refresh, trophy fetch, key you add or remove, follow,
+      friend request and chat change Curator performs on your behalf is recorded in an action log you can
+      view and download yourself — see the
+      <a id="faq-privacy-link" [routerLink]="appUrls.privacy">privacy policy</a> for what's in it and how long it's kept.
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-provider-keys">What are the RAWG/OpenCritic keys on my Account page for?</h2>
     <p>
       They're entirely optional. Curator can enrich your library with genre and critic-score data from RAWG
@@ -115,7 +235,7 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-key-validation">How does Curator know my key is valid?</h2>
     <p>
       When you save a key, Curator makes one small request to that provider to confirm it's accepted before
@@ -125,7 +245,7 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-key-secrecy">Is my RAWG/OpenCritic key ever shown to me again, or logged anywhere?</h2>
     <p>
       No. It's encrypted the moment you save it, the same way your PlayStation tokens are. Your Account
@@ -134,7 +254,7 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-key-data">What happens to the data my key retrieves?</h2>
     <p>
       Only the game metadata it retrieves (title, genre, critic score) — never your key. That metadata is
@@ -145,15 +265,15 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-key-removal">How do I remove a RAWG/OpenCritic key?</h2>
     <p>
-      From your <a routerLink="/account">Account</a> page — each key has its own "Remove" button,
+      From your <a [routerLink]="appUrls.account">Account</a> page — each key has its own "Remove" button,
       independent of the other. Removing one doesn't affect the other or anything else in your account.
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-enrichment-pace">Why doesn't my whole library get enriched right away?</h2>
     <p>
       RAWG is fast, but OpenCritic's free tier is limited, so OpenCritic data for a very large or brand-new
@@ -164,7 +284,7 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-tiers">What do AAA, AA, and Indie mean next to a game?</h2>
     <p>
       That label is Curator's own, not PlayStation's and not a review site's, so here's exactly how it's
@@ -182,7 +302,7 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-minimum-score">Where does the "Minimum score" number in a collection come from?</h2>
     <p>
       It's an average of the ratings we have for a game: RAWG's critic score, OpenCritic's top-critic
@@ -198,15 +318,17 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-catalog-sources">How do games get into the public catalog?</h2>
     <p>
-      Two ways. Curator walks the PlayStation Store's own public category listings directly, so most of the
+      Three ways. Curator walks the PlayStation Store's own public category listings directly, so most of the
       catalog exists before anyone's library ever touches it — no PSN account is needed to browse it. The
       rest arrives naturally: when someone links their library, whatever games Curator finds there that
-      aren't already in the catalog get added too. Either way, a title is matched by name (and, when it's
-      available, PlayStation's own internal id for that game) so the same game arriving through both a Store
-      walk and someone's library doesn't end up listed twice.
+      aren't already in the catalog get added too, and a game someone adds by hand through a Store search
+      joins the same way. Either way, a title is matched by name (and, when it's available, PlayStation's
+      own internal id for that game) so the same game arriving through both a Store walk and someone's
+      library doesn't end up listed twice. A game and a separate product that shares its Store listing, such
+      as its soundtrack, stay separate entries.
     </p>
     <p>
       What actually makes it in still has to clear Curator's filtering for what counts as a real game. Games
@@ -227,7 +349,7 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-legacy-platforms">Why does my library include PS3, Vita and PSP games?</h2>
     <p>
       Because you own them. PlayStation reports a platform for PS4 and PS5 entitlements and reports nothing
@@ -244,7 +366,7 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-game-pages">Does every catalog game have its own page?</h2>
     <p>
       Yes. Each game has a permanent address of its own, so you can link to a specific title rather than to
@@ -255,12 +377,12 @@
     <p>
       Signed in, one extra line appears on a game you own: your own trophy progress for it. That's the only
       part of the page that differs between visitors, and it's only ever shown to you — see the
-      <a routerLink="/privacy">privacy policy</a> for exactly how that works. If you've never turned trophy
+      <a [routerLink]="appUrls.privacy">privacy policy</a> for exactly how that works. If you've never turned trophy
       harvesting on from your Account page, there's no progress to show and the line is simply absent.
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-game-metadata">Where do a catalog game's franchise, genre, and tier come from?</h2>
     <p>
       Franchise comes from checking the title against an ordered list of name patterns Curator maintains —
@@ -281,7 +403,7 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-three-scores">Why does a catalog listing show three separate scores?</h2>
     <p>
       RAWG, OpenCritic, and the PlayStation Store's own star rating, shown side by side exactly as each
@@ -293,10 +415,10 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-external-storage">Can I keep PS5 games on an external drive?</h2>
     <p>
-      Yes, and from the <a routerLink="/consoles">consoles &amp; storage</a> page Librarian tracks them there
+      Yes, and from the <a [routerLink]="appUrls.consoles">consoles &amp; storage</a> page Librarian tracks them there
       — you just can't play them from it. Parking games you've finished on a USB drive is what extended
       storage is for, and it saves re-downloading something large later, but a PS5 game has to be copied
       back to the internal SSD or an M.2 drive before it'll run. PS4 games have no such restriction; those
@@ -316,10 +438,10 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-public-profile">What's on my public profile?</h2>
     <p>
-      Your profile is private until you turn it on yourself, on your <a routerLink="/profile/settings"
+      Your profile is private until you turn it on yourself, on your <a [routerLink]="appUrls.profileSettings"
         >profile settings</a
       > page. Once public, it can show your PSN account id (or "Unlinked user" if you haven't linked one),
       your library, your saved collections, your trophy summary, and your PSN online id — each one is its
@@ -341,7 +463,7 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-others-trophies">How does Librarian show someone else's trophies without their password?</h2>
     <p>
       It doesn't need their password, or their PSN session at all. When you view someone's public profile
@@ -352,7 +474,7 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-following">How does follow/unfollow work?</h2>
     <p>
       You can follow anyone, whether or not their profile is public — following doesn't require the other
@@ -369,7 +491,7 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-ads">Do you show ads, or track me for advertisers?</h2>
     <p>
       No, and we never will. There's no ad network on this site, no ad-tracking or retargeting cookies, and
@@ -379,20 +501,20 @@
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-open-source">Is this actually safe, or am I just supposed to trust you?</h2>
     <p>
       Don't take our word for it — both apps are open source. Librarian (this site, including the BFF that
       proxies your requests) is at
-      <a href="https://github.com/crgolden/Librarian" target="_blank" rel="noopener">github.com/crgolden/Librarian</a>,
+      <a [href]="sourceRepositories.librarian" target="_blank" rel="noopener">github.com/crgolden/Librarian</a>,
       and Curator (the API that handles your NPSSO, verifies your email, and stores your tokens) is at
-      <a href="https://github.com/crgolden/Curator" target="_blank" rel="noopener">github.com/crgolden/Curator</a>.
-      Every claim on this page and in the <a routerLink="/privacy">privacy policy</a> is something you can
+      <a [href]="sourceRepositories.curator" target="_blank" rel="noopener">github.com/crgolden/Curator</a>.
+      Every claim on this page and in the <a [routerLink]="appUrls.privacy">privacy policy</a> is something you can
       go read in the code.
     </p>
   </div>
 
-  <div class="card p-6">
+  <div crgCard class="p-6">
     <h2 id="faq-not-affiliated">Is Librarian official, or connected to Sony?</h2>
     <p>
       No. Librarian is an independent, unofficial project and is not affiliated with Sony Interactive

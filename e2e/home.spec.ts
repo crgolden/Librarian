@@ -1,8 +1,15 @@
 
-import { test, expect, DEFAULT_E2E_SUB } from './fixtures.js';
+import { randomUUID } from 'node:crypto';
 
-const VALID_NPSSO = 'a'.repeat(64);
-const UNLINKED_NOTICE = 'No PlayStation Network account is linked';
+import { lowercaseToken } from '@crgolden/modules/testing';
+import { test, expect, DEFAULT_E2E_SUB } from './fixtures.js';
+import { AngularSsrMarkers } from './angular-ssr-constants';
+import { CuratorCollectionKinds } from './mocks/curator-constants';
+import { AppUrls } from '../src/app/app-paths';
+import { SITE_NAME } from '../src/shared/page-title';
+import { NPSSO_LENGTH } from '../src/psn/psn-settings.messages';
+
+const VALID_NPSSO = lowercaseToken(NPSSO_LENGTH);
 
 function libraryGame(gameId: string, title: string) {
   return { game_id: gameId, title, rawg_enriched: false, opencritic_enriched: false };
@@ -17,8 +24,8 @@ test.describe('SSR — raw HTML assertions', () => {
 
     const html = await res.text();
 
-    expect(html).toContain('ng-server-context');
-    expect(html).toContain('Librarian');
+    expect(html).toContain(AngularSsrMarkers.serverContextAttribute);
+    expect(html).toContain(SITE_NAME);
   });
 });
 
@@ -27,15 +34,15 @@ test.describe('HomePage', () => {
     await store.reset();
 
     await page.goto('/');
-    await expect(page.locator('#page-title')).toContainText('Welcome to Librarian');
-    await expect(page.locator('#home-sign-in')).toHaveText('Sign in');
+    await expect(page.locator('#home-sign-in')).toBeVisible();
+    await expect(page.locator('#home-actions')).toHaveCount(0);
   });
 
   test('authenticated visitor sees a link to PSN settings', async ({ authedPage: page, store }) => {
     await store.reset();
 
     await page.goto('/');
-    await expect(page.locator('#home-action-0')).toHaveText('Manage PSN Link');
+    await expect(page.locator('#home-action-0')).toHaveAttribute('href', AppUrls.account);
   });
 });
 
@@ -46,20 +53,28 @@ test.describe('HomePage — resolved collection summary', () => {
   }) => {
     await store.reset();
     await store.seedPsnLink();
-    await store.seedLibraryGames([libraryGame('g1', 'Bloodborne'), libraryGame('g2', 'Returnal')]);
-    await store.seedUserCollections(DEFAULT_E2E_SUB, [
-      { definition_id: 'd1', name: 'Backlog', kind: 'manual_list', game_ids: ['g1'] },
-      { definition_id: 'd2', name: 'Finished', kind: 'manual_list', game_ids: ['g1', 'g2'] },
-    ]);
+    const firstGameId = randomUUID();
+    const secondGameId = randomUUID();
+    const libraryGames = [libraryGame(firstGameId, randomUUID()), libraryGame(secondGameId, randomUUID())];
+    const backlog = { definition_id: randomUUID(), name: randomUUID(), kind: CuratorCollectionKinds.manualList, game_ids: [firstGameId] };
+    const finished = {
+      definition_id: randomUUID(),
+      name: randomUUID(),
+      kind: CuratorCollectionKinds.manualList,
+      game_ids: [firstGameId, secondGameId],
+    };
+    const collections = [backlog, finished];
+    await store.seedLibraryGames(libraryGames);
+    await store.seedUserCollections(DEFAULT_E2E_SUB, collections);
 
     await page.goto('/');
 
-    await expect(page.locator('#home-totals dd')).toHaveText(['2', '2', '3']);
-    await expect(page.locator('#home-totals dt')).toHaveText([
-      'Titles catalogued',
-      'Collections',
-      'Collection entries',
-    ]);
+    await expect(page.locator('#home-total-library')).toHaveAttribute('data-count', String(libraryGames.length));
+    await expect(page.locator('#home-total-collections')).toHaveAttribute('data-count', String(collections.length));
+    await expect(page.locator('#home-total-collection-entries')).toHaveAttribute(
+      'data-count',
+      String(backlog.game_ids.length + finished.game_ids.length),
+    );
     await expect(page.locator('#home-unlinked-notice')).toHaveCount(0);
   });
 
@@ -68,7 +83,7 @@ test.describe('HomePage — resolved collection summary', () => {
 
     await page.goto('/');
 
-    await expect(page.locator('#home-unlinked-notice')).toContainText(UNLINKED_NOTICE);
+    await expect(page.locator('#home-unlinked-notice')).toBeVisible();
   });
 
   test('drops the unlinked notice after linking, without a page reload', async ({
@@ -78,10 +93,10 @@ test.describe('HomePage — resolved collection summary', () => {
     await store.reset();
 
     await page.goto('/');
-    await expect(page.locator('#home-unlinked-notice')).toContainText(UNLINKED_NOTICE);
+    await expect(page.locator('#home-unlinked-notice')).toBeVisible();
 
     await page.locator('#nav-rail-5').click();
-    await page.waitForURL('**/account');
+    await page.waitForURL(`**${AppUrls.account}`);
     await page.locator('#npsso').fill(VALID_NPSSO);
     await page.locator('#psn-link-submit').click();
     await expect(page.locator('#psn-unlink')).toBeVisible();

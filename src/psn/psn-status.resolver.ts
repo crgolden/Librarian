@@ -14,6 +14,7 @@ import {
   RefreshScheduleResponse,
   TrophySummaryResponse,
 } from '../curator/curator.models';
+import { CuratorApi } from '../curator/curator-api';
 
 export interface PsnStatus {
   sub: string;
@@ -77,7 +78,7 @@ export const psnStatusResolver: ResolveFn<ResolvedPsnStatus> = () => {
   const http = inject(HttpClient);
   const curator = inject(CuratorService);
 
-  return http.get<PsnStatus>('/curator/api/me').pipe(
+  return http.get<PsnStatus>(CuratorApi.me).pipe(
     switchMap((status) =>
       forkJoin({
         status: of<PsnStatus | null>(status),

@@ -1,26 +1,25 @@
+import { HttpStatusCode } from '@angular/common/http';
 import type { Request, Response } from 'express';
 import type { AppLogger } from '../telemetry/logging';
+import { BffSettingKeys, requiredUrlSetting } from './settings';
+import { CuratorRoutes } from '../curator/curator-api';
+import { AppUrls, catalogGameUrl } from '../app/app-paths';
+import { ContentTypes } from '../shared/content-types';
+import { LOCAL_HOST } from '../shared/local-host';
+import { PRIVATE_PREFIXES, ROBOTS_DISALLOW, ROBOTS_SITEMAP, SITEMAP_PATH } from './sitemap-contract';
 
 export interface SitemapDependencies {
   logger: AppLogger;
 }
 
-const PAGE_SIZE = 200;
-const CACHE_TTL_MS = 60 * 60 * 1000;
-const STATIC_PATHS = ['/', '/catalog', '/faq', '/privacy'];
+export const SITEMAP_CONTENT_TYPE = ContentTypes.xml;
+export const SITEMAP_BUILD_FAILED_LOG = 'Failed to build the catalog sitemap';
+export const SITEMAP_UNAVAILABLE_BODY = 'Sitemap generation failed';
 
-const PRIVATE_PREFIXES = [
-  '/account',
-  '/psn',
-  '/bff/',
-  '/collections',
-  '/consoles',
-  '/library',
-  '/profile',
-  '/u/',
-  '/admin',
-  '/c/',
-];
+export const PAGE_SIZE = 200;
+export const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+export const CACHE_MAX_ORIGINS = 4;
+export const STATIC_PATHS: readonly string[] = [AppUrls.home, AppUrls.catalog, AppUrls.faq, AppUrls.privacy];
 
 interface CatalogGame {
   game_id: string;
@@ -31,10 +30,10 @@ interface CatalogPage {
   total: number;
 }
 
-let cached: { xml: string; origin: string; expiresAt: number } | undefined;
+const cached = new Map<string, { xml: string; expiresAt: number }>();
 
 export function resetSitemapCache(): void {
-  cached = undefined;
+  cached.clear();
 }
 
 function escapeXml(value: string): string {
@@ -47,13 +46,13 @@ function escapeXml(value: string): string {
 }
 
 function requestOrigin(req: Request): string {
-  const configured = process.env['PublicBaseUrl'];
+  const configured = process.env[BffSettingKeys.PublicBaseUrl];
   if (configured) {
     return configured.replace(/\/$/, '');
   }
 
   const proto = req.get('x-forwarded-proto')?.split(',')[0]?.trim() ?? req.protocol;
-  return `${proto}://${req.get('host') ?? 'localhost'}`;
+  return `${proto}://${req.get('host') ?? LOCAL_HOST}`;
 }
 
 async function fetchGameIds(base: string): Promise<string[]> {
@@ -61,7 +60,7 @@ async function fetchGameIds(base: string): Promise<string[]> {
   let offset = 0;
 
   for (;;) {
-    const url = new URL('catalog/games', `${base}/`);
+    const url = new URL(`${base}${CuratorRoutes.catalogGames}`);
     url.searchParams.set('limit', String(PAGE_SIZE));
     url.searchParams.set('offset', String(offset));
 
@@ -85,7 +84,7 @@ async function fetchGameIds(base: string): Promise<string[]> {
 function buildXml(origin: string, gameIds: string[]): string {
   const locs = [
     ...STATIC_PATHS.map((path) => `${origin}${path}`),
-    ...gameIds.map((id) => `${origin}/catalog/${encodeURIComponent(id)}`),
+    ...gameIds.map((id) => `${origin}${catalogGameUrl(encodeURIComponent(id))}`),
   ];
 
   const entries = locs.map((loc) => `  <url><loc>${escapeXml(loc)}</loc></url>`).join('\n');
@@ -103,39 +102,43 @@ async function sitemapHandler(
   res: Response,
   { logger }: SitemapDependencies,
 ): Promise<void> {
-  const configuredApiAddress = process.env['CuratorApiAddress']?.trim();
-  if (configuredApiAddress === undefined || configuredApiAddress.length === 0) {
-    res.status(502).type('text/plain').send('CuratorApiAddress is not configured');
-    return;
-  }
-
-  const base = configuredApiAddress.replace(/\/$/, '');
+  const base = requiredUrlSetting(BffSettingKeys.CuratorApiAddress).toString().replace(/\/$/, '');
 
   const origin = requestOrigin(req);
-  if (cached?.origin === origin && cached.expiresAt > Date.now()) {
-    res.status(200).type('application/xml').send(cached.xml);
+  const entry = cached.get(origin);
+  if (entry && entry.expiresAt > Date.now()) {
+    res.status(HttpStatusCode.Ok).type(SITEMAP_CONTENT_TYPE).send(entry.xml);
     return;
   }
 
   try {
     const xml = buildXml(origin, await fetchGameIds(base));
-    cached = { xml, origin, expiresAt: Date.now() + CACHE_TTL_MS };
-    res.status(200).type('application/xml').send(xml);
+    cached.set(origin, { xml, expiresAt: Date.now() + CACHE_TTL_MS });
+    while (cached.size > CACHE_MAX_ORIGINS) {
+      const oldest = cached.keys().next();
+      if (oldest.done) {
+        break;
+      }
+
+      cached.delete(oldest.value);
+    }
+
+    res.status(HttpStatusCode.Ok).type(SITEMAP_CONTENT_TYPE).send(xml);
   } catch (err) {
-    logger.error({ err }, 'Failed to build the catalog sitemap');
-    if (cached?.origin === origin) {
-      res.status(200).type('application/xml').send(cached.xml);
+    logger.error({ err }, SITEMAP_BUILD_FAILED_LOG);
+    if (entry) {
+      res.status(HttpStatusCode.Ok).type(SITEMAP_CONTENT_TYPE).send(entry.xml);
       return;
     }
-    res.status(502).type('text/plain').send('Sitemap generation failed');
+    res.status(HttpStatusCode.BadGateway).type(ContentTypes.plainText).send(SITEMAP_UNAVAILABLE_BODY);
   }
 }
 
 export function robotsHandler(req: Request, res: Response): void {
   const origin = requestOrigin(req);
-  const disallow = PRIVATE_PREFIXES.map((prefix) => `Disallow: ${prefix}`).join('\n');
+  const disallow = PRIVATE_PREFIXES.map((prefix) => `${ROBOTS_DISALLOW}${prefix}`).join('\n');
   res
-    .status(200)
-    .type('text/plain')
-    .send(`User-agent: *\nAllow: /\n${disallow}\nSitemap: ${origin}/sitemap.xml\n`);
+    .status(HttpStatusCode.Ok)
+    .type(ContentTypes.plainText)
+    .send(`User-agent: *\nAllow: /\n${disallow}\n${ROBOTS_SITEMAP}${origin}${SITEMAP_PATH}\n`);
 }

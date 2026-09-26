@@ -1,25 +1,29 @@
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRouteSnapshot } from '@angular/router';
 import { Observable, throwError, of } from 'rxjs';
 import { catalogDetailResolver, ResolvedCatalogGame } from './catalog-detail.resolver';
 import { CuratorService } from '../curator/curator.service';
 import { GameSummaryResponse, PublicCollectionSummaryResponse } from '../curator/curator.models';
+import { ResolvedStatuses } from '../shared/resolved-status';
+import { newCount, newId, newText, newUtcInstant } from '@crgolden/modules/testing';
+
+const GAME_ID = newId();
 
 const PUBLIC_COLLECTION: PublicCollectionSummaryResponse = {
-  definition_id: 'd1',
-  name: 'Weekend picks',
-  share_slug: 'weekend-picks',
-  item_count: 3,
-  updated_at: '2026-09-01T00:00:00Z',
+  definition_id: newId(),
+  name: newText(),
+  share_slug: newId(),
+  item_count: newCount(),
+  updated_at: newUtcInstant(),
 };
 
 const GAME: GameSummaryResponse = {
-  game_id: 'g1',
-  canonical_title: 'Bloodborne',
+  game_id: GAME_ID,
+  canonical_title: newText(),
   franchise: null,
-  genre: 'RPG',
-  aaa_tier: 'AAA',
+  genre: newText(),
+  aaa_tier: newText(),
   cover_image_url: null,
   store_product_id: null,
   critical_score: null,
@@ -48,43 +52,43 @@ describe('catalogDetailResolver', () => {
   const publicCollections = () => of({ collections: [PUBLIC_COLLECTION], total: 1 });
 
   it('resolves the game the route asked for, with the public collections that hold it', async () => {
-    const result = await resolve({ getCatalogGame: () => of(GAME), getCatalogGameCollections: publicCollections }, 'g1');
+    const result = await resolve({ getCatalogGame: () => of(GAME), getCatalogGameCollections: publicCollections }, GAME_ID);
 
-    expect(result).toEqual({ status: 'ok', game: GAME, collections: [PUBLIC_COLLECTION] });
+    expect(result).toEqual({ status: ResolvedStatuses.ok, game: GAME, collections: [PUBLIC_COLLECTION] });
   });
 
   it('degrades a failed collections lookup to none rather than failing the game page', async () => {
     const result = await resolve(
       {
         getCatalogGame: () => of(GAME),
-        getCatalogGameCollections: () => throwError(() => new HttpErrorResponse({ status: 500 })),
+        getCatalogGameCollections: () => throwError(() => new HttpErrorResponse({ status: HttpStatusCode.InternalServerError })),
       },
-      'g1',
+      GAME_ID,
     );
 
-    expect(result).toEqual({ status: 'ok', game: GAME, collections: [] });
+    expect(result).toEqual({ status: ResolvedStatuses.ok, game: GAME, collections: [] });
   });
 
   it('reports not-found for a 404 rather than surfacing an error page', async () => {
     const curator = {
-      getCatalogGame: () => throwError(() => new HttpErrorResponse({ status: 404 })),
+      getCatalogGame: () => throwError(() => new HttpErrorResponse({ status: HttpStatusCode.NotFound })),
       getCatalogGameCollections: publicCollections,
     };
 
-    const result = await resolve(curator, 'missing');
+    const result = await resolve(curator, newId());
 
-    expect(result).toEqual({ status: 'not-found' });
+    expect(result).toEqual({ status: ResolvedStatuses.notFound });
   });
 
   it('distinguishes a failed load from an unknown id', async () => {
     const curator = {
-      getCatalogGame: () => throwError(() => new HttpErrorResponse({ status: 500 })),
+      getCatalogGame: () => throwError(() => new HttpErrorResponse({ status: HttpStatusCode.InternalServerError })),
       getCatalogGameCollections: publicCollections,
     };
 
-    const result = await resolve(curator, 'g1');
+    const result = await resolve(curator, GAME_ID);
 
-    expect(result).toEqual({ status: 'error' });
+    expect(result).toEqual({ status: ResolvedStatuses.error });
   });
 
   it('treats a route with no game id as not-found without calling the api', async () => {
@@ -99,7 +103,7 @@ describe('catalogDetailResolver', () => {
 
     const result = await resolve(curator, null);
 
-    expect(result).toEqual({ status: 'not-found' });
+    expect(result).toEqual({ status: ResolvedStatuses.notFound });
     expect(called).toBe(false);
   });
 });

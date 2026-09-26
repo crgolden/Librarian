@@ -1,9 +1,18 @@
 import { defineConfig, devices } from '@playwright/test';
+import { newId, newText } from '@crgolden/modules/testing';
 import { OIDC_TLS_CERT_PATH } from './e2e/mocks/oidc-tls-paths';
+import { E2E_CONTRACT_VARIABLE, newE2eContract } from './e2e/mocks/e2e-identity-contract';
+import { MEMORY_SESSION_STORE } from './src/bff/settings';
+import {
+  MOCK_CURATOR_ORIGIN,
+  MOCK_CURATOR_PORT,
+  MOCK_OIDC_ORIGIN,
+  MOCK_OIDC_PORT,
+  SSR_ORIGIN,
+  SSR_PORT,
+} from './e2e/mocks/mock-endpoints';
 
-const SSR_PORT = 4100;
-const MOCK_CURATOR_PORT = 4101;
-const MOCK_OIDC_PORT = 4102;
+process.env[E2E_CONTRACT_VARIABLE] ??= JSON.stringify(newE2eContract());
 
 const walkerBaseUrl = process.env['WalkerBaseUrl']?.replace(/\/$/, '');
 
@@ -19,7 +28,7 @@ export default defineConfig({
   ],
 
   use: {
-    baseURL: `http://localhost:${SSR_PORT}`,
+    baseURL: SSR_ORIGIN,
     colorScheme: 'dark',
     timezoneId: 'UTC',
     trace: 'on-first-retry',
@@ -50,7 +59,7 @@ export default defineConfig({
       retries: 0,
       use: {
         ...devices['Desktop Chrome'],
-        baseURL: walkerBaseUrl ?? `http://localhost:${SSR_PORT}`,
+        baseURL: walkerBaseUrl ?? SSR_ORIGIN,
         userAgent: `${devices['Desktop Chrome'].userAgent} crgolden-synthetic/1.0`,
       },
     },
@@ -74,14 +83,14 @@ export default defineConfig({
       port: SSR_PORT,
       env: {
         PORT: String(SSR_PORT),
-        CuratorApiAddress: `http://localhost:${MOCK_CURATOR_PORT}`,
-        SessionStore: 'memory',
+        CuratorApiAddress: MOCK_CURATOR_ORIGIN,
+        SessionStore: MEMORY_SESSION_STORE,
         NODE_ENV: 'test',
-        LibrarianClientId: 'e2e-client-id',
-        LibrarianClientSecret: 'e2e-secret',
-        OidcAuthority: `https://localhost:${MOCK_OIDC_PORT}`,
+        LibrarianClientId: newText(),
+        LibrarianClientSecret: newText(),
+        OidcAuthority: MOCK_OIDC_ORIGIN,
         NODE_EXTRA_CA_CERTS: OIDC_TLS_CERT_PATH,
-        SessionSecret: 'e2e-test-secret-must-be-at-least-32-chars',
+        SessionSecret: `${newId()}${newId()}`,
       },
       reuseExistingServer: false,
       timeout: 60_000,

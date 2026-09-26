@@ -1,27 +1,45 @@
+import { HttpStatusCode } from '@angular/common/http';
 import type { Request, Response as ExpressResponse, NextFunction } from 'express';
 import { refreshTokenGrant, type Configuration } from 'openid-client';
 import type { AppLogger } from '../telemetry/logging';
+import { BffSettingKeys, requiredUrlSetting } from './settings';
+import { COOKIE_HEADER, CSRF_HEADER, MISSING_CSRF_ERROR } from '../shared/bff-contract';
+import {
+  AUTHORIZATION_HEADER,
+  bearerAuthorization,
+  HopByHopHeaders,
+  HttpMethods,
+  WWW_AUTHENTICATE_HEADER,
+} from './http-headers';
+import { environment } from '../environments/environment';
+import { statusCodeOf } from '../shared/http-status';
+
+export const ProxyLogMessages = {
+  proactiveRefreshFailed: '[BFF proxy] Proactive token refresh failed',
+  refreshOn401Failed: '[BFF proxy] Token refresh on 401 failed',
+} as const;
 
 export interface CuratorProxyDependencies {
   getOidcConfig: () => Promise<Configuration>;
   logger: AppLogger;
 }
 
-const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const MUTATING_METHODS = new Set<string>([HttpMethods.post, HttpMethods.put, HttpMethods.patch, HttpMethods.delete]);
 
-const DROP_REQUEST_HEADERS = new Set([
-  'host',
-  'connection',
-  'transfer-encoding',
-  'x-csrf',
+const DROP_REQUEST_HEADERS = new Set<string>([
+  HopByHopHeaders.host,
+  HopByHopHeaders.connection,
+  HopByHopHeaders.transferEncoding,
+  CSRF_HEADER.toLowerCase(),
+  COOKIE_HEADER.toLowerCase(),
 ]);
 
-const DROP_RESPONSE_HEADERS = new Set([
-  'connection',
-  'keep-alive',
-  'transfer-encoding',
-  'content-encoding',
-  'content-length',
+const DROP_RESPONSE_HEADERS = new Set<string>([
+  HopByHopHeaders.connection,
+  HopByHopHeaders.keepAlive,
+  HopByHopHeaders.transferEncoding,
+  HopByHopHeaders.contentEncoding,
+  HopByHopHeaders.contentLength,
 ]);
 
 export function csrfForMutating(
@@ -29,8 +47,8 @@ export function csrfForMutating(
   res: ExpressResponse,
   next: NextFunction,
 ): void {
-  if (MUTATING_METHODS.has(req.method) && !req.headers['x-csrf']) {
-    res.status(403).json({ error: 'Missing X-CSRF header' });
+  if (MUTATING_METHODS.has(req.method) && !req.headers[CSRF_HEADER.toLowerCase()]) {
+    res.status(HttpStatusCode.Forbidden).json({ error: MISSING_CSRF_ERROR });
     return;
   }
   next();
@@ -74,14 +92,7 @@ async function curatorProxy(
   _next: NextFunction,
   { getOidcConfig, logger }: CuratorProxyDependencies,
 ): Promise<void> {
-  const configuredApiAddress = process.env['CuratorApiAddress']?.trim();
-
-  if (configuredApiAddress === undefined || configuredApiAddress.length === 0) {
-    res.status(502).json({ error: 'CuratorApiAddress is not configured' });
-    return;
-  }
-
-  const base = configuredApiAddress.replace(/\/$/, '');
+  const base = requiredUrlSetting(BffSettingKeys.CuratorApiAddress).toString().replace(/\/$/, '');
 
   const relativePath = req.url.replace(/^\/+/, '');
   const targetUrl = new URL(relativePath, `${base}/`);
@@ -91,16 +102,16 @@ async function curatorProxy(
     accessToken &&
     refreshToken &&
     tokenExpiresAt !== undefined &&
-    Date.now() >= tokenExpiresAt - 60_000
+    Date.now() >= tokenExpiresAt - environment.tokenRefreshWindowMs
   ) {
     try {
       await refreshAndSave(req, getOidcConfig);
     } catch (err) {
-      logger.warn({ err }, '[BFF proxy] Proactive token refresh failed');
+      logger.warn({ err }, ProxyLogMessages.proactiveRefreshFailed);
     }
   }
 
-  const hasBody = !['GET', 'HEAD'].includes(req.method);
+  const hasBody = !([HttpMethods.get, HttpMethods.head] as string[]).includes(req.method);
   let bodyBuffer: Uint8Array<ArrayBuffer> | undefined;
 
   if (hasBody) {
@@ -138,9 +149,9 @@ async function curatorProxy(
 
     const token = req.session.accessToken;
     if (token) {
-      out['authorization'] = `Bearer ${token}`;
+      out[AUTHORIZATION_HEADER] = bearerAuthorization(token);
     } else {
-      delete out['authorization'];
+      delete out[AUTHORIZATION_HEADER];
     }
 
     return out;
@@ -156,15 +167,15 @@ async function curatorProxy(
   let apiResponse = await doFetch();
 
   if (
-    apiResponse.status === 401 &&
-    apiResponse.headers.get('www-authenticate') !== null &&
+    statusCodeOf(apiResponse) === HttpStatusCode.Unauthorized &&
+    apiResponse.headers.get(WWW_AUTHENTICATE_HEADER) !== null &&
     req.session.refreshToken
   ) {
     try {
       await refreshAndSave(req, getOidcConfig);
       apiResponse = await doFetch();
     } catch (err) {
-      logger.warn({ err }, '[BFF proxy] Token refresh on 401 failed');
+      logger.warn({ err }, ProxyLogMessages.refreshOn401Failed);
     }
   }
 

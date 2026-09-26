@@ -2,12 +2,14 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
+import { ButtonGhostDirective, ButtonPrimaryDirective, CardDirective, PageSectionDirective } from '@crgolden/modules/primitives';
 import { Subject, catchError, map, of, switchMap } from 'rxjs';
 import { CatalogGamesQuery, CuratorService } from '../curator/curator.service';
-import { CatalogGamesResponse, CatalogKind, CatalogPriceResponse, GameSummaryResponse } from '../curator/curator.models';
+import { AaaTiers, CatalogGamesResponse, CatalogKind, CatalogPriceResponse, GameSummaryResponse } from '../curator/curator.models';
 import { RawgAttributionComponent } from '../app/shared/attribution/rawg-attribution.component';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
 import { PageSizeComponent } from '../shared/page-size/page-size.component';
+import { CatalogMetaDirective, CatalogTitleDirective, SpineLabelDirective } from '../shared/primitives/typography';
 import { pageSizeChoicesUpTo, readPageSize, writePageSize } from '../shared/page-size/page-size.preference';
 import {
   CATALOG_KIND_OPTIONS,
@@ -38,16 +40,26 @@ export {
   DEFAULT_CATALOG_SORT,
 } from './catalog.query';
 import { contentKindLabel } from './content-kind-labels';
+import { catalogTitleId } from './catalog-ids';
+import { AppUrls, RouteDataKeys } from '../app/app-paths';
+import {
+  ANY_OPTION_LABEL,
+  CATALOG_EMPTY_MESSAGE,
+  CATALOG_LOAD_ERROR,
+  EMPTY_PAGE_RANGE,
+  FREE_LABEL,
+  FREE_WITH_PS_PLUS_LABEL,
+} from './catalog.messages';
 
-const CENTS_PER_DOLLAR = 100;
-const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+export const CENTS_PER_DOLLAR = 100;
+export const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
 export function priceLine(price: CatalogPriceResponse | null | undefined): string | null {
   if (!price) {
     return null;
   }
   if (price.is_free) {
-    return price.tied_to_subscription ? 'Free with PlayStation Plus' : 'Free';
+    return price.tied_to_subscription ? FREE_WITH_PS_PLUS_LABEL : FREE_LABEL;
   }
   const base = price.base_cents === null ? null : USD.format(price.base_cents / CENTS_PER_DOLLAR);
   const discounted = price.discounted_cents === null ? null : USD.format(price.discounted_cents / CENTS_PER_DOLLAR);
@@ -61,11 +73,31 @@ export function priceLine(price: CatalogPriceResponse | null | undefined): strin
 
 @Component({
   selector: 'app-catalog',
-  imports: [FormsModule, LoadingOverlayComponent, PageSizeComponent, RawgAttributionComponent, RouterLink],
+  imports: [
+    FormsModule,
+    LoadingOverlayComponent,
+    PageSizeComponent,
+    RawgAttributionComponent,
+    RouterLink,
+    ButtonGhostDirective,
+    ButtonPrimaryDirective,
+    CardDirective,
+    PageSectionDirective,
+    CatalogMetaDirective,
+    CatalogTitleDirective,
+    SpineLabelDirective,
+  ],
   templateUrl: './catalog.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CatalogComponent {
+  protected readonly appUrls = AppUrls;
+  protected readonly catalogTitleId = catalogTitleId;
+  protected readonly accentedTier = AaaTiers.aaa;
+  protected readonly emptyMessage = CATALOG_EMPTY_MESSAGE;
+  protected readonly emptyPageRange = EMPTY_PAGE_RANGE;
+  protected readonly anyOptionLabel = ANY_OPTION_LABEL;
+
   private readonly curator = inject(CuratorService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -110,20 +142,20 @@ export class CatalogComponent {
       .subscribe((response) => {
         this.loading.set(false);
         if (response === null) {
-          this.error.set('Unable to load the catalog.');
+          this.error.set(CATALOG_LOAD_ERROR);
           return;
         }
         this.applyPage(response);
       });
 
-    this.genreOptions.set((this.route.snapshot.data['genres'] as string[] | undefined) ?? []);
+    this.genreOptions.set((this.route.snapshot.data[RouteDataKeys.genres] as string[] | undefined) ?? []);
 
     this.loadedKey = catalogQueryKey(catalogQueryFromParams(this.route.snapshot.queryParams));
     this.readControlsFrom(this.route.snapshot.queryParams);
 
-    const resolved = this.route.snapshot.data['catalog'] as CatalogGamesResponse | null;
+    const resolved = this.route.snapshot.data[RouteDataKeys.catalog] as CatalogGamesResponse | null;
     if (resolved === null) {
-      this.error.set('Unable to load the catalog.');
+      this.error.set(CATALOG_LOAD_ERROR);
     } else {
       this.applyPage(resolved);
     }

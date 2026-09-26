@@ -1,7 +1,99 @@
 
+import { randomUUID } from 'node:crypto';
+import { constants } from 'node:http2';
 import express, { type Express, type Request, type Response } from 'express';
+import { newDisplayName, newId, newText, newUtcInstant, randomIntBetween } from '@crgolden/modules/testing';
+import { CuratorQueryParams, CuratorRoutes } from '../../src/curator/curator-api';
+import {
+  AaaTiers,
+  ALL_CATALOG_KINDS,
+  type AccountActionOutcome,
+  AccountActionOutcomes,
+  type CatalogSortField,
+  CatalogSortFields,
+  CollectionKinds,
+  CollectionVisibilities,
+  type CollectionVisibility,
+  type ConsoleDeviceLinkState,
+  ConsoleDeviceLinkStates,
+  CONSOLE_PLATFORM_OPTIONS,
+  ConsolePlatforms,
+  type ContentKind,
+  ContentKinds,
+  type JobStatus,
+  JobStatuses,
+  LibraryEntrySources,
+  LibraryHiddenFilters,
+  LibrarySortFields,
+  type PsPlusTier,
+  type RefreshCadence,
+  RefreshCadences,
+  type SizeSource,
+  SortDirections,
+  StorageKinds,
+  StoreUnavailableReasons,
+  type TrophyMatch,
+  TrophyMatches,
+  type TrophyProgressReason,
+  TrophyProgressReasons,
+  type TrophyProgressState,
+  TrophyProgressStates,
+  UNMEASURED_SIZE_SOURCE,
+} from '../../src/curator/curator.models';
+import { ControlRoutes } from './control-routes';
+import { CONSOLE_PLATFORM_ERROR, DEVICE_KIND_ERROR } from '../../src/consoles/consoles.messages';
+import { HEALTHY_BODY, HEALTH_PATH } from '../../src/shared/health';
+import { ContentTypes } from '../../src/shared/content-types';
+import { environment } from '../../src/environments/environment.ci';
+import {
+  AccountActions,
+  CuratorConsoleCapacityDefaultsGb,
+  CuratorDetails,
+  CuratorFallbacks,
+  CuratorPageLimits,
+  EnrichmentProviders,
+  PROFILE_LINK_HANDLE_PLACEHOLDER,
+  ProfileLinkSites,
+} from './curator-constants';
+import {
+  newCatalogGame,
+  newFutureInstant,
+  newPsnRating,
+  newScore,
+  newTrophySummary,
+  type SeededLibraryGame,
+} from './curator-records';
+import { e2eContract } from './e2e-identity-contract';
+import { PsnDeviceActivationTypes, PsnOnlineStatuses } from '../psn-constants';
+import e2eSettings from '../e2e-settings.json';
+
+export type {
+  ConsoleDeviceLinkState,
+  ContentKind,
+  PsPlusTier,
+  SizeSource,
+  TrophyMatch,
+  TrophyProgressReason,
+  TrophyProgressState,
+};
 
 
+function newRouteParamName(): string {
+  return `p${randomUUID().replaceAll('-', '')}`;
+}
+
+const RouteParam = {
+  consoleId: newRouteParamName(),
+  deviceId: newRouteParamName(),
+  gameId: newRouteParamName(),
+  id: newRouteParamName(),
+  onlineId: newRouteParamName(),
+  provider: newRouteParamName(),
+  runId: newRouteParamName(),
+  shareSlug: newRouteParamName(),
+  site_key: newRouteParamName(),
+  sub: newRouteParamName(),
+} as const;
 
 export interface PsnLink {
   access_token_expires_at: string | null;
@@ -18,7 +110,7 @@ export interface PsnPreferences {
 }
 
 export interface RefreshSchedule {
-  cadence: 'daily' | 'weekly' | 'monthly';
+  cadence: RefreshCadence;
   ps_plus_watch: boolean;
   next_run_at: string;
   last_run_at: string | null;
@@ -53,18 +145,35 @@ export interface UserRecord {
   enrichmentKeys: EnrichmentKeyStatus;
   refreshSchedule: RefreshSchedule | null;
   isAdmin: boolean;
+  onlineId: string;
+  trophySummary: TrophySummary;
+}
+
+export interface TrophyCounts {
+  bronze: number;
+  silver: number;
+  gold: number;
+  platinum: number;
+}
+
+export interface TrophySummary {
+  level: number;
+  progress: number;
+  tier: number;
+  earned: TrophyCounts;
+  account_id: string;
 }
 
 const DEFAULT_REFRESH_SCHEDULE: RefreshSchedule = {
-  cadence: 'weekly',
+  cadence: RefreshCadences.weekly,
   ps_plus_watch: false,
-  next_run_at: '2026-03-09T07:43:34+00:00',
-  last_run_at: '2026-03-02T07:43:34+00:00',
+  next_run_at: newFutureInstant(),
+  last_run_at: newUtcInstant(),
   consecutive_failures: 0,
   paused_reason: null,
 };
 
-const ACCOUNT_CREATED_AT = '2026-01-02T03:04:05+00:00';
+const ACCOUNT_CREATED_AT = newUtcInstant();
 
 const DEFAULT_PSN_PREFERENCES: PsnPreferences = {
   harvest_trophies: false,
@@ -96,12 +205,6 @@ interface FollowEdge {
   followed: string;
   followedAt: string;
 }
-
-export type SizeSource = 'measured' | 'download' | 'estimated' | 'capped_default' | 'default';
-
-export const UNMEASURED_SIZE_SOURCE: SizeSource = 'default';
-
-export type ContentKind = 'game' | 'media_app' | 'add_on' | 'demo' | 'soundtrack' | 'theme' | 'subscription';
 
 export interface CatalogPrice {
   is_free: boolean | null;
@@ -151,7 +254,7 @@ interface DefinitionRecord {
   aaa_tier_filter: string | null;
   include_inactive: boolean;
   min_percent_completed: number | null;
-  visibility: 'private' | 'unlisted' | 'public';
+  visibility: CollectionVisibility;
   share_slug: string;
   install_target_console_id: string | null;
   game_ids: string[];
@@ -210,18 +313,10 @@ export interface LibraryGame {
   trophy_match: TrophyMatch;
 }
 
-export type TrophyMatch = 'matched' | 'unmatched' | 'not_attempted';
-
-export type TrophyProgressState = 'off' | 'pending' | 'on';
-
-export type TrophyProgressReason = 'no_link' | 'harvest_off' | 'never_refreshed';
-
 export interface TrophyProgress {
   state: TrophyProgressState;
   reason: TrophyProgressReason | null;
 }
-
-export type PsPlusTier = 'extra' | 'premium';
 
 export interface PsPlusTitle {
   title_id: string;
@@ -249,33 +344,24 @@ export interface FriendRequest {
   account_id: string;
 }
 
-export type ConsoleDeviceLinkState = 'linked' | 'device_deactivated' | 'device_missing' | 'not_checked';
-
 export interface ConsoleDeviceLink {
   device_id: string;
   state: ConsoleDeviceLinkState;
 }
 
-const LIBRARY_SORT_FIELDS = [
-  'title',
-  'genre',
-  'rawg_rating',
-  'opencritic_rating',
-  'psn_rating',
-  'percent_completed',
-] as const;
+const LIBRARY_SORT_FIELDS = Object.values(LibrarySortFields);
 type LibrarySortField = (typeof LIBRARY_SORT_FIELDS)[number];
 
 function queryLibraryGames(games: LibraryGame[], req: Request): { games: LibraryGame[]; total: number } {
-  const q = (req.query['q'] as string | undefined)?.toLowerCase();
-  const genre = req.query['genre'] as string | undefined;
-  const sortParam = req.query['sort'] as string | undefined;
+  const q = (req.query[CuratorQueryParams.q] as string | undefined)?.toLowerCase();
+  const genre = req.query[CuratorQueryParams.genre] as string | undefined;
+  const sortParam = req.query[CuratorQueryParams.sort] as string | undefined;
   const sort: LibrarySortField = LIBRARY_SORT_FIELDS.includes(sortParam as LibrarySortField)
     ? (sortParam as LibrarySortField)
-    : 'title';
-  const desc = req.query['sortDir'] === 'desc';
-  const limit = req.query['limit'] ? parseInt(req.query['limit'] as string, 10) : 20;
-  const offset = req.query['offset'] ? parseInt(req.query['offset'] as string, 10) : 0;
+    : LibrarySortFields.title;
+  const desc = req.query[CuratorQueryParams.sortDir] === SortDirections.desc;
+  const limit = req.query[CuratorQueryParams.limit] ? parseInt(req.query[CuratorQueryParams.limit] as string, 10) : CuratorPageLimits.library;
+  const offset = req.query[CuratorQueryParams.offset] ? parseInt(req.query[CuratorQueryParams.offset] as string, 10) : 0;
 
   let filtered = games;
   if (q) {
@@ -302,9 +388,6 @@ function libraryGenres(games: LibraryGame[]): string[] {
   return Array.from(new Set(games.map((g) => g.genre).filter((c): c is string => c !== null))).sort();
 }
 
-type SeededLibraryGame = Pick<LibraryGame, 'game_id' | 'title' | 'rawg_enriched' | 'opencritic_enriched'> &
-  Partial<LibraryGame>;
-
 function normalizeLibraryGames(games: SeededLibraryGame[]): LibraryGame[] {
   return games.map((g) => ({
     game_id: g.game_id,
@@ -318,8 +401,8 @@ function normalizeLibraryGames(games: SeededLibraryGame[]): LibraryGame[] {
     opencritic_enriched: g.opencritic_enriched,
     percent_completed: g.percent_completed ?? null,
     platforms: g.platforms ?? [],
-    source: g.source ?? 'psn',
-    trophy_match: g.trophy_match ?? 'not_attempted',
+    source: g.source ?? LibraryEntrySources.psn,
+    trophy_match: g.trophy_match ?? TrophyMatches.notAttempted,
   }));
 }
 
@@ -334,16 +417,16 @@ function hiddenFor(sub: string): Set<string> {
 
 function trophyProgressFor(user: UserRecord): TrophyProgress {
   if (user.psn === null) {
-    return { state: 'off', reason: 'no_link' };
+    return { state: TrophyProgressStates.off, reason: TrophyProgressReasons.noLink };
   }
   if (!user.psnPreferences.harvest_trophies) {
-    return { state: 'off', reason: 'harvest_off' };
+    return { state: TrophyProgressStates.off, reason: TrophyProgressReasons.harvestOff };
   }
   const games = libraryGames.get(user.sub) ?? [];
   if (games.every((game) => game.percent_completed === null)) {
-    return { state: 'pending', reason: 'never_refreshed' };
+    return { state: TrophyProgressStates.pending, reason: TrophyProgressReasons.neverRefreshed };
   }
-  return { state: 'on', reason: null };
+  return { state: TrophyProgressStates.on, reason: null };
 }
 
 export interface LibraryRefreshResultSummary {
@@ -354,18 +437,18 @@ export interface LibraryRefreshResultSummary {
 
 interface LibraryRun {
   sub: string;
-  status: 'queued' | 'running' | 'succeeded' | 'failed';
+  status: JobStatus;
   error: string | null;
   result_summary: LibraryRefreshResultSummary | null;
 }
 
 interface LibraryRefreshOutcome {
-  status: 'succeeded' | 'failed';
+  status: typeof JobStatuses.succeeded | typeof JobStatuses.failed;
   error?: string;
   result_summary?: LibraryRefreshResultSummary;
 }
 
-export type EnrichmentRunTerminalStatus = 'succeeded' | 'failed' | 'cancelled';
+export type EnrichmentRunTerminalStatus = typeof JobStatuses.succeeded | typeof JobStatuses.failed | typeof JobStatuses.cancelled;
 
 export interface EnrichmentRunOutcome {
   status: EnrichmentRunTerminalStatus;
@@ -380,9 +463,9 @@ interface EnrichmentRun {
   result_summary: Record<string, unknown> | null;
 }
 
-const LIBRARIAN_ENRICHMENT_POLL_INTERVAL_MS = 2500;
-const ENRICHMENT_RUN_LEAVES_THE_QUEUE_AFTER_MS = 250;
-const ENRICHMENT_RUN_SETTLES_ONE_LIVE_POLL_LATER_MS = LIBRARIAN_ENRICHMENT_POLL_INTERVAL_MS + 1000;
+const ENRICHMENT_RUN_LEAVES_THE_QUEUE_AFTER_MS = e2eSettings.mockTimings.enrichmentRunLeavesQueueAfterMs;
+const ENRICHMENT_RUN_SETTLES_ONE_LIVE_POLL_LATER_MS =
+  environment.adminEnrichmentPollIntervalMs + e2eSettings.mockTimings.enrichmentRunSettlesAfterPollMs;
 
 
 
@@ -390,6 +473,7 @@ interface ActionLogEntry {
   action: string;
   detail: string | null;
   occurred_at: string;
+  outcome: AccountActionOutcome;
 }
 
 interface CollectionFollowEdge {
@@ -420,11 +504,7 @@ const profileSettings = new Map<string, ProfileSettings>();
 const profileLinkHandles = new Map<string, Map<string, string>>();
 const followEdges: FollowEdge[] = [];
 
-const PROFILE_LINK_SITES = [
-  { site_key: 'psnprofiles', display_name: 'PSNProfiles', url_template: 'https://psnprofiles.com/{handle}' },
-  { site_key: 'truetrophies', display_name: 'TrueTrophies', url_template: 'https://www.truetrophies.com/gamer/{handle}' },
-  { site_key: 'exophase', display_name: 'Exophase', url_template: 'https://www.exophase.com/psn/user/{handle}/' },
-];
+const PROFILE_LINK_SITES = Object.values(ProfileLinkSites);
 
 const PROFILE_LINK_HANDLE_PATTERN = /^[A-Za-z0-9_-]{3,16}$/;
 
@@ -438,7 +518,8 @@ const EMPTY_PS_PLUS_ROTATION: PsPlusRotation = {
   categories: [],
 };
 
-const DEFAULT_SUB = 'e2e-user-id';
+const E2E_CONTRACT = e2eContract();
+const DEFAULT_SUB = E2E_CONTRACT.defaultSub;
 let nextShareSlug = 1;
 let nextConsoleId = 1;
 let nextDeviceId = 1;
@@ -448,22 +529,13 @@ let nextEnrichmentOutcome: EnrichmentRunOutcome | null = null;
 
 function logAction(sub: string, action: string, detail: string | null = null): void {
   const entries = actionLog.get(sub) ?? [];
-  entries.push({ action, detail, occurred_at: new Date().toISOString() });
+  entries.push({ action, detail, occurred_at: new Date().toISOString(), outcome: AccountActionOutcomes.completed });
   actionLog.set(sub, entries);
 }
 
-let CATALOG_GAMES: GameSummary[] = [
-  { game_id: 'g-uncharted-4', canonical_title: 'Uncharted 4: A Thief’s End', franchise: 'Uncharted', genre: 'Action-Adventure', aaa_tier: 'AAA' },
-  { game_id: 'g-tlou2', canonical_title: 'The Last of Us Part II', franchise: 'The Last of Us', genre: 'Action-Adventure', aaa_tier: 'AAA' },
-  { game_id: 'g-bloodborne', canonical_title: 'Bloodborne', franchise: null, genre: 'RPG', aaa_tier: 'AAA' },
-  { game_id: 'g-hades', canonical_title: 'Hades', franchise: null, genre: 'Roguelike', aaa_tier: 'Indie' },
-  { game_id: 'g-hollow-knight', canonical_title: 'Hollow Knight', franchise: null, genre: 'Metroidvania', aaa_tier: 'Indie' },
-  { game_id: 'g-gt7', canonical_title: 'Gran Turismo 7', franchise: 'Gran Turismo', genre: 'Racing', aaa_tier: 'AAA' },
-  { game_id: 'g-returnal', canonical_title: 'Returnal', franchise: null, genre: 'Roguelike', aaa_tier: 'AA' },
-  { game_id: 'g-stray', canonical_title: 'Stray', franchise: null, genre: 'Adventure', aaa_tier: 'Indie' },
-];
+let CATALOG_GAMES: GameSummary[] = Array.from({ length: randomIntBetween(1, CuratorPageLimits.catalog) }, newCatalogGame);
 
-interface StoreSearchHit {
+export interface StoreSearchHit {
   id: string;
   kind: string;
   default_product_id: string | null;
@@ -476,32 +548,11 @@ interface StoreSearchHit {
   is_free: boolean | null;
 }
 
-const STORE_ONLY_GAMES: StoreSearchHit[] = [
-  {
-    id: 'concept-siren-blood-curse',
-    kind: 'Concept',
-    default_product_id: 'UP9000-NPUA80183_00-SIRENBLOODCURSE0',
-    name: 'Siren: Blood Curse',
-    platforms: ['PS3'],
-    cover_image_url: null,
-    classification: 'Full Game',
-    price: '$19.99',
-    discounted_price: null,
-    is_free: false,
-  },
-  {
-    id: 'concept-siren-new-translation',
-    kind: 'Concept',
-    default_product_id: null,
-    name: 'Siren: New Translation',
-    platforms: ['PS3'],
-    cover_image_url: null,
-    classification: 'Full Game',
-    price: null,
-    discounted_price: null,
-    is_free: null,
-  },
-];
+export function admittedGameId(storeId: string): string {
+  return `g-admitted-${storeId}`;
+}
+
+let storeSearchHits: StoreSearchHit[] = [];
 
 function toCatalogSummary(game: GameSummary) {
   return {
@@ -517,8 +568,7 @@ function toCatalogSummary(game: GameSummary) {
   };
 }
 
-const CATALOG_SORT_FIELDS = ['title', 'price'] as const;
-type CatalogSortField = (typeof CATALOG_SORT_FIELDS)[number];
+const CATALOG_SORT_FIELDS = Object.values(CatalogSortFields);
 
 function priceRank(game: GameSummary): number | null {
   const price = game.price;
@@ -532,13 +582,13 @@ function priceRank(game: GameSummary): number | null {
 }
 
 function sortCatalog(games: GameSummary[], req: Request): GameSummary[] {
-  const asked = req.query['sort'] as string | undefined;
+  const asked = req.query[CuratorQueryParams.sort] as string | undefined;
   const field: CatalogSortField = CATALOG_SORT_FIELDS.includes(asked as CatalogSortField)
     ? (asked as CatalogSortField)
-    : 'title';
-  const desc = req.query['sortDir'] === 'desc';
+    : CatalogSortFields.title;
+  const desc = req.query[CuratorQueryParams.sortDir] === SortDirections.desc;
   return [...games].sort((a, b) => {
-    if (field === 'title') {
+    if (field === CatalogSortFields.title) {
       const byTitle = a.canonical_title.localeCompare(b.canonical_title);
       return desc ? -byTitle : byTitle;
     }
@@ -552,45 +602,33 @@ function sortCatalog(games: GameSummary[], req: Request): GameSummary[] {
 }
 
 function matchesKind(game: GameSummary, req: Request): boolean {
-  const kind = (req.query['kind'] as string | undefined) ?? 'game';
-  if (kind === 'all') {
+  const kind = (req.query[CuratorQueryParams.kind] as string | undefined) ?? ContentKinds.game;
+  if (kind === ALL_CATALOG_KINDS) {
     return true;
   }
-  if (kind === 'game') {
-    return game.content_kind === undefined || game.content_kind === null || game.content_kind === 'game';
+  if (kind === ContentKinds.game) {
+    return game.content_kind === undefined || game.content_kind === null || game.content_kind === ContentKinds.game;
   }
   return game.content_kind === kind;
 }
 
-const TROPHY_SUMMARY = {
-  level: 42,
-  progress: 65,
-  tier: 3,
-  earned: { bronze: 120, silver: 45, gold: 12, platinum: 3 },
-  account_id: 'psn-account-e2e',
-};
-
-const IDENTITY = {
-  account_id: 'psn-account-e2e',
-  online_id: 'e2e_gamer',
-  region: 'US',
-};
-
 const PRESENCE = {
-  online_status: 'online',
-  platform: 'PS5',
-  last_online_date: '2026-07-16T12:00:00Z',
-  game_title: 'Bloodborne',
+  online_status: PsnOnlineStatuses.online,
+  platform: ConsolePlatforms.ps5,
+  last_online_date: newUtcInstant(),
+  game_title: newText(),
 };
+
+const HARVESTED_DEVICE_ID = newId();
 
 const DEVICES = {
   devices: [
     {
-      device_id: 'dev-1',
-      device_type: 'PS5',
-      device_name: 'My PS5',
-      activation_type: 'primary',
-      activation_date: '2024-01-01T00:00:00Z',
+      device_id: HARVESTED_DEVICE_ID,
+      device_type: ConsolePlatforms.ps5,
+      device_name: newDisplayName(),
+      activation_type: PsnDeviceActivationTypes.primary,
+      activation_date: newUtcInstant(),
       deactivation_date: null,
     },
   ],
@@ -605,7 +643,7 @@ function pathParam(req: Request, name: string): string {
 }
 
 function subFromRequest(req: Request): string {
-  const header = req.headers['x-e2e-sub'];
+  const header = req.headers[E2E_CONTRACT.subHeader];
   if (typeof header === 'string' && header.length > 0) {
     return header;
   }
@@ -613,11 +651,16 @@ function subFromRequest(req: Request): string {
 }
 
 function psnAccountIdFor(sub: string): string {
-  return sub === DEFAULT_SUB ? IDENTITY.account_id : `psn-account-${sub}`;
+  return `psn-account-${sub}`;
 }
 
-function onlineIdFor(sub: string): string {
-  return sub === DEFAULT_SUB ? IDENTITY.online_id : `${sub}_gamer`;
+function psnLinkFrom(seeded: Partial<PsnLink>): PsnLink {
+  return {
+    access_token_expires_at:
+      seeded.access_token_expires_at === undefined ? newFutureInstant() : seeded.access_token_expires_at,
+    refresh_token_expires_at:
+      seeded.refresh_token_expires_at === undefined ? newFutureInstant() : seeded.refresh_token_expires_at,
+  };
 }
 
 function getUser(sub: string): UserRecord {
@@ -632,6 +675,8 @@ function getUser(sub: string): UserRecord {
       enrichmentKeys: { ...DEFAULT_ENRICHMENT_KEY_STATUS },
       refreshSchedule: null,
       isAdmin: false,
+      onlineId: newText(),
+      trophySummary: newTrophySummary(),
     };
     users.set(sub, user);
   }
@@ -646,7 +691,7 @@ function refusedForLackingAdmin(req: Request, res: Response): boolean {
   if (getUser(subFromRequest(req)).isAdmin) {
     return false;
   }
-  res.status(403).json({ detail: 'curator.admin claim required.' });
+  res.status(constants.HTTP_STATUS_FORBIDDEN).json({ detail: CuratorDetails.adminClaimRequired });
   return true;
 }
 
@@ -727,9 +772,9 @@ function toCollectionItem(gameId: string, rank: number): CollectionItem {
     franchise: game?.franchise ?? null,
     genre: game?.genre ?? null,
     aaa_tier: game?.aaa_tier ?? null,
-    critical_score: 85,
-    oc_score: 82,
-    psn_rating: 4.5,
+    critical_score: newScore(),
+    oc_score: newScore(),
+    psn_rating: newPsnRating(),
     cover_image_url: null,
     owner_has_access: game !== undefined,
     installed_on_target: null,
@@ -792,7 +837,7 @@ function profileLinksFor(sub: string): { site_key: string; display_name: string;
       site_key: site.site_key,
       display_name: site.display_name,
       handle,
-      url: site.url_template.replace('{handle}', handle),
+      url: site.url_template.replace(PROFILE_LINK_HANDLE_PLACEHOLDER, handle),
     };
   });
 }
@@ -825,12 +870,12 @@ function toCollectionGame(game: GameSummary): CollectionGame {
   return {
     game_id: game.game_id,
     title: game.canonical_title,
-    genre: game.genre ?? 'Unclassified',
-    aaa_tier: game.aaa_tier ?? 'Indie',
+    genre: game.genre ?? CuratorFallbacks.genre,
+    aaa_tier: game.aaa_tier ?? AaaTiers.indie,
     franchise: game.franchise ?? game.canonical_title,
-    composite_score: 8,
+    composite_score: newScore(),
     rank_score: 1,
-    size_gb: 40,
+    size_gb: newScore(),
     size_source: game.size_source ?? UNMEASURED_SIZE_SOURCE,
   };
 }
@@ -878,8 +923,8 @@ function pageCollectionResult(
   ignored_filters: { filter: string; reason: string }[];
   excluded_for_missing_trophy_data: number;
 } {
-  const limit = Number(req.query['limit'] ?? 50);
-  const offset = Number(req.query['offset'] ?? 0);
+  const limit = Number(req.query[CuratorQueryParams.limit] ?? CuratorPageLimits.collectionPreview);
+  const offset = Number(req.query[CuratorQueryParams.offset] ?? 0);
   return {
     included: result.included.slice(offset, offset + limit),
     excluded: result.excluded.slice(offset, offset + limit),
@@ -900,18 +945,20 @@ function toProfileDefinition(
 
 
 
+const CONTROL_PATHS = new Set<string>(Object.values(ControlRoutes));
+
 export function createCuratorApp(): Express {
   const app = express();
   app.use(express.json());
 
   app.use((req: Request, _res: Response, next: () => void) => {
-    if (!req.path.startsWith('/_test') && req.path !== '/health') {
+    if (!CONTROL_PATHS.has(req.path) && req.path !== HEALTH_PATH) {
       getUser(subFromRequest(req));
     }
     next();
   });
 
-  app.post('/_test/reset', (_req: Request, res: Response) => {
+  app.post(ControlRoutes.reset, (_req: Request, res: Response) => {
     users.clear();
     consoleRecords.clear();
     storageDeviceRecords.clear();
@@ -936,19 +983,26 @@ export function createCuratorApp(): Express {
     profileSettings.clear();
     profileLinkHandles.clear();
     followEdges.length = 0;
+    storeSearchHits = [];
     nextShareSlug = 1;
     nextConsoleId = 1;
     nextDeviceId = 1;
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/catalog-games', (req: Request, res: Response) => {
+  app.post(ControlRoutes.catalogGames, (req: Request, res: Response) => {
     const body = req.body as { games?: GameSummary[] };
     CATALOG_GAMES = body.games ?? CATALOG_GAMES;
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/consoles', (req: Request, res: Response) => {
+  app.post(ControlRoutes.storeSearchHits, (req: Request, res: Response) => {
+    const body = req.body as { hits?: StoreSearchHit[] };
+    storeSearchHits = body.hits ?? [];
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
+  });
+
+  app.post(ControlRoutes.consoles, (req: Request, res: Response) => {
     const body = req.body as { consoleIds?: string[] };
     consoleRecords.set(
       DEFAULT_SUB,
@@ -956,125 +1010,124 @@ export function createCuratorApp(): Express {
         console_id: consoleId,
         identity_sub: DEFAULT_SUB,
         name: consoleId,
-        platform: 'PS5',
-        raw_capacity_gb: 825,
+        platform: ConsolePlatforms.ps5,
+        raw_capacity_gb: CuratorConsoleCapacityDefaultsGb.ps5,
         model: null,
         update_buffer_gb: 0,
         routing_genres: [],
         fill_order: 0,
       })),
     );
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/library-games', (req: Request, res: Response) => {
+  app.post(ControlRoutes.libraryGames, (req: Request, res: Response) => {
     const body = req.body as { games?: SeededLibraryGame[] };
     libraryGames.set(DEFAULT_SUB, normalizeLibraryGames(body.games ?? []));
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/library-refresh-outcome', (req: Request, res: Response) => {
+  app.post(ControlRoutes.libraryRefreshOutcome, (req: Request, res: Response) => {
     const body = req.body as LibraryRefreshOutcome;
     nextLibraryOutcome.set(DEFAULT_SUB, body);
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/enrichment-run-outcome', (req: Request, res: Response) => {
+  app.post(ControlRoutes.enrichmentRunOutcome, (req: Request, res: Response) => {
     nextEnrichmentOutcome = req.body as EnrichmentRunOutcome;
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/enrichment-run', (req: Request, res: Response) => {
+  app.post(ControlRoutes.enrichmentRun, (req: Request, res: Response) => {
     const body = req.body as Partial<EnrichmentRun>;
     const runId = body.run_id ?? `enrichment-run-${nextEnrichmentRunId++}`;
     enrichmentRuns.set(runId, {
       run_id: runId,
-      status: body.status ?? 'queued',
+      status: body.status ?? JobStatuses.queued,
       error: body.error ?? null,
       result_summary: body.result_summary ?? null,
     });
     latestEnrichmentRunId = runId;
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/psn-link', (req: Request, res: Response) => {
-    const body = req.body as Partial<PsnLink>;
+  app.post(ControlRoutes.psnLink, (req: Request, res: Response) => {
     const user = getUser(DEFAULT_SUB);
-    const accessTokenExpiresAt: string | null =
-      'access_token_expires_at' in body ? (body.access_token_expires_at ?? null) : '2026-08-01T00:00:00Z';
-    const refreshTokenExpiresAt: string | null =
-      'refresh_token_expires_at' in body ? (body.refresh_token_expires_at ?? null) : '2027-01-01T00:00:00Z';
-    user.psn = { access_token_expires_at: accessTokenExpiresAt, refresh_token_expires_at: refreshTokenExpiresAt };
+    user.psn = psnLinkFrom(req.body as Partial<PsnLink>);
     user.psnAccountId ??= psnAccountIdFor(DEFAULT_SUB);
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/psn-preferences', (req: Request, res: Response) => {
+  app.post(ControlRoutes.psnPreferences, (req: Request, res: Response) => {
     const body = req.body as Partial<PsnPreferences>;
     const user = getUser(DEFAULT_SUB);
     user.psnPreferences = { ...DEFAULT_PSN_PREFERENCES, ...body };
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/enrichment-keys', (req: Request, res: Response) => {
+  app.post(ControlRoutes.enrichmentKeys, (req: Request, res: Response) => {
     const body = req.body as Partial<EnrichmentKeyStatus>;
     const user = getUser(DEFAULT_SUB);
     user.enrichmentKeys = { ...DEFAULT_ENRICHMENT_KEY_STATUS, ...body };
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/admin', (req: Request, res: Response) => {
+  app.post(ControlRoutes.admin, (req: Request, res: Response) => {
     const body = req.body as { isAdmin?: boolean };
     getUser(DEFAULT_SUB).isAdmin = body.isAdmin ?? true;
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/seed-user', (req: Request, res: Response) => {
+  app.post(ControlRoutes.seedUser, (req: Request, res: Response) => {
     const body = req.body as { sub: string };
     getUser(body.sub);
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/user/psn-link', (req: Request, res: Response) => {
+  app.post(ControlRoutes.userPsnLink, (req: Request, res: Response) => {
     const body = req.body as Partial<PsnLink> & { sub: string; psn_account_id?: string };
     const user = getUser(body.sub);
-    const accessTokenExpiresAt: string | null =
-      'access_token_expires_at' in body ? (body.access_token_expires_at ?? null) : '2026-08-01T00:00:00Z';
-    const refreshTokenExpiresAt: string | null =
-      'refresh_token_expires_at' in body ? (body.refresh_token_expires_at ?? null) : '2027-01-01T00:00:00Z';
-    user.psn = { access_token_expires_at: accessTokenExpiresAt, refresh_token_expires_at: refreshTokenExpiresAt };
+    user.psn = psnLinkFrom(body);
     user.psnAccountId = body.psn_account_id ?? user.psnAccountId ?? psnAccountIdFor(body.sub);
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/user/psn-preferences', (req: Request, res: Response) => {
+  app.post(ControlRoutes.userPsnProfile, (req: Request, res: Response) => {
+    const body = req.body as { sub: string; online_id?: string; trophy_summary?: TrophySummary };
+    const user = getUser(body.sub);
+    user.onlineId = body.online_id ?? user.onlineId;
+    user.trophySummary = body.trophy_summary ?? user.trophySummary;
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
+  });
+
+  app.post(ControlRoutes.userPsnPreferences, (req: Request, res: Response) => {
     const body = req.body as Partial<PsnPreferences> & { sub: string };
     const user = getUser(body.sub);
     user.psnPreferences = { ...DEFAULT_PSN_PREFERENCES, ...body };
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/user/refresh-schedule', (req: Request, res: Response) => {
+  app.post(ControlRoutes.userRefreshSchedule, (req: Request, res: Response) => {
     const { sub, ...schedule } = req.body as Partial<RefreshSchedule> & { sub: string };
     getUser(sub).refreshSchedule = { ...DEFAULT_REFRESH_SCHEDULE, ...schedule };
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/user/profile-settings', (req: Request, res: Response) => {
+  app.post(ControlRoutes.userProfileSettings, (req: Request, res: Response) => {
     const body = req.body as Partial<ProfileSettings> & { sub: string };
     getUser(body.sub);
     profileSettings.set(body.sub, { ...DEFAULT_PROFILE_SETTINGS, ...settingsFor(body.sub), ...body });
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/user/library-games', (req: Request, res: Response) => {
+  app.post(ControlRoutes.userLibraryGames, (req: Request, res: Response) => {
     const body = req.body as { sub: string; games?: SeededLibraryGame[] };
     getUser(body.sub);
     libraryGames.set(body.sub, normalizeLibraryGames(body.games ?? []));
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/user/collections', (req: Request, res: Response) => {
+  app.post(ControlRoutes.userCollections, (req: Request, res: Response) => {
     const body = req.body as {
       sub: string;
       definitions?: {
@@ -1083,7 +1136,7 @@ export function createCuratorApp(): Express {
         kind: string;
         console_id?: string | null;
         install_target_console_id?: string | null;
-        visibility?: 'private' | 'unlisted' | 'public';
+        visibility?: CollectionVisibility;
         game_ids?: string[];
       }[];
     };
@@ -1102,61 +1155,61 @@ export function createCuratorApp(): Express {
         aaa_tier_filter: null,
         include_inactive: false,
         min_percent_completed: null,
-        visibility: d.visibility ?? 'private',
+        visibility: d.visibility ?? CollectionVisibilities.private,
         share_slug: `slug-${nextShareSlug++}`,
         install_target_console_id: d.install_target_console_id ?? null,
         game_ids: d.game_ids ?? [],
       })),
     );
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/user/ps-plus-rotation', (req: Request, res: Response) => {
+  app.post(ControlRoutes.userPsPlusRotation, (req: Request, res: Response) => {
     const { sub, ...rotation } = req.body as Partial<PsPlusRotation> & { sub: string };
     getUser(sub);
     psPlusRotations.set(sub, { ...EMPTY_PS_PLUS_ROTATION, ...rotation });
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/user/friend-requests', (req: Request, res: Response) => {
+  app.post(ControlRoutes.userFriendRequests, (req: Request, res: Response) => {
     const body = req.body as { sub: string; requests?: FriendRequest[] };
     getUser(body.sub);
     receivedFriendRequests.set(body.sub, body.requests ?? []);
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/console-device-link', (req: Request, res: Response) => {
+  app.post(ControlRoutes.consoleDeviceLink, (req: Request, res: Response) => {
     const body = req.body as { console_id: string; device_id?: string; state?: ConsoleDeviceLinkState };
     consoleDeviceLinks.set(body.console_id, {
-      device_id: body.device_id ?? 'dev-1',
-      state: body.state ?? 'linked',
+      device_id: body.device_id ?? HARVESTED_DEVICE_ID,
+      state: body.state ?? ConsoleDeviceLinkStates.linked,
     });
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/hidden-library-games', (req: Request, res: Response) => {
+  app.post(ControlRoutes.hiddenLibraryGames, (req: Request, res: Response) => {
     const body = req.body as { game_ids?: string[] };
     hiddenLibraryGames.set(DEFAULT_SUB, new Set(body.game_ids ?? []));
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/_test/follow', (req: Request, res: Response) => {
+  app.post(ControlRoutes.follow, (req: Request, res: Response) => {
     const body = req.body as { follower_sub: string; followed_sub: string };
     getUser(body.follower_sub);
     getUser(body.followed_sub);
     if (!isFollowing(body.follower_sub, body.followed_sub)) {
       followEdges.push({ follower: body.follower_sub, followed: body.followed_sub, followedAt: new Date().toISOString() });
     }
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
 
 
-  app.get('/health', (_req: Request, res: Response) => {
-    res.type('text/plain').send('Healthy');
+  app.get(HEALTH_PATH, (_req: Request, res: Response) => {
+    res.type(ContentTypes.plainText).send(HEALTHY_BODY);
   });
 
-  app.get('/me', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.me, (req: Request, res: Response) => {
     const user = getUser(subFromRequest(req));
     res.json({
       sub: user.sub,
@@ -1167,80 +1220,80 @@ export function createCuratorApp(): Express {
     });
   });
 
-  app.delete('/me', (req: Request, res: Response) => {
+  app.delete(CuratorRoutes.me, (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    logAction(sub, 'account_deleted');
+    logAction(sub, AccountActions.accountDeleted);
     users.delete(sub);
     consoleRecords.delete(sub);
     storageDeviceRecords.delete(sub);
     definitions.delete(sub);
     libraryGames.delete(sub);
     profileSettings.delete(sub);
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.get('/me/actions', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.meActions, (req: Request, res: Response) => {
     res.json({ actions: actionLog.get(subFromRequest(req)) ?? [] });
   });
 
-  app.post('/psn/link', (req: Request, res: Response) => {
+  app.post(CuratorRoutes.psnLink, (req: Request, res: Response) => {
     const body = req.body as Record<string, unknown>;
     const npsso = body['npsso'] as string | undefined;
     if (!npsso) {
-      res.status(400).json({ error: 'npsso is required' });
+      res.status(constants.HTTP_STATUS_BAD_REQUEST).json({ error: CuratorDetails.npssoRequired });
       return;
     }
 
     const sub = subFromRequest(req);
     const user = getUser(sub);
-    user.psn = { access_token_expires_at: '2026-08-01T00:00:00Z', refresh_token_expires_at: '2027-01-01T00:00:00Z' };
+    user.psn = psnLinkFrom({});
     user.psnAccountId ??= psnAccountIdFor(sub);
-    logAction(sub, 'link_succeeded');
-    res.status(200).json({ linked: true, psn: user.psn });
+    logAction(sub, AccountActions.linkRequested);
+    res.status(constants.HTTP_STATUS_OK).json({ linked: true, psn: user.psn });
   });
 
-  app.delete('/psn/link', (req: Request, res: Response) => {
+  app.delete(CuratorRoutes.psnLink, (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const user = getUser(sub);
     user.psn = null;
-    logAction(sub, 'unlinked');
-    res.status(204).end();
+    logAction(sub, AccountActions.unlinked);
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.get('/me/psn-preferences', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.mePsnPreferences, (req: Request, res: Response) => {
     const user = getUser(subFromRequest(req));
     if (!user.psn) {
-      res.status(404).json({ detail: 'PSN account is not linked.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.psnNotLinked });
       return;
     }
     res.json(user.psnPreferences);
   });
 
-  app.put('/me/psn-preferences', (req: Request, res: Response) => {
+  app.put(CuratorRoutes.mePsnPreferences, (req: Request, res: Response) => {
     const user = getUser(subFromRequest(req));
     if (!user.psn) {
-      res.status(404).json({ detail: 'PSN account is not linked.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.psnNotLinked });
       return;
     }
     const body = req.body as Partial<PsnPreferences>;
     user.psnPreferences = { ...DEFAULT_PSN_PREFERENCES, ...body };
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.get('/me/refresh-schedule', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.meRefreshSchedule, (req: Request, res: Response) => {
     const schedule = getUser(subFromRequest(req)).refreshSchedule;
     if (!schedule) {
-      res.status(404).json({ detail: 'No refresh schedule is configured.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.noRefreshSchedule });
       return;
     }
     res.json(schedule);
   });
 
-  app.put('/me/refresh-schedule', (req: Request, res: Response) => {
+  app.put(CuratorRoutes.meRefreshSchedule, (req: Request, res: Response) => {
     const body = req.body as Partial<RefreshSchedule>;
     const user = getUser(subFromRequest(req));
-    if (body.cadence !== 'daily' && body.cadence !== 'weekly' && body.cadence !== 'monthly') {
-      res.status(422).json({ detail: 'Unknown cadence.' });
+    if (body.cadence !== RefreshCadences.daily && body.cadence !== RefreshCadences.weekly && body.cadence !== RefreshCadences.monthly) {
+      res.status(constants.HTTP_STATUS_UNPROCESSABLE_ENTITY).json({ detail: CuratorDetails.unknownCadence });
       return;
     }
     user.refreshSchedule = {
@@ -1252,24 +1305,24 @@ export function createCuratorApp(): Express {
     res.json(user.refreshSchedule);
   });
 
-  app.delete('/me/refresh-schedule', (req: Request, res: Response) => {
+  app.delete(CuratorRoutes.meRefreshSchedule, (req: Request, res: Response) => {
     getUser(subFromRequest(req)).refreshSchedule = null;
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.get('/me/enrichment-keys', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.meEnrichmentKeys, (req: Request, res: Response) => {
     res.json(getUser(subFromRequest(req)).enrichmentKeys);
   });
 
-  app.put('/me/enrichment-keys/:provider', (req: Request, res: Response) => {
-    const { provider } = req.params;
-    if (provider !== 'rawg' && provider !== 'opencritic') {
-      res.status(422).json({ detail: 'Unknown provider.' });
+  app.put(`${CuratorRoutes.meEnrichmentKeys}/:${RouteParam.provider}`, (req: Request, res: Response) => {
+    const provider = pathParam(req, RouteParam.provider);
+    if (provider !== EnrichmentProviders.rawg && provider !== EnrichmentProviders.opencritic) {
+      res.status(constants.HTTP_STATUS_UNPROCESSABLE_ENTITY).json({ detail: CuratorDetails.unknownProvider });
       return;
     }
     const body = req.body as { api_key?: string };
     if (!body.api_key || !body.api_key.trim()) {
-      res.status(400).json({ detail: 'api_key must not be empty.' });
+      res.status(constants.HTTP_STATUS_BAD_REQUEST).json({ detail: CuratorDetails.apiKeyEmpty });
       return;
     }
 
@@ -1277,7 +1330,7 @@ export function createCuratorApp(): Express {
     const user = getUser(sub);
     const now = new Date().toISOString();
     const clearedBySuccessfulSave = null;
-    if (provider === 'rawg') {
+    if (provider === EnrichmentProviders.rawg) {
       user.enrichmentKeys.rawg_configured = true;
       user.enrichmentKeys.rawg_added_at = now;
       user.enrichmentKeys.rawg_key_rejected_at = clearedBySuccessfulSave;
@@ -1286,91 +1339,95 @@ export function createCuratorApp(): Express {
       user.enrichmentKeys.opencritic_added_at = now;
       user.enrichmentKeys.opencritic_key_rejected_at = clearedBySuccessfulSave;
     }
-    logAction(sub, 'enrichment_key_added', provider);
-    res.status(204).end();
+    logAction(sub, AccountActions.enrichmentKeyAdded, provider);
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.delete('/me/enrichment-keys/:provider', (req: Request, res: Response) => {
-    const { provider } = req.params;
-    if (provider !== 'rawg' && provider !== 'opencritic') {
-      res.status(422).json({ detail: 'Unknown provider.' });
+  app.delete(`${CuratorRoutes.meEnrichmentKeys}/:${RouteParam.provider}`, (req: Request, res: Response) => {
+    const provider = pathParam(req, RouteParam.provider);
+    if (provider !== EnrichmentProviders.rawg && provider !== EnrichmentProviders.opencritic) {
+      res.status(constants.HTTP_STATUS_UNPROCESSABLE_ENTITY).json({ detail: CuratorDetails.unknownProvider });
       return;
     }
 
     const sub = subFromRequest(req);
     const user = getUser(sub);
-    if (provider === 'rawg') {
+    if (provider === EnrichmentProviders.rawg) {
       user.enrichmentKeys.rawg_configured = false;
       user.enrichmentKeys.rawg_added_at = null;
     } else {
       user.enrichmentKeys.opencritic_configured = false;
       user.enrichmentKeys.opencritic_added_at = null;
     }
-    logAction(sub, 'enrichment_key_removed', provider);
-    res.status(204).end();
+    logAction(sub, AccountActions.enrichmentKeyRemoved, provider);
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.get('/trophies/summary', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.trophiesSummary, (req: Request, res: Response) => {
     const user = getUser(subFromRequest(req));
     if (!user.psn) {
-      res.status(404).json({ detail: 'PSN account is not linked.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.psnNotLinked });
       return;
     }
     if (!user.psnPreferences.harvest_trophies) {
-      res.status(403).json({ detail: 'Trophy harvesting is disabled for this account.' });
+      res.status(constants.HTTP_STATUS_FORBIDDEN).json({ detail: CuratorDetails.trophyHarvestingDisabled });
       return;
     }
-    res.json(TROPHY_SUMMARY);
+    res.json(user.trophySummary);
   });
 
-  app.get('/identity', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.identity, (req: Request, res: Response) => {
     const user = getUser(subFromRequest(req));
     if (!user.psn) {
-      res.status(404).json({ detail: 'PSN account is not linked.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.psnNotLinked });
       return;
     }
     if (!user.psnPreferences.harvest_identity) {
-      res.status(403).json({ detail: 'Identity harvesting is disabled for this account.' });
+      res.status(constants.HTTP_STATUS_FORBIDDEN).json({ detail: CuratorDetails.identityHarvestingDisabled });
       return;
     }
-    res.json(IDENTITY);
+    res.json({
+      account_id: user.psnAccountId ?? psnAccountIdFor(user.sub),
+      online_id: user.onlineId,
+      region: null,
+    });
   });
 
-  app.get('/presence', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.presence, (req: Request, res: Response) => {
     const user = getUser(subFromRequest(req));
     if (!user.psn) {
-      res.status(404).json({ detail: 'PSN account is not linked.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.psnNotLinked });
       return;
     }
     if (!user.psnPreferences.harvest_presence) {
-      res.status(403).json({ detail: 'Presence harvesting is disabled for this account.' });
+      res.status(constants.HTTP_STATUS_FORBIDDEN).json({ detail: CuratorDetails.presenceHarvestingDisabled });
       return;
     }
     res.json(PRESENCE);
   });
 
-  app.get('/devices', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.devices, (req: Request, res: Response) => {
     const user = getUser(subFromRequest(req));
     if (!user.psn) {
-      res.status(404).json({ detail: 'PSN account is not linked.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.psnNotLinked });
       return;
     }
     if (!user.psnPreferences.harvest_devices) {
-      res.status(403).json({ detail: 'Device harvesting is disabled for this account.' });
+      res.status(constants.HTTP_STATUS_FORBIDDEN).json({ detail: CuratorDetails.deviceHarvestingDisabled });
       return;
     }
     res.json(DEVICES);
   });
 
-  app.get('/catalog/games', (req: Request, res: Response) => {
-    const q = req.query['q'] as string | undefined;
-    const franchise = req.query['franchise'] as string | undefined;
-    const genre = req.query['genre'] as string | undefined;
-    const aaaTier = req.query['aaaTier'] as string | undefined;
-    const limit = req.query['limit'] ? parseInt(req.query['limit'] as string, 10) : 50;
-    const offset = req.query['offset'] ? parseInt(req.query['offset'] as string, 10) : 0;
+  app.get(CuratorRoutes.catalogGames, (req: Request, res: Response) => {
+    const q = req.query[CuratorQueryParams.q] as string | undefined;
+    const franchise = req.query[CuratorQueryParams.franchise] as string | undefined;
+    const genre = req.query[CuratorQueryParams.genre] as string | undefined;
+    const aaaTier = req.query[CuratorQueryParams.aaaTier] as string | undefined;
+    const limit = req.query[CuratorQueryParams.limit] ? parseInt(req.query[CuratorQueryParams.limit] as string, 10) : CuratorPageLimits.catalog;
+    const offset = req.query[CuratorQueryParams.offset] ? parseInt(req.query[CuratorQueryParams.offset] as string, 10) : 0;
 
-    const excludeOwned = req.query['excludeOwned'] === 'true';
+    const excludeOwned = req.query[CuratorQueryParams.excludeOwned] === String(true);
     const owned = excludeOwned
       ? new Set((libraryGames.get(subFromRequest(req)) ?? []).map((game) => game.game_id))
       : new Set<string>();
@@ -1395,11 +1452,11 @@ export function createCuratorApp(): Express {
     });
   });
 
-  app.get('/catalog/games/:gameId/collections', (req: Request, res: Response) => {
-    const gameId = pathParam(req, 'gameId');
+  app.get(CuratorRoutes.catalogGamesByGameIdCollections(`:${RouteParam.gameId}`), (req: Request, res: Response) => {
+    const gameId = pathParam(req, RouteParam.gameId);
     const holding: DefinitionRecord[] = [];
     for (const list of definitions.values()) {
-      holding.push(...list.filter((d) => d.visibility === 'public' && d.game_ids.includes(gameId)));
+      holding.push(...list.filter((d) => d.visibility === CollectionVisibilities.public && d.game_ids.includes(gameId)));
     }
     res.json({
       collections: holding.map((d) => ({
@@ -1413,21 +1470,21 @@ export function createCuratorApp(): Express {
     });
   });
 
-  app.get('/catalog/genres', (_req: Request, res: Response) => {
+  app.get(CuratorRoutes.catalogGenres, (_req: Request, res: Response) => {
     const genres = [...new Set(CATALOG_GAMES.map((game) => game.genre).filter((genre): genre is string => !!genre))];
     res.json({ genres });
   });
 
-  app.get('/catalog/games/:gameId', (req: Request, res: Response) => {
-    const game = CATALOG_GAMES.find((candidate) => candidate.game_id === pathParam(req, 'gameId'));
+  app.get(CuratorRoutes.catalogGamesByGameId(`:${RouteParam.gameId}`), (req: Request, res: Response) => {
+    const game = CATALOG_GAMES.find((candidate) => candidate.game_id === pathParam(req, RouteParam.gameId));
     if (!game) {
-      res.status(404).json({ detail: 'No such game.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.noSuchGame });
       return;
     }
     res.json(toCatalogSummary(game));
   });
 
-  app.post('/collections/preview', (req: Request, res: Response) => {
+  app.post(CuratorRoutes.collectionsPreview, (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const spec = req.body as {
       kind: string;
@@ -1437,12 +1494,12 @@ export function createCuratorApp(): Express {
       aaa_tier_filter?: string | null;
     };
 
-    if (spec.kind !== 'capacity_fill' && spec.kind !== 'filter_list') {
-      res.status(400).json({ detail: "kind must be 'capacity_fill' or 'filter_list'." });
+    if (spec.kind !== CollectionKinds.capacityFill && spec.kind !== CollectionKinds.filterList) {
+      res.status(constants.HTTP_STATUS_BAD_REQUEST).json({ detail: CuratorDetails.unknownCollectionKind });
       return;
     }
-    if (spec.kind === 'capacity_fill' && (!spec.console_id || !ownedConsoles(sub).has(spec.console_id))) {
-      res.status(400).json({ detail: 'console_id is missing or unknown.' });
+    if (spec.kind === CollectionKinds.capacityFill && (!spec.console_id || !ownedConsoles(sub).has(spec.console_id))) {
+      res.status(constants.HTTP_STATUS_BAD_REQUEST).json({ detail: CuratorDetails.consoleIdMissingOrUnknown });
       return;
     }
 
@@ -1455,7 +1512,7 @@ export function createCuratorApp(): Express {
     res.json(pageCollectionResult(generated, req));
   });
 
-  app.post('/collections', (req: Request, res: Response) => {
+  app.post(CuratorRoutes.collections, (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const body = req.body as {
       name: string;
@@ -1471,12 +1528,12 @@ export function createCuratorApp(): Express {
       game_ids?: string[];
     };
 
-    if (body.kind !== 'capacity_fill' && body.kind !== 'filter_list') {
-      res.status(400).json({ detail: "kind must be 'capacity_fill' or 'filter_list'." });
+    if (body.kind !== CollectionKinds.capacityFill && body.kind !== CollectionKinds.filterList) {
+      res.status(constants.HTTP_STATUS_BAD_REQUEST).json({ detail: CuratorDetails.unknownCollectionKind });
       return;
     }
     if (userDefinitions(sub).some((d) => d.name === body.name)) {
-      res.status(409).json({ detail: `You already have a collection named '${body.name}'.` });
+      res.status(constants.HTTP_STATUS_CONFLICT).json({ detail: `You already have a collection named '${body.name}'.` });
       return;
     }
 
@@ -1492,20 +1549,20 @@ export function createCuratorApp(): Express {
       aaa_tier_filter: body.aaa_tier_filter ?? null,
       include_inactive: body.include_inactive ?? false,
       min_percent_completed: body.min_percent_completed ?? null,
-      visibility: 'private',
+      visibility: CollectionVisibilities.private,
       share_slug: `slug-${nextShareSlug++}`,
       install_target_console_id: body.install_target_console_id ?? null,
       game_ids: body.game_ids ?? [],
     };
     userDefinitions(sub).push(definition);
-    res.status(201).json(toDefinitionResponse(definition));
+    res.status(constants.HTTP_STATUS_CREATED).json(toDefinitionResponse(definition));
   });
 
-  app.get('/collections', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.collections, (req: Request, res: Response) => {
     res.json(userDefinitions(subFromRequest(req)).map(toDefinitionResponse));
   });
 
-  app.get('/collections/followed', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.collectionsFollowed, (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const followed = collectionFollows
       .filter((f) => f.follower === sub)
@@ -1515,32 +1572,32 @@ export function createCuratorApp(): Express {
     res.json(followed.map(toDefinitionResponse));
   });
 
-  app.get('/collections/:id', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.collectionsByDefinitionId(`:${RouteParam.id}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const definition = userDefinitions(sub).find((d) => d.definition_id === pathParam(req, 'id'));
+    const definition = userDefinitions(sub).find((d) => d.definition_id === pathParam(req, RouteParam.id));
     if (!definition) {
-      res.status(404).json({ detail: 'Collection definition not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.collectionDefinitionNotFound });
       return;
     }
     res.json({ ...toDefinitionResponse(definition), items: toDefinitionItems(definition) });
   });
 
-  app.patch('/collections/:id', (req: Request, res: Response) => {
+  app.patch(CuratorRoutes.collectionsByDefinitionId(`:${RouteParam.id}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const definition = userDefinitions(sub).find((d) => d.definition_id === pathParam(req, 'id'));
+    const definition = userDefinitions(sub).find((d) => d.definition_id === pathParam(req, RouteParam.id));
     if (!definition) {
-      res.status(404).json({ detail: 'Collection definition not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.collectionDefinitionNotFound });
       return;
     }
     const body = req.body as { name?: string; description?: string | null; game_ids?: string[] };
     if (body.name !== undefined && userDefinitions(sub).some((d) => d !== definition && d.name === body.name)) {
-      res.status(409).json({ detail: `You already have a collection named '${body.name}'.` });
+      res.status(constants.HTTP_STATUS_CONFLICT).json({ detail: `You already have a collection named '${body.name}'.` });
       return;
     }
     if (body.name !== undefined) {
       definition.name = body.name;
     }
-    if ('description' in body) {
+    if (body.description !== undefined) {
       definition.description = body.description ?? null;
     }
     if (body.game_ids !== undefined) {
@@ -1549,83 +1606,83 @@ export function createCuratorApp(): Express {
     res.json({ ...toDefinitionResponse(definition), items: toDefinitionItems(definition) });
   });
 
-  app.put('/collections/:id/visibility', (req: Request, res: Response) => {
+  app.put(CuratorRoutes.collectionsByDefinitionIdVisibility(`:${RouteParam.id}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const definition = userDefinitions(sub).find((d) => d.definition_id === pathParam(req, 'id'));
+    const definition = userDefinitions(sub).find((d) => d.definition_id === pathParam(req, RouteParam.id));
     if (!definition) {
-      res.status(404).json({ detail: 'Collection definition not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.collectionDefinitionNotFound });
       return;
     }
     const body = req.body as { visibility: string };
-    if (body.visibility !== 'private' && body.visibility !== 'unlisted' && body.visibility !== 'public') {
-      res.status(400).json({ detail: 'visibility must be "private", "unlisted", or "public".' });
+    if (body.visibility !== CollectionVisibilities.private && body.visibility !== CollectionVisibilities.unlisted && body.visibility !== CollectionVisibilities.public) {
+      res.status(constants.HTTP_STATUS_BAD_REQUEST).json({ detail: CuratorDetails.unknownVisibility });
       return;
     }
     definition.visibility = body.visibility;
     res.json(toDefinitionResponse(definition));
   });
 
-  app.delete('/collections/:id', (req: Request, res: Response) => {
+  app.delete(CuratorRoutes.collectionsByDefinitionId(`:${RouteParam.id}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const list = userDefinitions(sub);
-    const idx = list.findIndex((d) => d.definition_id === pathParam(req, 'id'));
+    const idx = list.findIndex((d) => d.definition_id === pathParam(req, RouteParam.id));
     if (idx < 0) {
-      res.status(404).json({ detail: 'Collection definition not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.collectionDefinitionNotFound });
       return;
     }
     list.splice(idx, 1);
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/collections/:id/follow', (req: Request, res: Response) => {
+  app.post(CuratorRoutes.collectionsByDefinitionIdFollow(`:${RouteParam.id}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const definition = findDefinitionAnyOwner(pathParam(req, 'id'));
-    if (!definition || definition.visibility === 'private') {
-      res.status(404).json({ detail: 'Collection definition not found.' });
+    const definition = findDefinitionAnyOwner(pathParam(req, RouteParam.id));
+    if (!definition || definition.visibility === CollectionVisibilities.private) {
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.collectionDefinitionNotFound });
       return;
     }
     if (definition.identity_sub === sub) {
-      res.status(400).json({ detail: 'Cannot follow your own collection.' });
+      res.status(constants.HTTP_STATUS_BAD_REQUEST).json({ detail: CuratorDetails.cannotFollowOwnCollection });
       return;
     }
     if (!collectionFollows.some((f) => f.follower === sub && f.definitionId === definition.definition_id)) {
       collectionFollows.push({ follower: sub, definitionId: definition.definition_id, followedAt: new Date().toISOString() });
     }
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.delete('/collections/:id/follow', (req: Request, res: Response) => {
+  app.delete(CuratorRoutes.collectionsByDefinitionIdFollow(`:${RouteParam.id}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const idx = collectionFollows.findIndex((f) => f.follower === sub && f.definitionId === pathParam(req, 'id'));
+    const idx = collectionFollows.findIndex((f) => f.follower === sub && f.definitionId === pathParam(req, RouteParam.id));
     if (idx >= 0) {
       collectionFollows.splice(idx, 1);
     }
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/collections/:id/runs', (req: Request, res: Response) => {
+  app.post(CuratorRoutes.collectionsByDefinitionIdRuns(`:${RouteParam.id}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const definition = userDefinitions(sub).find((d) => d.definition_id === pathParam(req, 'id'));
+    const definition = userDefinitions(sub).find((d) => d.definition_id === pathParam(req, RouteParam.id));
     if (!definition) {
-      res.status(404).json({ detail: 'Collection definition not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.collectionDefinitionNotFound });
       return;
     }
 
     const result = generateCollection(sub, definition);
-    res.status(201).json({ run_id: `run-${String(Date.now())}`, ...pageCollectionResult(result, req) });
+    res.status(constants.HTTP_STATUS_CREATED).json({ run_id: `run-${String(Date.now())}`, ...pageCollectionResult(result, req) });
   });
 
 
 
-  app.get('/public/collections/:shareSlug', (req: Request, res: Response) => {
-    const shareSlug = pathParam(req, 'shareSlug');
+  app.get(CuratorRoutes.publicCollectionsByShareSlug(`:${RouteParam.shareSlug}`), (req: Request, res: Response) => {
+    const shareSlug = pathParam(req, RouteParam.shareSlug);
     let found: DefinitionRecord | undefined;
     for (const list of definitions.values()) {
       found = list.find((d) => d.share_slug === shareSlug);
       if (found) break;
     }
-    if (!found || found.visibility === 'private') {
-      res.status(404).json({ detail: 'Collection not found.' });
+    if (!found || found.visibility === CollectionVisibilities.private) {
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.collectionNotFound });
       return;
     }
     res.json({
@@ -1639,7 +1696,7 @@ export function createCuratorApp(): Express {
 
 
 
-  app.post('/consoles', (req: Request, res: Response) => {
+  app.post(CuratorRoutes.consoles, (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const body = req.body as {
       name: string;
@@ -1650,8 +1707,8 @@ export function createCuratorApp(): Express {
       routing_genres?: string[];
       fill_order?: number;
     };
-    if (body.platform !== 'PS5' && body.platform !== 'PS4') {
-      res.status(400).json({ detail: 'platform must be "PS5" or "PS4".' });
+    if (!(CONSOLE_PLATFORM_OPTIONS as readonly string[]).includes(body.platform)) {
+      res.status(constants.HTTP_STATUS_BAD_REQUEST).json({ detail: CONSOLE_PLATFORM_ERROR });
       return;
     }
     const capacityIsDefault = body.raw_capacity_gb === undefined || body.raw_capacity_gb === null;
@@ -1660,25 +1717,31 @@ export function createCuratorApp(): Express {
       identity_sub: sub,
       name: body.name,
       platform: body.platform,
-      raw_capacity_gb: body.raw_capacity_gb ?? (body.platform === 'PS5' ? 825 : 500),
+      raw_capacity_gb:
+        body.raw_capacity_gb ??
+        (body.platform === ConsolePlatforms.ps5
+          ? CuratorConsoleCapacityDefaultsGb.ps5
+          : body.platform === ConsolePlatforms.ps4
+            ? CuratorConsoleCapacityDefaultsGb.ps4
+            : CuratorConsoleCapacityDefaultsGb.unlistedPlatform),
       model: body.model ?? null,
       update_buffer_gb: body.update_buffer_gb ?? 0,
       routing_genres: body.routing_genres ?? [],
       fill_order: body.fill_order ?? 0,
     };
     userConsoles(sub).push(record);
-    res.status(201).json({ ...toConsoleResponse(record), capacity_is_default: capacityIsDefault });
+    res.status(constants.HTTP_STATUS_CREATED).json({ ...toConsoleResponse(record), capacity_is_default: capacityIsDefault });
   });
 
-  app.get('/consoles', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.consoles, (req: Request, res: Response) => {
     res.json(userConsoles(subFromRequest(req)).map(toConsoleResponse));
   });
 
-  app.patch('/consoles/:id', (req: Request, res: Response) => {
+  app.patch(CuratorRoutes.consolesByConsoleId(`:${RouteParam.id}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const record = findOwnedConsole(sub, pathParam(req, 'id'));
+    const record = findOwnedConsole(sub, pathParam(req, RouteParam.id));
     if (!record) {
-      res.status(404).json({ detail: 'Console not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.consoleNotFound });
       return;
     }
     const body = req.body as Partial<Pick<ConsoleRecord, 'name' | 'raw_capacity_gb' | 'update_buffer_gb' | 'routing_genres' | 'fill_order'>>;
@@ -1686,12 +1749,12 @@ export function createCuratorApp(): Express {
     res.json(toConsoleResponse(record));
   });
 
-  app.delete('/consoles/:id', (req: Request, res: Response) => {
+  app.delete(CuratorRoutes.consolesByConsoleId(`:${RouteParam.id}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const list = userConsoles(sub);
-    const idx = list.findIndex((c) => c.console_id === pathParam(req, 'id'));
+    const idx = list.findIndex((c) => c.console_id === pathParam(req, RouteParam.id));
     if (idx < 0) {
-      res.status(404).json({ detail: 'Console not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.consoleNotFound });
       return;
     }
     const [removed] = list.splice(idx, 1);
@@ -1701,23 +1764,23 @@ export function createCuratorApp(): Express {
         device.console_id = null;
       }
     }
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.get('/consoles/:id/installs', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.consolesByConsoleIdInstalls(`:${RouteParam.id}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    if (!findOwnedConsole(sub, pathParam(req, 'id'))) {
-      res.status(404).json({ detail: 'Console not found.' });
+    if (!findOwnedConsole(sub, pathParam(req, RouteParam.id))) {
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.consoleNotFound });
       return;
     }
-    res.json({ game_ids: Array.from(consoleInstalls.get(pathParam(req, 'id')) ?? []).sort() });
+    res.json({ game_ids: Array.from(consoleInstalls.get(pathParam(req, RouteParam.id)) ?? []).sort() });
   });
 
-  app.put('/consoles/:consoleId/installs/:gameId', (req: Request, res: Response) => {
-    const consoleId = pathParam(req, 'consoleId');
-    const gameId = pathParam(req, 'gameId');
+  app.put(CuratorRoutes.consolesByConsoleIdInstallsByGameId(`:${RouteParam.consoleId}`, `:${RouteParam.gameId}`), (req: Request, res: Response) => {
+    const consoleId = pathParam(req, RouteParam.consoleId);
+    const gameId = pathParam(req, RouteParam.gameId);
     if (!ownedConsoles(subFromRequest(req)).has(consoleId)) {
-      res.status(404).json({ detail: 'Console not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.consoleNotFound });
       return;
     }
 
@@ -1737,15 +1800,15 @@ export function createCuratorApp(): Express {
 
 
 
-  app.post('/storage-devices', (req: Request, res: Response) => {
+  app.post(CuratorRoutes.storageDevices, (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const body = req.body as { name: string; kind: string; capacity_gb: number; buffer_gb?: number; console_id?: string | null };
-    if (body.kind !== 'm2' && body.kind !== 'usb') {
-      res.status(400).json({ detail: 'kind must be "m2" or "usb".' });
+    if (body.kind !== StorageKinds.m2 && body.kind !== StorageKinds.usb) {
+      res.status(constants.HTTP_STATUS_BAD_REQUEST).json({ detail: DEVICE_KIND_ERROR });
       return;
     }
     if (body.console_id && !findOwnedConsole(sub, body.console_id)) {
-      res.status(400).json({ detail: `Unknown console_id '${body.console_id}' for this user.` });
+      res.status(constants.HTTP_STATUS_BAD_REQUEST).json({ detail: `Unknown console_id '${body.console_id}' for this user.` });
       return;
     }
     const record: StorageDeviceRecord = {
@@ -1758,18 +1821,18 @@ export function createCuratorApp(): Express {
       buffer_gb: body.buffer_gb ?? 0,
     };
     userDevices(sub).push(record);
-    res.status(201).json(toDeviceResponse(record));
+    res.status(constants.HTTP_STATUS_CREATED).json(toDeviceResponse(record));
   });
 
-  app.get('/storage-devices', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.storageDevices, (req: Request, res: Response) => {
     res.json(userDevices(subFromRequest(req)).map(toDeviceResponse));
   });
 
-  app.patch('/storage-devices/:id', (req: Request, res: Response) => {
+  app.patch(CuratorRoutes.storageDevicesByDeviceId(`:${RouteParam.id}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const record = findOwnedDevice(sub, pathParam(req, 'id'));
+    const record = findOwnedDevice(sub, pathParam(req, RouteParam.id));
     if (!record) {
-      res.status(404).json({ detail: 'Storage device not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.storageDeviceNotFound });
       return;
     }
     const body = req.body as Partial<Pick<StorageDeviceRecord, 'name' | 'capacity_gb' | 'buffer_gb'>>;
@@ -1777,60 +1840,60 @@ export function createCuratorApp(): Express {
     res.json(toDeviceResponse(record));
   });
 
-  app.delete('/storage-devices/:id', (req: Request, res: Response) => {
+  app.delete(CuratorRoutes.storageDevicesByDeviceId(`:${RouteParam.id}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const list = userDevices(sub);
-    const idx = list.findIndex((d) => d.device_id === pathParam(req, 'id'));
+    const idx = list.findIndex((d) => d.device_id === pathParam(req, RouteParam.id));
     if (idx < 0) {
-      res.status(404).json({ detail: 'Storage device not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.storageDeviceNotFound });
       return;
     }
     const [removed] = list.splice(idx, 1);
     deviceInstalls.delete(removed.device_id);
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.put('/storage-devices/:id/attach/:consoleId', (req: Request, res: Response) => {
+  app.put(CuratorRoutes.storageDevicesByDeviceIdAttachByConsoleId(`:${RouteParam.id}`, `:${RouteParam.consoleId}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const record = findOwnedDevice(sub, pathParam(req, 'id'));
+    const record = findOwnedDevice(sub, pathParam(req, RouteParam.id));
     if (!record) {
-      res.status(404).json({ detail: 'Storage device not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.storageDeviceNotFound });
       return;
     }
-    if (!findOwnedConsole(sub, pathParam(req, 'consoleId'))) {
-      res.status(400).json({ detail: `Unknown console_id '${pathParam(req, 'consoleId')}' for this user.` });
+    if (!findOwnedConsole(sub, pathParam(req, RouteParam.consoleId))) {
+      res.status(constants.HTTP_STATUS_BAD_REQUEST).json({ detail: `Unknown console_id '${pathParam(req, RouteParam.consoleId)}' for this user.` });
       return;
     }
-    record.console_id = pathParam(req, 'consoleId');
+    record.console_id = pathParam(req, RouteParam.consoleId);
     res.json(toDeviceResponse(record));
   });
 
-  app.delete('/storage-devices/:id/attach', (req: Request, res: Response) => {
+  app.delete(CuratorRoutes.storageDevicesByDeviceIdAttach(`:${RouteParam.id}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const record = findOwnedDevice(sub, pathParam(req, 'id'));
+    const record = findOwnedDevice(sub, pathParam(req, RouteParam.id));
     if (!record) {
-      res.status(404).json({ detail: 'Storage device not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.storageDeviceNotFound });
       return;
     }
     record.console_id = null;
     res.json(toDeviceResponse(record));
   });
 
-  app.get('/storage-devices/:id/installs', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.storageDevicesByDeviceIdInstalls(`:${RouteParam.id}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    if (!findOwnedDevice(sub, pathParam(req, 'id'))) {
-      res.status(404).json({ detail: 'Storage device not found.' });
+    if (!findOwnedDevice(sub, pathParam(req, RouteParam.id))) {
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.storageDeviceNotFound });
       return;
     }
-    res.json({ game_ids: Array.from(deviceInstalls.get(pathParam(req, 'id')) ?? []).sort() });
+    res.json({ game_ids: Array.from(deviceInstalls.get(pathParam(req, RouteParam.id)) ?? []).sort() });
   });
 
-  app.put('/storage-devices/:deviceId/installs/:gameId', (req: Request, res: Response) => {
+  app.put(CuratorRoutes.storageDevicesByDeviceIdInstallsByGameId(`:${RouteParam.deviceId}`, `:${RouteParam.gameId}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const deviceId = pathParam(req, 'deviceId');
-    const gameId = pathParam(req, 'gameId');
+    const deviceId = pathParam(req, RouteParam.deviceId);
+    const gameId = pathParam(req, RouteParam.gameId);
     if (!findOwnedDevice(sub, deviceId)) {
-      res.status(404).json({ detail: 'Storage device not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.storageDeviceNotFound });
       return;
     }
     const body = req.body as { installed: boolean };
@@ -1847,11 +1910,11 @@ export function createCuratorApp(): Express {
     res.json({ device_id: deviceId, game_id: gameId, installed: body.installed });
   });
 
-  app.get('/library', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.library, (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const hidden = hiddenFor(sub);
     const all = libraryGames.get(sub) ?? [];
-    const hiddenOnly = req.query['hidden'] === 'only';
+    const hiddenOnly = req.query[CuratorQueryParams.hidden] === LibraryHiddenFilters.only;
     const inView = all.filter((game) => hidden.has(game.game_id) === hiddenOnly);
     res.json({
       ...queryLibraryGames(inView, req),
@@ -1860,38 +1923,36 @@ export function createCuratorApp(): Express {
     });
   });
 
-  app.put('/library/:gameId/hidden', (req: Request, res: Response) => {
+  app.put(CuratorRoutes.libraryByGameIdHidden(`:${RouteParam.gameId}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const gameId = pathParam(req, 'gameId');
+    const gameId = pathParam(req, RouteParam.gameId);
     if (!(libraryGames.get(sub) ?? []).some((game) => game.game_id === gameId)) {
-      res.status(404).json({ detail: 'No library entry for that game.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.noLibraryEntry });
       return;
     }
     hiddenFor(sub).add(gameId);
-    logAction(sub, 'library_game_hidden', gameId);
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.delete('/library/:gameId/hidden', (req: Request, res: Response) => {
+  app.delete(CuratorRoutes.libraryByGameIdHidden(`:${RouteParam.gameId}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    hiddenFor(sub).delete(pathParam(req, 'gameId'));
-    logAction(sub, 'library_game_unhidden', pathParam(req, 'gameId'));
-    res.status(204).end();
+    hiddenFor(sub).delete(pathParam(req, RouteParam.gameId));
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.get('/me/ps-plus-rotation', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.mePsPlusRotation, (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     if (!getUser(sub).psn) {
-      res.status(404).json({ detail: 'PSN account is not linked.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.psnNotLinked });
       return;
     }
     res.json(psPlusRotations.get(sub) ?? EMPTY_PS_PLUS_ROTATION);
   });
 
-  app.get('/me/ps-plus-rotation/summary', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.mePsPlusRotationSummary, (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     if (!getUser(sub).psn) {
-      res.status(404).json({ detail: 'PSN account is not linked.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.psnNotLinked });
       return;
     }
     const rotation = psPlusRotations.get(sub) ?? EMPTY_PS_PLUS_ROTATION;
@@ -1902,15 +1963,15 @@ export function createCuratorApp(): Express {
     });
   });
 
-  app.get('/me/friend-requests', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.meFriendRequests, (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const user = getUser(sub);
     if (!user.psn) {
-      res.status(404).json({ detail: 'PSN account is not linked.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.psnNotLinked });
       return;
     }
     if (!user.psnPreferences.harvest_identity) {
-      res.status(403).json({ detail: 'Identity harvesting is disabled for this account.' });
+      res.status(constants.HTTP_STATUS_FORBIDDEN).json({ detail: CuratorDetails.identityHarvestingDisabled });
       return;
     }
     const accepted = acceptedFriendRequests.get(sub) ?? [];
@@ -1921,50 +1982,50 @@ export function createCuratorApp(): Express {
     });
   });
 
-  app.put('/me/friends/:onlineId', (req: Request, res: Response) => {
+  app.put(CuratorRoutes.meFriendsByOnlineId(`:${RouteParam.onlineId}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const user = getUser(sub);
     if (!user.psnPreferences.allow_friend_writes) {
-      res.status(403).json({ detail: 'Friend writes are not permitted for this account.' });
+      res.status(constants.HTTP_STATUS_FORBIDDEN).json({ detail: CuratorDetails.friendWritesNotPermitted });
       return;
     }
-    const onlineId = pathParam(req, 'onlineId');
+    const onlineId = pathParam(req, RouteParam.onlineId);
     const pending = (receivedFriendRequests.get(sub) ?? []).some((request) => request.online_id === onlineId);
     if (!pending) {
-      res.status(409).json({ detail: 'no_pending_request' });
+      res.status(constants.HTTP_STATUS_CONFLICT).json({ detail: CuratorDetails.noPendingRequest });
       return;
     }
     acceptedFriendRequests.set(sub, [...(acceptedFriendRequests.get(sub) ?? []), onlineId]);
-    logAction(sub, 'friend_accepted', onlineId);
-    res.status(204).end();
+    logAction(sub, AccountActions.friendAdded, onlineId);
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/me/friend-requests/:onlineId', (req: Request, res: Response) => {
+  app.post(CuratorRoutes.meFriendRequestsByOnlineId(`:${RouteParam.onlineId}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     if (!getUser(sub).psnPreferences.allow_friend_writes) {
-      res.status(403).json({ detail: 'Friend writes are not permitted for this account.' });
+      res.status(constants.HTTP_STATUS_FORBIDDEN).json({ detail: CuratorDetails.friendWritesNotPermitted });
       return;
     }
-    const onlineId = pathParam(req, 'onlineId');
+    const onlineId = pathParam(req, RouteParam.onlineId);
     sentFriendRequests.set(sub, [...(sentFriendRequests.get(sub) ?? []), onlineId]);
-    logAction(sub, 'friend_request_sent', onlineId);
-    res.status(204).end();
+    logAction(sub, AccountActions.friendRequestSent, onlineId);
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.get('/library/genres', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.libraryGenres, (req: Request, res: Response) => {
     res.json({ genres: libraryGenres(libraryGames.get(subFromRequest(req)) ?? []) });
   });
 
-  app.get('/library/manual/candidates', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.libraryManualCandidates, (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const q = req.query['q'];
+    const q = req.query[CuratorQueryParams.q];
     if (typeof q !== 'string' || q.trim().length === 0) {
-      res.status(422).json({ detail: 'q is required.' });
+      res.status(constants.HTTP_STATUS_UNPROCESSABLE_ENTITY).json({ detail: CuratorDetails.queryRequired });
       return;
     }
     const term = q.toLowerCase();
-    const includeStore = req.query['includeStore'] === 'true';
-    const limit = req.query['limit'] ? parseInt(req.query['limit'] as string, 10) : 10;
+    const includeStore = req.query[CuratorQueryParams.includeStore] === String(true);
+    const limit = req.query[CuratorQueryParams.limit] ? parseInt(req.query[CuratorQueryParams.limit] as string, 10) : CuratorPageLimits.manualCandidates;
 
     const owned = new Set((libraryGames.get(sub) ?? []).map((game) => game.game_id));
     const matching = CATALOG_GAMES.filter((game) => game.canonical_title.toLowerCase().includes(term));
@@ -1989,12 +2050,12 @@ export function createCuratorApp(): Express {
         store: [],
         already_owned: alreadyOwned,
         store_consulted: false,
-        store_unavailable: 'no_psn_link',
+        store_unavailable: StoreUnavailableReasons.noPsnLink,
       });
       return;
     }
 
-    const hits = STORE_ONLY_GAMES.filter((hit) => hit.name.toLowerCase().includes(term)).slice(0, limit);
+    const hits = storeSearchHits.filter((hit) => hit.name.toLowerCase().includes(term)).slice(0, limit);
     res.json({
       catalog,
       store: hits.map((hit) => ({ ...hit, game_id: null })),
@@ -2004,12 +2065,12 @@ export function createCuratorApp(): Express {
     });
   });
 
-  app.post('/library/manual', (req: Request, res: Response) => {
+  app.post(CuratorRoutes.libraryManual, (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const body = req.body as { game_id?: string; store_hit?: { query: string; id: string } };
     const storeHit = body.store_hit;
     if ((body.game_id === undefined) === (storeHit === undefined)) {
-      res.status(422).json({ detail: "Name the game with exactly one of 'game_id' or 'store_hit'." });
+      res.status(constants.HTTP_STATUS_UNPROCESSABLE_ENTITY).json({ detail: CuratorDetails.manualAddNeedsOneIdentifier });
       return;
     }
 
@@ -2019,24 +2080,24 @@ export function createCuratorApp(): Express {
 
     if (storeHit) {
       if (!getUser(sub).psn) {
-        res.status(404).json({ detail: 'PSN account not linked.' });
+        res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.psnNotLinkedForStoreSearch });
         return;
       }
       const query = storeHit.query.toLowerCase();
-      const hit = STORE_ONLY_GAMES.filter((candidate) => candidate.name.toLowerCase().includes(query)).find(
+      const hit = storeSearchHits.filter((candidate) => candidate.name.toLowerCase().includes(query)).find(
         (candidate) => candidate.id === storeHit.id,
       );
       if (!hit) {
-        res.status(404).json({ detail: 'That title is not in the PlayStation Store results for this search.' });
+        res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.storeHitNotInResults });
         return;
       }
-      gameId = `g-admitted-${hit.id}`;
+      gameId = admittedGameId(hit.id);
       title = hit.name;
       platforms = hit.platforms;
     } else {
       const game = CATALOG_GAMES.find((candidate) => candidate.game_id === body.game_id);
       if (!game) {
-        res.status(404).json({ detail: 'Unknown game.' });
+        res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.unknownGame });
         return;
       }
       gameId = game.game_id;
@@ -2045,55 +2106,55 @@ export function createCuratorApp(): Express {
 
     const owned = libraryGames.get(sub) ?? [];
     const existing = owned.find((game) => game.game_id === gameId);
-    if (existing && existing.source !== 'manual') {
-      res.status(409).json({ detail: 'That game is already in your library from PlayStation Network.' });
+    if (existing && existing.source !== LibraryEntrySources.manual) {
+      res.status(constants.HTTP_STATUS_CONFLICT).json({ detail: randomUUID() });
       return;
     }
     if (!existing) {
       owned.push(
         normalizeLibraryGames([
-          { game_id: gameId, title, rawg_enriched: false, opencritic_enriched: false, source: 'manual', platforms },
+          { game_id: gameId, title, rawg_enriched: false, opencritic_enriched: false, source: LibraryEntrySources.manual, platforms },
         ])[0],
       );
       libraryGames.set(sub, owned);
     }
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.delete('/library/manual/:gameId', (req: Request, res: Response) => {
+  app.delete(CuratorRoutes.libraryManualByGameId(`:${RouteParam.gameId}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const gameId = pathParam(req, 'gameId');
+    const gameId = pathParam(req, RouteParam.gameId);
     const owned = libraryGames.get(sub) ?? [];
-    const index = owned.findIndex((game) => game.game_id === gameId && game.source === 'manual');
+    const index = owned.findIndex((game) => game.game_id === gameId && game.source === LibraryEntrySources.manual);
     if (index < 0) {
-      res.status(404).json({ detail: 'No manually-added entry for that game.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.noManualEntry });
       return;
     }
     owned.splice(index, 1);
     libraryGames.set(sub, owned);
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.post('/library/refresh', (req: Request, res: Response) => {
+  app.post(CuratorRoutes.libraryRefresh, (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const runId = `lib-run-${Date.now()}`;
-    libraryRuns.set(runId, { sub, status: 'queued', error: null, result_summary: null });
+    libraryRuns.set(runId, { sub, status: JobStatuses.queued, error: null, result_summary: null });
 
     setTimeout(() => {
       const run = libraryRuns.get(runId);
       if (run) {
-        run.status = 'running';
+        run.status = JobStatuses.running;
       }
-    }, 300);
+    }, e2eSettings.mockTimings.libraryRunStartsAfterMs);
 
     setTimeout(() => {
       const run = libraryRuns.get(runId);
       if (run) {
-        const outcome = nextLibraryOutcome.get(sub) ?? { status: 'succeeded' };
+        const outcome = nextLibraryOutcome.get(sub) ?? { status: JobStatuses.succeeded };
         run.status = outcome.status;
         run.error = outcome.error ?? null;
         run.result_summary =
-          outcome.status === 'succeeded'
+          outcome.status === JobStatuses.succeeded
             ? (outcome.result_summary ?? {
                 rawg_enriched_titles: [],
                 opencritic_enriched_titles: [],
@@ -2101,98 +2162,98 @@ export function createCuratorApp(): Express {
               })
             : null;
       }
-    }, 900);
+    }, e2eSettings.mockTimings.libraryRunSettlesAfterMs);
 
-    res.status(202).json({ run_id: runId });
+    res.status(constants.HTTP_STATUS_ACCEPTED).json({ run_id: runId });
   });
 
-  app.get('/library/refresh/:runId', (req: Request, res: Response) => {
-    const run = libraryRuns.get(pathParam(req, 'runId'));
+  app.get(CuratorRoutes.libraryRefreshByRunId(`:${RouteParam.runId}`), (req: Request, res: Response) => {
+    const run = libraryRuns.get(pathParam(req, RouteParam.runId));
     if (!run || run.sub !== subFromRequest(req)) {
-      res.status(404).json({ detail: 'Library refresh run not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.libraryRefreshRunNotFound });
       return;
     }
-    res.json({ run_id: pathParam(req, 'runId'), status: run.status, error: run.error, result_summary: run.result_summary });
+    res.json({ run_id: pathParam(req, RouteParam.runId), status: run.status, error: run.error, result_summary: run.result_summary });
   });
 
-  app.post('/enrichment/runs', (req: Request, res: Response) => {
+  app.post(CuratorRoutes.enrichmentRuns, (req: Request, res: Response) => {
     if (refusedForLackingAdmin(req, res)) {
       return;
     }
 
     const runId = `enrichment-run-${nextEnrichmentRunId++}`;
-    enrichmentRuns.set(runId, { run_id: runId, status: 'queued', error: null, result_summary: null });
+    enrichmentRuns.set(runId, { run_id: runId, status: JobStatuses.queued, error: null, result_summary: null });
     latestEnrichmentRunId = runId;
 
     setTimeout(() => {
       const run = enrichmentRuns.get(runId);
       if (run) {
-        run.status = 'running';
+        run.status = JobStatuses.running;
       }
     }, ENRICHMENT_RUN_LEAVES_THE_QUEUE_AFTER_MS);
 
     setTimeout(() => {
       const run = enrichmentRuns.get(runId);
       if (run) {
-        const outcome = nextEnrichmentOutcome ?? { status: 'succeeded' as EnrichmentRunTerminalStatus };
+        const outcome = nextEnrichmentOutcome ?? { status: JobStatuses.succeeded as EnrichmentRunTerminalStatus };
         run.status = outcome.status;
         run.error = outcome.error ?? null;
         run.result_summary = outcome.result_summary ?? null;
       }
     }, ENRICHMENT_RUN_SETTLES_ONE_LIVE_POLL_LATER_MS);
 
-    res.status(202).json({ run_id: runId });
+    res.status(constants.HTTP_STATUS_ACCEPTED).json({ run_id: runId });
   });
 
-  app.get('/enrichment/runs/latest', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.enrichmentRunsLatest, (req: Request, res: Response) => {
     if (refusedForLackingAdmin(req, res)) {
       return;
     }
 
     const run = latestEnrichmentRunId === null ? undefined : enrichmentRuns.get(latestEnrichmentRunId);
     if (!run) {
-      res.status(404).json({ detail: 'No enrichment run has been queued yet.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.noEnrichmentRunQueued });
       return;
     }
     res.json(run);
   });
 
-  app.get('/enrichment/runs/:runId', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.enrichmentRunsByRunId(`:${RouteParam.runId}`), (req: Request, res: Response) => {
     if (refusedForLackingAdmin(req, res)) {
       return;
     }
 
-    const run = enrichmentRuns.get(pathParam(req, 'runId'));
+    const run = enrichmentRuns.get(pathParam(req, RouteParam.runId));
     if (!run) {
-      res.status(404).json({ detail: 'Enrichment run not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.enrichmentRunNotFound });
       return;
     }
     res.json(run);
   });
 
-  app.get('/me/profile-settings', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.meProfileSettings, (req: Request, res: Response) => {
     res.json(settingsFor(subFromRequest(req)));
   });
 
-  app.get('/me/profile-link-sites', (_req: Request, res: Response) => {
+  app.get(CuratorRoutes.meProfileLinkSites, (_req: Request, res: Response) => {
     res.json(PROFILE_LINK_SITES.map((site) => ({ site_key: site.site_key, display_name: site.display_name })));
   });
 
-  app.get('/me/profile-links', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.meProfileLinks, (req: Request, res: Response) => {
     res.json(profileLinksFor(subFromRequest(req)));
   });
 
-  app.put('/me/profile-links/:site_key', (req: Request, res: Response) => {
+  app.put(CuratorRoutes.meProfileLinksBySiteKey(`:${RouteParam.site_key}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    const siteKey = pathParam(req, 'site_key');
+    const siteKey = pathParam(req, RouteParam.site_key);
     const site = PROFILE_LINK_SITES.find((s) => s.site_key === siteKey);
     if (!site) {
-      res.status(400).json({ detail: 'Unknown site.' });
+      res.status(constants.HTTP_STATUS_BAD_REQUEST).json({ detail: CuratorDetails.unknownSite });
       return;
     }
     const handle = (req.body as { handle?: string }).handle?.trim() ?? null;
     if (handle === null || !PROFILE_LINK_HANDLE_PATTERN.test(handle)) {
-      res.status(400).json({ detail: 'Handle must be 3-16 characters: letters, digits, - or _.' });
+      res.status(constants.HTTP_STATUS_BAD_REQUEST).json({ detail: CuratorDetails.invalidHandle });
       return;
     }
     const handles = profileLinkHandles.get(sub) ?? new Map<string, string>();
@@ -2202,16 +2263,16 @@ export function createCuratorApp(): Express {
       site_key: site.site_key,
       display_name: site.display_name,
       handle,
-      url: site.url_template.replace('{handle}', handle),
+      url: site.url_template.replace(PROFILE_LINK_HANDLE_PLACEHOLDER, handle),
     });
   });
 
-  app.delete('/me/profile-links/:site_key', (req: Request, res: Response) => {
-    profileLinkHandles.get(subFromRequest(req))?.delete(pathParam(req, 'site_key'));
-    res.status(204).end();
+  app.delete(CuratorRoutes.meProfileLinksBySiteKey(`:${RouteParam.site_key}`), (req: Request, res: Response) => {
+    profileLinkHandles.get(subFromRequest(req))?.delete(pathParam(req, RouteParam.site_key));
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.put('/me/profile-settings', (req: Request, res: Response) => {
+  app.put(CuratorRoutes.meProfileSettings, (req: Request, res: Response) => {
     const sub = subFromRequest(req);
     const body = req.body as Partial<ProfileSettings>;
     const next: ProfileSettings = { ...DEFAULT_PROFILE_SETTINGS, ...body };
@@ -2219,12 +2280,12 @@ export function createCuratorApp(): Express {
     res.json(next);
   });
 
-  app.get('/users/:sub/profile', (req: Request, res: Response) => {
-    const target = pathParam(req, 'sub');
+  app.get(CuratorRoutes.usersBySubProfile(`:${RouteParam.sub}`), (req: Request, res: Response) => {
+    const target = pathParam(req, RouteParam.sub);
     const viewer = subFromRequest(req);
     const targetUser = findUser(target);
     if (!targetUser) {
-      res.status(404).json({ detail: 'User not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.userNotFound });
       return;
     }
 
@@ -2237,7 +2298,7 @@ export function createCuratorApp(): Express {
     const libraryVisible = viewerIsOwner || (settings.is_public && settings.show_library);
     const collectionsVisible = viewerIsOwner || (settings.is_public && settings.show_collections);
 
-    let trophies: { level: number; tier: number; earned: typeof TROPHY_SUMMARY.earned } | null = null;
+    let trophies: { level: number; tier: number; earned: TrophyCounts } | null = null;
     let identity: { online_id: string } | null = null;
 
     const trophiesGateOpen =
@@ -2249,16 +2310,17 @@ export function createCuratorApp(): Express {
       const viewerUser = findUser(viewer);
       const viewerHasPsn = viewerUser?.psn != null;
       if (trophiesGateOpen && viewerHasPsn) {
-        trophies = { level: TROPHY_SUMMARY.level, tier: TROPHY_SUMMARY.tier, earned: TROPHY_SUMMARY.earned };
+        const summary = targetUser.trophySummary;
+        trophies = { level: summary.level, tier: summary.tier, earned: summary.earned };
       }
       if (identityGateOpen && viewerHasPsn) {
-        identity = { online_id: onlineIdFor(target) };
+        identity = { online_id: targetUser.onlineId };
       }
     }
 
     const libraryCount = libraryVisible ? (libraryGames.get(target) ?? []).length : null;
     const collectionsCount = collectionsVisible
-      ? userDefinitions(target).filter((d) => viewerIsOwner || d.visibility === 'public').length
+      ? userDefinitions(target).filter((d) => viewerIsOwner || d.visibility === CollectionVisibilities.public).length
       : null;
 
     res.json({
@@ -2285,43 +2347,43 @@ export function createCuratorApp(): Express {
     });
   });
 
-  app.post('/users/:sub/follow', (req: Request, res: Response) => {
-    const target = pathParam(req, 'sub');
+  app.post(CuratorRoutes.usersBySubFollow(`:${RouteParam.sub}`), (req: Request, res: Response) => {
+    const target = pathParam(req, RouteParam.sub);
     const viewer = subFromRequest(req);
     if (!findUser(target)) {
-      res.status(404).json({ detail: 'User not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.userNotFound });
       return;
     }
     if (target === viewer) {
-      res.status(400).json({ detail: 'Cannot follow yourself.' });
+      res.status(constants.HTTP_STATUS_BAD_REQUEST).json({ detail: CuratorDetails.cannotFollowYourself });
       return;
     }
     if (!isFollowing(viewer, target)) {
       followEdges.push({ follower: viewer, followed: target, followedAt: new Date().toISOString() });
     }
-    logAction(viewer, 'followed', target);
-    res.status(204).end();
+    logAction(viewer, AccountActions.followed, target);
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.delete('/users/:sub/follow', (req: Request, res: Response) => {
-    const target = pathParam(req, 'sub');
+  app.delete(CuratorRoutes.usersBySubFollow(`:${RouteParam.sub}`), (req: Request, res: Response) => {
+    const target = pathParam(req, RouteParam.sub);
     const viewer = subFromRequest(req);
     const idx = followEdges.findIndex((e) => e.follower === viewer && e.followed === target);
     if (idx >= 0) {
       followEdges.splice(idx, 1);
-      logAction(viewer, 'unfollowed', target);
+      logAction(viewer, AccountActions.unfollowed, target);
     }
-    res.status(204).end();
+    res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.get('/users/:sub/followers', (req: Request, res: Response) => {
-    const target = pathParam(req, 'sub');
+  app.get(CuratorRoutes.usersBySubFollowers(`:${RouteParam.sub}`), (req: Request, res: Response) => {
+    const target = pathParam(req, RouteParam.sub);
     if (!findUser(target)) {
-      res.status(404).json({ detail: 'User not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.userNotFound });
       return;
     }
-    const limit = req.query['limit'] ? parseInt(req.query['limit'] as string, 10) : 50;
-    const offset = req.query['offset'] ? parseInt(req.query['offset'] as string, 10) : 0;
+    const limit = req.query[CuratorQueryParams.limit] ? parseInt(req.query[CuratorQueryParams.limit] as string, 10) : CuratorPageLimits.followList;
+    const offset = req.query[CuratorQueryParams.offset] ? parseInt(req.query[CuratorQueryParams.offset] as string, 10) : 0;
     const all = listFollowers(target);
     const page = all.slice(offset, offset + limit);
     res.json({
@@ -2337,14 +2399,14 @@ export function createCuratorApp(): Express {
     });
   });
 
-  app.get('/users/:sub/following', (req: Request, res: Response) => {
-    const target = pathParam(req, 'sub');
+  app.get(CuratorRoutes.usersBySubFollowing(`:${RouteParam.sub}`), (req: Request, res: Response) => {
+    const target = pathParam(req, RouteParam.sub);
     if (!findUser(target)) {
-      res.status(404).json({ detail: 'User not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.userNotFound });
       return;
     }
-    const limit = req.query['limit'] ? parseInt(req.query['limit'] as string, 10) : 50;
-    const offset = req.query['offset'] ? parseInt(req.query['offset'] as string, 10) : 0;
+    const limit = req.query[CuratorQueryParams.limit] ? parseInt(req.query[CuratorQueryParams.limit] as string, 10) : CuratorPageLimits.followList;
+    const offset = req.query[CuratorQueryParams.offset] ? parseInt(req.query[CuratorQueryParams.offset] as string, 10) : 0;
     const all = listFollowing(target);
     const page = all.slice(offset, offset + limit);
     res.json({
@@ -2361,47 +2423,47 @@ export function createCuratorApp(): Express {
   });
 
   function libraryVisibilityGate(req: Request, res: Response): boolean {
-    const target = pathParam(req, 'sub');
+    const target = pathParam(req, RouteParam.sub);
     const viewer = subFromRequest(req);
     if (!findUser(target)) {
-      res.status(404).json({ detail: 'User not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.userNotFound });
       return true;
     }
     if (target !== viewer) {
       const settings = settingsFor(target);
       if (!(settings.is_public && settings.show_library)) {
-        res.status(403).json({ detail: "This section of the user's profile is not public." });
+        res.status(constants.HTTP_STATUS_FORBIDDEN).json({ detail: CuratorDetails.profileSectionNotPublic });
         return true;
       }
     }
     return false;
   }
 
-  app.get('/users/:sub/library', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.usersBySubLibrary(`:${RouteParam.sub}`), (req: Request, res: Response) => {
     if (libraryVisibilityGate(req, res)) {
       return;
     }
-    res.json(queryLibraryGames(libraryGames.get(pathParam(req, 'sub')) ?? [], req));
+    res.json(queryLibraryGames(libraryGames.get(pathParam(req, RouteParam.sub)) ?? [], req));
   });
 
-  app.get('/users/:sub/library/genres', (req: Request, res: Response) => {
+  app.get(CuratorRoutes.usersBySubLibraryGenres(`:${RouteParam.sub}`), (req: Request, res: Response) => {
     if (libraryVisibilityGate(req, res)) {
       return;
     }
-    res.json({ genres: libraryGenres(libraryGames.get(pathParam(req, 'sub')) ?? []) });
+    res.json({ genres: libraryGenres(libraryGames.get(pathParam(req, RouteParam.sub)) ?? []) });
   });
 
-  app.get('/users/:sub/collections', (req: Request, res: Response) => {
-    const target = pathParam(req, 'sub');
+  app.get(CuratorRoutes.usersBySubCollections(`:${RouteParam.sub}`), (req: Request, res: Response) => {
+    const target = pathParam(req, RouteParam.sub);
     const viewer = subFromRequest(req);
     if (!findUser(target)) {
-      res.status(404).json({ detail: 'User not found.' });
+      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.userNotFound });
       return;
     }
     if (target !== viewer) {
       const settings = settingsFor(target);
       if (!(settings.is_public && settings.show_collections)) {
-        res.status(403).json({ detail: "This section of the user's profile is not public." });
+        res.status(constants.HTTP_STATUS_FORBIDDEN).json({ detail: CuratorDetails.profileSectionNotPublic });
         return;
       }
     }

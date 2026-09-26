@@ -3,6 +3,9 @@ import { TestBed } from '@angular/core/testing';
 import type { ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
 import { authGuard } from './auth.guard';
 import { AuthService } from '../auth/auth.service';
+import { loginUrlReturningTo } from '../shared/bff-contract';
+import { AppUrls } from './app-paths';
+import { AngularPlatformIds } from '../testing/angular-constants';
 
 describe('authGuard', () => {
   afterEach(() => {
@@ -21,7 +24,7 @@ describe('authGuard', () => {
     });
   }
 
-  function run(url = '/account'): boolean {
+  function run(url = AppUrls.account): boolean {
     return TestBed.runInInjectionContext(() =>
       authGuard({} as ActivatedRouteSnapshot, { url } as RouterStateSnapshot),
     ) as boolean;
@@ -38,16 +41,16 @@ describe('authGuard', () => {
     const location = { href: '' };
     vi.stubGlobal('location', location);
 
-    expect(run('/account')).toBe(false);
-    expect(location.href).toBe('/bff/login?returnTo=%2Faccount');
+    expect(run(AppUrls.account)).toBe(false);
+    expect(location.href).toBe(loginUrlReturningTo(AppUrls.account));
   });
 
   it('blocks navigation without touching globalThis.location on the server (defensive — guarded routes are always Client-rendered)', () => {
-    configure(false, [{ provide: PLATFORM_ID, useValue: 'server' }]);
+    configure(false, [{ provide: PLATFORM_ID, useValue: AngularPlatformIds.server }]);
     const location = { href: '' };
     vi.stubGlobal('location', location);
 
-    expect(run('/account')).toBe(false);
+    expect(run(AppUrls.account)).toBe(false);
     expect(location.href).toBe('');
   });
 });

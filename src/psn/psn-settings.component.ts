@@ -3,6 +3,15 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import {
+  ButtonGhostDangerDirective,
+  ButtonGhostDirective,
+  ButtonGhostSmallDirective,
+  ButtonPrimaryDirective,
+  ButtonPrimarySmallDirective,
+  CardDirective,
+  PageSectionDirective,
+} from '@crgolden/modules/primitives';
 import { catchError, finalize, Observable, of, switchMap } from 'rxjs';
 import { CuratorService } from '../curator/curator.service';
 import { MeService } from '../curator/me.service';
@@ -17,29 +26,45 @@ import {
   PresenceResponse,
   PsnPreferencesResponse,
   RefreshCadence,
+  PsnPreferenceKeys,
+  RefreshCadences,
   RefreshScheduleResponse,
   TrophySummaryResponse,
 } from '../curator/curator.models';
 import { LoadingOverlayComponent } from '../shared/loading-overlay/loading-overlay.component';
+import { CatalogMetaDirective, CatalogTitleDirective, SpineLabelDirective } from '../shared/primitives/typography';
 import { PsnStatus, ResolvedPsnStatus } from './psn-status.resolver';
+import { CuratorApi } from '../curator/curator-api';
+import { AppUrls, RouteDataKeys } from '../app/app-paths';
+import {
+  ACCOUNT_DELETE_ERROR,
+  ACTION_HISTORY_FILE_NAME,
+  ACCOUNT_CHANGES_MESSAGE,
+  ACTION_HISTORY_LOAD_ERROR,
+  CHAT_WRITES_DISCLOSURE,
+  DEVICE_LINK_CONSOLE_REQUIRED_ERROR,
+  DEVICE_LINK_PLACEHOLDER,
+  FRIEND_WRITES_DISCLOSURE,
+  GENERIC_LINK_ERROR_MESSAGE,
+  RAWG_KEY_SAVE_ERROR,
+  REFRESH_CADENCE_LABELS,
+  SCHEDULE_COST_MESSAGE,
+  SCHEDULE_PAUSED_FALLBACK_LABEL,
+  SCHEDULE_PAUSED_LABELS,
+  LINK_ERROR_MESSAGES,
+  LINK_STATUS_LOAD_ERROR,
+  NPSSO_LENGTH,
+  npssoLengthError,
+  NPSSO_REQUIRED_ERROR,
+  PREFERENCE_UPDATE_ERROR,
+  PSN_LINKED_MESSAGE,
+  PSN_UNLINKED_MESSAGE,
+  PSN_UNLINK_ERROR,
+  RAWG_KEY_REQUIRED_ERROR,
+} from './psn-settings.messages';
+import { ContentTypes } from '../shared/content-types';
 
 type MeResponse = PsnStatus;
-
-const NPSSO_LENGTH = 64;
-
-const LINK_ERROR_MESSAGES: Record<string, string> = {
-  mismatch:
-    "The PlayStation Network account you linked doesn't match your account email. Sign into the PSN account that uses this same email, then try again.",
-  unverified:
-    "That PlayStation Network account's email address isn't verified. Verify it with PlayStation, then try linking again.",
-  auth_failed:
-    'PlayStation rejected that NPSSO token. It has most likely expired, or was copied incompletely. Get a fresh one and try again — see the FAQ.',
-  invalid_npsso:
-    "That doesn't look like an NPSSO token. Paste either the token itself or the whole {\"npsso\": \"...\"} response — see the FAQ.",
-};
-
-const GENERIC_LINK_ERROR_MESSAGE =
-  'Failed to link PlayStation Network account. Check your NPSSO token and try again.';
 
 function extractErrorDetail(err: unknown): string | null {
   if (!(err instanceof HttpErrorResponse) || typeof err.error !== 'object' || err.error === null) {
@@ -56,12 +81,36 @@ function linkErrorMessage(err: HttpErrorResponse): string {
 
 @Component({
   selector: 'app-psn-settings',
-  imports: [FormsModule, DatePipe, LoadingOverlayComponent, RouterLink],
+  imports: [
+    FormsModule,
+    DatePipe,
+    LoadingOverlayComponent,
+    RouterLink,
+    ButtonGhostDangerDirective,
+    ButtonGhostDirective,
+    ButtonGhostSmallDirective,
+    ButtonPrimaryDirective,
+    ButtonPrimarySmallDirective,
+    CardDirective,
+    PageSectionDirective,
+    CatalogMetaDirective,
+    CatalogTitleDirective,
+    SpineLabelDirective,
+  ],
   templateUrl: './psn-settings.component.html',
-  styleUrl: './psn-settings.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PsnSettingsComponent implements OnInit {
+  protected readonly appUrls = AppUrls;
+  protected readonly cadenceOptions = Object.values(RefreshCadences);
+  protected readonly cadenceLabels = REFRESH_CADENCE_LABELS;
+  protected readonly scheduleCostMessage = SCHEDULE_COST_MESSAGE;
+  protected readonly accountChangesMessage = ACCOUNT_CHANGES_MESSAGE;
+  protected readonly friendWritesDisclosure = FRIEND_WRITES_DISCLOSURE;
+  protected readonly chatWritesDisclosure = CHAT_WRITES_DISCLOSURE;
+  protected readonly deviceLinkPlaceholder = DEVICE_LINK_PLACEHOLDER;
+  protected readonly psnPreferenceKeys = PsnPreferenceKeys;
+
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly curator = inject(CuratorService);
@@ -119,7 +168,7 @@ export class PsnSettingsComponent implements OnInit {
   protected readonly schedule = signal<RefreshScheduleResponse | null>(null);
   protected readonly scheduleError = signal<string | null>(null);
   protected readonly scheduleSaving = signal(false);
-  protected readonly scheduleCadence = signal<RefreshCadence>('weekly');
+  protected readonly scheduleCadence = signal<RefreshCadence>(RefreshCadences.weekly);
   protected readonly schedulePsPlusWatch = signal(false);
 
   protected readonly enrichmentKeyStatus = signal<EnrichmentKeyStatusResponse | null>(null);
@@ -152,9 +201,9 @@ export class PsnSettingsComponent implements OnInit {
   );
 
   ngOnInit(): void {
-    const resolved = this.route.snapshot.data['status'] as ResolvedPsnStatus;
+    const resolved = this.route.snapshot.data[RouteDataKeys.status] as ResolvedPsnStatus;
     if (resolved.status === null) {
-      this.error.set('Unable to load PSN link status.');
+      this.error.set(LINK_STATUS_LOAD_ERROR);
       return;
     }
     this.enrichmentKeyStatus.set(resolved.enrichmentKeys);
@@ -216,13 +265,7 @@ export class PsnSettingsComponent implements OnInit {
   }
 
   protected pausedReasonLabel(reason: string): string {
-    if (reason === 'psn-link-expired') {
-      return 'Your PlayStation Network link expired, so scheduled refreshes stopped. Re-link above to resume them.';
-    }
-    if (reason === 'too-many-consecutive-failures') {
-      return 'Too many refreshes failed in a row, so scheduled refreshes stopped. Save the schedule again to resume them.';
-    }
-    return 'Scheduled refreshes are paused.';
+    return SCHEDULE_PAUSED_LABELS[reason] ?? SCHEDULE_PAUSED_FALLBACK_LABEL;
   }
 
   private loadEnrichmentKeyStatus(): void {
@@ -235,9 +278,9 @@ export class PsnSettingsComponent implements OnInit {
 
   private reloadStatus(): Observable<MeResponse | null> {
     this.me.invalidate();
-    return this.http.get<MeResponse>('/curator/api/me').pipe(
+    return this.http.get<MeResponse>(CuratorApi.me).pipe(
       catchError(() => {
-        this.error.set('Unable to load PSN link status.');
+        this.error.set(LINK_STATUS_LOAD_ERROR);
         return of(null);
       }),
     );
@@ -397,7 +440,7 @@ export class PsnSettingsComponent implements OnInit {
   protected linkDevice(device: DeviceResponse): void {
     const consoleId = this.linkTargetConsoleId();
     if (consoleId === null) {
-      this.deviceLinkError.set('Choose a console to link this device to.');
+      this.deviceLinkError.set(DEVICE_LINK_CONSOLE_REQUIRED_ERROR);
       return;
     }
     this.deviceLinkPending.set(device.device_id);
@@ -460,24 +503,24 @@ export class PsnSettingsComponent implements OnInit {
           this.preferences.set({ ...reverted, [category]: previous });
         }
         this.savingPreference.set(null);
-        this.preferencesError.set('Failed to update preference. Please try again.');
+        this.preferencesError.set(PREFERENCE_UPDATE_ERROR);
       },
     });
   }
 
   private loadForCategory(category: keyof PsnPreferencesResponse): void {
     switch (category) {
-      case 'harvest_trophies':
+      case PsnPreferenceKeys.harvestTrophies:
         this.loadTrophySummary();
         break;
-      case 'harvest_identity':
+      case PsnPreferenceKeys.harvestIdentity:
         this.loadIdentity();
         this.loadFriendRequests();
         break;
-      case 'harvest_presence':
+      case PsnPreferenceKeys.harvestPresence:
         this.loadPresence();
         break;
-      case 'harvest_devices':
+      case PsnPreferenceKeys.harvestDevices:
         this.loadDevices();
         break;
     }
@@ -485,16 +528,16 @@ export class PsnSettingsComponent implements OnInit {
 
   private clearForCategory(category: keyof PsnPreferencesResponse): void {
     switch (category) {
-      case 'harvest_trophies':
+      case PsnPreferenceKeys.harvestTrophies:
         this.trophySummary.set(null);
         break;
-      case 'harvest_identity':
+      case PsnPreferenceKeys.harvestIdentity:
         this.identity.set(null);
         break;
-      case 'harvest_presence':
+      case PsnPreferenceKeys.harvestPresence:
         this.presence.set(null);
         break;
-      case 'harvest_devices':
+      case PsnPreferenceKeys.harvestDevices:
         this.devices.set(null);
         break;
     }
@@ -508,13 +551,11 @@ export class PsnSettingsComponent implements OnInit {
   protected link(): void {
     const token = this.npsso().trim();
     if (!token) {
-      this.error.set('Enter your NPSSO token.');
+      this.error.set(NPSSO_REQUIRED_ERROR);
       return;
     }
     if (!token.startsWith('{') && token.length !== NPSSO_LENGTH) {
-      this.error.set(
-        `That NPSSO token is ${token.length} characters; it should be ${NPSSO_LENGTH}. Copy the whole value and try again.`,
-      );
+      this.error.set(npssoLengthError(token.length));
       return;
     }
 
@@ -523,14 +564,14 @@ export class PsnSettingsComponent implements OnInit {
     this.success.set(null);
 
     this.http
-      .post('/curator/api/psn/link', { npsso: token })
+      .post(CuratorApi.psnLink, { npsso: token })
       .pipe(
         switchMap(() => this.reloadStatus()),
         finalize(() => this.linking.set(false)),
       )
       .subscribe({
         next: (me) => {
-          this.success.set('PlayStation Network account linked.');
+          this.success.set(PSN_LINKED_MESSAGE);
           this.npsso.set('');
           this.applyReloadedStatus(me);
         },
@@ -544,17 +585,17 @@ export class PsnSettingsComponent implements OnInit {
     this.success.set(null);
 
     this.http
-      .delete('/curator/api/psn/link')
+      .delete(CuratorApi.psnLink)
       .pipe(
         switchMap(() => this.reloadStatus()),
         finalize(() => this.unlinking.set(false)),
       )
       .subscribe({
         next: (me) => {
-          this.success.set('PlayStation Network account unlinked.');
+          this.success.set(PSN_UNLINKED_MESSAGE);
           this.applyReloadedStatus(me);
         },
-        error: () => this.error.set('Failed to unlink PlayStation Network account.'),
+        error: () => this.error.set(PSN_UNLINK_ERROR),
       });
   }
 
@@ -568,7 +609,7 @@ export class PsnSettingsComponent implements OnInit {
         this.actionsLoading.set(false);
       },
       error: () => {
-        this.actionsError.set('Unable to load your action history.');
+        this.actionsError.set(ACTION_HISTORY_LOAD_ERROR);
         this.actionsLoading.set(false);
       },
     });
@@ -580,11 +621,11 @@ export class PsnSettingsComponent implements OnInit {
       return;
     }
 
-    const blob = new Blob([JSON.stringify(actions, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(actions, null, 2)], { type: ContentTypes.json });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'librarian-account-history.json';
+    link.download = ACTION_HISTORY_FILE_NAME;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -592,7 +633,7 @@ export class PsnSettingsComponent implements OnInit {
   protected setRawgKey(): void {
     const key = this.rawgKeyInput().trim();
     if (!key) {
-      this.rawgKeyError.set('Enter a RAWG API key.');
+      this.rawgKeyError.set(RAWG_KEY_REQUIRED_ERROR);
       return;
     }
 
@@ -607,7 +648,7 @@ export class PsnSettingsComponent implements OnInit {
       },
       error: (err: unknown) => {
         this.settingRawgKey.set(false);
-        this.rawgKeyError.set(extractErrorDetail(err) ?? 'Failed to save RAWG key.');
+        this.rawgKeyError.set(extractErrorDetail(err) ?? RAWG_KEY_SAVE_ERROR);
       },
     });
   }
@@ -679,7 +720,7 @@ export class PsnSettingsComponent implements OnInit {
     this.deletingAccount.set(true);
     this.deleteError.set(null);
 
-    this.http.delete('/curator/api/me').subscribe({
+    this.http.delete(CuratorApi.me).subscribe({
       next: () => {
         this.deletingAccount.set(false);
         this.confirmingDelete.set(false);
@@ -688,7 +729,7 @@ export class PsnSettingsComponent implements OnInit {
       },
       error: () => {
         this.deletingAccount.set(false);
-        this.deleteError.set('Failed to delete your account. Please try again.');
+        this.deleteError.set(ACCOUNT_DELETE_ERROR);
       },
     });
   }

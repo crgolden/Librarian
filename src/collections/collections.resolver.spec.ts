@@ -1,33 +1,40 @@
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRouteSnapshot, ResolveFn } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import {
-  installConsoleIdFor,
+  CollectionsModes,
   NO_INSTALLS,
+  ResolvedCollections,
+  installConsoleIdFor,
   ownerCollectionsResolver,
   viewerCollectionsResolver,
-  ResolvedCollections,
 } from './collections.resolver';
 import { CuratorService } from '../curator/curator.service';
 import {
+  CollectionKinds,
   ConsoleResponse,
   DefinitionDetailResponse,
   DefinitionResponse,
   ProfileDefinitionResponse,
   StorageDeviceResponse,
 } from '../curator/curator.models';
+import { RouteParams } from '../app/app-paths';
+import { newId } from '@crgolden/modules/testing';
 
-const CONSOLE_ID = 'c1';
-const DEVICE_ID = 'sd1';
-const INSTALLED_GAME_ID = 'g-installed';
-const DEVICE_GAME_ID = 'g-on-device';
+const CONSOLE_ID = newId();
+const DEVICE_ID = newId();
+const INSTALLED_GAME_ID = newId();
+const DEVICE_GAME_ID = newId();
+const DEFINITION_ID = newId();
+const VIEWER_DEFINITION_ID = newId();
+const OTHER_SUB = newId();
 
 const CONSOLES = [{ console_id: CONSOLE_ID }] as unknown as ConsoleResponse[];
-const DEFINITIONS = [{ definition_id: 'd1' }] as unknown as DefinitionResponse[];
-const DETAIL = { definition_id: 'd1' } as unknown as DefinitionDetailResponse;
-const VIEWER_DEFINITIONS = [{ definition_id: 'd9' }] as unknown as ProfileDefinitionResponse[];
-const FOLLOWED = [{ definition_id: 'd9' }] as unknown as DefinitionResponse[];
+const DEFINITIONS = [{ definition_id: DEFINITION_ID }] as unknown as DefinitionResponse[];
+const DETAIL = { definition_id: DEFINITION_ID } as unknown as DefinitionDetailResponse;
+const VIEWER_DEFINITIONS = [{ definition_id: VIEWER_DEFINITION_ID }] as unknown as ProfileDefinitionResponse[];
+const FOLLOWED = [{ definition_id: VIEWER_DEFINITION_ID }] as unknown as DefinitionResponse[];
 
 const ATTACHED_DEVICE = {
   device_id: DEVICE_ID,
@@ -35,12 +42,12 @@ const ATTACHED_DEVICE = {
 } as unknown as StorageDeviceResponse;
 
 const OTHER_CONSOLES_DEVICE = {
-  device_id: 'sd-elsewhere',
-  console_id: 'c-other',
+  device_id: newId(),
+  console_id: newId(),
 } as unknown as StorageDeviceResponse;
 
 function detailTargeting(consoleId: string): DefinitionDetailResponse {
-  return { definition_id: 'd1', install_target_console_id: consoleId } as unknown as DefinitionDetailResponse;
+  return { definition_id: DEFINITION_ID, install_target_console_id: consoleId } as unknown as DefinitionDetailResponse;
 }
 
 const INSTALL_STUBS: Partial<CuratorService> = {
@@ -69,7 +76,7 @@ function run(
   });
 }
 
-const fails = () => throwError(() => new HttpErrorResponse({ status: 500 }));
+const fails = () => throwError(() => new HttpErrorResponse({ status: HttpStatusCode.InternalServerError }));
 
 describe('ownerCollectionsResolver', () => {
   it('resolves the saved-definition list when the url names no definition', async () => {
@@ -79,17 +86,17 @@ describe('ownerCollectionsResolver', () => {
       {},
     );
 
-    expect(result).toEqual({ mode: 'list', definitions: DEFINITIONS, consoles: CONSOLES });
+    expect(result).toEqual({ mode: CollectionsModes.list, definitions: DEFINITIONS, consoles: CONSOLES });
   });
 
   it('resolves a deep-linked definition when the url names one', async () => {
     const result = await run(
       ownerCollectionsResolver,
       { getDefinition: () => of(DETAIL), listConsoles: () => of(CONSOLES) },
-      { definitionId: 'd1' },
+      { [RouteParams.definitionId]: DEFINITION_ID },
     );
 
-    expect(result).toEqual({ mode: 'detail', definition: DETAIL, consoles: CONSOLES, installs: NO_INSTALLS });
+    expect(result).toEqual({ mode: CollectionsModes.detail, definition: DETAIL, consoles: CONSOLES, installs: NO_INSTALLS });
   });
 
   it('spends no install lookups on a collection that names no console to show them for', async () => {
@@ -104,7 +111,7 @@ describe('ownerCollectionsResolver', () => {
           return of({ game_ids: [] });
         },
       },
-      { definitionId: 'd1' },
+      { [RouteParams.definitionId]: DEFINITION_ID },
     );
 
     expect(result).toMatchObject({ installs: NO_INSTALLS });
@@ -119,7 +126,7 @@ describe('ownerCollectionsResolver', () => {
         getDefinition: () => of(detailTargeting(CONSOLE_ID)),
         listConsoles: () => of(CONSOLES),
       },
-      { definitionId: 'd1' },
+      { [RouteParams.definitionId]: DEFINITION_ID },
     );
 
     expect(result).toMatchObject({
@@ -139,10 +146,10 @@ describe('ownerCollectionsResolver', () => {
         getDefinition: () => of(detailTargeting(CONSOLE_ID)),
         listConsoles: () => of(CONSOLES),
       },
-      { definitionId: 'd1' },
+      { [RouteParams.definitionId]: DEFINITION_ID },
     );
 
-    const devices = result.mode === 'detail' ? result.installs.attachedDevices : [];
+    const devices = result.mode === CollectionsModes.detail ? result.installs.attachedDevices : [];
 
     expect(devices.map((device) => device.device_id)).toEqual([DEVICE_ID]);
   });
@@ -156,10 +163,10 @@ describe('ownerCollectionsResolver', () => {
         getConsoleInstalls: fails,
         listStorageDevices: fails,
       },
-      { definitionId: 'd1' },
+      { [RouteParams.definitionId]: DEFINITION_ID },
     );
 
-    expect(result).toMatchObject({ mode: 'detail', installs: NO_INSTALLS });
+    expect(result).toMatchObject({ mode: CollectionsModes.detail, installs: NO_INSTALLS });
   });
 
   it('reports list-error but still returns consoles when the list call fails', async () => {
@@ -169,17 +176,17 @@ describe('ownerCollectionsResolver', () => {
       {},
     );
 
-    expect(result).toEqual({ mode: 'list-error', consoles: CONSOLES });
+    expect(result).toEqual({ mode: CollectionsModes.listError, consoles: CONSOLES });
   });
 
   it('reports detail-error but still returns consoles when the definition call fails', async () => {
     const result = await run(
       ownerCollectionsResolver,
       { getDefinition: fails, listConsoles: () => of(CONSOLES) },
-      { definitionId: 'd1' },
+      { [RouteParams.definitionId]: DEFINITION_ID },
     );
 
-    expect(result).toEqual({ mode: 'detail-error', consoles: CONSOLES });
+    expect(result).toEqual({ mode: CollectionsModes.detailError, consoles: CONSOLES });
   });
 
   it('treats consoles as best-effort, yielding an empty list rather than failing the route', async () => {
@@ -189,7 +196,7 @@ describe('ownerCollectionsResolver', () => {
       {},
     );
 
-    expect(result).toEqual({ mode: 'list', definitions: DEFINITIONS, consoles: [] });
+    expect(result).toEqual({ mode: CollectionsModes.list, definitions: DEFINITIONS, consoles: [] });
   });
 });
 
@@ -199,13 +206,13 @@ describe('installConsoleIdFor', () => {
   });
 
   it('falls back to the console a capacity fill was generated for', () => {
-    const generated = { kind: 'capacity_fill', console_id: CONSOLE_ID } as unknown as DefinitionDetailResponse;
+    const generated = { kind: CollectionKinds.capacityFill, console_id: CONSOLE_ID } as unknown as DefinitionDetailResponse;
 
     expect(installConsoleIdFor(generated)).toBe(CONSOLE_ID);
   });
 
   it('names no console for any other collection, which is what withholds the install controls', () => {
-    const manual = { kind: 'manual', console_id: CONSOLE_ID } as unknown as DefinitionDetailResponse;
+    const manual = { kind: newId(), console_id: CONSOLE_ID } as unknown as DefinitionDetailResponse;
 
     expect(installConsoleIdFor(manual)).toBeNull();
     expect(installConsoleIdFor(null)).toBeNull();
@@ -217,21 +224,21 @@ describe('viewerCollectionsResolver', () => {
     const result = await run(
       viewerCollectionsResolver,
       { getUserCollections: () => of(VIEWER_DEFINITIONS), listFollowedCollections: () => of([]) },
-      { sub: 'u1' },
+      { [RouteParams.sub]: OTHER_SUB },
     );
 
-    expect(result).toEqual({ mode: 'viewer', definitions: VIEWER_DEFINITIONS, followedIds: [] });
+    expect(result).toEqual({ mode: CollectionsModes.viewer, definitions: VIEWER_DEFINITIONS, followedIds: [] });
   });
 
   it('resolves which of them the viewer already follows, so the toggle opens in the right state', async () => {
     const result = await run(
       viewerCollectionsResolver,
       { getUserCollections: () => of(VIEWER_DEFINITIONS), listFollowedCollections: () => of(FOLLOWED) },
-      { sub: 'u1' },
+      { [RouteParams.sub]: OTHER_SUB },
     );
 
     expect(result).toEqual({
-      mode: 'viewer',
+      mode: CollectionsModes.viewer,
       definitions: VIEWER_DEFINITIONS,
       followedIds: FOLLOWED.map((definition) => definition.definition_id),
     });
@@ -241,25 +248,25 @@ describe('viewerCollectionsResolver', () => {
     const result = await run(
       viewerCollectionsResolver,
       { getUserCollections: () => of(VIEWER_DEFINITIONS), listFollowedCollections: fails },
-      { sub: 'u1' },
+      { [RouteParams.sub]: OTHER_SUB },
     );
 
-    expect(result).toEqual({ mode: 'viewer', definitions: VIEWER_DEFINITIONS, followedIds: [] });
+    expect(result).toEqual({ mode: CollectionsModes.viewer, definitions: VIEWER_DEFINITIONS, followedIds: [] });
   });
 
   it('distinguishes a private profile from a failed load', async () => {
     const forbidden = await run(
       viewerCollectionsResolver,
       {
-        getUserCollections: () => throwError(() => new HttpErrorResponse({ status: 403 })),
+        getUserCollections: () => throwError(() => new HttpErrorResponse({ status: HttpStatusCode.Forbidden })),
         listFollowedCollections: () => of([]),
       },
-      { sub: 'u1' },
+      { [RouteParams.sub]: OTHER_SUB },
     );
-    const failed = await run(viewerCollectionsResolver, { getUserCollections: fails }, { sub: 'u1' });
+    const failed = await run(viewerCollectionsResolver, { getUserCollections: fails }, { [RouteParams.sub]: OTHER_SUB });
 
-    expect(forbidden).toEqual({ mode: 'viewer-forbidden' });
-    expect(failed).toEqual({ mode: 'viewer-error' });
+    expect(forbidden).toEqual({ mode: CollectionsModes.viewerForbidden });
+    expect(failed).toEqual({ mode: CollectionsModes.viewerError });
   });
 
   it('reports an error for a route with no sub without calling the api', async () => {
@@ -275,7 +282,7 @@ describe('viewerCollectionsResolver', () => {
       {},
     );
 
-    expect(result).toEqual({ mode: 'viewer-error' });
+    expect(result).toEqual({ mode: CollectionsModes.viewerError });
     expect(called).toBe(false);
   });
 });

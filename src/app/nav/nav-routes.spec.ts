@@ -3,6 +3,7 @@ import { routes } from '../app.routes';
 import { authGuard } from '../auth.guard';
 import { adminGuard } from '../admin.guard';
 import { PRIMARY_NAV_LINKS } from './site-nav.component';
+import { NavLabels, PageTitles } from '../../shared/page-title';
 
 const routeFor = (path: string): Route | undefined => {
   const bare = path.replace(/^\//, '');
@@ -38,7 +39,12 @@ describe('PRIMARY_NAV_LINKS is pinned to app.routes.ts', () => {
   );
 
   it('offers exactly four bottom tabs, so the bar plus More is a five-slot row', () => {
-    expect(PRIMARY_NAV_LINKS.filter((link) => link.tab === true)).toHaveLength(4);
+    expect(PRIMARY_NAV_LINKS.filter((link) => link.tab === true).map((link) => link.label)).toEqual([
+      NavLabels.home,
+      PageTitles.catalog,
+      PageTitles.library,
+      PageTitles.collections,
+    ]);
   });
 
   it('offers no admin-only destination as a bottom tab', () => {

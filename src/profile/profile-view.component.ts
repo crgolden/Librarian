@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { Meta } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ButtonGhostDirective, ButtonPrimaryDirective, PageSectionDirective } from '@crgolden/modules/primitives';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideFolderOpen,
@@ -18,10 +19,35 @@ import { CuratorService } from '../curator/curator.service';
 import { PublicProfileResponse } from '../curator/curator.models';
 import { ResolvedProfile } from './profile.resolver';
 import { AvatarComponent } from '../shared/avatar/avatar.component';
+import { CatalogMetaDirective, StampLabelDirective } from '../shared/primitives/typography';
+import { AppUrls, FollowListKinds, RouteDataKeys, RouteParams } from '../app/app-paths';
+import { MetaNames, RobotsDirectives } from '../shared/seo-contract';
+import {
+  FOLLOW_USER_ERROR,
+  FRIEND_REQUEST_ERROR,
+  PROFILE_LOAD_ERROR,
+  PSN_ACCOUNT_FALLBACK_NAME,
+  SIGNED_IN_USER_UNKNOWN_ERROR,
+  TROPHIES_OFF_NOTICE,
+  UNLINKED_USER_NAME,
+  followersAccessibleName,
+  followingAccessibleName,
+} from './profile.messages';
+import { ResolvedStatuses } from '../shared/resolved-status';
 
 @Component({
   selector: 'app-profile-view',
-  imports: [DatePipe, NgIcon, RouterLink, AvatarComponent],
+  imports: [
+    DatePipe,
+    NgIcon,
+    RouterLink,
+    AvatarComponent,
+    ButtonGhostDirective,
+    ButtonPrimaryDirective,
+    PageSectionDirective,
+    CatalogMetaDirective,
+    StampLabelDirective,
+  ],
   templateUrl: './profile-view.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   viewProviders: [
@@ -38,6 +64,9 @@ import { AvatarComponent } from '../shared/avatar/avatar.component';
   ],
 })
 export class ProfileViewComponent implements OnInit {
+  protected readonly appUrls = AppUrls;
+  protected readonly trophiesOffNotice = TROPHIES_OFF_NOTICE;
+
   private readonly route = inject(ActivatedRoute);
   private readonly curator = inject(CuratorService);
   private readonly meta = inject(Meta);
@@ -58,29 +87,29 @@ export class ProfileViewComponent implements OnInit {
   protected readonly friendRequestSent = signal(false);
   protected readonly friendRequestError = signal<string | null>(null);
 
-  protected readonly followersLink = signal<string[]>(['/profile', 'followers']);
-  protected readonly followingLink = signal<string[]>(['/profile', 'following']);
-  protected readonly libraryLink = signal<string[]>(['/library']);
-  protected readonly collectionsLink = signal<string[]>(['/collections']);
+  protected readonly followersLink = signal<string[]>([AppUrls.profile, FollowListKinds.followers]);
+  protected readonly followingLink = signal<string[]>([AppUrls.profile, FollowListKinds.following]);
+  protected readonly libraryLink = signal<string[]>([AppUrls.library]);
+  protected readonly collectionsLink = signal<string[]>([AppUrls.collections]);
 
   ngOnInit(): void {
-    this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
+    this.meta.updateTag({ name: MetaNames.robots, content: RobotsDirectives.noIndexNoFollow });
 
-    const routeSub = this.route.snapshot.paramMap.get('sub');
+    const routeSub = this.route.snapshot.paramMap.get(RouteParams.sub);
     if (routeSub !== null) {
-      this.followersLink.set(['/u', routeSub, 'followers']);
-      this.followingLink.set(['/u', routeSub, 'following']);
-      this.libraryLink.set(['/library', routeSub]);
-      this.collectionsLink.set(['/collections', routeSub]);
+      this.followersLink.set([AppUrls.users, routeSub, FollowListKinds.followers]);
+      this.followingLink.set([AppUrls.users, routeSub, FollowListKinds.following]);
+      this.libraryLink.set([AppUrls.library, routeSub]);
+      this.collectionsLink.set([AppUrls.collections, routeSub]);
     }
 
-    const resolved = this.route.snapshot.data['profile'] as ResolvedProfile;
-    if (resolved.status === 'no-user') {
-      this.loadError.set('Unable to determine the signed-in user.');
+    const resolved = this.route.snapshot.data[RouteDataKeys.profile] as ResolvedProfile;
+    if (resolved.status === ResolvedStatuses.noUser) {
+      this.loadError.set(SIGNED_IN_USER_UNKNOWN_ERROR);
       return;
     }
-    if (resolved.status === 'error') {
-      this.loadError.set('Unable to load this profile.');
+    if (resolved.status === ResolvedStatuses.error) {
+      this.loadError.set(PROFILE_LOAD_ERROR);
       return;
     }
 
@@ -116,18 +145,17 @@ export class ProfileViewComponent implements OnInit {
       },
       error: () => {
         this.friendRequestBusy.set(false);
-        this.friendRequestError.set('Unable to send a friend request.');
+        this.friendRequestError.set(FRIEND_REQUEST_ERROR);
       },
     });
   }
 
   protected displayName(profile: PublicProfileResponse): string {
-    return profile.identity?.online_id ?? (profile.psn_account_id ? 'PlayStation account' : 'Unlinked user');
+    return profile.identity?.online_id ?? (profile.psn_account_id ? PSN_ACCOUNT_FALLBACK_NAME : UNLINKED_USER_NAME);
   }
 
-  protected followerLabel(count: number): string {
-    return count === 1 ? 'follower' : 'followers';
-  }
+  protected readonly followersName = followersAccessibleName;
+  protected readonly followingName = followingAccessibleName;
 
   protected trophiesEarnedTotal(profile: PublicProfileResponse): number {
     const earned = profile.trophies?.earned;
@@ -155,7 +183,7 @@ export class ProfileViewComponent implements OnInit {
       },
       error: () => {
         this.followBusy.set(false);
-        this.followError.set('Unable to follow this user.');
+        this.followError.set(FOLLOW_USER_ERROR);
       },
     });
   }

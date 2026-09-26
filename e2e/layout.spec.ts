@@ -1,34 +1,62 @@
-import { test, expect, DEFAULT_E2E_SUB, type LibraryGameFixture } from './fixtures.js';
-import { boxOf, computedStyle, ownHeight, settleWebfonts, trackCount } from './layout.js';
+import { LARGEST_PERCENT, newDisplayName, newId, newText, randomIntBetween } from '@crgolden/modules/testing';
+import {
+  test,
+  expect,
+  DEFAULT_E2E_SUB,
+  newCatalogGame,
+  newLibraryGame,
+  newPsnRating,
+  newScore,
+  type LibraryGameFixture,
+} from './fixtures.js';
+import { boxOf, fontSizeOf, ownHeight, settleWebfonts, tokenPx, trackCount } from './layout.js';
+import { CssValues } from './css-constants';
+import { SvgMarkup } from './markup-constants';
+import { PsnGenreTokens, PsnStarRatings } from './psn-constants';
+import { CuratorCollectionKinds } from './mocks/curator-constants';
+import e2eSettings from './e2e-settings.json';
+import { AppUrls, catalogGameUrl, collectionDefinitionUrl } from '../src/app/app-paths';
+import { CollectionKinds, CollectionVisibilities, ConsolePlatforms, LibrarySortFields } from '../src/curator/curator.models';
+import { libraryHeaderId, librarySortArrowId, librarySortId } from '../src/library/library-ids';
+import { LIBRARY_PAGE_SIZE } from '../src/library/library.query';
 
-const SEEDED_LIBRARY_TITLES = 25;
+const LayoutSettings = e2eSettings.layout;
+const LibraryTolerancesPx = e2eSettings.library.tolerancesPx;
 
-const XL_VIEWPORT = { width: 1280, height: 900 };
-const LONG_LIBRARY_TITLE = 'A Quiet Place: The Road Ahead Deluxe Collector Edition';
-const SHORT_LIBRARY_TITLE = '4 YoRHa';
-const WIDEST_GENRE_TOKEN = 'ROLE_PLAYING_GAMES';
-const EVERY_PLATFORM = ['PS3', 'PS4', 'PS5'];
+const XL_VIEWPORT = e2eSettings.viewports.xl;
+const WIDEST_GENRE_TOKEN = PsnGenreTokens.rolePlayingGames;
+const EVERY_PLATFORM = [ConsolePlatforms.ps3, ConsolePlatforms.ps4, ConsolePlatforms.ps5];
 
-function libraryWithALongAndAShortTitle(): LibraryGameFixture[] {
-  return [SHORT_LIBRARY_TITLE, LONG_LIBRARY_TITLE].map((title, index) => ({
-    game_id: `g${index}`,
+function newLongTitle(): string {
+  return Array.from({ length: LayoutSettings.longTitleWordPairs }, newDisplayName).join(' ');
+}
+
+const WIDEST_PSN_RATING = PsnStarRatings.largestTwoDecimalValue;
+
+function libraryWithAShortAndALongTitle(): LibraryGameFixture[] {
+  return [newText(), newLongTitle()].map((title) => ({
+    ...newLibraryGame(),
     title,
     genre: WIDEST_GENRE_TOKEN,
-    rawg_rating: 100,
-    opencritic_rating: 100,
-    psn_rating: 4.99,
+    rawg_rating: LARGEST_PERCENT,
+    opencritic_rating: LARGEST_PERCENT,
+    psn_rating: WIDEST_PSN_RATING,
     platforms: EVERY_PLATFORM,
     rawg_enriched: true,
     opencritic_enriched: true,
   }));
 }
 
-const SWEPT_WIDTHS = [390, 768, 1024, 1440] as const;
-const SQUARE_COVER_DATA_URL =
-  'data:image/svg+xml,' +
-  encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="320" height="320" fill="#666"/></svg>');
+function librarySpanningTwoPages(): LibraryGameFixture[] {
+  return Array.from({ length: LIBRARY_PAGE_SIZE + randomIntBetween(1, LIBRARY_PAGE_SIZE) }, newLibraryGame);
+}
 
-const LONG_COLLECTION_NAME = 'Capacity-fill pack for the console in the living room, sorted by score';
+function newSquareCoverDataUrl(): string {
+  const side = randomIntBetween(LayoutSettings.coverSideMinimumPx, LayoutSettings.coverSideCeilingPx);
+  return `${SvgMarkup.dataUrlPrefix}${encodeURIComponent(
+    `<svg xmlns="${SvgMarkup.namespace}" width="${side}" height="${side}"><rect width="${side}" height="${side}"/></svg>`,
+  )}`;
+}
 
 test.describe('Layout invariants DESIGN.md states and markup cannot prove', () => {
   test('the pager count sits on the buttons’ centre line rather than stretching to their height', async ({
@@ -36,20 +64,11 @@ test.describe('Layout invariants DESIGN.md states and markup cannot prove', () =
     store,
   }) => {
     await store.reset();
-    await store.seedLibraryGames(
-      Array.from({ length: SEEDED_LIBRARY_TITLES }, (_, index) => ({
-        game_id: `g${index}`,
-        title: `Game ${String(index).padStart(2, '0')}`,
-        rawg_enriched: false,
-        opencritic_enriched: false,
-      })),
-    );
+    await store.seedLibraryGames(librarySpanningTwoPages());
 
-    await page.goto('/library');
+    await page.goto(AppUrls.library);
     await expect(page.locator('#library-pager')).toBeVisible();
     await settleWebfonts(page, ['#library-page-range']);
-
-    expect(await computedStyle(page, '#library-pager', 'align-items')).toBe('center');
 
     const countHeight = await ownHeight(page, '#library-page-range');
     const buttonHeight = await ownHeight(page, '#library-next');
@@ -62,12 +81,10 @@ test.describe('Layout invariants DESIGN.md states and markup cannot prove', () =
 
   test('the library search and genre filter share one row', async ({ authedPage: page, store }) => {
     await store.reset();
-    await store.seedLibraryGames([
-      { game_id: 'g0', title: 'Game 00', rawg_enriched: false, opencritic_enriched: false },
-    ]);
+    await store.seedLibraryGames([newLibraryGame()]);
 
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/library');
+    await page.setViewportSize(XL_VIEWPORT);
+    await page.goto(AppUrls.library);
     await expect(page.locator('#library-genre-filter')).toBeVisible();
 
     const search = await boxOf(page, '#library-search');
@@ -75,7 +92,7 @@ test.describe('Layout invariants DESIGN.md states and markup cannot prove', () =
     expect(
       Math.abs(search.top - filter.top),
       'a control whose flex-basis resolves to the global `select`/`input` width: 100% claims the whole line and pushes its neighbour onto the next one',
-    ).toBeLessThan(2);
+    ).toBeLessThan(LayoutSettings.sharedRowTopTolerancePx);
     expect(filter.width).toBeLessThan(search.width);
   });
 
@@ -84,39 +101,69 @@ test.describe('Layout invariants DESIGN.md states and markup cannot prove', () =
     store,
   }) => {
     await store.reset();
-    await store.seedLibraryGames(
-      Array.from({ length: SEEDED_LIBRARY_TITLES }, (_, index) => ({
-        game_id: `g${index}`,
-        title: `Game ${String(index).padStart(2, '0')}`,
-        rawg_enriched: false,
-        opencritic_enriched: false,
-      })),
-    );
+    await store.seedLibraryGames(librarySpanningTwoPages());
 
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/library');
+    await page.setViewportSize(XL_VIEWPORT);
+    await page.goto(AppUrls.library);
     await expect(page.locator('#library-page-size')).toBeVisible();
 
     expect(
-      await computedStyle(page, '#library-page-size', 'font-size'),
+      await fontSizeOf(page, '#library-page-size'),
       'styles.css sets a bare `select` font-size outside any cascade layer, so it outranks every Tailwind utility whatever the specificity and no template class can cancel it — only page-size.component.css can. Proven by removing that line: the control renders 16px beside this 13.6px page count',
-    ).toBe(await computedStyle(page, '#library-page-range', 'font-size'));
+    ).toBe(await fontSizeOf(page, '#library-page-range'));
   });
 
-  test('a library column header keeps its sort arrow on the header’s own line', async ({
+  test('a sorted column keeps its sort arrow on its label’s line, which it would not without nowrap', async ({
     authedPage: page,
     store,
   }) => {
     await store.reset();
-    await store.seedLibraryGames([
-      { game_id: 'g0', title: 'Game 00', rawg_enriched: false, opencritic_enriched: false },
-    ]);
+    await store.seedLibraryGames(libraryWithAShortAndALongTitle());
 
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/library');
-    await expect(page.locator('#library-pager')).toBeVisible();
+    await page.setViewportSize(e2eSettings.viewports.tableBetweenMdAndData);
+    await page.goto(AppUrls.library);
+    await page.locator(`#${librarySortId(LibrarySortFields.psnRating)}`).click();
+    await expect(page.locator(`#${librarySortArrowId(LibrarySortFields.psnRating)}`)).toBeVisible();
 
-    expect(await computedStyle(page, '#library-header-cover', 'white-space')).toBe('nowrap');
+    const measureHeader = (whiteSpaceOverride: string | null) =>
+      page.evaluate(
+        ({ headerId, labelId, arrowId, override }) => {
+          const header = document.getElementById(headerId);
+          const label = document.getElementById(labelId);
+          const arrow = document.getElementById(arrowId);
+          if (header === null || label === null || arrow === null) {
+            throw new Error('The sorted header, its label or its arrow is not rendered.');
+          }
+          if (override !== null) {
+            header.style.whiteSpace = override;
+          }
+          const labelRange = document.createRange();
+          labelRange.selectNodeContents(label);
+          const labelRects = [...labelRange.getClientRects()];
+          return {
+            labelRectCount: labelRects.length,
+            labelLineCount: new Set(labelRects.map((rect) => Math.round(rect.top))).size,
+            arrowDrop: arrow.getBoundingClientRect().top - label.getBoundingClientRect().top,
+          };
+        },
+        {
+          headerId: libraryHeaderId(LibrarySortFields.psnRating),
+          labelId: librarySortId(LibrarySortFields.psnRating),
+          arrowId: librarySortArrowId(LibrarySortFields.psnRating),
+          override: whiteSpaceOverride,
+        },
+      );
+
+    const asRendered = await measureHeader(null);
+    expect(asRendered.labelRectCount, 'a Range that selects nothing measures no lines and would satisfy any bound').toBeGreaterThan(0);
+    expect(asRendered.labelLineCount).toBe(1);
+    expect(Math.abs(asRendered.arrowDrop)).toBeLessThanOrEqual(LibraryTolerancesPx.sameLineTop);
+
+    const withoutNowrap = await measureHeader(CssValues.normal);
+    expect(
+      withoutNowrap.labelLineCount > 1 || withoutNowrap.arrowDrop > LibraryTolerancesPx.sameLineTop,
+      'with white-space cleared this column must break, or the assertions above could not fail',
+    ).toBe(true);
   });
 
   test('the library table fits its card at the xl measure with every column at its widest', async ({
@@ -124,16 +171,18 @@ test.describe('Layout invariants DESIGN.md states and markup cannot prove', () =
     store,
   }) => {
     await store.reset();
-    await store.seedLibraryGames(libraryWithALongAndAShortTitle());
-    await store.seedHiddenLibraryGames(['g1']);
+    const libraryGames = libraryWithAShortAndALongTitle();
+    const [, longTitledGame] = libraryGames;
+    await store.seedLibraryGames(libraryGames);
+    await store.seedHiddenLibraryGames([longTitledGame.game_id]);
 
     await page.setViewportSize(XL_VIEWPORT);
-    await page.goto('/library');
+    await page.goto(AppUrls.library);
     await expect(page.locator('#library-header-percent_completed-link')).toBeVisible();
     await settleWebfonts(page, ['#library-header-title']);
 
     const fit = await page.evaluate(() => {
-      const scroll = document.querySelector('.library-table-scroll');
+      const scroll = document.querySelector('#library-table-scroll');
       return scroll === null
         ? { clientWidth: -1, scrollWidth: -1 }
         : { clientWidth: scroll.clientWidth, scrollWidth: scroll.scrollWidth };
@@ -150,15 +199,15 @@ test.describe('Layout invariants DESIGN.md states and markup cannot prove', () =
     store,
   }) => {
     await store.reset();
-    await store.seedCatalogGames([
-      { game_id: 'g1', canonical_title: 'Bloodborne', franchise: null, genre: 'RPG', aaa_tier: 'AAA' },
-    ]);
+    const game = newCatalogGame();
+    const definitionId = newId();
+    await store.seedCatalogGames([game]);
     await store.seedUserCollections(DEFAULT_E2E_SUB, [
-      { definition_id: 'd1', name: 'Shelf', kind: 'filter_list', visibility: 'private', game_ids: ['g1'] },
+      { definition_id: definitionId, name: newText(), kind: CollectionKinds.filterList, visibility: CollectionVisibilities.private, game_ids: [game.game_id] },
     ]);
 
     await page.setViewportSize(XL_VIEWPORT);
-    await page.goto('/collections/d/d1');
+    await page.goto(collectionDefinitionUrl(definitionId));
     await expect(page.locator('#collection-detail-title')).toBeVisible();
 
     for (const id of ['#collections-back', '#collection-edit-meta', '#collection-run', '#collection-delete']) {
@@ -166,7 +215,9 @@ test.describe('Layout invariants DESIGN.md states and markup cannot prove', () =
       const parentWidth = await page
         .locator(id)
         .evaluate((element) => element.parentElement?.getBoundingClientRect().width ?? -1);
-      expect(control.width, `${id} stretched to its column's width (${parentWidth}px)`).toBeLessThan(parentWidth / 2);
+      expect(control.width, `${id} stretched to its column's width (${parentWidth}px)`).toBeLessThan(
+        parentWidth * LayoutSettings.contentSizedWidthFraction,
+      );
     }
   });
 
@@ -175,28 +226,24 @@ test.describe('Layout invariants DESIGN.md states and markup cannot prove', () =
     store,
   }) => {
     await store.reset();
-    await store.seedCatalogGames([
-      {
-        game_id: 'g1',
-        canonical_title: 'Bloodborne',
-        franchise: 'Souls',
-        genre: 'RPG',
-        aaa_tier: 'AAA',
-        critical_score: 92,
-        oc_score: 91,
-        psn_rating: 4.5,
-        cover_image_url: SQUARE_COVER_DATA_URL,
-      },
-    ]);
+    const game = {
+      ...newCatalogGame(),
+      franchise: newText(),
+      critical_score: newScore(),
+      oc_score: newScore(),
+      psn_rating: newPsnRating(),
+      cover_image_url: newSquareCoverDataUrl(),
+    };
+    await store.seedCatalogGames([game]);
 
     await page.setViewportSize(XL_VIEWPORT);
-    await page.goto('/catalog/g1');
+    await page.goto(catalogGameUrl(game.game_id));
     await expect(page.locator('#catalog-detail-cover')).toBeVisible();
 
     const cover = await boxOf(page, '#catalog-detail-cover');
     const ratings = await boxOf(page, '#catalog-detail-ratings');
     expect(ratings.left, 'the metadata column should sit beside the cover, not under it').toBeGreaterThan(cover.left + cover.width);
-    expect(ratings.top).toBeLessThan(cover.top + cover.width / 2);
+    expect(ratings.top).toBeLessThan(cover.top + cover.width * LayoutSettings.midlineFraction);
   });
 
   test('the Hide control sits under the title on its own line, whatever the title’s length', async ({
@@ -204,24 +251,32 @@ test.describe('Layout invariants DESIGN.md states and markup cannot prove', () =
     store,
   }) => {
     await store.reset();
-    await store.seedLibraryGames(libraryWithALongAndAShortTitle());
+    const [shortTitledGame, longTitledGame] = libraryWithAShortAndALongTitle();
+    await store.seedLibraryGames([shortTitledGame, longTitledGame]);
 
     await page.setViewportSize(XL_VIEWPORT);
-    await page.goto('/library');
-    await expect(page.locator('#library-hide-g1')).toBeVisible();
-    await settleWebfonts(page, ['#library-title-0']);
+    await page.goto(AppUrls.library);
+    await expect(page.locator(`#library-hide-${longTitledGame.game_id}`)).toBeVisible();
+    const shortTitleSelector = `#library-row-${shortTitledGame.game_id} [id^="library-title-"]`;
+    const longTitleSelector = `#library-row-${longTitledGame.game_id} [id^="library-title-"]`;
+    await settleWebfonts(page, [shortTitleSelector]);
 
-    const shortTitle = await boxOf(page, '#library-title-0');
-    const shortHide = await boxOf(page, '#library-hide-g0');
-    const longTitle = await boxOf(page, '#library-title-1');
-    const longHide = await boxOf(page, '#library-hide-g1');
+    const shortTitle = await boxOf(page, shortTitleSelector);
+    const shortTitleHeight = await ownHeight(page, shortTitleSelector);
+    const shortHide = await boxOf(page, `#library-hide-${shortTitledGame.game_id}`);
+    const longTitle = await boxOf(page, longTitleSelector);
+    const longTitleHeight = await ownHeight(page, longTitleSelector);
+    const longHide = await boxOf(page, `#library-hide-${longTitledGame.game_id}`);
 
     expect(
       shortHide.top,
-      'a short title used to keep its Hide control beside the text while a long one pushed it under; the control takes its own line for both',
-    ).toBeGreaterThan(shortTitle.top);
-    expect(longHide.top).toBeGreaterThan(longTitle.top);
-    expect(Math.round(shortHide.top - shortTitle.top)).toBe(Math.round(longHide.top - longTitle.top));
+      'a short title’s Hide control should sit on its own line under the title, as a long title’s does',
+    ).toBeGreaterThanOrEqual(shortTitle.top + shortTitleHeight);
+    expect(longHide.top).toBeGreaterThanOrEqual(longTitle.top + longTitleHeight);
+    expect(
+      Math.round(shortHide.top - (shortTitle.top + shortTitleHeight)),
+      'the gap between a title and its Hide control is the same whatever the title’s length',
+    ).toBe(Math.round(longHide.top - (longTitle.top + longTitleHeight)));
   });
 
   test('the hidden-games toggle is content-sized, not a bar as wide as the card', async ({
@@ -229,53 +284,53 @@ test.describe('Layout invariants DESIGN.md states and markup cannot prove', () =
     store,
   }) => {
     await store.reset();
-    await store.seedLibraryGames(libraryWithALongAndAShortTitle());
-    await store.seedHiddenLibraryGames(['g1']);
+    const libraryGames = libraryWithAShortAndALongTitle();
+    const [, longTitledGame] = libraryGames;
+    await store.seedLibraryGames(libraryGames);
+    await store.seedHiddenLibraryGames([longTitledGame.game_id]);
 
     await page.setViewportSize(XL_VIEWPORT);
-    await page.goto('/library');
+    await page.goto(AppUrls.library);
     await expect(page.locator('#library-show-hidden')).toBeVisible();
 
     const toggle = await boxOf(page, '#library-show-hidden');
-    const card = await boxOf(page, '.library-table-card');
+    const card = await boxOf(page, '#library-table-card');
     expect(card.width).toBeGreaterThan(0);
     expect(
       toggle.width,
       'the table card is align-items: stretch, so a control inside it is a full-width bar unless it opts out with self-start',
-    ).toBeLessThan(card.width / 2);
+    ).toBeLessThan(card.width * LayoutSettings.contentSizedWidthFraction);
   });
 
   test('the profile page holds the same measure as the library', async ({ authedPage: page, store }) => {
     await store.reset();
+    await page.setViewportSize(e2eSettings.viewports.desktop);
 
-    await page.goto('/library');
+    await page.goto(AppUrls.library);
     await expect(page.locator('#library-page')).toBeVisible();
-    const libraryMeasure = await computedStyle(page, '#library-page', 'max-width');
+    const library = await boxOf(page, '#library-page');
+    const dataMeasure = await tokenPx(page, '--container-data');
 
-    await page.goto('/profile');
+    await page.goto(AppUrls.profile);
     await expect(page.locator('#profile-stat-grid')).toBeVisible();
-    const profileMeasure = await computedStyle(page, '#profile-view', 'max-width');
+    const profile = await boxOf(page, '#profile-view');
 
-    expect(libraryMeasure).not.toBe('none');
+    expect(dataMeasure).toBeGreaterThan(0);
     expect(
-      profileMeasure,
-      'the two data pages must share one measure — both take --container-data',
-    ).toBe(libraryMeasure);
+      library.width,
+      'at this viewport the data measure binds, so a page at any other width is not holding it',
+    ).toBeCloseTo(dataMeasure, 0);
+    expect(profile.width, 'the two data pages must render at one measure').toBeCloseTo(library.width, 0);
   });
 
-  for (const [width, expectedTracks] of [
-    [1280, 4],
-    [800, 3],
-    [520, 2],
-    [380, 1],
-  ] as const) {
+  for (const { width, expectedTracks } of LayoutSettings.profileStatGridTracks) {
     test(`the profile stat grid resolves to ${expectedTracks} track(s) at ${width}px with no media query`, async ({
       authedPage: page,
       store,
     }) => {
       await store.reset();
-      await page.setViewportSize({ width, height: 900 });
-      await page.goto('/profile');
+      await page.setViewportSize({ width, height: XL_VIEWPORT.height });
+      await page.goto(AppUrls.profile);
       await expect(page.locator('#profile-stat-grid')).toBeVisible();
 
       await expect.poll(() => trackCount(page, '#profile-stat-grid')).toBe(expectedTracks);
@@ -287,7 +342,7 @@ test.describe('Layout invariants DESIGN.md states and markup cannot prove', () =
     store,
   }) => {
     await store.reset();
-    await page.goto('/');
+    await page.goto(AppUrls.home);
     await expect(page.locator('#home-actions')).toBeVisible();
     await settleWebfonts(page, ['#home-action-0']);
 
@@ -302,7 +357,7 @@ test.describe('Layout invariants DESIGN.md states and markup cannot prove', () =
       }),
     );
 
-    expect(actions.length, 'the home card should offer four actions').toBe(4);
+    expect(actions.length, 'the home card should offer four actions').toBe(LayoutSettings.homeActions.count);
 
     const widths = [...new Set(actions.map((a) => a.width))];
     expect(
@@ -315,30 +370,30 @@ test.describe('Layout invariants DESIGN.md states and markup cannot prove', () =
       rows,
       'four equal buttons over two tracks is two rows of two; a third row means one wrapped alone, ' +
         `which is the orphan this layout replaced. Got ${JSON.stringify(actions)}`,
-    ).toHaveLength(2);
+    ).toHaveLength(LayoutSettings.homeActions.rows);
   });
 
-  for (const width of SWEPT_WIDTHS) {
+  for (const width of LayoutSettings.sweptWidths) {
     test(`the collection detail view fits a ${width}px viewport when deep-linked`, async ({
       authedPage: page,
       store,
     }) => {
       await store.reset();
-      await store.seedCatalogGames([
-        { game_id: 'g1', canonical_title: 'Bloodborne', franchise: null, genre: 'RPG', aaa_tier: 'AAA' },
-      ]);
+      const game = newCatalogGame();
+      const definitionId = newId();
+      await store.seedCatalogGames([game]);
       await store.seedUserCollections(DEFAULT_E2E_SUB, [
         {
-          definition_id: 'd1',
-          name: LONG_COLLECTION_NAME,
-          kind: 'manual_list',
-          visibility: 'unlisted',
-          game_ids: ['g1'],
+          definition_id: definitionId,
+          name: newLongTitle(),
+          kind: CuratorCollectionKinds.manualList,
+          visibility: CollectionVisibilities.unlisted,
+          game_ids: [game.game_id],
         },
       ]);
 
-      await page.setViewportSize({ width, height: 900 });
-      await page.goto('/collections/d/d1');
+      await page.setViewportSize({ width, height: XL_VIEWPORT.height });
+      await page.goto(collectionDefinitionUrl(definitionId));
       await expect(page.locator('#collection-detail-title')).toBeVisible();
       await settleWebfonts(page, ['#collection-detail-title']);
 
@@ -364,7 +419,7 @@ test.describe('Layout invariants DESIGN.md states and markup cannot prove', () =
       expect(
         shareUrl.text,
         'an unlisted collection publishes a share URL, which is the longest unbreakable token on the page',
-      ).toContain('/c/');
+      ).toContain(`${AppUrls.sharedCollections}/`);
       expect(shareUrl.right, `the share URL escapes a ${width}px viewport`).toBeLessThanOrEqual(width);
     });
   }

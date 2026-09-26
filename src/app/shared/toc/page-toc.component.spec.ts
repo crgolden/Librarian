@@ -25,12 +25,12 @@ describe('PageTocComponent', () => {
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    const tocLinks = compiled.querySelectorAll('#page-toc a');
-    expect(tocLinks).toHaveLength(3);
-
     const headings = compiled.querySelectorAll('.item-heading');
+    const tocLinks = compiled.querySelectorAll('#page-toc a');
+    expect(tocLinks).toHaveLength(headings.length);
+
     const ids = Array.from(headings).map((h) => h.id);
-    expect(new Set(ids).size).toBe(3);
+    expect(new Set(ids).size).toBe(headings.length);
     expect(ids[0]).not.toBe(ids[2]);
 
     expect(compiled.querySelector('#back-to-top')?.getAttribute('href')).toBe('#page-title');

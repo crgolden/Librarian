@@ -1,6 +1,8 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { environment } from '../environments/environment';
+import { CuratorApi, CuratorQueryParams } from './curator-api';
 import {
   AccountActionsResponse,
   CatalogGamesResponse,
@@ -37,6 +39,7 @@ import {
   LibraryPageResponse,
   LibraryRefreshResponse,
   LibraryRefreshStatusResponse,
+  LibrarySortField,
   ManualCandidatesResponse,
   ManualGameRequest,
   MeasuredSizeResponse,
@@ -55,6 +58,7 @@ import {
   RefreshScheduleResponse,
   PublicProfileResponse,
   SaveDefinitionRequest,
+  SortDirection,
   StorageDeviceInstallResponse,
   StorageDeviceInstallsResponse,
   StorageDeviceRequest,
@@ -72,24 +76,16 @@ export interface CatalogGamesQuery {
   excludeOwned?: boolean;
   kind?: CatalogKind;
   sort?: CatalogSortField;
-  sortDir?: 'asc' | 'desc';
+  sortDir?: SortDirection;
   limit?: number;
   offset?: number;
 }
-
-export type LibrarySortField =
-  | 'title'
-  | 'genre'
-  | 'rawg_rating'
-  | 'opencritic_rating'
-  | 'psn_rating'
-  | 'percent_completed';
 
 export interface LibraryQuery {
   q?: string;
   genre?: string;
   sort?: LibrarySortField;
-  sortDir?: 'asc' | 'desc';
+  sortDir?: SortDirection;
   limit?: number;
   offset?: number;
   hidden?: LibraryHiddenFilter;
@@ -99,7 +95,7 @@ export interface CollectionItemsQuery {
   q?: string;
   genre?: string;
   sort?: CollectionItemSortField;
-  sortDir?: 'asc' | 'desc';
+  sortDir?: SortDirection;
   limit?: number;
   offset?: number;
 }
@@ -107,22 +103,22 @@ export interface CollectionItemsQuery {
 function collectionItemsQueryParams(query: CollectionItemsQuery): HttpParams {
   let params = new HttpParams();
   if (query.q) {
-    params = params.set('q', query.q);
+    params = params.set(CuratorQueryParams.q, query.q);
   }
   if (query.genre) {
-    params = params.set('genre', query.genre);
+    params = params.set(CuratorQueryParams.genre, query.genre);
   }
   if (query.sort) {
-    params = params.set('sort', query.sort);
+    params = params.set(CuratorQueryParams.sort, query.sort);
   }
   if (query.sortDir) {
-    params = params.set('sortDir', query.sortDir);
+    params = params.set(CuratorQueryParams.sortDir, query.sortDir);
   }
   if (query.limit !== undefined) {
-    params = params.set('limit', query.limit);
+    params = params.set(CuratorQueryParams.limit, query.limit);
   }
   if (query.offset !== undefined) {
-    params = params.set('offset', query.offset);
+    params = params.set(CuratorQueryParams.offset, query.offset);
   }
   return params;
 }
@@ -130,25 +126,25 @@ function collectionItemsQueryParams(query: CollectionItemsQuery): HttpParams {
 function libraryQueryParams(query: LibraryQuery): HttpParams {
   let params = new HttpParams();
   if (query.q) {
-    params = params.set('q', query.q);
+    params = params.set(CuratorQueryParams.q, query.q);
   }
   if (query.genre) {
-    params = params.set('genre', query.genre);
+    params = params.set(CuratorQueryParams.genre, query.genre);
   }
   if (query.sort) {
-    params = params.set('sort', query.sort);
+    params = params.set(CuratorQueryParams.sort, query.sort);
   }
   if (query.sortDir) {
-    params = params.set('sortDir', query.sortDir);
+    params = params.set(CuratorQueryParams.sortDir, query.sortDir);
   }
   if (query.limit !== undefined) {
-    params = params.set('limit', query.limit);
+    params = params.set(CuratorQueryParams.limit, query.limit);
   }
   if (query.offset !== undefined) {
-    params = params.set('offset', query.offset);
+    params = params.set(CuratorQueryParams.offset, query.offset);
   }
   if (query.hidden) {
-    params = params.set('hidden', query.hidden);
+    params = params.set(CuratorQueryParams.hidden, query.hidden);
   }
   return params;
 }
@@ -160,76 +156,76 @@ export class CuratorService {
   listCatalogGames(query: CatalogGamesQuery): Observable<CatalogGamesResponse> {
     let params = new HttpParams();
     if (query.q) {
-      params = params.set('q', query.q);
+      params = params.set(CuratorQueryParams.q, query.q);
     }
     if (query.franchise) {
-      params = params.set('franchise', query.franchise);
+      params = params.set(CuratorQueryParams.franchise, query.franchise);
     }
     if (query.genre) {
-      params = params.set('genre', query.genre);
+      params = params.set(CuratorQueryParams.genre, query.genre);
     }
     if (query.aaaTier) {
-      params = params.set('aaaTier', query.aaaTier);
+      params = params.set(CuratorQueryParams.aaaTier, query.aaaTier);
     }
     if (query.excludeOwned === true) {
-      params = params.set('excludeOwned', true);
+      params = params.set(CuratorQueryParams.excludeOwned, true);
     }
     if (query.kind) {
-      params = params.set('kind', query.kind);
+      params = params.set(CuratorQueryParams.kind, query.kind);
     }
     if (query.sort) {
-      params = params.set('sort', query.sort);
+      params = params.set(CuratorQueryParams.sort, query.sort);
     }
     if (query.sortDir) {
-      params = params.set('sortDir', query.sortDir);
+      params = params.set(CuratorQueryParams.sortDir, query.sortDir);
     }
     if (query.limit !== undefined) {
-      params = params.set('limit', query.limit);
+      params = params.set(CuratorQueryParams.limit, query.limit);
     }
     if (query.offset !== undefined) {
-      params = params.set('offset', query.offset);
+      params = params.set(CuratorQueryParams.offset, query.offset);
     }
-    return this.http.get<CatalogGamesResponse>('/curator/api/catalog/games', { params });
+    return this.http.get<CatalogGamesResponse>(CuratorApi.catalogGames, { params });
   }
 
   getCatalogGame(gameId: string): Observable<GameSummaryResponse> {
-    return this.http.get<GameSummaryResponse>(`/curator/api/catalog/games/${gameId}`);
+    return this.http.get<GameSummaryResponse>(CuratorApi.catalogGamesByGameId(gameId));
   }
 
   getCatalogGameCollections(gameId: string): Observable<GameCollectionsResponse> {
-    return this.http.get<GameCollectionsResponse>(`/curator/api/catalog/games/${gameId}/collections`);
+    return this.http.get<GameCollectionsResponse>(CuratorApi.catalogGamesByGameIdCollections(gameId));
   }
 
   getPsPlusRotation(): Observable<PsPlusRotationResponse> {
-    return this.http.get<PsPlusRotationResponse>('/curator/api/me/ps-plus-rotation');
+    return this.http.get<PsPlusRotationResponse>(CuratorApi.mePsPlusRotation);
   }
 
   getPsPlusRotationSummary(): Observable<PsPlusRotationSummaryResponse> {
-    return this.http.get<PsPlusRotationSummaryResponse>('/curator/api/me/ps-plus-rotation/summary');
+    return this.http.get<PsPlusRotationSummaryResponse>(CuratorApi.mePsPlusRotationSummary);
   }
 
   hideLibraryGame(gameId: string): Observable<void> {
-    return this.http.put<void>(`/curator/api/library/${gameId}/hidden`, {});
+    return this.http.put<void>(CuratorApi.libraryByGameIdHidden(gameId), {});
   }
 
   unhideLibraryGame(gameId: string): Observable<void> {
-    return this.http.delete<void>(`/curator/api/library/${gameId}/hidden`);
+    return this.http.delete<void>(CuratorApi.libraryByGameIdHidden(gameId));
   }
 
   getFriendRequests(): Observable<FriendRequestsResponse> {
-    return this.http.get<FriendRequestsResponse>('/curator/api/me/friend-requests');
+    return this.http.get<FriendRequestsResponse>(CuratorApi.meFriendRequests);
   }
 
   sendFriendRequest(onlineId: string): Observable<void> {
-    return this.http.post<void>(`/curator/api/me/friend-requests/${onlineId}`, {});
+    return this.http.post<void>(CuratorApi.meFriendRequestsByOnlineId(onlineId), {});
   }
 
   acceptFriendRequest(onlineId: string): Observable<void> {
-    return this.http.put<void>(`/curator/api/me/friends/${onlineId}`, {});
+    return this.http.put<void>(CuratorApi.meFriendsByOnlineId(onlineId), {});
   }
 
   getCatalogGenres(): Observable<CatalogGenresResponse> {
-    return this.http.get<CatalogGenresResponse>('/curator/api/catalog/genres');
+    return this.http.get<CatalogGenresResponse>(CuratorApi.catalogGenres);
   }
 
   previewCollection(
@@ -238,71 +234,71 @@ export class CuratorService {
   ): Observable<CollectionPreviewResponse> {
     let params = new HttpParams();
     if (options.limit !== undefined) {
-      params = params.set('limit', options.limit);
+      params = params.set(CuratorQueryParams.limit, options.limit);
     }
     if (options.offset !== undefined) {
-      params = params.set('offset', options.offset);
+      params = params.set(CuratorQueryParams.offset, options.offset);
     }
-    return this.http.post<CollectionPreviewResponse>('/curator/api/collections/preview', spec, { params });
+    return this.http.post<CollectionPreviewResponse>(CuratorApi.collectionsPreview, spec, { params });
   }
 
   saveDefinition(body: SaveDefinitionRequest): Observable<DefinitionResponse> {
-    return this.http.post<DefinitionResponse>('/curator/api/collections', body);
+    return this.http.post<DefinitionResponse>(CuratorApi.collections, body);
   }
 
   listDefinitions(): Observable<DefinitionResponse[]> {
-    return this.http.get<DefinitionResponse[]>('/curator/api/collections');
+    return this.http.get<DefinitionResponse[]>(CuratorApi.collections);
   }
 
   listFollowedCollections(): Observable<DefinitionResponse[]> {
-    return this.http.get<DefinitionResponse[]>('/curator/api/collections/followed');
+    return this.http.get<DefinitionResponse[]>(CuratorApi.collectionsFollowed);
   }
 
   getDefinition(definitionId: string): Observable<DefinitionDetailResponse> {
-    return this.http.get<DefinitionDetailResponse>(`/curator/api/collections/${definitionId}`);
+    return this.http.get<DefinitionDetailResponse>(CuratorApi.collectionsByDefinitionId(definitionId));
   }
 
   getDefinitionItems(definitionId: string, query: CollectionItemsQuery = {}): Observable<CollectionItemsPageResponse> {
-    return this.http.get<CollectionItemsPageResponse>(`/curator/api/collections/${definitionId}/items`, {
+    return this.http.get<CollectionItemsPageResponse>(CuratorApi.collectionsByDefinitionIdItems(definitionId), {
       params: collectionItemsQueryParams(query),
     });
   }
 
   linkConsoleDevice(consoleId: string, deviceId: string): Observable<void> {
     const body: DeviceLinkRequest = { device_id: deviceId };
-    return this.http.put<void>(`/curator/api/consoles/${consoleId}/device-link`, body);
+    return this.http.put<void>(CuratorApi.consolesByConsoleIdDeviceLink(consoleId), body);
   }
 
   unlinkConsoleDevice(consoleId: string): Observable<void> {
-    return this.http.delete<void>(`/curator/api/consoles/${consoleId}/device-link`);
+    return this.http.delete<void>(CuratorApi.consolesByConsoleIdDeviceLink(consoleId));
   }
 
   removeDefinitionItem(definitionId: string, gameId: string): Observable<void> {
-    return this.http.delete<void>(`/curator/api/collections/${definitionId}/items/${gameId}`);
+    return this.http.delete<void>(CuratorApi.collectionsByDefinitionIdItemsByGameId(definitionId, gameId));
   }
 
   updateDefinition(definitionId: string, body: UpdateDefinitionRequest): Observable<DefinitionDetailResponse> {
-    return this.http.patch<DefinitionDetailResponse>(`/curator/api/collections/${definitionId}`, body);
+    return this.http.patch<DefinitionDetailResponse>(CuratorApi.collectionsByDefinitionId(definitionId), body);
   }
 
   deleteDefinition(definitionId: string): Observable<void> {
-    return this.http.delete<void>(`/curator/api/collections/${definitionId}`);
+    return this.http.delete<void>(CuratorApi.collectionsByDefinitionId(definitionId));
   }
 
   setDefinitionVisibility(definitionId: string, visibility: CollectionVisibility): Observable<DefinitionResponse> {
-    return this.http.put<DefinitionResponse>(`/curator/api/collections/${definitionId}/visibility`, { visibility });
+    return this.http.put<DefinitionResponse>(CuratorApi.collectionsByDefinitionIdVisibility(definitionId), { visibility });
   }
 
   followDefinition(definitionId: string): Observable<void> {
-    return this.http.post<void>(`/curator/api/collections/${definitionId}/follow`, {});
+    return this.http.post<void>(CuratorApi.collectionsByDefinitionIdFollow(definitionId), {});
   }
 
   unfollowDefinition(definitionId: string): Observable<void> {
-    return this.http.delete<void>(`/curator/api/collections/${definitionId}/follow`);
+    return this.http.delete<void>(CuratorApi.collectionsByDefinitionIdFollow(definitionId));
   }
 
   getPublicCollection(shareSlug: string): Observable<PublicCollectionResponse> {
-    return this.http.get<PublicCollectionResponse>(`/curator/api/public/collections/${shareSlug}`);
+    return this.http.get<PublicCollectionResponse>(CuratorApi.publicCollectionsByShareSlug(shareSlug));
   }
 
   runDefinition(
@@ -311,74 +307,74 @@ export class CuratorService {
   ): Observable<CollectionRunResponse> {
     let params = new HttpParams();
     if (options.limit !== undefined) {
-      params = params.set('limit', options.limit);
+      params = params.set(CuratorQueryParams.limit, options.limit);
     }
     if (options.offset !== undefined) {
-      params = params.set('offset', options.offset);
+      params = params.set(CuratorQueryParams.offset, options.offset);
     }
-    return this.http.post<CollectionRunResponse>(`/curator/api/collections/${definitionId}/runs`, {}, { params });
+    return this.http.post<CollectionRunResponse>(CuratorApi.collectionsByDefinitionIdRuns(definitionId), {}, { params });
   }
 
   createConsole(body: ConsoleRequest): Observable<ConsoleResponse> {
-    return this.http.post<ConsoleResponse>('/curator/api/consoles', body);
+    return this.http.post<ConsoleResponse>(CuratorApi.consoles, body);
   }
 
   listConsoles(): Observable<ConsoleResponse[]> {
-    return this.http.get<ConsoleResponse[]>('/curator/api/consoles');
+    return this.http.get<ConsoleResponse[]>(CuratorApi.consoles);
   }
 
   getConsole(consoleId: string): Observable<ConsoleResponse> {
-    return this.http.get<ConsoleResponse>(`/curator/api/consoles/${consoleId}`);
+    return this.http.get<ConsoleResponse>(CuratorApi.consolesByConsoleId(consoleId));
   }
 
   updateConsole(consoleId: string, body: ConsoleUpdateRequest): Observable<ConsoleResponse> {
-    return this.http.patch<ConsoleResponse>(`/curator/api/consoles/${consoleId}`, body);
+    return this.http.patch<ConsoleResponse>(CuratorApi.consolesByConsoleId(consoleId), body);
   }
 
   deleteConsole(consoleId: string): Observable<void> {
-    return this.http.delete<void>(`/curator/api/consoles/${consoleId}`);
+    return this.http.delete<void>(CuratorApi.consolesByConsoleId(consoleId));
   }
 
   getConsoleInstalls(consoleId: string): Observable<ConsoleInstallsResponse> {
-    return this.http.get<ConsoleInstallsResponse>(`/curator/api/consoles/${consoleId}/installs`);
+    return this.http.get<ConsoleInstallsResponse>(CuratorApi.consolesByConsoleIdInstalls(consoleId));
   }
 
   setConsoleInstall(consoleId: string, gameId: string, installed: boolean): Observable<ConsoleInstallResponse> {
-    return this.http.put<ConsoleInstallResponse>(`/curator/api/consoles/${consoleId}/installs/${gameId}`, {
+    return this.http.put<ConsoleInstallResponse>(CuratorApi.consolesByConsoleIdInstallsByGameId(consoleId, gameId), {
       installed,
     });
   }
 
   createStorageDevice(body: StorageDeviceRequest): Observable<StorageDeviceResponse> {
-    return this.http.post<StorageDeviceResponse>('/curator/api/storage-devices', body);
+    return this.http.post<StorageDeviceResponse>(CuratorApi.storageDevices, body);
   }
 
   listStorageDevices(): Observable<StorageDeviceResponse[]> {
-    return this.http.get<StorageDeviceResponse[]>('/curator/api/storage-devices');
+    return this.http.get<StorageDeviceResponse[]>(CuratorApi.storageDevices);
   }
 
   getStorageDevice(deviceId: string): Observable<StorageDeviceResponse> {
-    return this.http.get<StorageDeviceResponse>(`/curator/api/storage-devices/${deviceId}`);
+    return this.http.get<StorageDeviceResponse>(CuratorApi.storageDevicesByDeviceId(deviceId));
   }
 
   updateStorageDevice(deviceId: string, body: StorageDeviceUpdateRequest): Observable<StorageDeviceResponse> {
-    return this.http.patch<StorageDeviceResponse>(`/curator/api/storage-devices/${deviceId}`, body);
+    return this.http.patch<StorageDeviceResponse>(CuratorApi.storageDevicesByDeviceId(deviceId), body);
   }
 
   deleteStorageDevice(deviceId: string): Observable<void> {
-    return this.http.delete<void>(`/curator/api/storage-devices/${deviceId}`);
+    return this.http.delete<void>(CuratorApi.storageDevicesByDeviceId(deviceId));
   }
 
   attachStorageDevice(deviceId: string, consoleId: string): Observable<StorageDeviceResponse> {
-    return this.http.put<StorageDeviceResponse>(`/curator/api/storage-devices/${deviceId}/attach/${consoleId}`, {});
+    return this.http.put<StorageDeviceResponse>(CuratorApi.storageDevicesByDeviceIdAttachByConsoleId(deviceId, consoleId), {});
   }
 
   detachStorageDevice(deviceId: string): Observable<StorageDeviceResponse> {
-    return this.http.delete<StorageDeviceResponse>(`/curator/api/storage-devices/${deviceId}/attach`);
+    return this.http.delete<StorageDeviceResponse>(CuratorApi.storageDevicesByDeviceIdAttach(deviceId));
   }
 
   getStorageDeviceInstalls(deviceId: string): Observable<StorageDeviceInstallsResponse> {
-    return this.http.get<StorageDeviceInstallsResponse>(`/curator/api/storage-devices/${deviceId}/installs`);
+    return this.http.get<StorageDeviceInstallsResponse>(CuratorApi.storageDevicesByDeviceIdInstalls(deviceId));
   }
 
   setStorageDeviceInstall(
@@ -387,186 +383,186 @@ export class CuratorService {
     installed: boolean,
   ): Observable<StorageDeviceInstallResponse> {
     return this.http.put<StorageDeviceInstallResponse>(
-      `/curator/api/storage-devices/${deviceId}/installs/${gameId}`,
+      CuratorApi.storageDevicesByDeviceIdInstallsByGameId(deviceId, gameId),
       { installed },
     );
   }
 
   getMeasuredSizes(gameId: string): Observable<MeasuredSizeResponse[]> {
-    return this.http.get<MeasuredSizeResponse[]>(`/curator/api/games/${gameId}/measured-sizes`);
+    return this.http.get<MeasuredSizeResponse[]>(CuratorApi.gamesByGameIdMeasuredSizes(gameId));
   }
 
   setMeasuredSize(gameId: string, platform: string, sizeGb: number): Observable<MeasuredSizeResponse> {
-    return this.http.put<MeasuredSizeResponse>(`/curator/api/games/${gameId}/measured-sizes/${platform}`, {
+    return this.http.put<MeasuredSizeResponse>(CuratorApi.gamesByGameIdMeasuredSizesByPlatform(gameId, platform), {
       size_gb: sizeGb,
     });
   }
 
   refreshLibrary(): Observable<LibraryRefreshResponse> {
-    return this.http.post<LibraryRefreshResponse>('/curator/api/library/refresh', {});
+    return this.http.post<LibraryRefreshResponse>(CuratorApi.libraryRefresh, {});
   }
 
   getLibraryRefreshStatus(runId: string): Observable<LibraryRefreshStatusResponse> {
-    return this.http.get<LibraryRefreshStatusResponse>(`/curator/api/library/refresh/${runId}`);
+    return this.http.get<LibraryRefreshStatusResponse>(CuratorApi.libraryRefreshByRunId(runId));
   }
 
   getLibrary(query: LibraryQuery = {}): Observable<LibraryPageResponse> {
-    return this.http.get<LibraryPageResponse>('/curator/api/library', { params: libraryQueryParams(query) });
+    return this.http.get<LibraryPageResponse>(CuratorApi.library, { params: libraryQueryParams(query) });
   }
 
   manualAddCandidates(q: string, includeStore: boolean, limit: number): Observable<ManualCandidatesResponse> {
-    let params = new HttpParams().set('q', q).set('limit', limit);
+    let params = new HttpParams().set(CuratorQueryParams.q, q).set(CuratorQueryParams.limit, limit);
     if (includeStore) {
-      params = params.set('includeStore', true);
+      params = params.set(CuratorQueryParams.includeStore, true);
     }
-    return this.http.get<ManualCandidatesResponse>('/curator/api/library/manual/candidates', { params });
+    return this.http.get<ManualCandidatesResponse>(CuratorApi.libraryManualCandidates, { params });
   }
 
   addManualGame(body: ManualGameRequest): Observable<void> {
-    return this.http.post<void>('/curator/api/library/manual', body);
+    return this.http.post<void>(CuratorApi.libraryManual, body);
   }
 
   removeManualGame(gameId: string): Observable<void> {
-    return this.http.delete<void>(`/curator/api/library/manual/${gameId}`);
+    return this.http.delete<void>(CuratorApi.libraryManualByGameId(gameId));
   }
 
   getLibraryGenres(): Observable<LibraryGenresResponse> {
-    return this.http.get<LibraryGenresResponse>('/curator/api/library/genres');
+    return this.http.get<LibraryGenresResponse>(CuratorApi.libraryGenres);
   }
 
   getEnrichmentKeyStatus(): Observable<EnrichmentKeyStatusResponse> {
-    return this.http.get<EnrichmentKeyStatusResponse>('/curator/api/me/enrichment-keys');
+    return this.http.get<EnrichmentKeyStatusResponse>(CuratorApi.meEnrichmentKeys);
   }
 
   setRawgKey(apiKey: string): Observable<void> {
-    return this.http.put<void>('/curator/api/me/enrichment-keys/rawg', { api_key: apiKey });
+    return this.http.put<void>(CuratorApi.meEnrichmentKeysRawg, { api_key: apiKey });
   }
 
   deleteRawgKey(): Observable<void> {
-    return this.http.delete<void>('/curator/api/me/enrichment-keys/rawg');
+    return this.http.delete<void>(CuratorApi.meEnrichmentKeysRawg);
   }
 
   setOpenCriticKey(apiKey: string): Observable<void> {
-    return this.http.put<void>('/curator/api/me/enrichment-keys/opencritic', { api_key: apiKey });
+    return this.http.put<void>(CuratorApi.meEnrichmentKeysOpencritic, { api_key: apiKey });
   }
 
   deleteOpenCriticKey(): Observable<void> {
-    return this.http.delete<void>('/curator/api/me/enrichment-keys/opencritic');
+    return this.http.delete<void>(CuratorApi.meEnrichmentKeysOpencritic);
   }
 
   getPsnPreferences(): Observable<PsnPreferencesResponse> {
-    return this.http.get<PsnPreferencesResponse>('/curator/api/me/psn-preferences');
+    return this.http.get<PsnPreferencesResponse>(CuratorApi.mePsnPreferences);
   }
 
   setPsnPreferences(body: PsnPreferencesRequest): Observable<void> {
-    return this.http.put<void>('/curator/api/me/psn-preferences', body);
+    return this.http.put<void>(CuratorApi.mePsnPreferences, body);
   }
 
   getTrophySummary(): Observable<TrophySummaryResponse> {
-    return this.http.get<TrophySummaryResponse>('/curator/api/trophies/summary');
+    return this.http.get<TrophySummaryResponse>(CuratorApi.trophiesSummary);
   }
 
   getIdentity(): Observable<IdentityResponse> {
-    return this.http.get<IdentityResponse>('/curator/api/identity');
+    return this.http.get<IdentityResponse>(CuratorApi.identity);
   }
 
   getPresence(): Observable<PresenceResponse> {
-    return this.http.get<PresenceResponse>('/curator/api/presence');
+    return this.http.get<PresenceResponse>(CuratorApi.presence);
   }
 
   getDevices(): Observable<DevicesResponse> {
-    return this.http.get<DevicesResponse>('/curator/api/devices');
+    return this.http.get<DevicesResponse>(CuratorApi.devices);
   }
 
   getMyActions(): Observable<AccountActionsResponse> {
-    return this.http.get<AccountActionsResponse>('/curator/api/me/actions');
+    return this.http.get<AccountActionsResponse>(CuratorApi.meActions);
   }
 
   getProfileSettings(): Observable<ProfileSettingsResponse> {
-    return this.http.get<ProfileSettingsResponse>('/curator/api/me/profile-settings');
+    return this.http.get<ProfileSettingsResponse>(CuratorApi.meProfileSettings);
   }
 
   setProfileSettings(body: ProfileSettingsRequest): Observable<ProfileSettingsResponse> {
-    return this.http.put<ProfileSettingsResponse>('/curator/api/me/profile-settings', body);
+    return this.http.put<ProfileSettingsResponse>(CuratorApi.meProfileSettings, body);
   }
 
   getRefreshSchedule(): Observable<RefreshScheduleResponse> {
-    return this.http.get<RefreshScheduleResponse>('/curator/api/me/refresh-schedule');
+    return this.http.get<RefreshScheduleResponse>(CuratorApi.meRefreshSchedule);
   }
 
   setRefreshSchedule(body: RefreshScheduleRequest): Observable<RefreshScheduleResponse> {
-    return this.http.put<RefreshScheduleResponse>('/curator/api/me/refresh-schedule', body);
+    return this.http.put<RefreshScheduleResponse>(CuratorApi.meRefreshSchedule, body);
   }
 
   deleteRefreshSchedule(): Observable<void> {
-    return this.http.delete<void>('/curator/api/me/refresh-schedule');
+    return this.http.delete<void>(CuratorApi.meRefreshSchedule);
   }
 
   listProfileLinkSites(): Observable<ProfileLinkSiteResponse[]> {
-    return this.http.get<ProfileLinkSiteResponse[]>('/curator/api/me/profile-link-sites');
+    return this.http.get<ProfileLinkSiteResponse[]>(CuratorApi.meProfileLinkSites);
   }
 
   getProfileLinks(): Observable<ProfileLinkResponse[]> {
-    return this.http.get<ProfileLinkResponse[]>('/curator/api/me/profile-links');
+    return this.http.get<ProfileLinkResponse[]>(CuratorApi.meProfileLinks);
   }
 
   setProfileLink(siteKey: string, handle: string): Observable<ProfileLinkResponse> {
-    return this.http.put<ProfileLinkResponse>(`/curator/api/me/profile-links/${siteKey}`, { handle });
+    return this.http.put<ProfileLinkResponse>(CuratorApi.meProfileLinksBySiteKey(siteKey), { handle });
   }
 
   deleteProfileLink(siteKey: string): Observable<void> {
-    return this.http.delete<void>(`/curator/api/me/profile-links/${siteKey}`);
+    return this.http.delete<void>(CuratorApi.meProfileLinksBySiteKey(siteKey));
   }
 
   getUserProfile(sub: string): Observable<PublicProfileResponse> {
-    return this.http.get<PublicProfileResponse>(`/curator/api/users/${sub}/profile`);
+    return this.http.get<PublicProfileResponse>(CuratorApi.usersBySubProfile(sub));
   }
 
   followUser(sub: string): Observable<void> {
-    return this.http.post<void>(`/curator/api/users/${sub}/follow`, {});
+    return this.http.post<void>(CuratorApi.usersBySubFollow(sub), {});
   }
 
   unfollowUser(sub: string): Observable<void> {
-    return this.http.delete<void>(`/curator/api/users/${sub}/follow`);
+    return this.http.delete<void>(CuratorApi.usersBySubFollow(sub));
   }
 
-  getFollowers(sub: string, limit = 50, offset = 0): Observable<FollowListResponse> {
-    const params = new HttpParams().set('limit', limit).set('offset', offset);
-    return this.http.get<FollowListResponse>(`/curator/api/users/${sub}/followers`, { params });
+  getFollowers(sub: string, limit = environment.followListPageSize, offset = 0): Observable<FollowListResponse> {
+    const params = new HttpParams().set(CuratorQueryParams.limit, limit).set(CuratorQueryParams.offset, offset);
+    return this.http.get<FollowListResponse>(CuratorApi.usersBySubFollowers(sub), { params });
   }
 
-  getFollowing(sub: string, limit = 50, offset = 0): Observable<FollowListResponse> {
-    const params = new HttpParams().set('limit', limit).set('offset', offset);
-    return this.http.get<FollowListResponse>(`/curator/api/users/${sub}/following`, { params });
+  getFollowing(sub: string, limit = environment.followListPageSize, offset = 0): Observable<FollowListResponse> {
+    const params = new HttpParams().set(CuratorQueryParams.limit, limit).set(CuratorQueryParams.offset, offset);
+    return this.http.get<FollowListResponse>(CuratorApi.usersBySubFollowing(sub), { params });
   }
 
   getUserLibrary(sub: string, query: LibraryQuery = {}): Observable<ProfileLibraryPageResponse> {
-    return this.http.get<ProfileLibraryPageResponse>(`/curator/api/users/${sub}/library`, {
+    return this.http.get<ProfileLibraryPageResponse>(CuratorApi.usersBySubLibrary(sub), {
       params: libraryQueryParams(query),
     });
   }
 
   getUserLibraryGenres(sub: string): Observable<LibraryGenresResponse> {
-    return this.http.get<LibraryGenresResponse>(`/curator/api/users/${sub}/library/genres`);
+    return this.http.get<LibraryGenresResponse>(CuratorApi.usersBySubLibraryGenres(sub));
   }
 
   getUserCollections(sub: string): Observable<ProfileDefinitionResponse[]> {
-    return this.http.get<ProfileDefinitionResponse[]>(`/curator/api/users/${sub}/collections`);
+    return this.http.get<ProfileDefinitionResponse[]>(CuratorApi.usersBySubCollections(sub));
   }
 
   getMe(): Observable<MeResponse> {
-    return this.http.get<MeResponse>('/curator/api/me');
+    return this.http.get<MeResponse>(CuratorApi.me);
   }
 
   startEnrichmentRun(): Observable<EnrichmentRunResponse> {
-    return this.http.post<EnrichmentRunResponse>('/curator/api/enrichment/runs', {});
+    return this.http.post<EnrichmentRunResponse>(CuratorApi.enrichmentRuns, {});
   }
 
   getLatestEnrichmentRun(): Observable<EnrichmentRunStatusResponse> {
-    return this.http.get<EnrichmentRunStatusResponse>('/curator/api/enrichment/runs/latest');
+    return this.http.get<EnrichmentRunStatusResponse>(CuratorApi.enrichmentRunsLatest);
   }
 
   getEnrichmentRunStatus(runId: string): Observable<EnrichmentRunStatusResponse> {
-    return this.http.get<EnrichmentRunStatusResponse>(`/curator/api/enrichment/runs/${runId}`);
+    return this.http.get<EnrichmentRunStatusResponse>(CuratorApi.enrichmentRunsByRunId(runId));
   }
 }

@@ -1,4 +1,4 @@
-<section id="library-page" class="page-section library">
+<section id="library-page" crgPageSection class="flex flex-col gap-4 max-w-data mx-auto">
   <app-loading-overlay [visible]="gamesLoading() || manualPending() !== null || hidePending() !== null" />
 
   @if (viewerMode()) {
@@ -7,31 +7,28 @@
   <h1 id="page-title">{{ viewerMode() ? 'Library' : 'My Library' }}</h1>
 
   @if (viewerForbidden()) {
-    <p id="library-forbidden" class="text-muted">
-      This user keeps their library private. Only they can change that, in their own profile settings —
-      following them does not grant access.
-    </p>
+    <p id="library-forbidden" class="text-meta text-text-muted">{{ forbiddenMessage }}</p>
   } @else {
     @if (!viewerMode()) {
-      <p class="text-muted">Refresh rebuilds your catalog entries from your linked PlayStation Network entitlements.</p>
+      <p class="text-meta text-text-muted">Refresh rebuilds your catalog entries from your linked PlayStation Network entitlements.</p>
 
-      <div class="card p-6 flex flex-col items-start gap-3">
-        <button id="library-refresh" type="button" class="btn-primary" [disabled]="refreshing()" (click)="refresh()">
+      <div crgCard class="p-6 flex flex-col items-start gap-3">
+        <button id="library-refresh" type="button" crgButtonPrimary [disabled]="refreshing()" (click)="refresh()">
           {{ refreshing() ? 'Refreshing...' : 'Refresh library' }}
         </button>
 
-        <button id="library-add-manual-toggle" type="button" class="btn-ghost" (click)="toggleAddManual()">
+        <button id="library-add-manual-toggle" type="button" crgButtonGhost (click)="toggleAddManual()">
           {{ addingManual() ? 'Cancel' : 'Add a game manually' }}
         </button>
 
         @if (manualAdded(); as added) {
-          <p id="library-manual-added" class="text-success">Added {{ added }} to your library.</p>
+          <p id="library-manual-added" class="text-ok">Added {{ added }} to your library.</p>
         }
 
         @if (addingManual()) {
-          <div class="manual-add">
+          <div class="flex flex-col items-start gap-3">
             <h2 id="library-manual-heading">Add a game manually</h2>
-            <p class="text-muted">
+            <p class="text-meta text-text-muted">
               For a game you own that isn't in your digital entitlements — a disc, typically. Search by name:
               anything already in your library is left out, so what you see is what you can still add. If the
               catalog has never heard of the name, we check the PlayStation Store and propose a match; you can
@@ -52,7 +49,7 @@
               <button
                 id="library-manual-search-submit"
                 type="submit"
-                class="btn-primary"
+                crgButtonPrimary
                 [disabled]="manualSearching() || manualPending() !== null"
               >
                 {{ manualSearching() ? 'Searching…' : 'Search' }}
@@ -60,35 +57,36 @@
             </form>
 
             @if (manualError()) {
-              <p class="text-error">{{ manualError() }}</p>
+              <p class="m-0 text-meta text-danger">{{ manualError() }}</p>
             }
             @if (storeUnlinked()) {
-              <p id="library-store-unlinked" class="text-muted">
+              <p id="library-store-unlinked" class="text-meta text-text-muted">
                 That title is not in the shared catalog, and checking the PlayStation Store needs a linked
-                PlayStation Network account. <a routerLink="/account">Link one on your account page</a> to add a game
+                PlayStation Network account. <a [routerLink]="appUrls.account">Link one on your account page</a> to add a game
                 the catalog has never seen.
               </p>
             }
 
             @if (allCatalogMatchesOwned()) {
-              <p id="library-manual-all-owned" class="text-muted">
+              <p id="library-manual-all-owned" class="text-meta text-text-muted">
                 Every catalogued game matching that name is already in your library. If the copy you own is a
                 different edition, check the PlayStation Store for it.
               </p>
             }
 
             @if (manualResults().length > 0 || allCatalogMatchesOwned()) {
-              <ul id="library-manual-results" class="manual-add-results">
+              <ul id="library-manual-results" class="m-0 flex w-full list-none flex-col gap-2 p-0">
                 @for (candidate of manualResults(); track $index) {
                   <li class="flex flex-wrap items-center gap-3 w-full">
-                    <span class="catalog-title grow">{{ candidate.canonical_title }}</span>
+                    <span appCatalogTitle class="grow" [attr.id]="'library-manual-title-' + $index">{{ candidate.canonical_title }}</span>
                     @if (candidate.genre) {
-                      <span class="spine-label">{{ candidate.genre }}</span>
+                      <span appSpineLabel>{{ candidate.genre }}</span>
                     }
                     <button
                       type="button"
-                      class="btn-ghost btn-sm"
+                      crgButtonGhostSmall
                       [attr.id]="'library-manual-add-' + $index"
+                      [attr.data-game-id]="candidate.game_id"
                       [disabled]="manualPending() !== null"
                       (click)="addManualGame(candidate)"
                     >
@@ -100,12 +98,12 @@
 
               <div class="flex flex-wrap items-center gap-3 w-full">
                 @if (manualResults().length > 0) {
-                  <span class="text-muted grow">Not the game you own? The catalog holds only part of the Store.</span>
+                  <span id="library-manual-not-yours" class="text-meta text-text-muted grow">Not the game you own? The catalog holds only part of the Store.</span>
                 }
                 <button
                   id="library-manual-check-store"
                   type="button"
-                  class="btn-primary"
+                  crgButtonPrimary
                   [disabled]="manualSearching() || manualPending() !== null"
                   (click)="checkTheStoreForCurrentSearch()"
                 >
@@ -118,45 +116,55 @@
 
         @if (schedule(); as current) {
           @if (current.paused_reason) {
-            <p id="library-schedule-paused" class="text-error">
+            <p id="library-schedule-paused" class="m-0 text-meta text-danger" [attr.data-paused-reason]="current.paused_reason">
               Scheduled refreshes are paused.
-              <a id="library-schedule-link" routerLink="/account">Fix it on your account page</a>
+              <a id="library-schedule-link" [routerLink]="appUrls.account">Fix it on your account page</a>
             </p>
           } @else {
-            <p id="library-schedule-next" class="catalog-meta">
+            <p id="library-schedule-next" appCatalogMeta [attr.data-next-run-at]="current.next_run_at">
               Next automatic refresh: {{ current.next_run_at | date: 'medium' }} ·
-              <a id="library-schedule-link" routerLink="/account">Change schedule</a>
+              <a id="library-schedule-link" [routerLink]="appUrls.account">Change schedule</a>
             </p>
           }
         } @else {
-          <p id="library-schedule-none" class="catalog-meta">
+          <p id="library-schedule-none" appCatalogMeta>
             No automatic refresh is scheduled.
-            <a id="library-schedule-link" routerLink="/account">Set one up</a>
+            <a id="library-schedule-link" [routerLink]="appUrls.account">Set one up</a>
           </p>
         }
 
         @if (psPlus(); as rotation) {
-          <p id="library-ps-plus-summary" class="catalog-meta">
+          <p
+            id="library-ps-plus-summary"
+            appCatalogMeta
+            [attr.data-unclaimed]="rotation.unclaimed"
+            [attr.data-leaving]="rotation.leaving"
+          >
             @if (rotation.catalog_walked_at) {
               PlayStation Plus: {{ rotation.unclaimed }} unclaimed, {{ rotation.leaving }} leaving ·
             } @else {
-              PlayStation Plus: the catalog has not been walked yet ·
+              {{ psPlusNotWalkedMessage }} ·
             }
-            <a id="library-ps-plus-link" routerLink="/library/ps-plus">See the rotation</a>
+            <a id="library-ps-plus-link" [routerLink]="appUrls.psPlus">See the rotation</a>
           </p>
         }
 
         @if (error()) {
-          <p class="text-error">{{ error() }}</p>
+          <p class="m-0 text-meta text-danger">{{ error() }}</p>
         }
 
         @if (status(); as current) {
-          <p id="library-refresh-status" class="catalog-meta">Status: {{ current.status }}</p>
-          @if (current.status === 'succeeded') {
-            <p id="library-refresh-succeeded" class="text-success">Library catalogued.</p>
+          <p id="library-refresh-status" appCatalogMeta [attr.data-status]="current.status">Status: {{ current.status }}</p>
+          @if (current.status === jobStatuses.succeeded) {
+            <p id="library-refresh-succeeded" class="text-ok">Library catalogued.</p>
             @if (current.result_summary; as summary) {
               @if (summary.rawg_enriched_titles.length > 0) {
-                <p id="library-summary-rawg" class="catalog-meta">
+                <p
+                  id="library-summary-rawg"
+                  appCatalogMeta
+                  [attr.data-shown-count]="summaryTitles(summary.rawg_enriched_titles).shown.length"
+                  [attr.data-more-count]="summaryTitles(summary.rawg_enriched_titles).more"
+                >
                   RAWG enriched: {{ summaryTitles(summary.rawg_enriched_titles).shown.join(', ') }}
                   @if (summaryTitles(summary.rawg_enriched_titles).more > 0) {
                     (+{{ summaryTitles(summary.rawg_enriched_titles).more }} more)
@@ -164,7 +172,12 @@
                 </p>
               }
               @if (summary.opencritic_enriched_titles.length > 0) {
-                <p id="library-summary-opencritic" class="catalog-meta">
+                <p
+                  id="library-summary-opencritic"
+                  appCatalogMeta
+                  [attr.data-shown-count]="summaryTitles(summary.opencritic_enriched_titles).shown.length"
+                  [attr.data-more-count]="summaryTitles(summary.opencritic_enriched_titles).more"
+                >
                   OpenCritic enriched: {{ summaryTitles(summary.opencritic_enriched_titles).shown.join(', ') }}
                   @if (summaryTitles(summary.opencritic_enriched_titles).more > 0) {
                     (+{{ summaryTitles(summary.opencritic_enriched_titles).more }} more)
@@ -172,69 +185,70 @@
                 </p>
               }
               @if (summary.opencritic_topup_incomplete) {
-                <p id="library-summary-opencritic-topup" class="text-muted">
+                <p id="library-summary-opencritic-topup" class="text-meta text-text-muted">
                   OpenCritic still has more of your library to check — this continues automatically on a future
                   refresh.
                 </p>
               }
             }
           }
-          @if (current.status === 'failed') {
-            <p id="library-refresh-failed" class="text-error">{{ current.error ?? 'Refresh failed.' }}</p>
+          @if (current.status === jobStatuses.failed) {
+            <p id="library-refresh-failed" class="m-0 text-meta text-danger">{{ current.error ?? 'Refresh failed.' }}</p>
           }
-          @if (current.status === 'cancelled') {
-            <p id="library-refresh-cancelled" class="catalog-meta">
+          @if (current.status === jobStatuses.cancelled) {
+            <p id="library-refresh-cancelled" appCatalogMeta>
               This refresh was cancelled before it finished. Nothing it had already catalogued was undone —
               start another refresh whenever you want the rest.
             </p>
           }
-          @if (current.status === 'rate_limited') {
-            <p id="library-refresh-paused" class="catalog-meta">
+          @if (current.status === jobStatuses.rateLimited) {
+            <p id="library-refresh-paused" appCatalogMeta>
               Paused: {{ current.result_summary?.rate_limited_provider ?? 'a data provider' }} hit its rate
               limit. This refresh resumes on its own{{ retryAfterLabel(current.result_summary) }} and picks
               up where it stopped, so nothing is lost.
             </p>
             @if (current.result_summary?.remaining_count; as remaining) {
-              <p class="catalog-meta">{{ remaining }} title(s) still to enrich.</p>
+              <p appCatalogMeta>{{ remaining }} title(s) still to enrich.</p>
             }
-            <p class="catalog-meta">Starting another refresh is unavailable until this one finishes.</p>
+            <p appCatalogMeta>Starting another refresh is unavailable until this one finishes.</p>
           }
           @if (unexpectedStatus()) {
-            <p class="text-error">Unexpected status returned — stopped watching this job.</p>
+            <p id="library-refresh-unexpected" class="m-0 text-meta text-danger">Unexpected status returned — stopped watching this job.</p>
           }
         }
       </div>
     }
 
-    <div class="card p-6 flex flex-col items-start gap-3 library-table-card">
+    <div id="library-table-card" crgCard class="p-6 flex w-full flex-col items-stretch gap-3">
       <h2>{{ viewerMode() ? 'Games' : showingHidden() ? 'Hidden games' : 'Your games' }}</h2>
 
       @if (!viewerMode() && (hiddenCount() > 0 || showingHidden())) {
         <a
           id="library-show-hidden"
-          class="btn-ghost btn-sm self-start"
+          crgButtonGhostSmall class="self-start"
           [routerLink]="[]"
           [queryParams]="hiddenViewParams()"
           queryParamsHandling="merge"
+          [attr.data-hidden-count]="hiddenCount()"
         >
           {{ showingHidden() ? 'Back to your games' : 'Hidden games (' + hiddenCount() + ')' }}
         </a>
       }
 
       @if (gamesError()) {
-        <p class="text-error">{{ gamesError() }}</p>
+        <p class="m-0 text-meta text-danger">{{ gamesError() }}</p>
       } @else if (total() === 0 && showingHidden() && !committedSearch() && !genreFilter()) {
-        <p id="library-hidden-empty" class="text-muted">Nothing is hidden.</p>
+        <p id="library-hidden-empty" class="text-meta text-text-muted">Nothing is hidden.</p>
       } @else if (total() === 0 && !committedSearch() && !genreFilter()) {
-        <p id="library-empty" class="text-muted">
-          {{ viewerMode() ? 'No games in this library yet.' : 'No games yet — run a refresh to build your library.' }}
+        <p id="library-empty" class="text-meta text-text-muted">
+          {{ viewerMode() ? emptyViewedLibraryMessage : emptyOwnLibraryMessage }}
         </p>
       } @else {
-        <div class="library-controls">
+        <div class="mb-3 flex flex-wrap gap-3">
           <input
             id="library-search"
             type="search"
-            class="library-search"
+            class="min-w-48 flex-[1_1_12rem] rounded-sm border border-line p-2"
             placeholder="Search titles..."
             [ngModel]="searchInput()"
             (ngModelChange)="onSearchInput($event)"
@@ -242,18 +256,18 @@
           />
           <select
             id="library-genre-filter"
-            class="library-genre-filter"
+            class="min-w-40 flex-[0_1_14rem] rounded-sm border border-line p-2"
             [ngModel]="genreFilter()"
             (ngModelChange)="onGenreFilterChange($event)"
             aria-label="Filter by genre"
           >
-            <option [ngValue]="null">All genres</option>
+            <option [ngValue]="null">{{ allGenresLabel }}</option>
             @for (genre of genreOptions(); track genre) {
               <option [value]="genre">{{ genre }}</option>
             }
           </select>
           <select
-            class="library-mobile-sort"
+            class="hidden rounded-sm border border-line p-2 max-md:block max-md:min-w-40 max-md:flex-auto"
             [ngModel]="mobileSortValue()"
             (ngModelChange)="onMobileSortChange($event)"
             aria-label="Sort games"
@@ -269,18 +283,20 @@
         </div>
 
         @if (total() === 0) {
-          <p class="text-muted">No games match your search/filter.</p>
+          <p class="text-meta text-text-muted">No games match your search/filter.</p>
         } @else {
-          <div class="library-table-scroll">
-            <table class="library-table">
-              <thead>
+          <div id="library-table-scroll" class="w-full overflow-x-auto max-md:overflow-visible">
+            <table class="w-full border-collapse max-md:block">
+              <thead class="max-md:hidden">
                 @for (headerGroup of table.getHeaderGroups(); track headerGroup.id) {
                   <tr>
                     @for (header of headerGroup.headers; track header.id) {
                       <th
-                        [attr.id]="'library-header-' + header.column.id"
-                        [class.library-sortable]="header.column.getCanSort()"
-                        [class.md:max-xl:hidden]="header.column.id === 'cover'"
+                        class="border-b border-line p-2 text-left whitespace-nowrap"
+                        [attr.id]="libraryHeaderId(header.column.id)"
+                        [class.select-none]="header.column.getCanSort()"
+                        [class.hover:bg-surface-2]="header.column.getCanSort()"
+                        [class.md:hidden]="header.column.id === 'cover'"
                         [attr.aria-sort]="
                           header.column.getIsSorted() === 'asc'
                             ? 'ascending'
@@ -291,7 +307,7 @@
                       >
                         @if (header.column.getCanSort()) {
                           <a
-                            [attr.id]="'library-sort-' + header.column.id"
+                            [attr.id]="librarySortId(header.column.id)"
                             [routerLink]="[]"
                             [queryParams]="headerSortParams(header)"
                             queryParamsHandling="merge"
@@ -303,40 +319,43 @@
                         @if (header.column.id === 'percent_completed' && trophyLinkNeeded()) {
                           <a
                             id="library-header-percent_completed-link"
-                            class="block"
-                            routerLink="/account"
-                            fragment="pref-trophies"
+                            class="block whitespace-normal"
+                            [routerLink]="appUrls.account"
+                            [fragment]="accountAnchors.trophies"
                             >Turn on trophies</a
                           >
                         }
                         @if (header.column.getIsSorted() === 'asc') {
-                          <span aria-hidden="true"> ▲</span>
+                          <span [attr.id]="librarySortArrowId(header.column.id)" aria-hidden="true"> ▲</span>
                         } @else if (header.column.getIsSorted() === 'desc') {
-                          <span aria-hidden="true"> ▼</span>
+                          <span [attr.id]="librarySortArrowId(header.column.id)" aria-hidden="true"> ▼</span>
                         }
                       </th>
                     }
                   </tr>
                 }
               </thead>
-              <tbody>
+              <tbody class="max-md:block max-md:w-full">
                 @for (row of table.getRowModel().rows; track row.original.game_id; let rowIndex = $index) {
-                  <tr [attr.id]="'library-row-' + row.original.game_id">
-                    <td class="library-cover-cell md:max-xl:hidden">
+                  <tr
+                    [attr.id]="libraryRowId(row.original.game_id)"
+                    class="max-md:mb-4 max-md:grid max-md:w-full max-md:grid-cols-[auto_1fr] max-md:rounded-md max-md:border max-md:border-t-[3px] max-md:border-line max-md:border-t-accent max-md:px-3 max-md:py-2 max-md:shadow-sm"
+                  >
+                    <td class="border-b border-line p-2 text-left max-md:flex max-md:items-center max-md:justify-between max-md:gap-3 max-md:px-0 max-md:py-2 max-md:text-right max-md:col-start-1 max-md:row-start-1 max-md:border-b-0 md:hidden">
                       @if (row.original.cover_image_url) {
-                        <img class="cover-art" [src]="row.original.cover_image_url" [alt]="row.original.title" loading="lazy" />
+                        <img [attr.id]="'library-cover-' + rowIndex" class="block aspect-square rounded-sm object-cover w-12 max-md:mr-3" [src]="row.original.cover_image_url" [alt]="row.original.title" loading="lazy" />
                       }
                     </td>
-                    <td class="min-w-56" data-label="Title">
+                    <td class="border-b border-line p-2 text-left max-md:flex max-md:items-center max-md:justify-between max-md:gap-3 max-md:px-0 max-md:py-2 max-md:text-right min-w-56 max-md:col-start-2 max-md:row-start-1 max-md:before:content-[attr(data-label)] max-md:before:text-left max-md:before:font-mono max-md:before:text-small max-md:before:font-semibold max-md:before:text-text-muted" data-label="Title">
                       <span class="block" [attr.id]="'library-title-' + $index">{{ row.original.title }}</span>
                       @if (isManual(row.original) || !viewerMode()) {
                         <div class="flex flex-wrap items-center gap-2 mt-1">
                           @if (isManual(row.original)) {
-                            <span class="spine-label" [attr.id]="'library-manual-badge-' + $index">Added by hand</span>
+                            <span appSpineLabel [attr.id]="'library-manual-badge-' + $index">Added by hand</span>
                             @if (!viewerMode()) {
                               <button
                                 type="button"
-                                class="btn-ghost btn-sm"
+                                crgButtonGhostSmall
                                 [attr.id]="'library-manual-remove-' + $index"
                                 [disabled]="manualPending() !== null"
                                 (click)="removeManualGame(row.original)"
@@ -349,7 +368,7 @@
                             @if (showingHidden()) {
                               <button
                                 type="button"
-                                class="btn-ghost btn-sm"
+                                crgButtonGhostSmall
                                 [attr.id]="'library-unhide-' + row.original.game_id"
                                 [disabled]="hidePending() !== null"
                                 (click)="unhideGame(row.original)"
@@ -359,7 +378,7 @@
                             } @else {
                               <button
                                 type="button"
-                                class="btn-ghost btn-sm"
+                                crgButtonGhostSmall
                                 [attr.id]="'library-hide-' + row.original.game_id"
                                 [disabled]="hidePending() !== null"
                                 (click)="hideGame(row.original)"
@@ -371,11 +390,11 @@
                         </div>
                       }
                     </td>
-                    <td data-label="Platforms">
+                    <td class="border-b border-line p-2 text-left max-md:flex max-md:items-center max-md:justify-between max-md:gap-3 max-md:px-0 max-md:py-2 max-md:text-right max-md:col-span-full max-md:before:content-[attr(data-label)] max-md:before:text-left max-md:before:font-mono max-md:before:text-small max-md:before:font-semibold max-md:before:text-text-muted" data-label="Platforms">
                       @if (row.original.platforms?.length) {
-                        <span class="library-platforms" [attr.id]="'library-platforms-' + $index">
+                        <span class="flex flex-wrap gap-x-2 gap-y-1" [attr.id]="'library-platforms-' + $index">
                           @for (platform of row.original.platforms; track platform; let platformIndex = $index) {
-                            <span class="spine-label" [attr.id]="'library-platform-' + rowIndex + '-' + platformIndex">{{
+                            <span appSpineLabel [attr.id]="libraryPlatformId(rowIndex, platformIndex)" [attr.data-platform]="platform">{{
                               platform
                             }}</span>
                           }
@@ -384,22 +403,28 @@
                         —
                       }
                     </td>
-                    <td data-label="Genre">
+                    <td class="border-b border-line p-2 text-left max-md:flex max-md:items-center max-md:justify-between max-md:gap-3 max-md:px-0 max-md:py-2 max-md:text-right max-md:col-span-full max-md:before:content-[attr(data-label)] max-md:before:text-left max-md:before:font-mono max-md:before:text-small max-md:before:font-semibold max-md:before:text-text-muted" data-label="Genre">
                       <span
-                        class="library-genre"
+                        class="inline-block max-w-[12ch] truncate align-bottom"
                         [attr.id]="'library-genre-' + rowIndex"
                         [attr.title]="row.original.genre"
                         >{{ row.original.genre ?? '—' }}</span
                       >
                     </td>
-                    <td data-label="RAWG">{{ row.original.rawg_rating ?? '—' }}</td>
-                    <td data-label="OpenCritic">{{ row.original.opencritic_rating ?? '—' }}</td>
-                    <td data-label="PS Store">{{ row.original.psn_rating ?? '—' }}</td>
-                    <td data-label="% Completed" [title]="percentCompletedCellTitle(row.original)">
+                    <td class="border-b border-line p-2 text-left max-md:flex max-md:items-center max-md:justify-between max-md:gap-3 max-md:px-0 max-md:py-2 max-md:text-right max-md:col-span-full max-md:before:content-[attr(data-label)] max-md:before:text-left max-md:before:font-mono max-md:before:text-small max-md:before:font-semibold max-md:before:text-text-muted" data-label="RAWG" [attr.id]="'library-rawg-' + rowIndex" [attr.data-score]="row.original.rawg_rating">{{ row.original.rawg_rating ?? '—' }}</td>
+                    <td class="border-b border-line p-2 text-left max-md:flex max-md:items-center max-md:justify-between max-md:gap-3 max-md:px-0 max-md:py-2 max-md:text-right max-md:col-span-full max-md:before:content-[attr(data-label)] max-md:before:text-left max-md:before:font-mono max-md:before:text-small max-md:before:font-semibold max-md:before:text-text-muted" data-label="OpenCritic" [attr.id]="'library-opencritic-' + rowIndex" [attr.data-score]="row.original.opencritic_rating">{{ row.original.opencritic_rating ?? '—' }}</td>
+                    <td class="border-b border-line p-2 text-left max-md:flex max-md:items-center max-md:justify-between max-md:gap-3 max-md:px-0 max-md:py-2 max-md:text-right max-md:col-span-full max-md:before:content-[attr(data-label)] max-md:before:text-left max-md:before:font-mono max-md:before:text-small max-md:before:font-semibold max-md:before:text-text-muted" data-label="PS Store" [attr.id]="'library-psn-rating-' + rowIndex" [attr.data-score]="row.original.psn_rating">{{ row.original.psn_rating ?? '—' }}</td>
+                    <td
+                      class="border-b border-line p-2 text-left max-md:flex max-md:items-center max-md:justify-between max-md:gap-3 max-md:px-0 max-md:py-2 max-md:text-right max-md:col-span-full max-md:before:content-[attr(data-label)] max-md:before:text-left max-md:before:font-mono max-md:before:text-small max-md:before:font-semibold max-md:before:text-text-muted"
+                      data-label="% Completed"
+                      [attr.id]="'library-percent-completed-' + rowIndex"
+                      [attr.data-percent-completed]="row.original.percent_completed"
+                      [title]="percentCompletedCellTitle(row.original)"
+                    >
                       {{ percentCompletedDisplay(row.original.percent_completed) }}
                     </td>
-                    <td data-label="Catalog">
-                      <a [attr.id]="'library-details-' + rowIndex" [routerLink]="['/catalog', row.original.game_id]"
+                    <td class="border-b border-line p-2 text-left max-md:flex max-md:items-center max-md:justify-between max-md:gap-3 max-md:px-0 max-md:py-2 max-md:text-right max-md:col-span-full max-md:before:content-[attr(data-label)] max-md:before:text-left max-md:before:font-mono max-md:before:text-small max-md:before:font-semibold max-md:before:text-text-muted max-md:border-b-0" data-label="Catalog">
+                      <a [attr.id]="'library-details-' + rowIndex" [routerLink]="[appUrls.catalog, row.original.game_id]"
                         >Details</a
                       >
                     </td>
@@ -409,11 +434,11 @@
             </table>
           </div>
 
-          <div id="library-pager" class="pager">
+          <div id="library-pager" class="mt-3 flex flex-wrap items-center justify-center gap-3">
             @if (hasPrevPage()) {
               <a
                 id="library-prev"
-                class="btn-ghost"
+                crgButtonGhost
                 [routerLink]="[]"
                 [queryParams]="pageParams(pagination().pageIndex)"
                 queryParamsHandling="merge"
@@ -421,15 +446,15 @@
                 Previous
               </a>
             } @else {
-              <button id="library-prev" type="button" class="btn-ghost" disabled>Previous</button>
+              <button id="library-prev" type="button" crgButtonGhost disabled>Previous</button>
             }
-            <span id="library-page-range" class="text-muted">
+            <span id="library-page-range" class="text-meta text-text-muted">
               {{ pageStart() }}&ndash;{{ pageEnd() }} of {{ total() }}
             </span>
             @if (hasNextPage()) {
               <a
                 id="library-next"
-                class="btn-ghost"
+                crgButtonGhost
                 [routerLink]="[]"
                 [queryParams]="pageParams(pagination().pageIndex + 2)"
                 queryParamsHandling="merge"
@@ -437,7 +462,7 @@
                 Next
               </a>
             } @else {
-              <button id="library-next" type="button" class="btn-ghost" disabled>Next</button>
+              <button id="library-next" type="button" crgButtonGhost disabled>Next</button>
             }
             <app-page-size
               controlId="library-page-size"
@@ -458,7 +483,8 @@
   <dialog
     #storeMatchDialog
     id="library-store-match"
-    class="store-match card p-6"
+    crgCard
+    class="p-6 m-auto max-h-[calc(100vh_-_2*--spacing(4))] w-[min(var(--container-narrow),calc(100vw_-_2*--spacing(4)))] text-text backdrop:bg-black/60"
     tabindex="-1"
     aria-labelledby="library-store-match-heading"
     (click)="dismissStoreMatchOnBackdrop($event)"
@@ -466,36 +492,36 @@
     (close)="closeStoreMatch()"
   >
     <h2 id="library-store-match-heading">Is this the game?</h2>
-    <p id="library-store-match-query" class="text-muted">
+    <p id="library-store-match-query" class="text-meta text-text-muted">
       @if (catalogAnsweredTheTerm()) {
         The PlayStation Store carries the following for “{{ storeQuery() }}”.
       } @else {
-        Nothing in the shared catalog matches “{{ storeQuery() }}”. The PlayStation Store carries the following.
+        {{ storeMatchCatalogEmptyLead }} “{{ storeQuery() }}”. The PlayStation Store carries the following.
       }
       Accepting one adds it to the catalog and to your library; nothing is added if you decline.
     </p>
 
     <ul class="list-none m-0 p-0 my-4 flex flex-col gap-3">
       @for (candidate of storeCandidates(); track $index) {
-        <li class="card p-4 flex items-start gap-4" [attr.id]="'library-store-candidate-' + $index">
+        <li crgCard class="p-4 flex items-start gap-4" [attr.id]="'library-store-candidate-' + $index" [attr.data-store-id]="candidate.id">
           @if (candidate.cover_image_url) {
-            <img class="cover-art w-16 shrink-0" [src]="candidate.cover_image_url" [alt]="candidate.name" />
+            <img class="block aspect-square rounded-sm object-cover w-16 shrink-0" [src]="candidate.cover_image_url" [alt]="candidate.name" />
           }
           <div class="flex flex-col items-start gap-2 grow">
-            <span class="catalog-title" [attr.id]="'library-store-candidate-name-' + $index">{{ candidate.name }}</span>
+            <span appCatalogTitle [attr.id]="'library-store-candidate-name-' + $index">{{ candidate.name }}</span>
             @if (candidate.classification) {
-              <span class="spine-label">{{ candidate.classification }}</span>
+              <span appSpineLabel>{{ candidate.classification }}</span>
             }
             @if (candidate.platforms.length > 0) {
-              <span class="library-platforms" [attr.id]="'library-store-candidate-platforms-' + $index">
+              <span class="flex flex-wrap gap-x-2 gap-y-1" [attr.id]="'library-store-candidate-platforms-' + $index">
                 @for (platform of candidate.platforms; track platform) {
-                  <span class="spine-label">{{ platform }}</span>
+                  <span appSpineLabel>{{ platform }}</span>
                 }
               </span>
             }
             <button
               type="button"
-              class="btn-primary btn-sm"
+              crgButtonPrimarySmall
               [attr.id]="'library-store-accept-' + $index"
               [disabled]="manualPending() !== null"
               (click)="acceptStoreMatch(candidate)"
@@ -508,11 +534,11 @@
     </ul>
 
     @if (storeMatchError()) {
-      <p id="library-store-match-error" class="text-error">{{ storeMatchError() }}</p>
+      <p id="library-store-match-error" class="m-0 text-meta text-danger">{{ storeMatchError() }}</p>
     }
 
-    <div class="form-actions">
-      <button id="library-store-match-cancel" type="button" class="btn-ghost" (click)="closeStoreMatch()">
+    <div class="flex gap-3">
+      <button id="library-store-match-cancel" type="button" crgButtonGhost (click)="closeStoreMatch()">
         None of these
       </button>
     </div>

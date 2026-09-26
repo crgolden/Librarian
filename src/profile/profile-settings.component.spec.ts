@@ -1,10 +1,27 @@
-import { provideHttpClient, withXhr } from '@angular/common/http';
+import { HttpStatusCode, provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { ProfileSettingsComponent } from './profile-settings.component';
-import { ProfileLinkResponse, ProfileLinkSiteResponse, ProfileSettingsResponse } from '../curator/curator.models';
+import {
+  ProfileLinkResponse,
+  ProfileLinkSiteResponse,
+  ProfileSettingKeys,
+  ProfileSettingsResponse,
+} from '../curator/curator.models';
 import { ResolvedProfileSettings } from './profile-settings.resolver';
+import { CuratorApi, CuratorRoutes } from '../curator/curator-api';
+import { AppUrls, RouteDataKeys } from '../app/app-paths';
+import { LINK_SAVE_ERROR, PROFILE_SETTINGS_LOAD_ERROR, SETTING_UPDATE_ERROR } from './profile.messages';
+import { HttpMethods } from '../bff/http-headers';
+import { ResolvedStatuses } from '../shared/resolved-status';
+import { LinkRelTokens } from '../testing/html-constants';
+import { lowercaseToken, newDisplayName, newHttpsAddress, newId, newText } from '@crgolden/modules/testing';
+
+const FIRST_SITE_KEY = newId();
+const SECOND_SITE_KEY = newId();
+const DECLARED_HANDLE = newText();
+const NEW_HANDLE = newText();
 
 interface ProfileSettingsHarness {
   onToggle(field: keyof ProfileSettingsResponse, newValue: boolean): void;
@@ -26,15 +43,15 @@ const ALL_OFF: ProfileSettingsResponse = {
 };
 
 const SITES: ProfileLinkSiteResponse[] = [
-  { site_key: 'psnprofiles', display_name: 'PSNProfiles' },
-  { site_key: 'truetrophies', display_name: 'TrueTrophies' },
+  { site_key: FIRST_SITE_KEY, display_name: newText() },
+  { site_key: SECOND_SITE_KEY, display_name: newText() },
 ];
 
 const PSNPROFILES_LINK: ProfileLinkResponse = {
-  site_key: 'psnprofiles',
-  display_name: 'PSNProfiles',
-  handle: 'curator_one',
-  url: 'https://psnprofiles.com/curator_one',
+  site_key: FIRST_SITE_KEY,
+  display_name: SITES[0].display_name,
+  handle: DECLARED_HANDLE,
+  url: newHttpsAddress(),
 };
 
 describe('ProfileSettingsComponent', () => {
@@ -50,7 +67,7 @@ describe('ProfileSettingsComponent', () => {
         provideRouter([]),
         {
           provide: ActivatedRoute,
-          useValue: { snapshot: { paramMap: convertToParamMap({}), data: { settings: resolved } } },
+          useValue: { snapshot: { paramMap: convertToParamMap({}), data: { [RouteDataKeys.settings]: resolved } } },
         },
       ],
     });
@@ -58,7 +75,7 @@ describe('ProfileSettingsComponent', () => {
   }
 
   beforeEach(() => {
-    configure({ status: 'ok', settings: ALL_OFF, sites: SITES, links: [] });
+    configure({ status: ResolvedStatuses.ok, settings: ALL_OFF, sites: SITES, links: [] });
   });
 
   afterEach(() => {
@@ -69,7 +86,7 @@ describe('ProfileSettingsComponent', () => {
     settings: ProfileSettingsResponse = ALL_OFF,
     links: ProfileLinkResponse[] = [],
   ): Promise<ComponentFixture<ProfileSettingsComponent>> {
-    configure({ status: 'ok', settings, sites: SITES, links });
+    configure({ status: ResolvedStatuses.ok, settings, sites: SITES, links });
     const fixture = TestBed.createComponent(ProfileSettingsComponent);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -86,39 +103,39 @@ describe('ProfileSettingsComponent', () => {
     expect(compiled.querySelector<HTMLInputElement>('#setting-show-collections')?.checked).toBe(false);
     expect(compiled.querySelector<HTMLInputElement>('#setting-show-trophies')?.checked).toBe(false);
     expect(compiled.querySelector<HTMLInputElement>('#setting-show-identity')?.checked).toBe(false);
-    httpMock.expectNone((r) => r.url.endsWith('/me/profile-settings'));
+    httpMock.expectNone((r) => r.url.endsWith(CuratorRoutes.meProfileSettings));
   });
 
   it('renders no "Loading..." text, because the route resolves before it activates', async () => {
     const fixture = await createAndLoad();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Loading');
+    expect((fixture.nativeElement as HTMLElement).querySelector('#setting-is-public')).not.toBeNull();
   });
 
   it('shows an error message when the resolver degraded', () => {
-    configure({ status: 'error' });
+    configure({ status: ResolvedStatuses.error });
     const fixture = TestBed.createComponent(ProfileSettingsComponent);
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load profile settings.');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(PROFILE_SETTINGS_LOAD_ERROR);
   });
 
   it('explains the AND-gate with harvest_* and links to the PSN settings page', async () => {
     const fixture = await createAndLoad();
     const compiled: HTMLElement = fixture.nativeElement;
 
-    expect(compiled.textContent).toContain("you've also enabled harvesting them");
-    const link = compiled.querySelector('a[routerLink="/account"]');
-    expect(link).not.toBeNull();
+    expect(compiled.querySelector('#profile-settings-harvest-note')).not.toBeNull();
+    const link = compiled.querySelector('#profile-settings-psn-link');
+    expect(link?.getAttribute('href')).toBe(AppUrls.account);
   });
 
   it('onToggle sends a PUT with the full settings body, not just the changed field', async () => {
     const fixture = await createAndLoad({ ...ALL_OFF, show_library: true });
 
-    harness(fixture).onToggle('is_public', true);
+    harness(fixture).onToggle(ProfileSettingKeys.isPublic, true);
 
-    const req = httpMock.expectOne('/curator/api/me/profile-settings');
-    expect(req.request.method).toBe('PUT');
+    const req = httpMock.expectOne(CuratorApi.meProfileSettings);
+    expect(req.request.method).toBe(HttpMethods.put);
     expect(req.request.body).toEqual({ ...ALL_OFF, show_library: true, is_public: true });
     req.flush({ ...ALL_OFF, show_library: true, is_public: true });
   });
@@ -128,14 +145,14 @@ describe('ProfileSettingsComponent', () => {
     const h = harness(fixture);
     const compiled: HTMLElement = fixture.nativeElement;
 
-    h.onToggle('show_trophies', true);
+    h.onToggle(ProfileSettingKeys.showTrophies, true);
     await fixture.whenStable();
     fixture.detectChanges();
 
     expect(compiled.querySelector<HTMLInputElement>('#setting-show-trophies')?.checked).toBe(true);
     expect(compiled.querySelector<HTMLInputElement>('#setting-show-trophies')?.disabled).toBe(true);
 
-    const req = httpMock.expectOne('/curator/api/me/profile-settings');
+    const req = httpMock.expectOne(CuratorApi.meProfileSettings);
     req.flush({ ...ALL_OFF, show_trophies: true });
     await fixture.whenStable();
     fixture.detectChanges();
@@ -149,34 +166,28 @@ describe('ProfileSettingsComponent', () => {
     const h = harness(fixture);
     const compiled: HTMLElement = fixture.nativeElement;
 
-    h.onToggle('show_identity', true);
+    h.onToggle(ProfileSettingKeys.showIdentity, true);
     await fixture.whenStable();
     fixture.detectChanges();
     expect(compiled.querySelector<HTMLInputElement>('#setting-show-identity')?.checked).toBe(true);
 
-    const req = httpMock.expectOne('/curator/api/me/profile-settings');
-    req.flush(null, { status: 500, statusText: 'Server Error' });
+    const req = httpMock.expectOne(CuratorApi.meProfileSettings);
+    req.flush(null, { status: HttpStatusCode.InternalServerError, statusText: HttpStatusCode[HttpStatusCode.InternalServerError] });
     await fixture.whenStable();
     fixture.detectChanges();
 
     expect(compiled.querySelector<HTMLInputElement>('#setting-show-identity')?.checked).toBe(false);
-    expect(compiled.textContent).toContain('Failed to update setting. Please try again.');
+    expect(compiled.textContent).toContain(SETTING_UPDATE_ERROR);
   });
 
   it('all five toggles are independently wired to onToggle with their own field name', async () => {
     const fixture = await createAndLoad();
 
-    const fields: (keyof ProfileSettingsResponse)[] = [
-      'is_public',
-      'show_library',
-      'show_collections',
-      'show_trophies',
-      'show_identity',
-    ];
+    const fields: (keyof ProfileSettingsResponse)[] = Object.values(ProfileSettingKeys);
 
     for (const field of fields) {
       harness(fixture).onToggle(field, true);
-      const req = httpMock.expectOne('/curator/api/me/profile-settings');
+      const req = httpMock.expectOne(CuratorApi.meProfileSettings);
       expect(req.request.body).toEqual(expect.objectContaining({ [field]: true }));
       req.flush({ ...ALL_OFF, [field]: true });
       await fixture.whenStable();
@@ -189,19 +200,20 @@ describe('ProfileSettingsComponent', () => {
     const compiled: HTMLElement = fixture.nativeElement;
 
     expect(compiled.querySelectorAll('[id^="profile-link-handle-"]')).toHaveLength(SITES.length);
-    expect(compiled.querySelector<HTMLInputElement>('#profile-link-handle-0')?.value).toBe('curator_one');
+    expect(compiled.querySelector<HTMLInputElement>('#profile-link-handle-0')?.value).toBe(DECLARED_HANDLE);
     expect(compiled.querySelector<HTMLInputElement>('#profile-link-handle-1')?.value).toBe('');
-    httpMock.expectNone((r) => r.url.includes('/me/profile-link'));
+    httpMock.expectNone((r) => r.url.includes(CuratorRoutes.meProfileLinks));
   });
 
   it('renders the URL Curator built, never one assembled in the browser', async () => {
-    const fixture = await createAndLoad(ALL_OFF, [
-      { ...PSNPROFILES_LINK, url: 'https://psnprofiles.com/somewhere-else' },
-    ]);
+    const builtUrl = newHttpsAddress();
+    const fixture = await createAndLoad(ALL_OFF, [{ ...PSNPROFILES_LINK, url: builtUrl }]);
     const anchor = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('#profile-link-url-0');
 
-    expect(anchor?.getAttribute('href')).toBe('https://psnprofiles.com/somewhere-else');
-    expect(anchor?.getAttribute('rel')).toBe('noopener noreferrer nofollow ugc');
+    expect(anchor?.getAttribute('href')).toBe(builtUrl);
+    expect(anchor?.getAttribute('rel')).toBe(
+      [LinkRelTokens.noopener, LinkRelTokens.noreferrer, LinkRelTokens.nofollow, LinkRelTokens.ugc].join(' '),
+    );
   });
 
   it('offers Remove and Open only for a site that has a link', async () => {
@@ -219,16 +231,16 @@ describe('ProfileSettingsComponent', () => {
     const compiled: HTMLElement = fixture.nativeElement;
 
     expect(compiled.querySelector('#profile-link-save-0')?.getAttribute('aria-label')).toBe(
-      'Save your PSNProfiles handle',
+      `Save your ${SITES[0].display_name} handle`,
     );
     expect(compiled.querySelector('#profile-link-save-1')?.getAttribute('aria-label')).toBe(
-      'Save your TrueTrophies handle',
+      `Save your ${SITES[1].display_name} handle`,
     );
     expect(compiled.querySelector('#profile-link-remove-0')?.getAttribute('aria-label')).toBe(
-      'Remove your PSNProfiles handle',
+      `Remove your ${SITES[0].display_name} handle`,
     );
     expect(compiled.querySelector('#profile-link-url-0')?.getAttribute('aria-label')).toBe(
-      'Open your PSNProfiles profile',
+      `Open your ${SITES[0].display_name} profile`,
     );
   });
 
@@ -240,59 +252,60 @@ describe('ProfileSettingsComponent', () => {
 
     expect(save()?.disabled).toBe(true);
 
-    h.onHandleInput('psnprofiles', 'ab');
+    h.onHandleInput(FIRST_SITE_KEY, lowercaseToken(2));
     fixture.detectChanges();
     expect(save()?.disabled).toBe(true);
     expect((fixture.nativeElement as HTMLElement).querySelector('#profile-link-invalid-0')).not.toBeNull();
 
-    h.onHandleInput('psnprofiles', 'curator_two');
+    h.onHandleInput(FIRST_SITE_KEY, NEW_HANDLE);
     fixture.detectChanges();
     expect(save()?.disabled).toBe(false);
     expect((fixture.nativeElement as HTMLElement).querySelector('#profile-link-invalid-0')).toBeNull();
   });
 
   it('saveLink PUTs the trimmed handle to the site it belongs to and renders the returned link', async () => {
+    const SAVED_URL = newHttpsAddress();
     const fixture = await createAndLoad();
     const h = harness(fixture);
 
-    h.onHandleInput('truetrophies', '  curator_two  ');
-    h.saveLink('truetrophies');
+    h.onHandleInput(SECOND_SITE_KEY, `  ${NEW_HANDLE}  `);
+    h.saveLink(SECOND_SITE_KEY);
 
-    const req = httpMock.expectOne('/curator/api/me/profile-links/truetrophies');
-    expect(req.request.method).toBe('PUT');
-    expect(req.request.body).toEqual({ handle: 'curator_two' });
+    const req = httpMock.expectOne(CuratorApi.meProfileLinksBySiteKey(SECOND_SITE_KEY));
+    expect(req.request.method).toBe(HttpMethods.put);
+    expect(req.request.body).toEqual({ handle: NEW_HANDLE });
     req.flush({
-      site_key: 'truetrophies',
-      display_name: 'TrueTrophies',
-      handle: 'curator_two',
-      url: 'https://www.truetrophies.com/gamer/curator_two',
+      site_key: SECOND_SITE_KEY,
+      display_name: SITES[1].display_name,
+      handle: NEW_HANDLE,
+      url: SAVED_URL,
     });
     await fixture.whenStable();
     fixture.detectChanges();
 
     const anchor = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('#profile-link-url-1');
-    expect(anchor?.getAttribute('href')).toBe('https://www.truetrophies.com/gamer/curator_two');
+    expect(anchor?.getAttribute('href')).toBe(SAVED_URL);
   });
 
   it('saveLink issues no request for a handle the server would reject', async () => {
     const fixture = await createAndLoad();
     const h = harness(fixture);
 
-    h.onHandleInput('psnprofiles', 'no spaces allowed');
-    h.saveLink('psnprofiles');
+    h.onHandleInput(FIRST_SITE_KEY, newDisplayName());
+    h.saveLink(FIRST_SITE_KEY);
 
-    httpMock.expectNone((r) => r.url.includes('/me/profile-links'));
+    httpMock.expectNone((r) => r.url.includes(CuratorRoutes.meProfileLinks));
   });
 
   it('removeLink DELETEs and drops the row back to an empty handle', async () => {
     const fixture = await createAndLoad(ALL_OFF, [PSNPROFILES_LINK]);
     const h = harness(fixture);
 
-    h.removeLink('psnprofiles');
+    h.removeLink(FIRST_SITE_KEY);
 
-    const req = httpMock.expectOne('/curator/api/me/profile-links/psnprofiles');
-    expect(req.request.method).toBe('DELETE');
-    req.flush(null, { status: 204, statusText: 'No Content' });
+    const req = httpMock.expectOne(CuratorApi.meProfileLinksBySiteKey(FIRST_SITE_KEY));
+    expect(req.request.method).toBe(HttpMethods.delete);
+    req.flush(null, { status: HttpStatusCode.NoContent, statusText: HttpStatusCode[HttpStatusCode.NoContent] });
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -302,42 +315,44 @@ describe('ProfileSettingsComponent', () => {
   });
 
   it('saving one row leaves text typed into another row untouched', async () => {
+    const STILL_TYPING = newText();
+    const SAVED_URL = newHttpsAddress();
     const fixture = await createAndLoad();
     const h = harness(fixture);
 
-    h.onHandleInput('psnprofiles', 'still_typing');
-    h.onHandleInput('truetrophies', 'curator_two');
-    h.saveLink('truetrophies');
-    httpMock.expectOne('/curator/api/me/profile-links/truetrophies').flush({
-      site_key: 'truetrophies',
-      display_name: 'TrueTrophies',
-      handle: 'curator_two',
-      url: 'https://www.truetrophies.com/gamer/curator_two',
+    h.onHandleInput(FIRST_SITE_KEY, STILL_TYPING);
+    h.onHandleInput(SECOND_SITE_KEY, NEW_HANDLE);
+    h.saveLink(SECOND_SITE_KEY);
+    httpMock.expectOne(CuratorApi.meProfileLinksBySiteKey(SECOND_SITE_KEY)).flush({
+      site_key: SECOND_SITE_KEY,
+      display_name: SITES[1].display_name,
+      handle: NEW_HANDLE,
+      url: SAVED_URL,
     });
     await fixture.whenStable();
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    expect(compiled.querySelector<HTMLInputElement>('#profile-link-handle-0')?.value).toBe('still_typing');
-    expect(compiled.querySelector<HTMLInputElement>('#profile-link-handle-1')?.value).toBe('curator_two');
+    expect(compiled.querySelector<HTMLInputElement>('#profile-link-handle-0')?.value).toBe(STILL_TYPING);
+    expect(compiled.querySelector<HTMLInputElement>('#profile-link-handle-1')?.value).toBe(NEW_HANDLE);
   });
 
   it('keeps the existing link and shows an error when the save fails', async () => {
     const fixture = await createAndLoad(ALL_OFF, [PSNPROFILES_LINK]);
     const h = harness(fixture);
 
-    h.onHandleInput('psnprofiles', 'curator_two');
-    h.saveLink('psnprofiles');
+    h.onHandleInput(FIRST_SITE_KEY, NEW_HANDLE);
+    h.saveLink(FIRST_SITE_KEY);
     httpMock
-      .expectOne('/curator/api/me/profile-links/psnprofiles')
-      .flush(null, { status: 500, statusText: 'Server Error' });
+      .expectOne(CuratorApi.meProfileLinksBySiteKey(FIRST_SITE_KEY))
+      .flush(null, { status: HttpStatusCode.InternalServerError, statusText: HttpStatusCode[HttpStatusCode.InternalServerError] });
     await fixture.whenStable();
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    expect(compiled.textContent).toContain('Failed to save the link. Please try again.');
+    expect(compiled.textContent).toContain(LINK_SAVE_ERROR);
     expect(compiled.querySelector<HTMLAnchorElement>('#profile-link-url-0')?.getAttribute('href')).toBe(
-      'https://psnprofiles.com/curator_one',
+      PSNPROFILES_LINK.url,
     );
   });
 });

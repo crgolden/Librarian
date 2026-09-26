@@ -1,79 +1,95 @@
-<nav id="site-nav-rail" class="site-nav-rail quiet-scroll" aria-label="Primary">
+<nav
+  id="site-nav-rail"
+  class="overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden hidden lg:sticky lg:top-[var(--header-height)] lg:flex lg:h-[calc(100dvh_-_var(--header-height))] lg:w-[var(--rail-width)] lg:flex-[0_0_var(--rail-width)] lg:flex-col lg:gap-1 lg:border-r lg:border-line lg:px-3 lg:py-4"
+  aria-label="Primary"
+>
   @for (link of visibleLinks(); track link.path; let linkIndex = $index) {
     <a
       [routerLink]="link.path"
-      routerLinkActive="nav-active"
+      routerLinkActive
+      ariaCurrentWhenActive="page"
       [routerLinkActiveOptions]="{ exact: !!link.exact }"
       [attr.aria-label]="link.label"
-      [attr.id]="'nav-rail-' + linkIndex"
-      class="rail-link"
+      [attr.id]="idPrefixes.railLink + linkIndex"
+      class="flex items-center gap-3 whitespace-nowrap rounded-md px-3 py-2 text-text-muted no-underline hover:bg-surface-2 hover:text-text aria-[current=page]:font-semibold aria-[current=page]:text-accent"
     >
-      <ng-icon [attr.id]="'nav-rail-icon-' + linkIndex" [name]="link.icon" aria-hidden="true" />
-      <span [attr.id]="'nav-rail-label-' + linkIndex" class="rail-label">{{ link.label }}</span>
+      <ng-icon [attr.id]="idPrefixes.railIcon + linkIndex" [name]="link.icon" aria-hidden="true" />
+      <span [attr.id]="idPrefixes.railLabel + linkIndex" class="truncate">{{ link.label }}</span>
     </a>
   }
 
   @if (auth.isAuthenticated()) {
-    <a id="nav-rail-signout" [href]="auth.logoutUrl() ?? '#'" aria-label="Sign out" class="rail-link">
+    <a
+      [id]="railSignoutId"
+      [href]="signOutHref()"
+      [attr.aria-label]="navLabels.signOut"
+      class="mt-auto flex items-center gap-3 whitespace-nowrap rounded-md border-t border-line px-3 py-2 text-text-muted no-underline hover:bg-surface-2 hover:text-text"
+    >
       <ng-icon name="lucideLogOut" aria-hidden="true" />
-      <span class="rail-label">Sign out</span>
+      <span class="truncate">{{ navLabels.signOut }}</span>
     </a>
   } @else {
-    <a id="nav-link-signin" [href]="loginHref()" class="btn-primary btn-sm">Sign in</a>
+    <a id="nav-link-signin" [href]="loginHref()" crgButtonPrimarySmall>{{ navLabels.signIn }}</a>
   }
 </nav>
 
-<nav id="site-nav-tabbar" class="site-nav-tabbar" aria-label="Primary">
+<nav
+  id="site-nav-tabbar"
+  class="fixed inset-x-0 bottom-0 z-(--z-tabbar) flex h-[calc(var(--tabbar-height)_+_env(safe-area-inset-bottom))] border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden"
+  aria-label="Primary"
+>
   @for (link of tabLinks(); track link.path; let linkIndex = $index) {
     <a
       [routerLink]="link.path"
-      routerLinkActive="nav-active"
+      routerLinkActive
+      ariaCurrentWhenActive="page"
       [routerLinkActiveOptions]="{ exact: !!link.exact }"
-      [attr.id]="'nav-tab-' + linkIndex"
-      class="tab-link"
+      [attr.id]="idPrefixes.tabLink + linkIndex"
+      class="flex flex-1 cursor-pointer flex-col items-center justify-center gap-1 font-body text-small font-medium text-text-muted no-underline aria-[current=page]:font-semibold aria-[current=page]:text-accent"
     >
       <ng-icon [name]="link.icon" aria-hidden="true" />
-      <span [attr.id]="'nav-tab-label-' + linkIndex" class="tab-label">{{ link.label }}</span>
+      <span [attr.id]="idPrefixes.tabLabel + linkIndex" class="whitespace-nowrap">{{ link.label }}</span>
     </a>
   }
   <button
     id="nav-tab-more"
     type="button"
-    class="tab-link"
+    class="flex flex-1 cursor-pointer flex-col items-center justify-center gap-1 font-body text-small font-medium text-text-muted"
     [attr.aria-expanded]="sheetOpen()"
     aria-haspopup="dialog"
     (click)="openSheet()"
   >
     <ng-icon name="lucideEllipsis" aria-hidden="true" />
-    <span id="nav-tab-label-more" class="tab-label">More</span>
+    <span id="nav-tab-label-more" class="whitespace-nowrap">{{ navLabels.more }}</span>
   </button>
 </nav>
 
 <dialog
   #sheet
   id="nav-sheet"
-  class="nav-sheet"
+  class="mx-auto mb-0 mt-auto w-full max-w-full rounded-t-lg border-t border-line bg-surface px-4 pb-[calc(--spacing(4)_+_env(safe-area-inset-bottom))] pt-4 text-text shadow-overlay backdrop:bg-black/60 lg:hidden"
   tabindex="-1"
   aria-labelledby="nav-sheet-title"
   (click)="dismissOnBackdrop($event)"
   (keydown.escape)="closeSheet()"
   (close)="closeSheet()"
 >
-  <div class="nav-sheet-head">
-    <h2 id="nav-sheet-title" class="nav-sheet-title">More</h2>
-    <button id="nav-sheet-close" type="button" class="btn-ghost btn-sm" aria-label="Close" (click)="closeSheet()">
+  <div class="mb-2 flex items-center justify-between gap-3">
+    <h2 id="nav-sheet-title" class="m-0 text-subsection">{{ navLabels.more }}</h2>
+    <button id="nav-sheet-close" type="button" crgButtonGhostSmall aria-label="Close" (click)="closeSheet()">
       <ng-icon name="lucideX" aria-hidden="true" />
     </button>
   </div>
 
-  <nav class="nav-sheet-links" aria-label="More destinations">
+  <nav class="flex flex-col" aria-label="More destinations">
     @for (link of sheetLinks(); track link.path; let linkIndex = $index) {
       <a
         [routerLink]="link.path"
-        routerLinkActive="nav-active"
+        routerLinkActive
+        ariaCurrentWhenActive="page"
         [routerLinkActiveOptions]="{ exact: !!link.exact }"
-        [attr.id]="'nav-sheet-link-' + linkIndex"
-        class="nav-sheet-link"
+        [attr.id]="idPrefixes.sheetLink + linkIndex"
+        class="flex items-center gap-3 px-2 py-3 text-text no-underline aria-[current=page]:font-semibold aria-[current=page]:text-accent"
       >
         <ng-icon [name]="link.icon" aria-hidden="true" />
         <span>{{ link.label }}</span>
@@ -82,9 +98,13 @@
   </nav>
 
   @if (auth.isAuthenticated()) {
-    <a id="nav-sheet-signout" [href]="auth.logoutUrl() ?? '#'" class="nav-sheet-link nav-sheet-signout">
+    <a
+      id="nav-sheet-signout"
+      [href]="signOutHref()"
+      class="mt-2 flex items-center gap-3 border-t border-line px-2 py-3 text-text no-underline"
+    >
       <ng-icon name="lucideLogOut" aria-hidden="true" />
-      <span>Sign out</span>
+      <span>{{ navLabels.signOut }}</span>
     </a>
   }
 </dialog>

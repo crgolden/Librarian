@@ -1,5 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { LoadingOverlayComponent } from './loading-overlay.component';
+import { AriaRoles } from '../aria-roles';
+import { AriaLiveValues } from '../../testing/html-constants';
 
 describe('LoadingOverlayComponent', () => {
   let fixture: ComponentFixture<LoadingOverlayComponent>;
@@ -15,7 +17,7 @@ describe('LoadingOverlayComponent', () => {
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    expect(compiled.querySelector('.loading-overlay')).toBeNull();
+    expect(compiled.querySelector('#loading-overlay')).toBeNull();
   });
 
   it('renders the overlay with a status role and busy/live ARIA attributes when visible is true', () => {
@@ -23,20 +25,20 @@ describe('LoadingOverlayComponent', () => {
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    const overlay = compiled.querySelector('.loading-overlay');
+    const overlay = compiled.querySelector('#loading-overlay');
     expect(overlay).not.toBeNull();
-    expect(overlay?.getAttribute('role')).toBe('status');
-    expect(overlay?.getAttribute('aria-busy')).toBe('true');
-    expect(overlay?.getAttribute('aria-live')).toBe('polite');
+    expect(overlay?.getAttribute('role')).toBe(AriaRoles.status);
+    expect(overlay?.getAttribute('aria-busy')).toBe(String(true));
+    expect(overlay?.getAttribute('aria-live')).toBe(AriaLiveValues.polite);
   });
 
   it('removes the overlay again when visible flips back to false', () => {
     fixture.componentRef.setInput('visible', true);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.loading-overlay')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('#loading-overlay')).not.toBeNull();
 
     fixture.componentRef.setInput('visible', false);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.loading-overlay')).toBeNull();
+    expect(fixture.nativeElement.querySelector('#loading-overlay')).toBeNull();
   });
 });

@@ -1,5 +1,13 @@
 import type { Request, Response, NextFunction } from 'express';
-import { nameSpansByRoute, routeTemplateFor } from './span-route-name';
+import {
+  HTTP_ROUTE_ATTRIBUTE,
+  nameSpansByRoute,
+  RESPONSE_FINISHED_EVENT,
+  ROOT_ROUTE,
+  routeTemplateFor,
+  UNMATCHED_SUFFIX,
+} from './span-route-name';
+import { HttpMethods } from '../bff/http-headers';
 
 const { getActiveSpan } = vi.hoisted(() => ({ getActiveSpan: vi.fn() }));
 
@@ -8,8 +16,12 @@ vi.mock('@opentelemetry/api', async (importOriginal) => {
   return { ...actual, trace: { ...actual.trace, getActiveSpan } };
 });
 
+function segment(): string {
+  return `/${crypto.randomUUID()}`;
+}
+
 function makeReq(parts: Partial<Request>): Request {
-  return { method: 'GET', path: '/', baseUrl: '', ...parts } as Request;
+  return { method: HttpMethods.get, path: ROOT_ROUTE, baseUrl: '', ...parts } as Request;
 }
 
 function makeRes() {
@@ -18,32 +30,41 @@ function makeRes() {
     on: vi.fn((event: string, cb: () => void) => {
       (listeners[event] ??= []).push(cb);
     }),
-    finish: () => (listeners['finish'] ?? []).forEach((cb) => cb()),
+    finish: () => (listeners[RESPONSE_FINISHED_EVENT] ?? []).forEach((cb) => cb()),
   } as unknown as Response & { finish: () => void };
 }
 
 describe('routeTemplateFor', () => {
   it('joins the mount point to the matched route pattern', () => {
-    expect(routeTemplateFor(makeReq({ baseUrl: '/bff', route: { path: '/login' } as never }))).toBe('/bff/login');
+    const mount = segment();
+    const route = segment();
+
+    expect(routeTemplateFor(makeReq({ baseUrl: mount, route: { path: route } as never }))).toBe(`${mount}${route}`);
   });
 
   it('keeps a parameterised pattern rather than the concrete value', () => {
-    const req = makeReq({ baseUrl: '', route: { path: '/catalog/:id' } as never, path: '/catalog/9182' });
+    const collection = segment();
+    const pattern = `${collection}/:id`;
+    const req = makeReq({ baseUrl: '', route: { path: pattern } as never, path: `${collection}${segment()}` });
 
-    expect(routeTemplateFor(req)).toBe('/catalog/:id');
+    expect(routeTemplateFor(req)).toBe(pattern);
   });
 
   it('buckets a mounted proxy that matched no inner route', () => {
-    expect(routeTemplateFor(makeReq({ baseUrl: '/curator/api', path: '/library/refresh/abc' }))).toBe('/curator/api/*');
+    const mount = segment();
+
+    expect(routeTemplateFor(makeReq({ baseUrl: mount, path: `${segment()}${segment()}` }))).toBe(`${mount}${UNMATCHED_SUFFIX}`);
   });
 
   it('buckets an unmounted path by its first segment, so ids cannot mint span names', () => {
-    expect(routeTemplateFor(makeReq({ path: '/catalog/9182' }))).toBe('/catalog/*');
-    expect(routeTemplateFor(makeReq({ path: '/catalog/7' }))).toBe('/catalog/*');
+    const collection = segment();
+
+    expect(routeTemplateFor(makeReq({ path: `${collection}${segment()}` }))).toBe(`${collection}${UNMATCHED_SUFFIX}`);
+    expect(routeTemplateFor(makeReq({ path: `${collection}${segment()}` }))).toBe(`${collection}${UNMATCHED_SUFFIX}`);
   });
 
   it('names the root request /', () => {
-    expect(routeTemplateFor(makeReq({ path: '/' }))).toBe('/');
+    expect(routeTemplateFor(makeReq({ path: ROOT_ROUTE }))).toBe(ROOT_ROUTE);
   });
 });
 
@@ -53,15 +74,17 @@ describe('nameSpansByRoute', () => {
   it('renames the span only once the response is finished and the route is known', () => {
     const span = { updateName: vi.fn(), setAttribute: vi.fn() };
     getActiveSpan.mockReturnValue(span);
-    const req = makeReq({ method: 'POST', baseUrl: '/bff', route: { path: '/login' } as never });
+    const mount = segment();
+    const route = segment();
+    const req = makeReq({ method: HttpMethods.post, baseUrl: mount, route: { path: route } as never });
     const res = makeRes();
 
     nameSpansByRoute(req, res, vi.fn() as NextFunction);
     expect(span.updateName).not.toHaveBeenCalled();
 
     res.finish();
-    expect(span.updateName).toHaveBeenCalledWith('POST /bff/login');
-    expect(span.setAttribute).toHaveBeenCalledWith('http.route', '/bff/login');
+    expect(span.updateName).toHaveBeenCalledWith(`${HttpMethods.post} ${mount}${route}`);
+    expect(span.setAttribute).toHaveBeenCalledWith(HTTP_ROUTE_ATTRIBUTE, `${mount}${route}`);
   });
 
   it('continues the chain when nothing is being traced', () => {

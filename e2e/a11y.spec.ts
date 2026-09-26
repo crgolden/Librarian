@@ -1,24 +1,28 @@
 import AxeBuilder from '@axe-core/playwright';
 import { test, expect, signInAsAdmin } from './fixtures.js';
+import { AxeTags } from './axe-constants';
+import { PlaywrightConstants } from './playwright-constants';
+import e2eSettings from './e2e-settings.json';
+import { AppUrls } from '../src/app/app-paths';
 
 const AUTHED_ROUTES = [
-  '/',
-  '/catalog',
-  '/library',
-  '/collections',
-  '/profile',
-  '/account',
-  '/consoles',
-  '/admin/enrichment',
+  AppUrls.home,
+  AppUrls.catalog,
+  AppUrls.library,
+  AppUrls.collections,
+  AppUrls.profile,
+  AppUrls.account,
+  AppUrls.consoles,
+  AppUrls.adminEnrichment,
 ] as const;
-const ANONYMOUS_ROUTES = ['/', '/catalog', '/faq', '/privacy'] as const;
+const ANONYMOUS_ROUTES = [AppUrls.home, AppUrls.catalog, AppUrls.faq, AppUrls.privacy] as const;
 
-const ADMIN_ROUTE_LANDMARK = new Map<string, string>([['/admin/enrichment', '#enrichment-no-run']]);
+const ADMIN_ROUTE_LANDMARK = new Map<string, string>([[AppUrls.adminEnrichment, '#enrichment-no-run']]);
 
-const ROUTE_NAMED_CONTROL = new Map<string, string>([['/account', '#schedule-save']]);
+const ROUTE_NAMED_CONTROL = new Map<string, string>([[AppUrls.account, '#schedule-save']]);
 
-const DESKTOP = { width: 1440, height: 900 };
-const MOBILE = { width: 390, height: 844 };
+const DESKTOP = e2eSettings.viewports.desktop;
+const MOBILE = e2eSettings.viewports.mobile;
 
 interface AxeSummary {
   violations: { id: string; impact?: string | null; nodes: number; targets: string[]; html: string[] }[];
@@ -31,7 +35,7 @@ function targetsOf(nodes: { target: unknown[] }[]): string[] {
 
 async function scan(page: import('@playwright/test').Page): Promise<AxeSummary> {
   const results = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .withTags(Object.values(AxeTags))
     .analyze();
 
   return {
@@ -46,7 +50,8 @@ async function scan(page: import('@playwright/test').Page): Promise<AxeSummary> 
   };
 }
 
-function expectNoViolationsAndNothingUnevaluated(summary: AxeSummary, where: string): void {
+function expectNoViolationsAndNothingUnevaluated(summary: AxeSummary): void {
+  const where = test.info().titlePath.join(' › ');
   expect(summary.violations, `${where}: ${JSON.stringify(summary.violations)}`).toEqual([]);
   expect(
     summary.incomplete,
@@ -84,7 +89,7 @@ test.describe('Accessibility — signed in, desktop rail', () => {
         ).toHaveAccessibleName(/\S/);
       }
 
-      expectNoViolationsAndNothingUnevaluated(await scan(page), `signed in, desktop, ${route}`);
+      expectNoViolationsAndNothingUnevaluated(await scan(page));
     });
   }
 });
@@ -95,7 +100,7 @@ test.describe('Accessibility — anonymous', () => {
   for (const route of ANONYMOUS_ROUTES) {
     test(`${route} has no WCAG A/AA violations for a visitor with no account`, async ({ page }) => {
       await page.goto(route);
-      expectNoViolationsAndNothingUnevaluated(await scan(page), `anonymous, desktop, ${route}`);
+      expectNoViolationsAndNothingUnevaluated(await scan(page));
     });
   }
 });
@@ -105,8 +110,8 @@ test.describe('Accessibility — mobile tab bar and the More sheet', () => {
 
   test('the tab bar is clean', async ({ authedPage: page, store }) => {
     await store.reset();
-    await page.goto('/');
-    expectNoViolationsAndNothingUnevaluated(await scan(page), 'signed in, mobile, tab bar');
+    await page.goto(AppUrls.home);
+    expectNoViolationsAndNothingUnevaluated(await scan(page));
   });
 
   test('the More sheet is clean while open, which is when it is operable', async ({
@@ -114,23 +119,23 @@ test.describe('Accessibility — mobile tab bar and the More sheet', () => {
     store,
   }) => {
     await store.reset();
-    await page.goto('/');
+    await page.goto(AppUrls.home);
     await page.locator('#nav-tab-more').click();
     await expect(page.locator('#nav-sheet')).toBeVisible();
 
-    expectNoViolationsAndNothingUnevaluated(await scan(page), 'signed in, mobile, sheet open');
+    expectNoViolationsAndNothingUnevaluated(await scan(page));
   });
 });
 
 test.describe('Accessibility — the light scheme is scanned too', () => {
-  test.use({ viewport: DESKTOP, colorScheme: 'light' });
+  test.use({ viewport: DESKTOP, colorScheme: PlaywrightConstants.colorSchemes.light });
 
   test('the home page is clean in the light re-binding as well as the dark base', async ({
     authedPage: page,
     store,
   }) => {
     await store.reset();
-    await page.goto('/');
-    expectNoViolationsAndNothingUnevaluated(await scan(page), 'signed in, desktop, light scheme');
+    await page.goto(AppUrls.home);
+    expectNoViolationsAndNothingUnevaluated(await scan(page));
   });
 });

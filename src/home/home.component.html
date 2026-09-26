@@ -1,86 +1,94 @@
-<section class="page-section flex flex-col gap-4 max-w-narrow mx-auto">
+<section crgPageSection class="flex flex-col gap-4 max-w-narrow mx-auto">
   <h1 id="page-title">Welcome to Librarian</h1>
-  <p class="text-muted">
+  <p class="text-meta text-text-muted">
     Librarian curates and organizes your game library, backed by the Curator API.
   </p>
 
   @if (auth.isAuthenticated()) {
-    <div class="card p-6 flex flex-col items-start gap-4">
-      <h2>Your library</h2>
+    <div crgCard class="p-6 flex flex-col items-start gap-4">
+      <h2 id="home-summary-heading">{{ librarySummaryHeading }}</h2>
       @if (summary(); as totals) {
         <dl id="home-totals" class="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1 w-full m-0">
-          <dt class="stamp-label sm:row-start-1">Titles catalogued</dt>
-          <dd id="home-total-library" class="catalog-meta m-0 sm:row-start-2">{{ totals.libraryTotal }}</dd>
-          <dt class="stamp-label sm:row-start-1">Collections</dt>
-          <dd id="home-total-collections" class="catalog-meta m-0 sm:row-start-2">{{ totals.collectionCount }}</dd>
-          <dt class="stamp-label sm:row-start-1">Collection entries</dt>
-          <dd id="home-total-collection-entries" class="catalog-meta m-0 sm:row-start-2">{{ totals.collectionEntries }}</dd>
+          <dt appStampLabel class="sm:row-start-1">{{ libraryTotalTerm }}</dt>
+          <dd id="home-total-library" appCatalogMeta class="m-0 sm:row-start-2" [attr.data-count]="totals.libraryTotal">{{ totals.libraryTotal }}</dd>
+          <dt appStampLabel class="sm:row-start-1">{{ collectionsTerm }}</dt>
+          <dd id="home-total-collections" appCatalogMeta class="m-0 sm:row-start-2" [attr.data-count]="totals.collectionCount">{{ totals.collectionCount }}</dd>
+          <dt appStampLabel class="sm:row-start-1">{{ collectionEntriesTerm }}</dt>
+          <dd id="home-total-collection-entries" appCatalogMeta class="m-0 sm:row-start-2" [attr.data-count]="totals.collectionEntries">{{ totals.collectionEntries }}</dd>
         </dl>
         @if (totals.linked === false) {
-          <p id="home-unlinked-notice" class="text-muted">
-            No PlayStation Network account is linked, so nothing has been catalogued yet.
-          </p>
+          <p id="home-unlinked-notice" class="text-meta text-text-muted">{{ unlinkedNotice }}</p>
         }
       } @else {
-        <p class="text-muted">Library totals are unavailable right now.</p>
+        <p id="home-totals-unavailable" class="text-meta text-text-muted">{{ totalsUnavailableMessage }}</p>
       }
       <div id="home-actions" class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
         @for (action of actions(); track action.path) {
-          <a
-            [attr.id]="'home-action-' + $index"
-            [routerLink]="action.path"
-            [class.btn-primary]="$first"
-            [class.btn-ghost]="!$first"
-            >{{ action.label }}</a
-          >
+          @if ($first) {
+            <a
+              [attr.id]="'home-action-' + $index"
+              [routerLink]="action.path"
+              crgButtonPrimary
+              [attr.data-primary]="$first"
+              >{{ action.label }}</a
+            >
+          } @else {
+            <a
+              [attr.id]="'home-action-' + $index"
+              [routerLink]="action.path"
+              crgButtonGhost
+              [attr.data-primary]="$first"
+              >{{ action.label }}</a
+            >
+          }
         }
       </div>
     </div>
   } @else {
-    <div class="card p-6 flex flex-col gap-3">
-      <h2>How titles enter your library</h2>
+    <div crgCard class="p-6 flex flex-col gap-3">
+      <h2 id="home-pitch-heading">{{ pitchHeading }}</h2>
       <div class="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
         <div class="flex items-start gap-3">
           <ng-icon class="text-accent" name="lucideBookmark" aria-hidden="true" />
           <div>
             <h3 class="mt-0 mb-1">Purchased</h3>
-            <p class="text-muted">Every PSN purchase, back to the first</p>
+            <p class="text-meta text-text-muted">Every PSN purchase, back to the first</p>
           </div>
         </div>
         <div class="flex items-start gap-3">
           <ng-icon class="text-accent" name="lucideDownload" aria-hidden="true" />
           <div>
             <h3 class="mt-0 mb-1">Free-to-play</h3>
-            <p class="text-muted">Downloaded once, easily lost track of afterward</p>
+            <p class="text-meta text-text-muted">Downloaded once, easily lost track of afterward</p>
           </div>
         </div>
         <div class="flex items-start gap-3">
           <ng-icon class="text-accent" name="lucideCalendarDays" aria-hidden="true" />
           <div>
             <h3 class="mt-0 mb-1">Monthly games</h3>
-            <p class="text-muted">Added each month, retained while the subscription stays active</p>
+            <p class="text-meta text-text-muted">Added each month, retained while the subscription stays active</p>
           </div>
         </div>
         <div class="flex items-start gap-3">
           <ng-icon class="text-accent" name="lucideLayers" aria-hidden="true" />
           <div>
             <h3 class="mt-0 mb-1">Catalog entitlements</h3>
-            <p class="text-muted">
+            <p class="text-meta text-text-muted">
               Extra and Premium titles, held as entitlements rather than purchases; Premium adds trials
             </p>
           </div>
         </div>
       </div>
-      <p class="text-muted">
+      <p class="text-meta text-text-muted">
         Spread across more than one console or extended storage, these are easy to lose track of.
         Librarian catalogues the whole PSN library in one place — what is owned, where it is
         installed, and how far each title has been played.
       </p>
     </div>
 
-    <div class="card p-6 flex flex-col items-start gap-4">
-      <p>Sign in to link your PlayStation Network account and manage your library.</p>
-      <a id="home-sign-in" [href]="auth.loginUrl" class="btn-primary">Sign in</a>
+    <div crgCard class="p-6 flex flex-col items-start gap-4">
+      <p id="home-sign-in-prompt">{{ signInPrompt }}</p>
+      <a id="home-sign-in" [href]="auth.loginUrl" crgButtonPrimary>{{ signInLabel }}</a>
     </div>
   }
 </section>

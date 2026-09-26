@@ -1,0 +1,1 @@
+export const SUMMARY_TITLE_DISPLAY_CAP = 10;

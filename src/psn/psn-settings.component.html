@@ -1,23 +1,23 @@
 <app-loading-overlay [visible]="overlayVisible()" />
 
-<section class="page-section psn-settings">
+<section crgPageSection class="flex flex-col gap-4 max-w-narrow mx-auto">
   <h1 id="page-title">Account</h1>
-  <p class="text-muted">
+  <p class="text-meta text-text-muted">
     Link a PSN account so Librarian can read your game library, and manage your enrichment keys,
     refresh schedule and stored data. Everything below the link works with or without a PSN account.
   </p>
 
   @if (linked()) {
-    <div class="card p-6 flex flex-col items-start gap-4">
-      <span class="psn-badge">PSN account linked</span>
+    <div crgCard class="p-6 flex flex-col items-start gap-4">
+      <span id="psn-linked-badge" class="inline-flex items-center gap-[0.35rem] font-mono text-small text-psn before:size-2 before:rounded-full before:bg-psn before:content-['']">PSN account linked</span>
       <p>
         @if (refreshTokenExpiresAt()) {
-          <span class="catalog-meta"
+          <span id="psn-link-renewal" appCatalogMeta
             >We'll keep this linked until {{ refreshTokenExpiresAt() | date: 'medium' }}, after which
             you'll need to link again with a new NPSSO token.</span
           >
         } @else if (noRefreshToken()) {
-          <span id="psn-no-refresh-token-warning" class="text-warning"
+          <span id="psn-no-refresh-token-warning" class="text-warn"
             >PSN didn't issue a renewable session for this sign-in. We can use it until
             {{ accessTokenExpiresAt() | date: 'medium' }}, after which you'll need to link again with a new
             NPSSO token.</span
@@ -25,27 +25,27 @@
         }
       </p>
       @if (error()) {
-        <p class="text-error">{{ error() }}</p>
+        <p class="m-0 text-meta text-danger">{{ error() }}</p>
       }
       @if (success()) {
-        <div id="psn-link-success" class="card p-4 flex flex-col items-start gap-2 w-full">
-          <p class="text-success">{{ success() }}</p>
+        <div id="psn-link-success" crgCard class="p-4 flex flex-col items-start gap-2 w-full">
+          <p class="text-ok">{{ success() }}</p>
           @if (preferences(); as prefs) {
-            <p class="text-muted">
+            <p class="text-meta text-text-muted">
               Nothing is read from PlayStation Network until you turn it on under Data sharing below:
             </p>
-            <ul class="list-none m-0 p-0 flex flex-col gap-1 catalog-meta">
-              <li id="psn-link-success-trophies">
-                <a routerLink="/account" fragment="pref-trophies">Trophies</a>: {{ prefs.harvest_trophies ? 'on' : 'off' }}
+            <ul appCatalogMeta class="list-none m-0 p-0 flex flex-col gap-1">
+              <li id="psn-link-success-trophies" [attr.data-enabled]="prefs.harvest_trophies">
+                <a [routerLink]="appUrls.account" fragment="pref-trophies">Trophies</a>: {{ prefs.harvest_trophies ? 'on' : 'off' }}
               </li>
-              <li id="psn-link-success-identity">
-                <a routerLink="/account" fragment="pref-identity">Identity</a>: {{ prefs.harvest_identity ? 'on' : 'off' }}
+              <li id="psn-link-success-identity" [attr.data-enabled]="prefs.harvest_identity">
+                <a [routerLink]="appUrls.account" fragment="pref-identity">Identity</a>: {{ prefs.harvest_identity ? 'on' : 'off' }}
               </li>
-              <li id="psn-link-success-presence">
-                <a routerLink="/account" fragment="pref-presence">Presence</a>: {{ prefs.harvest_presence ? 'on' : 'off' }}
+              <li id="psn-link-success-presence" [attr.data-enabled]="prefs.harvest_presence">
+                <a [routerLink]="appUrls.account" fragment="pref-presence">Presence</a>: {{ prefs.harvest_presence ? 'on' : 'off' }}
               </li>
-              <li id="psn-link-success-devices">
-                <a routerLink="/account" fragment="pref-devices">Devices</a>: {{ prefs.harvest_devices ? 'on' : 'off' }}
+              <li id="psn-link-success-devices" [attr.data-enabled]="prefs.harvest_devices">
+                <a [routerLink]="appUrls.account" fragment="pref-devices">Devices</a>: {{ prefs.harvest_devices ? 'on' : 'off' }}
               </li>
             </ul>
           }
@@ -54,7 +54,7 @@
       <button
         id="psn-unlink"
         type="button"
-        class="btn-ghost-danger btn-ghost"
+        crgButtonGhostDanger
         (click)="unlink()"
         [disabled]="unlinking()"
       >
@@ -63,164 +63,172 @@
     </div>
 
     @if (preferences(); as prefs) {
-      <div class="card p-6 flex flex-col items-start gap-4 psn-preferences">
+      <div id="psn-data-sharing-card" crgCard class="p-6 flex flex-col items-start gap-4 w-full">
         <h2>Data sharing</h2>
-        <p class="text-muted">Choose what Librarian reads from your PlayStation Network account.</p>
-        <p id="psn-public-profile-note" class="text-muted">
+        <p class="text-meta text-text-muted">Choose what Librarian reads from your PlayStation Network account.</p>
+        <p id="psn-public-profile-note" class="text-meta text-text-muted">
           Anything you enable here may also appear on your public profile if you make it public — see
-          <a id="psn-profile-settings-link" routerLink="/profile/settings">Profile Settings</a>.
+          <a id="psn-profile-settings-link" [routerLink]="appUrls.profileSettings">Profile Settings</a>.
         </p>
 
         @if (preferencesError()) {
-          <p class="text-error">{{ preferencesError() }}</p>
+          <p class="m-0 text-meta text-danger">{{ preferencesError() }}</p>
         }
 
-        <div class="psn-preference-toggle">
-          <label for="pref-trophies">
+        <div class="flex flex-col gap-1 self-stretch">
+          <label for="pref-trophies" class="flex items-center gap-2 font-semibold self-stretch">
             <input
               id="pref-trophies"
+              class="self-stretch"
               type="checkbox"
               [ngModel]="prefs.harvest_trophies"
-              (ngModelChange)="onToggle('harvest_trophies', $event)"
+              (ngModelChange)="onToggle(psnPreferenceKeys.harvestTrophies, $event)"
               [disabled]="savingPreference() !== null"
             />
             Trophies
           </label>
-          <span class="text-muted">Level, tier, progress, and trophy counts.</span>
+          <span class="text-meta text-text-muted">Level, tier, progress, and trophy counts.</span>
         </div>
 
-        <div class="psn-preference-toggle">
-          <label for="pref-identity">
+        <div class="flex flex-col gap-1 self-stretch">
+          <label for="pref-identity" class="flex items-center gap-2 font-semibold self-stretch">
             <input
               id="pref-identity"
+              class="self-stretch"
               type="checkbox"
               [ngModel]="prefs.harvest_identity"
-              (ngModelChange)="onToggle('harvest_identity', $event)"
+              (ngModelChange)="onToggle(psnPreferenceKeys.harvestIdentity, $event)"
               [disabled]="savingPreference() !== null"
             />
             PSN Identity
           </label>
-          <span class="text-muted">Your PSN online ID.</span>
+          <span class="text-meta text-text-muted">Your PSN online ID.</span>
         </div>
 
-        <div class="psn-preference-toggle">
-          <label for="pref-presence">
+        <div class="flex flex-col gap-1 self-stretch">
+          <label for="pref-presence" class="flex items-center gap-2 font-semibold self-stretch">
             <input
               id="pref-presence"
+              class="self-stretch"
               type="checkbox"
               [ngModel]="prefs.harvest_presence"
-              (ngModelChange)="onToggle('harvest_presence', $event)"
+              (ngModelChange)="onToggle(psnPreferenceKeys.harvestPresence, $event)"
               [disabled]="savingPreference() !== null"
             />
             Online Presence
           </label>
-          <span class="text-muted">Your live online status and what you're currently playing.</span>
+          <span class="text-meta text-text-muted">Your live online status and what you're currently playing.</span>
         </div>
 
-        <div class="psn-preference-toggle">
-          <label for="pref-devices">
+        <div class="flex flex-col gap-1 self-stretch">
+          <label for="pref-devices" class="flex items-center gap-2 font-semibold self-stretch">
             <input
               id="pref-devices"
+              class="self-stretch"
               type="checkbox"
               [ngModel]="prefs.harvest_devices"
-              (ngModelChange)="onToggle('harvest_devices', $event)"
+              (ngModelChange)="onToggle(psnPreferenceKeys.harvestDevices, $event)"
               [disabled]="savingPreference() !== null"
             />
             Registered Devices
           </label>
-          <span class="text-muted">Consoles and devices activated on your account.</span>
+          <span class="text-meta text-text-muted">Consoles and devices activated on your account.</span>
         </div>
       </div>
 
 
-      <div class="card p-6 flex flex-col items-start gap-4 psn-preferences">
+      <div crgCard class="p-6 flex flex-col items-start gap-4 w-full">
         <h2>Account changes</h2>
-        <p class="text-muted">
-          Everything above only reads your PlayStation Network account. These two let Curator write to it
-          instead — both off by default, and capped together at 50 changes a day.
-        </p>
+        <p id="psn-account-changes-note" class="text-meta text-text-muted">{{ accountChangesMessage }}</p>
 
-        <div class="psn-preference-toggle">
-          <label for="pref-friend-writes">
+        <div class="flex flex-col gap-1 self-stretch">
+          <label for="pref-friend-writes" class="flex items-center gap-2 font-semibold self-stretch">
             <input
               id="pref-friend-writes"
+              class="self-stretch"
               type="checkbox"
               [ngModel]="prefs.allow_friend_writes"
-              (ngModelChange)="onToggle('allow_friend_writes', $event)"
+              (ngModelChange)="onToggle(psnPreferenceKeys.allowFriendWrites, $event)"
               [disabled]="savingPreference() !== null"
             />
             Friend requests
           </label>
-          <span class="text-muted"
-            >Let Curator add or remove friends on your account. Every change affects one other player, and
-            PlayStation already requires their agreement before you're friends. Removing someone can't be
-            undone from here — they'd have to accept a new request.</span
-          >
+          <span id="pref-friend-writes-disclosure" class="text-meta text-text-muted">{{ friendWritesDisclosure }}</span>
         </div>
 
-        <div class="psn-preference-toggle">
-          <label for="pref-chat-writes">
+        <div class="flex flex-col gap-1 self-stretch">
+          <label for="pref-chat-writes" class="flex items-center gap-2 font-semibold self-stretch">
             <input
               id="pref-chat-writes"
+              class="self-stretch"
               type="checkbox"
               [ngModel]="prefs.allow_chat_writes"
-              (ngModelChange)="onToggle('allow_chat_writes', $event)"
+              (ngModelChange)="onToggle(psnPreferenceKeys.allowChatWrites, $event)"
               [disabled]="savingPreference() !== null"
             />
             Chat groups
           </label>
-          <span class="text-muted"
-            >Let Curator create and leave chat groups on your account. Creating a group puts it in front of
-            everyone you invite, and none of them agreed to hear from Curator — that's publishing, not just
-            reading. Leaving a group can't be undone from here — you'd need a fresh invite to rejoin.</span
-          >
+          <span id="pref-chat-writes-disclosure" class="text-meta text-text-muted">{{ chatWritesDisclosure }}</span>
         </div>
       </div>
 
 
       @if (prefs.harvest_trophies && trophySummary(); as summary) {
-        <div id="psn-card-trophies" class="card p-6 flex flex-col items-start gap-4 psn-category-card">
+        <div
+          id="psn-card-trophies"
+          crgCard class="p-6 flex flex-col items-start gap-4 w-full"
+          [attr.data-level]="summary.level"
+          [attr.data-platinum]="summary.earned.platinum"
+        >
           <h3>Trophies</h3>
           <p>Level {{ summary.level }} &middot; Tier {{ summary.tier }} &middot; {{ summary.progress }}% to next level</p>
-          <p class="catalog-meta">{{ trophiesEarnedTotal(summary) }} trophies earned</p>
-          <p class="catalog-meta">
+          <p appCatalogMeta>{{ trophiesEarnedTotal(summary) }} trophies earned</p>
+          <p appCatalogMeta>
             {{ summary.earned.platinum }} platinum &middot; {{ summary.earned.gold }} gold &middot;
             {{ summary.earned.silver }} silver &middot; {{ summary.earned.bronze }} bronze
           </p>
         </div>
       } @else if (prefs.harvest_trophies && trophySummaryError()) {
-        <p class="text-error">{{ trophySummaryError() }}</p>
+        <p class="m-0 text-meta text-danger">{{ trophySummaryError() }}</p>
       }
 
       @if (prefs.harvest_identity && identity(); as id) {
-        <div id="psn-card-identity" class="card p-6 flex flex-col items-start gap-4 psn-category-card">
+        <div
+          id="psn-card-identity"
+          crgCard class="p-6 flex flex-col items-start gap-4 w-full"
+          [attr.data-online-id]="id.online_id"
+        >
           <h3>PSN Identity</h3>
           <p>{{ id.online_id }}</p>
         </div>
       } @else if (prefs.harvest_identity && identityError()) {
-        <p class="text-error">{{ identityError() }}</p>
+        <p class="m-0 text-meta text-danger">{{ identityError() }}</p>
       }
 
       @if (prefs.harvest_identity && friendRequests(); as requests) {
-        <div id="friend-requests" class="card p-6 flex flex-col items-start gap-4 psn-category-card">
-          <h3>Friend requests <span class="text-muted">(live)</span></h3>
+        <div id="friend-requests" crgCard class="p-6 flex flex-col items-start gap-4 w-full">
+          <h3>Friend requests <span class="text-meta text-text-muted">(live)</span></h3>
           @if (friendRequestAccepted(); as accepted) {
-            <p id="friend-request-accepted" class="text-success">You and {{ accepted }} are now PSN friends.</p>
+            <p id="friend-request-accepted" class="text-ok" [attr.data-online-id]="accepted">You and {{ accepted }} are now PSN friends.</p>
           }
           @if (friendRequestsError()) {
-            <p id="friend-requests-error" class="text-error">{{ friendRequestsError() }}</p>
+            <p id="friend-requests-error" class="m-0 text-meta text-danger">{{ friendRequestsError() }}</p>
           }
           @if (requests.length === 0) {
-            <p id="friend-requests-empty" class="text-muted">Nobody is waiting on you.</p>
+            <p id="friend-requests-empty" class="text-meta text-text-muted">Nobody is waiting on you.</p>
           } @else {
             <ul class="list-none m-0 p-0 flex flex-col gap-2 w-full">
               @for (request of requests; track request.account_id) {
-                <li class="flex flex-wrap items-center gap-3" [attr.id]="'friend-request-' + $index">
-                  <span class="catalog-title grow">{{ request.online_id ?? request.account_id }}</span>
+                <li
+                  class="flex flex-wrap items-center gap-3"
+                  [attr.id]="'friend-request-' + $index"
+                  [attr.data-online-id]="request.online_id"
+                >
+                  <span appCatalogTitle class="grow">{{ request.online_id ?? request.account_id }}</span>
                   @if (request.online_id) {
                     <button
                       type="button"
-                      class="btn-primary btn-sm"
+                      crgButtonPrimarySmall
                       [attr.id]="'friend-request-accept-' + $index"
                       [disabled]="friendRequestPending() !== null || !prefs.allow_friend_writes"
                       (click)="acceptFriendRequest(request)"
@@ -232,7 +240,7 @@
               }
             </ul>
             @if (!prefs.allow_friend_writes) {
-              <p id="friend-requests-consent" class="text-muted">
+              <p id="friend-requests-consent" class="text-meta text-text-muted">
                 Accepting needs the friend-writes permission above.
               </p>
             }
@@ -241,43 +249,43 @@
       }
 
       @if (prefs.harvest_presence && presence(); as live) {
-        <div id="psn-card-presence" class="card p-6 flex flex-col items-start gap-4 psn-category-card">
-          <h3>Online Presence <span class="text-muted">(live)</span></h3>
+        <div id="psn-card-presence" crgCard class="p-6 flex flex-col items-start gap-4 w-full">
+          <h3>Online Presence <span class="text-meta text-text-muted">(live)</span></h3>
           <p>{{ live.online_status }}</p>
           @if (live.game_title) {
-            <p class="catalog-meta">Playing: {{ live.game_title }}</p>
+            <p appCatalogMeta>Playing: {{ live.game_title }}</p>
           }
           @if (live.platform) {
-            <p class="catalog-meta">Platform: {{ live.platform }}</p>
+            <p appCatalogMeta>Platform: {{ live.platform }}</p>
           }
         </div>
       } @else if (prefs.harvest_presence && presenceError()) {
-        <p class="text-error">{{ presenceError() }}</p>
+        <p class="m-0 text-meta text-danger">{{ presenceError() }}</p>
       }
 
       @if (prefs.harvest_devices && devices(); as deviceList) {
-        <div id="psn-card-devices" class="card p-6 flex flex-col items-start gap-4 psn-category-card">
+        <div id="psn-card-devices" crgCard class="p-6 flex flex-col items-start gap-4 w-full">
           <h3>Registered Devices</h3>
-          <ul class="psn-device-list">
+          <ul class="list-none m-0 p-0 flex flex-col gap-2">
             @for (device of deviceList.devices; track $index) {
               <li>
                 {{ device.device_name }} ({{ device.device_type }})
                 @if (device.activation_date) {
-                  <span class="catalog-meta"> &mdash; activated {{ device.activation_date | date: 'medium' }}</span>
+                  <span appCatalogMeta> &mdash; activated {{ device.activation_date | date: 'medium' }}</span>
                 }
                 @if (linkedConsoleName(device); as consoleName) {
-                  <span class="spine-label" [attr.id]="'device-linked-' + $index">
+                  <span appSpineLabel [attr.id]="'device-linked-' + $index">
                     Linked to {{ consoleName }}
                   </span>
                   @if (device.deactivation_date) {
-                    <span class="text-warning" [attr.id]="'device-deactivated-' + $index">
+                    <span class="text-warn" [attr.id]="'device-deactivated-' + $index">
                       PSN deactivated this device on {{ device.deactivation_date | date: 'medium' }}; the link is kept
                       until you unlink it.
                     </span>
                   }
                   <button
                     type="button"
-                    class="btn-ghost btn-sm"
+                    crgButtonGhostSmall
                     [attr.id]="'device-unlink-' + $index"
                     [disabled]="deviceLinkPending() === device.device_id"
                     (click)="unlinkDevice(device)"
@@ -286,7 +294,7 @@
                   </button>
                 } @else if (consoles().length) {
                   @if (linkingDeviceId() === device.device_id) {
-                    <label [attr.for]="'device-link-select-' + $index" class="sr-only">Link to a console</label>
+                    <label [attr.for]="'device-link-select-' + $index" class="sr-only font-semibold self-stretch">Link to a console</label>
                     <select
                       [attr.id]="'device-link-select-' + $index"
                       name="deviceLinkTarget"
@@ -294,16 +302,16 @@
                       [ngModel]="linkTargetConsoleId()"
                       (ngModelChange)="linkTargetConsoleId.set($event)"
                     >
-                      <option [ngValue]="null">Select a console&hellip;</option>
+                      <option [ngValue]="null">{{ deviceLinkPlaceholder }}</option>
                       @for (console of consoles(); track console.console_id) {
                         <option [value]="console.console_id">{{ console.name }}</option>
                       }
                     </select>
-                    <div class="form-actions">
+                    <div class="flex gap-3">
                       <button
                         [attr.id]="'device-link-cancel-' + $index"
                         type="button"
-                        class="btn-ghost btn-sm"
+                        crgButtonGhostSmall
                         (click)="cancelLinking()"
                       >
                         Cancel
@@ -311,7 +319,7 @@
                       <button
                         [attr.id]="'device-link-confirm-' + $index"
                         type="button"
-                        class="btn-primary btn-sm"
+                        crgButtonPrimarySmall
                         [disabled]="deviceLinkPending() === device.device_id"
                         (click)="linkDevice(device)"
                       >
@@ -322,7 +330,7 @@
                     <button
                       [attr.id]="'device-link-start-' + $index"
                       type="button"
-                      class="btn-ghost btn-sm"
+                      crgButtonGhostSmall
                       (click)="startLinking(device)"
                     >
                       Link to a console
@@ -333,81 +341,78 @@
             }
           </ul>
           @if (deviceLinkError()) {
-            <p class="text-error">{{ deviceLinkError() }}</p>
+            <p class="m-0 text-meta text-danger">{{ deviceLinkError() }}</p>
           }
         </div>
       } @else if (prefs.harvest_devices && devicesError()) {
-        <p class="text-error">{{ devicesError() }}</p>
+        <p class="m-0 text-meta text-danger">{{ devicesError() }}</p>
       }
     }
   } @else {
-    <form class="card p-6 flex flex-col items-start gap-4" (submit)="$event.preventDefault(); link()">
-      <label for="npsso">NPSSO token</label>
-      <input id="npsso" name="npsso" type="password" [ngModel]="npsso()" (ngModelChange)="npsso.set($event)" autocomplete="off" />
-      <span class="text-muted"
+    <form crgCard class="p-6 flex flex-col items-start gap-4" (submit)="$event.preventDefault(); link()">
+      <label for="npsso" class="font-semibold self-stretch">NPSSO token</label>
+      <input id="npsso" name="npsso" type="password" class="self-stretch" [ngModel]="npsso()" (ngModelChange)="npsso.set($event)" autocomplete="off" />
+      <span class="text-meta text-text-muted"
         >Used once to link your account — never stored or logged. Not sure how to get yours? See the
-        <a routerLink="/faq">FAQ</a>.</span
+        <a [routerLink]="appUrls.faq">FAQ</a>.</span
       >
       @if (error()) {
-        <p class="text-error">{{ error() }}</p>
+        <p class="m-0 text-meta text-danger">{{ error() }}</p>
       }
       @if (success()) {
-        <p class="text-success">{{ success() }}</p>
+        <p class="text-ok">{{ success() }}</p>
       }
-      <button id="psn-link-submit" type="submit" class="btn-primary" [disabled]="linking()">
+      <button id="psn-link-submit" type="submit" crgButtonPrimary [disabled]="linking()">
         {{ linking() ? 'Linking...' : 'Link account' }}
       </button>
     </form>
   }
 
-  <div id="psn-schedule-card" class="card p-6 flex flex-col items-start gap-4 psn-preferences">
+  <div id="psn-schedule-card" crgCard class="p-6 flex flex-col items-start gap-4 w-full">
     <h2>Scheduled refreshes</h2>
-    <p class="text-muted">
+    <p class="text-meta text-text-muted">
       Rebuild your library automatically on a schedule, instead of pressing Refresh yourself.
     </p>
-    <p id="schedule-cost" class="text-muted">
-      These runs happen while you're away, using your saved PlayStation Network token and any keys below.
-      Daily is the shortest option: OpenCritic's free plan resets 200 requests each day. RAWG's resets 20,000
-      each month, so a daily schedule uses that up about seven times faster than a weekly one.
-    </p>
+    <p id="schedule-cost" class="text-meta text-text-muted">{{ scheduleCostMessage }}</p>
 
     @if (scheduleError()) {
-      <p class="text-error" id="schedule-error">{{ scheduleError() }}</p>
+      <p class="m-0 text-meta text-danger" id="schedule-error">{{ scheduleError() }}</p>
     }
 
     @if (schedule(); as current) {
       @if (current.paused_reason; as reason) {
-        <p class="text-error" id="schedule-paused">{{ pausedReasonLabel(reason) }}</p>
+        <p class="m-0 text-meta text-danger" id="schedule-paused">{{ pausedReasonLabel(reason) }}</p>
       } @else {
-        <p class="catalog-meta" id="schedule-next-run">
+        <p appCatalogMeta id="schedule-next-run">
           Next refresh: {{ current.next_run_at | date: 'medium' }}
         </p>
       }
       @if (current.last_run_at; as lastRun) {
-        <p class="catalog-meta" id="schedule-last-run">Last refresh: {{ lastRun | date: 'medium' }}</p>
+        <p appCatalogMeta id="schedule-last-run">Last refresh: {{ lastRun | date: 'medium' }}</p>
       }
     } @else {
-      <p class="text-muted" id="schedule-none">No schedule yet — your library only refreshes when you ask.</p>
+      <p class="text-meta text-text-muted" id="schedule-none">No schedule yet — your library only refreshes when you ask.</p>
     }
 
-    <div class="psn-preference-toggle">
-      <label for="schedule-cadence">How often</label>
+    <div class="flex flex-col gap-1 self-stretch">
+      <label for="schedule-cadence" class="flex items-center gap-2 font-semibold self-stretch">How often</label>
       <select
         id="schedule-cadence"
         [ngModel]="scheduleCadence()"
         (ngModelChange)="scheduleCadence.set($event)"
         [disabled]="scheduleSaving()"
       >
-        <option value="daily">Daily</option>
-        <option value="weekly">Weekly</option>
-        <option value="monthly">Monthly</option>
+        @for (cadence of cadenceOptions; track cadence) {
+          <option [value]="cadence">{{ cadenceLabels[cadence] }}</option>
+        }
       </select>
     </div>
 
-    <div class="psn-preference-toggle">
-      <label for="schedule-ps-plus-watch">
+    <div class="flex flex-col gap-1 self-stretch">
+      <label for="schedule-ps-plus-watch" class="flex items-center gap-2 font-semibold self-stretch">
         <input
           id="schedule-ps-plus-watch"
+          class="self-stretch"
           type="checkbox"
           [ngModel]="schedulePsPlusWatch()"
           (ngModelChange)="schedulePsPlusWatch.set($event)"
@@ -415,7 +420,7 @@
         />
         PS Plus watch
       </label>
-      <span class="text-muted">
+      <span class="text-meta text-text-muted">
         Show which Game Catalog titles you haven't claimed and which are leaving.
       </span>
     </div>
@@ -423,7 +428,7 @@
     <button
       id="schedule-save"
       type="button"
-      class="btn-primary"
+      crgButtonPrimary
       [disabled]="scheduleSaving()"
       (click)="saveSchedule()"
     >
@@ -434,7 +439,7 @@
       <button
         id="schedule-cancel"
         type="button"
-        class="btn-ghost"
+        crgButtonGhost
         [disabled]="scheduleSaving()"
         (click)="cancelSchedule()"
       >
@@ -444,41 +449,42 @@
   </div>
 
   @if (enrichmentKeyStatus(); as keys) {
-    <div id="psn-enrichment-keys-card" class="card p-6 flex flex-col items-start gap-4 psn-preferences">
+    <div id="psn-enrichment-keys-card" crgCard class="p-6 flex flex-col items-start gap-4 w-full">
       <h2>Enrichment API keys (optional)</h2>
-      <p class="text-muted">
+      <p class="text-meta text-text-muted">
         Bring your own RAWG and/or OpenCritic API keys to enrich your library with genre, score, and
         metadata signals. Entirely optional — Curator never provisions a shared key for this, so
         enrichment for a provider you haven't configured is simply skipped, not an error. See the
-        <a routerLink="/faq">FAQ</a> for what this does with the data it retrieves.
+        <a [routerLink]="appUrls.faq">FAQ</a> for what this does with the data it retrieves.
       </p>
       @if (enrichmentKeyStatusError()) {
-        <p class="text-error">{{ enrichmentKeyStatusError() }}</p>
+        <p class="m-0 text-meta text-danger">{{ enrichmentKeyStatusError() }}</p>
       }
 
-      <div class="psn-preference-toggle">
+      <div class="flex flex-col gap-1 self-stretch">
         <h3>RAWG</h3>
         @if (keys.rawg_key_rejected_at) {
-          <p class="text-error">
+          <p id="psn-rawg-key-rejected" class="m-0 text-meta text-danger">
             This key stopped working as of {{ keys.rawg_key_rejected_at | date: 'medium' }} — RAWG
             rejected it during your last library refresh. Enrichment from RAWG is skipped until you
             re-enter a working key.
           </p>
         }
         @if (keys.rawg_configured) {
-          <p class="text-muted">
+          <p id="psn-rawg-key-configured" class="text-meta text-text-muted">
             Configured
             @if (keys.rawg_added_at) {
               since {{ keys.rawg_added_at | date: 'medium' }}
             }
           </p>
           @if (rawgKeyError()) {
-            <p id="psn-rawg-key-error" class="text-error">{{ rawgKeyError() }}</p>
+            <p id="psn-rawg-key-error" class="m-0 text-meta text-danger">{{ rawgKeyError() }}</p>
           }
           @if (keys.rawg_key_rejected_at) {
-            <label for="rawg-key" class="sr-only">New RAWG API key</label>
+            <label for="rawg-key" class="sr-only flex items-center gap-2 font-semibold self-stretch">New RAWG API key</label>
             <input
               id="rawg-key"
+              class="self-stretch"
               name="rawg-key"
               type="password"
               autocomplete="off"
@@ -489,7 +495,7 @@
             <button
               id="psn-rawg-key-reenter"
               type="button"
-              class="btn-primary"
+              crgButtonPrimary
               (click)="setRawgKey()"
               [disabled]="settingRawgKey()"
             >
@@ -499,21 +505,22 @@
           <button
             id="psn-rawg-key-remove"
             type="button"
-            class="btn-ghost-danger btn-ghost"
+            crgButtonGhostDanger
             (click)="deleteRawgKey()"
             [disabled]="deletingRawgKey()"
           >
             {{ deletingRawgKey() ? 'Removing...' : 'Remove RAWG key' }}
           </button>
         } @else {
-          <span class="text-muted"
+          <span id="psn-rawg-key-get" class="text-meta text-text-muted"
             >Don't have a key? Get one free at <a href="https://rawg.io/apidocs" target="_blank" rel="noopener"
               >rawg.io/apidocs</a
             >.</span
           >
-          <label for="rawg-key" class="sr-only">RAWG API key</label>
+          <label for="rawg-key" class="sr-only flex items-center gap-2 font-semibold self-stretch">RAWG API key</label>
           <input
             id="rawg-key"
+            class="self-stretch"
             name="rawg-key"
             type="password"
             autocomplete="off"
@@ -521,14 +528,14 @@
             (ngModelChange)="rawgKeyInput.set($event)"
             placeholder="RAWG API key"
           />
-          <span class="text-muted">Encrypted at rest, never displayed again after saving.</span>
+          <span class="text-meta text-text-muted">Encrypted at rest, never displayed again after saving.</span>
           @if (rawgKeyError()) {
-            <p id="psn-rawg-key-error" class="text-error">{{ rawgKeyError() }}</p>
+            <p id="psn-rawg-key-error" class="m-0 text-meta text-danger">{{ rawgKeyError() }}</p>
           }
           <button
             id="psn-rawg-key-save"
             type="button"
-            class="btn-primary"
+            crgButtonPrimary
             (click)="setRawgKey()"
             [disabled]="settingRawgKey()"
           >
@@ -537,29 +544,30 @@
         }
       </div>
 
-      <div class="psn-preference-toggle">
+      <div class="flex flex-col gap-1 self-stretch">
         <h3>OpenCritic</h3>
         @if (keys.opencritic_key_rejected_at) {
-          <p class="text-error">
+          <p id="psn-opencritic-key-rejected" class="m-0 text-meta text-danger">
             This key stopped working as of {{ keys.opencritic_key_rejected_at | date: 'medium' }} —
             OpenCritic rejected it during your last library refresh. Enrichment from OpenCritic is
             skipped until you re-enter a working key.
           </p>
         }
         @if (keys.opencritic_configured) {
-          <p class="text-muted">
+          <p id="psn-opencritic-key-configured" class="text-meta text-text-muted">
             Configured
             @if (keys.opencritic_added_at) {
               since {{ keys.opencritic_added_at | date: 'medium' }}
             }
           </p>
           @if (opencriticKeyError()) {
-            <p id="psn-opencritic-key-error" class="text-error">{{ opencriticKeyError() }}</p>
+            <p id="psn-opencritic-key-error" class="m-0 text-meta text-danger">{{ opencriticKeyError() }}</p>
           }
           @if (keys.opencritic_key_rejected_at) {
-            <label for="opencritic-key" class="sr-only">New OpenCritic API key</label>
+            <label for="opencritic-key" class="sr-only flex items-center gap-2 font-semibold self-stretch">New OpenCritic API key</label>
             <input
               id="opencritic-key"
+              class="self-stretch"
               name="opencritic-key"
               type="password"
               autocomplete="off"
@@ -570,7 +578,7 @@
             <button
               id="psn-opencritic-key-reenter"
               type="button"
-              class="btn-primary"
+              crgButtonPrimary
               (click)="setOpenCriticKey()"
               [disabled]="settingOpencriticKey()"
             >
@@ -580,23 +588,24 @@
           <button
             id="psn-opencritic-key-remove"
             type="button"
-            class="btn-ghost-danger btn-ghost"
+            crgButtonGhostDanger
             (click)="deleteOpenCriticKey()"
             [disabled]="deletingOpencriticKey()"
           >
             {{ deletingOpencriticKey() ? 'Removing...' : 'Remove OpenCritic key' }}
           </button>
         } @else {
-          <span class="text-muted"
+          <span id="psn-opencritic-key-get" class="text-meta text-text-muted"
             >Don't have a key? OpenCritic is accessed through RapidAPI — see the
             <a href="https://docs.rapidapi.com/docs/consumer-quick-start-guide" target="_blank" rel="noopener"
               >RapidAPI quick-start guide</a
             >
             to sign up and subscribe to the OpenCritic API.</span
           >
-          <label for="opencritic-key" class="sr-only">OpenCritic API key</label>
+          <label for="opencritic-key" class="sr-only flex items-center gap-2 font-semibold self-stretch">OpenCritic API key</label>
           <input
             id="opencritic-key"
+            class="self-stretch"
             name="opencritic-key"
             type="password"
             autocomplete="off"
@@ -604,14 +613,14 @@
             (ngModelChange)="opencriticKeyInput.set($event)"
             placeholder="OpenCritic (RapidAPI) key"
           />
-          <span class="text-muted">Encrypted at rest, never displayed again after saving.</span>
+          <span class="text-meta text-text-muted">Encrypted at rest, never displayed again after saving.</span>
           @if (opencriticKeyError()) {
-            <p id="psn-opencritic-key-error" class="text-error">{{ opencriticKeyError() }}</p>
+            <p id="psn-opencritic-key-error" class="m-0 text-meta text-danger">{{ opencriticKeyError() }}</p>
           }
           <button
             id="psn-opencritic-key-save"
             type="button"
-            class="btn-primary"
+            crgButtonPrimary
             (click)="setOpenCriticKey()"
             [disabled]="settingOpencriticKey()"
           >
@@ -622,21 +631,21 @@
     </div>
   }
 
-  <div class="card p-6 flex flex-col items-start gap-4">
+  <div crgCard class="p-6 flex flex-col items-start gap-4">
     <h2>Your action history</h2>
-    <p class="text-muted">
-      Every high-level action Curator has taken on your behalf — linking attempts, unlinks, library
-      refreshes, trophy fetches — kept for one year. See the <a routerLink="/privacy">privacy policy</a>
-      for details.
+    <p class="text-meta text-text-muted">
+      Every action Curator has taken with your PlayStation account — linking attempts, unlinks, library
+      refreshes, every live read of your data — each marked completed or failed, kept for one year. See the
+      <a [routerLink]="appUrls.privacy">privacy policy</a> for details.
     </p>
     @if (actionsError()) {
-      <p class="text-error">{{ actionsError() }}</p>
+      <p class="m-0 text-meta text-danger">{{ actionsError() }}</p>
     }
     @if (actions() === null) {
       <button
         id="psn-action-history-load"
         type="button"
-        class="btn-ghost"
+        crgButtonGhost
         (click)="loadMyActions()"
         [disabled]="actionsLoading()"
       >
@@ -644,49 +653,50 @@
       </button>
     } @else {
       @if (actions()!.length === 0) {
-        <p id="psn-action-history-empty" class="text-muted">No actions recorded yet.</p>
+        <p id="psn-action-history-empty" class="text-meta text-text-muted">No actions recorded yet.</p>
       } @else {
-        <ul id="psn-action-history-list" class="action-history-list">
+        <ul id="psn-action-history-list" class="m-0 pl-5 self-stretch space-y-2">
           @for (entry of actions(); track entry.occurred_at + entry.action) {
-            <li>
-              <span class="catalog-meta">{{ entry.occurred_at | date: 'medium' }}</span>
+            <li [attr.id]="'psn-action-history-entry-' + $index" [attr.data-action]="entry.action">
+              <span appCatalogMeta>{{ entry.occurred_at | date: 'medium' }}</span>
               — {{ entry.action }}@if (entry.detail) {
                 <span> ({{ entry.detail }})</span>
               }
+              · <span id="psn-action-history-outcome-{{ $index }}" appCatalogMeta [attr.data-outcome]="entry.outcome">{{ entry.outcome }}</span>
             </li>
           }
         </ul>
       }
-      <button id="psn-action-history-download" type="button" class="btn-ghost" (click)="downloadMyActions()">
+      <button id="psn-action-history-download" type="button" crgButtonGhost (click)="downloadMyActions()">
         Download as JSON
       </button>
     }
   </div>
 
   @if (deleted()) {
-    <div class="card p-6 flex flex-col items-start gap-4">
-      <p id="psn-deleted-notice" class="text-success">
+    <div crgCard class="p-6 flex flex-col items-start gap-4">
+      <p id="psn-deleted-notice" class="text-ok">
         Your account and all associated data have been deleted.
       </p>
     </div>
   } @else {
-    <div class="card p-6 flex flex-col items-start gap-4">
+    <div crgCard class="p-6 flex flex-col items-start gap-4">
       <h2>Delete my data</h2>
-      <p class="text-muted">
+      <p class="text-meta text-text-muted">
         Permanently deletes your account: your PSN link, library, consoles, collections, and preferences.
-        This cannot be undone. See the <a routerLink="/privacy">privacy policy</a> for what this does and
+        This cannot be undone. See the <a [routerLink]="appUrls.privacy">privacy policy</a> for what this does and
         does not remove.
       </p>
       @if (deleteError()) {
-        <p class="text-error">{{ deleteError() }}</p>
+        <p class="m-0 text-meta text-danger">{{ deleteError() }}</p>
       }
       @if (confirmingDelete()) {
         <p id="psn-delete-confirm-prompt">Are you sure? This cannot be undone.</p>
-        <div class="delete-confirm-actions">
+        <div class="flex gap-3">
           <button
             id="psn-delete-confirm"
             type="button"
-            class="btn-ghost-danger btn-ghost"
+            crgButtonGhostDanger
             (click)="confirmDeleteMyData()"
             [disabled]="deletingAccount()"
           >
@@ -695,7 +705,7 @@
           <button
             id="psn-delete-cancel"
             type="button"
-            class="btn-ghost"
+            crgButtonGhost
             (click)="cancelDeleteMyData()"
             [disabled]="deletingAccount()"
           >
@@ -706,7 +716,7 @@
         <button
           id="psn-delete-request"
           type="button"
-          class="btn-ghost-danger btn-ghost"
+          crgButtonGhostDanger
           (click)="requestDeleteMyData()"
         >
           Delete my data

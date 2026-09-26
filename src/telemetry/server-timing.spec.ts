@@ -1,6 +1,13 @@
-import { TraceFlags, type Span, type SpanContext } from '@opentelemetry/api';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { INVALID_SPANID, INVALID_TRACEID, TraceFlags, type Span, type SpanContext } from '@opentelemetry/api';
 import type { Request, Response, NextFunction } from 'express';
-import { exposeTraceParentToBrowser } from './server-timing';
+import {
+  SERVER_TIMING_HEADER,
+  TRACE_PARENT_ENTRY,
+  TRACE_PARENT_VERSION,
+  exposeTraceParentToBrowser,
+} from './server-timing';
+import { HEX_ENCODING, SPAN_ID_BYTES, TRACE_ID_BYTES, W3cTraceFlagsHex } from '../testing/w3c-trace-context-constants';
 
 const { getActiveSpan } = vi.hoisted(() => ({ getActiveSpan: vi.fn() }));
 
@@ -8,6 +15,9 @@ vi.mock('@opentelemetry/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@opentelemetry/api')>();
   return { ...actual, trace: { ...actual.trace, getActiveSpan } };
 });
+
+const SAMPLED_FLAG = W3cTraceFlagsHex.sampled;
+const UNSAMPLED_FLAG = W3cTraceFlagsHex.unsampled;
 
 function makeRes() {
   const headers: Record<string, string> = {};
@@ -24,6 +34,17 @@ function spanWith(spanContext: SpanContext): Span {
   return { spanContext: () => spanContext } as unknown as Span;
 }
 
+function newSpanContext(traceFlags: TraceFlags): SpanContext {
+  return {
+    traceId: randomBytes(TRACE_ID_BYTES).toString(HEX_ENCODING),
+    spanId: randomBytes(SPAN_ID_BYTES).toString(HEX_ENCODING),
+    traceFlags,
+  };
+}
+
+const traceParentEntry = (spanContext: SpanContext, flag: string): string =>
+  `${TRACE_PARENT_ENTRY};desc="${TRACE_PARENT_VERSION}-${spanContext.traceId}-${spanContext.spanId}-${flag}"`;
+
 const REQ = {} as Request;
 
 describe('exposeTraceParentToBrowser', () => {
@@ -34,36 +55,22 @@ describe('exposeTraceParentToBrowser', () => {
   it('writes the active trace and span id as a W3C traceparent', () => {
     const res = makeRes();
     const next = vi.fn() as NextFunction;
-    getActiveSpan.mockReturnValue(
-      spanWith({
-        traceId: '4bf92f3577b34da6a3ce929d0e0e4736',
-        spanId: '00f067aa0ba902b7',
-        traceFlags: TraceFlags.SAMPLED,
-      }),
-    );
+    const spanContext = newSpanContext(TraceFlags.SAMPLED);
+    getActiveSpan.mockReturnValue(spanWith(spanContext));
 
     exposeTraceParentToBrowser(REQ, res, next);
 
-    expect(res.headers['Server-Timing']).toBe(
-      'traceparent;desc="00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"',
-    );
+    expect(res.headers[SERVER_TIMING_HEADER]).toBe(traceParentEntry(spanContext, SAMPLED_FLAG));
   });
 
   it('encodes an unsampled span with the 00 flag rather than omitting it', () => {
     const res = makeRes();
-    getActiveSpan.mockReturnValue(
-      spanWith({
-        traceId: '4bf92f3577b34da6a3ce929d0e0e4736',
-        spanId: '00f067aa0ba902b7',
-        traceFlags: TraceFlags.NONE,
-      }),
-    );
+    const spanContext = newSpanContext(TraceFlags.NONE);
+    getActiveSpan.mockReturnValue(spanWith(spanContext));
 
     exposeTraceParentToBrowser(REQ, res, vi.fn() as NextFunction);
 
-    expect(res.headers['Server-Timing']).toBe(
-      'traceparent;desc="00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00"',
-    );
+    expect(res.headers[SERVER_TIMING_HEADER]).toBe(traceParentEntry(spanContext, UNSAMPLED_FLAG));
   });
 
   it('sets no header when there is no active span', () => {
@@ -79,8 +86,8 @@ describe('exposeTraceParentToBrowser', () => {
     const res = makeRes();
     getActiveSpan.mockReturnValue(
       spanWith({
-        traceId: '00000000000000000000000000000000',
-        spanId: '0000000000000000',
+        traceId: INVALID_TRACEID,
+        spanId: INVALID_SPANID,
         traceFlags: TraceFlags.NONE,
       }),
     );
@@ -92,21 +99,15 @@ describe('exposeTraceParentToBrowser', () => {
 
   it('appends to an existing Server-Timing header instead of replacing it', () => {
     const res = makeRes();
-    res.setHeader('Server-Timing', 'cache;desc="hit"');
+    const existingEntry = randomUUID();
+    res.setHeader(SERVER_TIMING_HEADER, existingEntry);
     (res.setHeader as ReturnType<typeof vi.fn>).mockClear();
-    getActiveSpan.mockReturnValue(
-      spanWith({
-        traceId: '4bf92f3577b34da6a3ce929d0e0e4736',
-        spanId: '00f067aa0ba902b7',
-        traceFlags: TraceFlags.SAMPLED,
-      }),
-    );
+    const spanContext = newSpanContext(TraceFlags.SAMPLED);
+    getActiveSpan.mockReturnValue(spanWith(spanContext));
 
     exposeTraceParentToBrowser(REQ, res, vi.fn() as NextFunction);
 
-    expect(res.headers['Server-Timing']).toBe(
-      'cache;desc="hit", traceparent;desc="00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"',
-    );
+    expect(res.headers[SERVER_TIMING_HEADER]).toBe(`${existingEntry}, ${traceParentEntry(spanContext, SAMPLED_FLAG)}`);
   });
 
   it('always continues the middleware chain', () => {

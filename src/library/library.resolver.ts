@@ -1,25 +1,21 @@
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { ActivatedRouteSnapshot, ResolveFn } from '@angular/router';
 import { Observable, catchError, forkJoin, map, of, switchMap } from 'rxjs';
 import { CuratorService, LibraryQuery } from '../curator/curator.service';
-import {
-  LibraryGameResponse,
-  LibraryPageResponse,
-  ProfileLibraryGameResponse,
-  ProfileLibraryPageResponse,
-  PsPlusRotationSummaryResponse,
-  RefreshScheduleResponse,
-  TrophyProgressResponse,
-} from '../curator/curator.models';
+import { LibraryGameResponse, LibraryPageResponse, LibrarySortFields, ProfileLibraryGameResponse, ProfileLibraryPageResponse, PsPlusRotationSummaryResponse, RefreshScheduleResponse, SortDirections, TrophyProgressResponse } from '../curator/curator.models';
+import { RouteParams } from '../app/app-paths';
+import { ResolvedStatuses } from '../shared/resolved-status';
+import { LIBRARY_PAGE_SIZE } from './library.query';
+import { statusCodeOf } from '../shared/http-status';
 
-export const LIBRARY_PAGE_SIZE = 20;
+export { LIBRARY_PAGE_SIZE };
 
 export type ResolvedLibraryGame = LibraryGameResponse | ProfileLibraryGameResponse;
 
 export type ResolvedLibrary =
   | {
-      status: 'ok';
+      status: typeof ResolvedStatuses.ok;
       games: ResolvedLibraryGame[];
       total: number;
       genres: string[];
@@ -28,8 +24,8 @@ export type ResolvedLibrary =
       hiddenCount: number;
       psPlus: PsPlusRotationSummaryResponse | null;
     }
-  | { status: 'forbidden' }
-  | { status: 'error' };
+  | { status: typeof ResolvedStatuses.forbidden }
+  | { status: typeof ResolvedStatuses.error };
 
 interface ScheduleAndPsPlus {
   schedule: RefreshScheduleResponse | null;
@@ -60,15 +56,15 @@ export function hiddenCountOf(page: LibraryPageResponse | ProfileLibraryPageResp
 }
 
 export const initialLibraryQuery: LibraryQuery = {
-  sort: 'title',
-  sortDir: 'asc',
+  sort: LibrarySortFields.title,
+  sortDir: SortDirections.asc,
   limit: LIBRARY_PAGE_SIZE,
   offset: 0,
 };
 
 export const libraryResolver: ResolveFn<ResolvedLibrary> = (route: ActivatedRouteSnapshot) => {
   const curator = inject(CuratorService);
-  const sub = route.paramMap.get('sub');
+  const sub = route.paramMap.get(RouteParams.sub);
 
   const games =
     sub !== null ? curator.getUserLibrary(sub, initialLibraryQuery) : curator.getLibrary(initialLibraryQuery);
@@ -81,7 +77,7 @@ export const libraryResolver: ResolveFn<ResolvedLibrary> = (route: ActivatedRout
   return forkJoin({ games, genres, scheduleAndPsPlus }).pipe(
     map(
       (data): ResolvedLibrary => ({
-        status: 'ok',
+        status: ResolvedStatuses.ok,
         games: data.games.games,
         total: data.games.total,
         genres: data.genres.genres,
@@ -92,7 +88,7 @@ export const libraryResolver: ResolveFn<ResolvedLibrary> = (route: ActivatedRout
       }),
     ),
     catchError((err: HttpErrorResponse) =>
-      of<ResolvedLibrary>(err.status === 403 ? { status: 'forbidden' } : { status: 'error' }),
+      of<ResolvedLibrary>(statusCodeOf(err) === HttpStatusCode.Forbidden ? { status: ResolvedStatuses.forbidden } : { status: ResolvedStatuses.error }),
     ),
   );
 };

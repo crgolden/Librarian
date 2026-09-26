@@ -4,19 +4,21 @@ import { catchError, map, of, switchMap } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import { CuratorService } from '../curator/curator.service';
 import { PsnPreferencesResponse, PublicProfileResponse } from '../curator/curator.models';
+import { RouteParams } from '../app/app-paths';
+import { ResolvedStatuses } from '../shared/resolved-status';
 
 export type ResolvedProfile =
-  | { status: 'ok'; profile: PublicProfileResponse; viewerPreferences: PsnPreferencesResponse | null }
-  | { status: 'no-user' }
-  | { status: 'error' };
+  | { status: typeof ResolvedStatuses.ok; profile: PublicProfileResponse; viewerPreferences: PsnPreferencesResponse | null }
+  | { status: typeof ResolvedStatuses.noUser }
+  | { status: typeof ResolvedStatuses.error };
 
 export const profileResolver: ResolveFn<ResolvedProfile> = (route: ActivatedRouteSnapshot) => {
   const curator = inject(CuratorService);
   const auth = inject(AuthService);
 
-  const sub = route.paramMap.get('sub') ?? auth.sub();
+  const sub = route.paramMap.get(RouteParams.sub) ?? auth.sub();
   if (sub === null) {
-    return of<ResolvedProfile>({ status: 'no-user' });
+    return of<ResolvedProfile>({ status: ResolvedStatuses.noUser });
   }
 
   return curator.getUserProfile(sub).pipe(
@@ -25,9 +27,9 @@ export const profileResolver: ResolveFn<ResolvedProfile> = (route: ActivatedRout
         ? of<PsnPreferencesResponse | null>(null)
         : curator.getPsnPreferences().pipe(catchError(() => of<PsnPreferencesResponse | null>(null)));
       return viewerPreferences.pipe(
-        map((prefs): ResolvedProfile => ({ status: 'ok', profile, viewerPreferences: prefs })),
+        map((prefs): ResolvedProfile => ({ status: ResolvedStatuses.ok, profile, viewerPreferences: prefs })),
       );
     }),
-    catchError(() => of<ResolvedProfile>({ status: 'error' })),
+    catchError(() => of<ResolvedProfile>({ status: ResolvedStatuses.error })),
   );
 };

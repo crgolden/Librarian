@@ -1,15 +1,37 @@
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute } from '@angular/router';
+import { ButtonPrimaryDirective, CardDirective, PageSectionDirective } from '@crgolden/modules/primitives';
 import { AuthService } from '../auth/auth.service';
 import { CuratorService } from '../curator/curator.service';
 import { PublicCollectionResponse } from '../curator/curator.models';
 import { ResolvedPublicCollection } from './public-collection.resolver';
+import { AppUrls, RouteDataKeys, RouteParams, sharedCollectionUrl } from '../app/app-paths';
+import { loginUrlReturningTo } from '../shared/bff-contract';
+import { pageTitle } from '../shared/page-title';
+import { CatalogMetaDirective, CatalogTitleDirective, SpineLabelDirective } from '../shared/primitives/typography';
+import { MetaNames, RobotsDirectives } from '../shared/seo-contract';
+import { ResolvedStatuses } from '../shared/resolved-status';
+import {
+  COLLECTION_LOAD_ERROR,
+  COLLECTION_NOT_FOUND_TITLE,
+  FOLLOW_UPDATE_ERROR,
+  OWN_COLLECTION_FOLLOW_ERROR,
+  SIGN_IN_TO_FOLLOW_LABEL,
+} from './public-collection.messages';
+import { statusCodeOf } from '../shared/http-status';
 
 @Component({
   selector: 'app-public-collection',
-  imports: [],
+  imports: [
+    ButtonPrimaryDirective,
+    CardDirective,
+    PageSectionDirective,
+    CatalogMetaDirective,
+    CatalogTitleDirective,
+    SpineLabelDirective,
+  ],
   templateUrl: './public-collection.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -20,6 +42,9 @@ export class PublicCollectionComponent implements OnInit {
   private readonly meta = inject(Meta);
   private readonly title = inject(Title);
 
+  protected readonly notFoundTitle = COLLECTION_NOT_FOUND_TITLE;
+  protected readonly signInToFollowLabel = SIGN_IN_TO_FOLLOW_LABEL;
+
   protected readonly notFound = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly collection = signal<PublicCollectionResponse | null>(null);
@@ -29,30 +54,28 @@ export class PublicCollectionComponent implements OnInit {
   protected readonly followError = signal<string | null>(null);
 
   protected readonly isAuthenticated = this.auth.isAuthenticated;
-  protected readonly loginUrl = this.auth.loginUrl;
 
   ngOnInit(): void {
-    this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
+    this.meta.updateTag({ name: MetaNames.robots, content: RobotsDirectives.noIndexNoFollow });
 
-    const resolved = this.route.snapshot.data['collection'] as ResolvedPublicCollection;
-    if (resolved.status === 'not-found') {
+    const resolved = this.route.snapshot.data[RouteDataKeys.collection] as ResolvedPublicCollection;
+    if (resolved.status === ResolvedStatuses.notFound) {
       this.notFound.set(true);
       return;
     }
-    if (resolved.status === 'error') {
-      this.error.set('Unable to load this collection.');
+    if (resolved.status === ResolvedStatuses.error) {
+      this.error.set(COLLECTION_LOAD_ERROR);
       return;
     }
 
     this.collection.set(resolved.collection);
-    this.title.setTitle(`${resolved.collection.name} — Librarian`);
+    this.title.setTitle(pageTitle(resolved.collection.name));
     this.following.set(resolved.following);
   }
 
   protected returnToUrl(): string {
-    const slug = this.route.snapshot.paramMap.get('slug');
-    const target = slug === null ? '/c' : `/c/${slug}`;
-    return `${this.loginUrl}?returnTo=${encodeURIComponent(target)}`;
+    const slug = this.route.snapshot.paramMap.get(RouteParams.slug);
+    return loginUrlReturningTo(slug === null ? AppUrls.sharedCollections : sharedCollectionUrl(slug));
   }
 
   protected toggleFollow(): void {
@@ -75,7 +98,7 @@ export class PublicCollectionComponent implements OnInit {
       error: (err: HttpErrorResponse) => {
         this.followPending.set(false);
         this.followError.set(
-          err.status === 400 ? "You can't follow your own collection." : 'Unable to update follow state.',
+          statusCodeOf(err) === HttpStatusCode.BadRequest ? OWN_COLLECTION_FOLLOW_ERROR : FOLLOW_UPDATE_ERROR,
         );
       },
     });

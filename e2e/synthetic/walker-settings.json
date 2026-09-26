@@ -1,0 +1,20 @@
+{
+  "stepBudget": { "defaultSteps": 40, "maxSteps": 500 },
+  "journeys": [
+    { "slot": 1, "role": "admin", "administers": true },
+    { "slot": 2, "role": "member", "administers": false }
+  ],
+  "librarySearchTerms": ["the", "star", "war", "legend", "world", "dark", "final", "quest"],
+  "actionWeights": {
+    "go home": 2,
+    "navigate via the rail": 4,
+    "browse the catalog": 3,
+    "open a catalog game": 5,
+    "search the library": 3,
+    "filter the library by genre": 2,
+    "next library page": 2,
+    "previous library page": 1,
+    "read the FAQ": 2,
+    "flip the color scheme": 1
+  }
+}

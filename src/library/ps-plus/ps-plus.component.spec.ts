@@ -4,18 +4,31 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import { PsPlusComponent } from './ps-plus.component';
 import { ResolvedPsPlusRotation } from './ps-plus.resolver';
-import { PsPlusRotationResponse, PsPlusTitleResponse } from '../../curator/curator.models';
+import { PsPlusRotationResponse, PsPlusTiers, PsPlusTitleResponse } from '../../curator/curator.models';
+import { AppUrls, RouteDataKeys, catalogGameUrl } from '../../app/app-paths';
+import { PageTitles } from '../../shared/page-title';
+import { storeProductUrl } from '../../catalog/store-links';
+import { CuratorRoutes } from '../../curator/curator-api';
+import { PS_PLUS_ROTATION_LOAD_ERROR } from '../library.messages';
+import { LinkRelTokens } from '../../testing/html-constants';
+import { ResolvedStatuses } from '../../shared/resolved-status';
+import { newCount, newId, newText, newUtcInstant, randomIntBetween } from '@crgolden/modules/testing';
 
-let nextTitleNumber = 0;
+const WALKED_AT = newUtcInstant();
+const PREMIUM_WALKED_AT = newUtcInstant();
+const EXTRA_TOTAL = newCount();
+const PREMIUM_TOTAL = newCount();
+const CATALOGUED_GAME_ID = newId();
+const CATALOGUED_PRODUCT_ID = newId();
+const STORE_ONLY_PRODUCT_ID = newId();
 
 function psPlusTitle(overrides: Partial<PsPlusTitleResponse> = {}): PsPlusTitleResponse {
-  nextTitleNumber += 1;
   return {
-    title_id: `CUSA${String(nextTitleNumber).padStart(5, '0')}_00`,
+    title_id: newId(),
     game_id: null,
-    title: `Title ${nextTitleNumber}`,
-    tier: 'extra',
-    platforms: ['PS5'],
+    title: newText(),
+    tier: PsPlusTiers.extra,
+    platforms: [newText()],
     cover_image_url: null,
     store_product_id: null,
     since_at: null,
@@ -25,15 +38,15 @@ function psPlusTitle(overrides: Partial<PsPlusTitleResponse> = {}): PsPlusTitleR
 
 function rotation(overrides: Partial<PsPlusRotationResponse> = {}): PsPlusRotationResponse {
   return {
-    catalog_walked_at: '2026-09-01T04:00:00Z',
+    catalog_walked_at: WALKED_AT,
     since: null,
     added: [],
     leaving: [],
     unclaimed: [],
     lapsed: [],
     categories: [
-      { tier: 'extra', walked_at: '2026-09-01T04:00:00Z', total: 400 },
-      { tier: 'premium', walked_at: '2026-09-01T04:10:00Z', total: 120 },
+      { tier: PsPlusTiers.extra, walked_at: WALKED_AT, total: EXTRA_TOTAL },
+      { tier: PsPlusTiers.premium, walked_at: PREMIUM_WALKED_AT, total: PREMIUM_TOTAL },
     ],
     ...overrides,
   };
@@ -50,7 +63,7 @@ describe('PsPlusComponent', () => {
         provideHttpClient(withXhr()),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: ActivatedRoute, useValue: { snapshot: { data: { rotation: resolved } } } },
+        { provide: ActivatedRoute, useValue: { snapshot: { data: { [RouteDataKeys.rotation]: resolved } } } },
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);
@@ -64,34 +77,34 @@ describe('PsPlusComponent', () => {
   });
 
   it('renders the resolved rotation with no request of its own', () => {
-    const fixture = render({ status: 'ok', rotation: rotation() });
+    const fixture = render({ status: ResolvedStatuses.ok, rotation: rotation() });
 
     const compiled: HTMLElement = fixture.nativeElement;
-    expect(compiled.querySelector('#page-title')?.textContent).toContain('PlayStation Plus');
+    expect(compiled.querySelector('#page-title')?.textContent).toContain(PageTitles.psPlus);
     expect(compiled.querySelector('#ps-plus-walked-at')).not.toBeNull();
-    expect(compiled.querySelector('#ps-plus-category-extra')?.textContent).toContain('400');
-    httpMock.expectNone((r) => r.url.includes('/ps-plus-rotation'));
+    expect(compiled.querySelector('#ps-plus-category-extra')?.textContent).toContain(String(EXTRA_TOTAL));
+    httpMock.expectNone((r) => r.url.includes(CuratorRoutes.mePsPlusRotation));
   });
 
   it('keeps the heading on the not-linked branch and sends the reader to the account page', () => {
-    const fixture = render({ status: 'not-linked' });
+    const fixture = render({ status: ResolvedStatuses.notLinked });
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.querySelector('#page-title')).not.toBeNull();
-    expect(compiled.querySelector('#ps-plus-not-linked a')?.getAttribute('href')).toBe('/account');
+    expect(compiled.querySelector('#ps-plus-not-linked a')?.getAttribute('href')).toBe(AppUrls.account);
     expect(compiled.querySelector('#ps-plus-unclaimed')).toBeNull();
   });
 
   it('keeps the heading on the error branch', () => {
-    const fixture = render({ status: 'error' });
+    const fixture = render({ status: ResolvedStatuses.error });
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.querySelector('#page-title')).not.toBeNull();
-    expect(compiled.querySelector('#ps-plus-error')?.textContent).toContain('Unable to load');
+    expect(compiled.querySelector('#ps-plus-error')?.textContent).toContain(PS_PLUS_ROTATION_LOAD_ERROR);
   });
 
   it('says the catalog has not been walked rather than showing empty lists as a finding', () => {
-    const fixture = render({ status: 'ok', rotation: rotation({ catalog_walked_at: null, categories: [] }) });
+    const fixture = render({ status: ResolvedStatuses.ok, rotation: rotation({ catalog_walked_at: null, categories: [] }) });
 
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.querySelector('#ps-plus-not-walked')).not.toBeNull();
@@ -99,21 +112,21 @@ describe('PsPlusComponent', () => {
   });
 
   it('links a catalogued title to its catalog page and a storefront-only one to the Store', () => {
-    const catalogued = psPlusTitle({ game_id: 'g-catalogued', store_product_id: 'UP9000-CUSA00001_00-X' });
-    const storeOnly = psPlusTitle({ game_id: null, store_product_id: 'UP9000-CUSA00002_00-Y' });
+    const catalogued = psPlusTitle({ game_id: CATALOGUED_GAME_ID, store_product_id: CATALOGUED_PRODUCT_ID });
+    const storeOnly = psPlusTitle({ game_id: null, store_product_id: STORE_ONLY_PRODUCT_ID });
     const nowhere = psPlusTitle({ game_id: null, store_product_id: null });
-    const fixture = render({ status: 'ok', rotation: rotation({ unclaimed: [catalogued, storeOnly, nowhere] }) });
+    const fixture = render({ status: ResolvedStatuses.ok, rotation: rotation({ unclaimed: [catalogued, storeOnly, nowhere] }) });
 
     const compiled: HTMLElement = fixture.nativeElement;
-    expect(compiled.querySelector('#ps-plus-unclaimed-title-0')?.getAttribute('href')).toBe('/catalog/g-catalogued');
+    expect(compiled.querySelector('#ps-plus-unclaimed-title-0')?.getAttribute('href')).toBe(catalogGameUrl(CATALOGUED_GAME_ID));
     const storeLink = compiled.querySelector<HTMLAnchorElement>('#ps-plus-unclaimed-title-1');
-    expect(storeLink?.href).toContain('store.playstation.com/product/UP9000-CUSA00002_00-Y');
-    expect(storeLink?.rel).toContain('noopener');
+    expect(storeLink?.href).toBe(storeProductUrl(STORE_ONLY_PRODUCT_ID));
+    expect(storeLink?.rel).toContain(LinkRelTokens.noopener);
     expect(compiled.querySelector('#ps-plus-unclaimed-title-2')?.tagName).toBe('SPAN');
   });
 
   it('renders every list with its own empty message when nothing is in it', () => {
-    const compiled: HTMLElement = render({ status: 'ok', rotation: rotation() }).nativeElement;
+    const compiled: HTMLElement = render({ status: ResolvedStatuses.ok, rotation: rotation() }).nativeElement;
 
     expect(compiled.querySelector('#ps-plus-unclaimed-empty')).not.toBeNull();
     expect(compiled.querySelector('#ps-plus-leaving-empty')).not.toBeNull();
@@ -122,14 +135,16 @@ describe('PsPlusComponent', () => {
   });
 
   it('counts each list in its heading', () => {
+    const leaving = Array.from({ length: randomIntBetween(1, 10) }, () => psPlusTitle());
+    const lapsed = Array.from({ length: randomIntBetween(1, 10) }, () => psPlusTitle());
     const fixture = render({
-      status: 'ok',
-      rotation: rotation({ leaving: [psPlusTitle(), psPlusTitle()], lapsed: [psPlusTitle()] }),
+      status: ResolvedStatuses.ok,
+      rotation: rotation({ leaving, lapsed }),
     });
 
     const compiled: HTMLElement = fixture.nativeElement;
-    expect(compiled.querySelector('#ps-plus-leaving h2')?.textContent).toContain('(2)');
-    expect(compiled.querySelector('#ps-plus-lapsed h2')?.textContent).toContain('(1)');
+    expect(compiled.querySelector('#ps-plus-leaving h2')?.textContent).toContain(`(${leaving.length})`);
+    expect(compiled.querySelector('#ps-plus-lapsed h2')?.textContent).toContain(`(${lapsed.length})`);
     expect(compiled.querySelector('#ps-plus-leaving-empty')).toBeNull();
   });
 });

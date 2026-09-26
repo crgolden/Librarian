@@ -1,30 +1,42 @@
 import { hasPrefix, isVisible, pickFromPrefix, prefixLocator, type WalkerAction } from '@crgolden/modules/synthetic-walker';
 import { expect, type Locator } from '@playwright/test';
+import walkerSettings from './walker-settings.json';
+import { PlaywrightConstants } from '../playwright-constants';
+import { AppUrls } from '../../src/app/app-paths';
+import { NAV_RAIL_SIGNOUT_ID, SiteNavIdPrefixes } from '../../src/app/nav/site-nav-ids';
+import { CATALOG_TITLE_ID_PREFIX } from '../../src/catalog/catalog-ids';
 
+const ACTION_WEIGHTS: Readonly<Record<string, number | undefined>> = walkerSettings.actionWeights;
+
+function weightOf(actionName: string): number {
+  const weight = ACTION_WEIGHTS[actionName];
+  if (weight === undefined) {
+    throw new Error(`walker-settings.json names no weight for the '${actionName}' action.`);
+  }
+  return weight;
+}
 
 async function expectRendered(locator: Locator): Promise<void> {
   await expect(locator).toBeVisible();
 }
 
-const LIBRARY_SEARCH_TERMS = ['the', 'star', 'war', 'legend', 'world', 'dark', 'final', 'quest'] as const;
-const NAV_RAIL_SELECTOR = '[id^="nav-rail-"]:not([id^="nav-rail-icon-"]):not([id^="nav-rail-label-"]):not(#nav-rail-signout)';
+const NAV_RAIL_SELECTOR = `[id^="${SiteNavIdPrefixes.railLink}"]:not([id^="${SiteNavIdPrefixes.railIcon}"]):not([id^="${SiteNavIdPrefixes.railLabel}"]):not(#${NAV_RAIL_SIGNOUT_ID})`;
 
-export const librarianActions: readonly WalkerAction[] = [
+const unweightedActions: readonly Omit<WalkerAction, 'weight'>[] = [
   {
     name: 'go home',
-    weight: 2,
     available: () => Promise.resolve(true),
     run: async page => {
-      await page.goto('/');
+      await page.goto(AppUrls.home);
       await expectRendered(page.locator('#page-title'));
     },
   },
   {
     name: 'navigate via the rail',
-    weight: 4,
     available: async page => (await page.locator(NAV_RAIL_SELECTOR).count()) > 0,
     run: async (page, rng) => {
       const links = page.locator(NAV_RAIL_SELECTOR);
+      await links.first().waitFor();
       const count = await links.count();
       await links.nth(rng.int(count)).click();
       await expectRendered(page.locator('#page-title'));
@@ -32,38 +44,35 @@ export const librarianActions: readonly WalkerAction[] = [
   },
   {
     name: 'browse the catalog',
-    weight: 3,
     available: () => Promise.resolve(true),
     run: async page => {
-      await page.goto('/catalog');
+      await page.goto(AppUrls.catalog);
       await expectRendered(page.locator('#page-title'));
     },
   },
   {
     name: 'open a catalog game',
-    weight: 5,
-    available: page => hasPrefix(page, 'catalog-title-'),
+    available: page => hasPrefix(page, CATALOG_TITLE_ID_PREFIX),
     run: async (page, rng) => {
-      const title = await pickFromPrefix(page, rng, 'catalog-title-');
+      const title = await pickFromPrefix(page, rng, CATALOG_TITLE_ID_PREFIX);
       await title.click();
       await expectRendered(page.locator('#page-title'));
     },
   },
   {
     name: 'search the library',
-    weight: 3,
     available: page => isVisible(page, '#library-search'),
     run: async (page, rng) => {
-      await page.fill('#library-search', rng.pick(LIBRARY_SEARCH_TERMS));
+      await page.fill('#library-search', rng.pick(walkerSettings.librarySearchTerms));
       await expectRendered(page.locator('#page-title'));
     },
   },
   {
     name: 'filter the library by genre',
-    weight: 2,
     available: page => isVisible(page, '#library-genre-filter'),
     run: async (page, rng) => {
       const options = page.locator('#library-genre-filter option');
+      await options.first().waitFor();
       const optionCount = await options.count();
       await page.selectOption('#library-genre-filter', { index: rng.int(optionCount) });
       await expectRendered(page.locator('#page-title'));
@@ -71,7 +80,6 @@ export const librarianActions: readonly WalkerAction[] = [
   },
   {
     name: 'next library page',
-    weight: 2,
     available: async page => (await isVisible(page, '#library-next')) && (await page.locator('#library-next').isEnabled()),
     run: async page => {
       await page.click('#library-next');
@@ -80,7 +88,6 @@ export const librarianActions: readonly WalkerAction[] = [
   },
   {
     name: 'previous library page',
-    weight: 1,
     available: async page => (await isVisible(page, '#library-prev')) && (await page.locator('#library-prev').isEnabled()),
     run: async page => {
       await page.click('#library-prev');
@@ -89,26 +96,28 @@ export const librarianActions: readonly WalkerAction[] = [
   },
   {
     name: 'read the FAQ',
-    weight: 2,
     available: () => Promise.resolve(true),
     run: async (page, rng) => {
-      await page.goto('/faq');
+      await page.goto(AppUrls.faq);
       await expectRendered(page.locator('#faq-content'));
       const tocLinks = prefixLocator(page, 'toc-link-');
+      await tocLinks.first().waitFor();
       const tocCount = await tocLinks.count();
-      if (tocCount > 0) {
-        await tocLinks.nth(rng.int(tocCount)).click();
-      }
+      await tocLinks.nth(rng.int(tocCount)).click();
     },
   },
   {
     name: 'flip the color scheme',
-    weight: 1,
     available: () => Promise.resolve(true),
     run: async (page, rng) => {
-      await page.emulateMedia({ colorScheme: rng.pick(['light', 'dark'] as const) });
-      await page.goto('/');
+      await page.emulateMedia({ colorScheme: rng.pick(Object.values(PlaywrightConstants.colorSchemes)) });
+      await page.goto(AppUrls.home);
       await expectRendered(page.locator('#page-title'));
     },
   },
 ];
+
+export const librarianActions: readonly WalkerAction[] = unweightedActions.map(action => ({
+  ...action,
+  weight: weightOf(action.name),
+}));

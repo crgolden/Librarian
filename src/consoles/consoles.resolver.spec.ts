@@ -4,9 +4,10 @@ import { Observable, of, throwError } from 'rxjs';
 import { consolesResolver, ConsolesPageData } from './consoles.resolver';
 import { CuratorService } from '../curator/curator.service';
 import { ConsoleResponse, StorageDeviceResponse } from '../curator/curator.models';
+import { newId, newText } from '@crgolden/modules/testing';
 
-const CONSOLES = [{ console_id: 'c1' }] as unknown as ConsoleResponse[];
-const DEVICES = [{ device_id: 'd1' }] as unknown as StorageDeviceResponse[];
+const CONSOLES = [{ console_id: newId() }] as unknown as ConsoleResponse[];
+const DEVICES = [{ device_id: newId() }] as unknown as StorageDeviceResponse[];
 
 function run(curator: Partial<CuratorService>): Promise<ConsolesPageData | null> {
   TestBed.resetTestingModule();
@@ -20,7 +21,7 @@ function run(curator: Partial<CuratorService>): Promise<ConsolesPageData | null>
   });
 }
 
-const fails = () => throwError(() => new Error('unreachable'));
+const fails = () => throwError(() => new Error(newText()));
 
 describe('consolesResolver', () => {
   it('resolves consoles and storage devices together', async () => {

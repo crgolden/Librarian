@@ -5,16 +5,25 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { ProfileFollowersComponent } from './profile-followers.component';
 import { ResolvedFollowList } from './follow-list.resolver';
 import { FollowListEntryResponse } from '../curator/curator.models';
+import { FollowListKinds, RouteDataKeys, RouteParams, userProfileUrl } from '../app/app-paths';
+import { FOLLOWERS_LOAD_ERROR, SIGNED_IN_USER_UNKNOWN_ERROR, UNLINKED_USER_NAME } from './profile.messages';
+import { ResolvedStatuses } from '../shared/resolved-status';
+import { newId, newUtcInstant } from '@crgolden/modules/testing';
+
+const OTHER_SUB = newId();
+const FOLLOWER_SUB = newId();
+const UNLINKED_FOLLOWER_SUB = newId();
+const FOLLOWER_PSN_ACCOUNT_ID = newId();
 
 function ok(entries: FollowListEntryResponse[] = [], total = entries.length): ResolvedFollowList {
-  return { status: 'ok', entries, total };
+  return { status: ResolvedStatuses.ok, entries, total };
 }
 
 function activatedRoute(sub: string | null, resolved: ResolvedFollowList): ActivatedRoute {
   return {
     snapshot: {
-      paramMap: convertToParamMap(sub !== null ? { sub } : {}),
-      data: { followers: resolved },
+      paramMap: convertToParamMap(sub !== null ? { [RouteParams.sub]: sub } : {}),
+      data: { [RouteDataKeys.followers]: resolved },
     },
   } as unknown as ActivatedRoute;
 }
@@ -45,53 +54,52 @@ describe('ProfileFollowersComponent', () => {
     const fixture = TestBed.createComponent(ProfileFollowersComponent);
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('No followers yet.');
-    httpMock.expectNone((r) => r.url.endsWith('/followers'));
+    expect((fixture.nativeElement as HTMLElement).querySelector('#followers-empty')).not.toBeNull();
+    httpMock.expectNone((r) => r.url.endsWith(`/${FollowListKinds.followers}`));
   });
 
   it('viewer mode renders another user\'s followers, each entry linking to /u/{sub}', () => {
     configure(
-      'other-sub',
+      OTHER_SUB,
       ok(
         [
-          { sub: 'follower-1', psn_account_id: 'psn-follower-1', followed_at: '2026-01-01T00:00:00Z' },
-          { sub: 'follower-2', psn_account_id: null, followed_at: '2026-01-02T00:00:00Z' },
+          { sub: FOLLOWER_SUB, psn_account_id: FOLLOWER_PSN_ACCOUNT_ID, followed_at: newUtcInstant() },
+          { sub: UNLINKED_FOLLOWER_SUB, psn_account_id: null, followed_at: newUtcInstant() },
         ],
-        2,
       ),
     );
     const fixture = TestBed.createComponent(ProfileFollowersComponent);
     fixture.detectChanges();
 
     const compiled: HTMLElement = fixture.nativeElement;
-    expect(compiled.textContent).toContain('2 total');
-    expect(compiled.textContent).toContain('psn-follower-1');
-    expect(compiled.textContent).toContain('Unlinked user');
-    expect(compiled.querySelector('a[href="/u/follower-1"]')).not.toBeNull();
-    expect(compiled.querySelector('a[href="/u/follower-2"]')).not.toBeNull();
+    expect(compiled.querySelector('#followers-total')?.getAttribute('data-total')).toBe(String(compiled.querySelectorAll('[id^="follow-entry-"]').length));
+    expect(compiled.textContent).toContain(FOLLOWER_PSN_ACCOUNT_ID);
+    expect(compiled.textContent).toContain(UNLINKED_USER_NAME);
+    expect(compiled.querySelector(`a[href="${userProfileUrl(FOLLOWER_SUB)}"]`)).not.toBeNull();
+    expect(compiled.querySelector(`a[href="${userProfileUrl(UNLINKED_FOLLOWER_SUB)}"]`)).not.toBeNull();
   });
 
   it('lists followers even when the profile is private -- follow lists are always visible', () => {
-    configure('other-sub', ok([{ sub: 'follower-1', psn_account_id: null, followed_at: '2026-01-01T00:00:00Z' }], 1));
+    configure(OTHER_SUB, ok([{ sub: FOLLOWER_SUB, psn_account_id: null, followed_at: newUtcInstant() }], 1));
     const fixture = TestBed.createComponent(ProfileFollowersComponent);
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('1 total');
+    expect((fixture.nativeElement as HTMLElement).querySelector('#followers-total')?.getAttribute('data-total')).toBe(String(1));
   });
 
   it('shows an error message when the resolver could not load followers', () => {
-    configure('other-sub', { status: 'error' });
+    configure(OTHER_SUB, { status: ResolvedStatuses.error });
     const fixture = TestBed.createComponent(ProfileFollowersComponent);
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to load followers.');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(FOLLOWERS_LOAD_ERROR);
   });
 
   it('shows an error message when nobody is signed in and no :sub was given', () => {
-    configure(null, { status: 'no-user' });
+    configure(null, { status: ResolvedStatuses.noUser });
     const fixture = TestBed.createComponent(ProfileFollowersComponent);
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Unable to determine the signed-in user.');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(SIGNED_IN_USER_UNKNOWN_ERROR);
   });
 });

@@ -1,20 +1,26 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideHttpClient, withXhr } from '@angular/common/http';
+import { HttpStatusCode, provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
 import { firstValueFrom, Observable } from 'rxjs';
 import { homeSummaryResolver, HomeSummary } from './home.resolver';
 import { AdminService } from '../admin/admin.service';
 import { AuthService } from '../auth/auth.service';
-import { DefinitionResponse, MeResponse } from '../curator/curator.models';
+import { CollectionKinds, CollectionVisibilities, DefinitionResponse, MeResponse } from '../curator/curator.models';
+import { CuratorApi, CuratorQueryParams } from '../curator/curator-api';
+import { newCount, newEmailAddress, newId } from '@crgolden/modules/testing';
+
+const LIBRARY_TOTAL = newCount();
+const FIRST_COLLECTION_ITEMS = newCount();
+const SECOND_COLLECTION_ITEMS = newCount();
 
 function definition(definitionId: string, itemCount: number): DefinitionResponse {
   return {
     definition_id: definitionId,
     name: definitionId,
     description: null,
-    kind: 'filter_list',
+    kind: CollectionKinds.filterList,
     console_id: null,
     genre_filter: [],
     min_score: null,
@@ -24,13 +30,15 @@ function definition(definitionId: string, itemCount: number): DefinitionResponse
     sort_order: null,
     exclude_installed_on: [],
     install_target_console_id: null,
-    visibility: 'private',
+    visibility: CollectionVisibilities.private,
     share_slug: null,
     item_count: itemCount,
   };
 }
 
-const me: MeResponse = { sub: 'u1', email: 'chris@example.com', linked: true, psn: null, is_admin: false };
+const TWO_COLLECTIONS = [definition(newId(), FIRST_COLLECTION_ITEMS), definition(newId(), SECOND_COLLECTION_ITEMS)];
+
+const me: MeResponse = { sub: newId(), email: newEmailAddress(), linked: true, psn: null, is_admin: false };
 
 function configure(isAuthenticated: boolean): HttpTestingController {
   TestBed.resetTestingModule();
@@ -64,16 +72,16 @@ describe('homeSummaryResolver', () => {
     const httpMock = configure(true);
     const resultPromise = firstValueFrom(resolve());
 
-    httpMock.expectOne((request) => request.url === '/curator/api/library').flush({ games: [], total: 412 });
+    httpMock.expectOne((request) => request.url === CuratorApi.library).flush({ games: [], total: LIBRARY_TOTAL });
     httpMock
-      .expectOne('/curator/api/collections')
-      .flush([definition('d1', 40), definition('d2', 23)]);
-    httpMock.expectOne('/curator/api/me').flush(me);
+      .expectOne(CuratorApi.collections)
+      .flush(TWO_COLLECTIONS);
+    httpMock.expectOne(CuratorApi.me).flush(me);
 
     expect(await resultPromise).toEqual({
-      libraryTotal: 412,
-      collectionCount: 2,
-      collectionEntries: 63,
+      libraryTotal: LIBRARY_TOTAL,
+      collectionCount: TWO_COLLECTIONS.length,
+      collectionEntries: FIRST_COLLECTION_ITEMS + SECOND_COLLECTION_ITEMS,
       linked: true,
     });
     httpMock.verify();
@@ -83,16 +91,16 @@ describe('homeSummaryResolver', () => {
     const httpMock = configure(true);
     const resultPromise = firstValueFrom(resolve());
 
-    httpMock.expectOne((request) => request.url === '/curator/api/library').flush({ games: [], total: 2 });
+    httpMock.expectOne((request) => request.url === CuratorApi.library).flush({ games: [], total: FIRST_COLLECTION_ITEMS });
     httpMock
-      .expectOne('/curator/api/collections')
-      .flush([definition('d1', 1), definition('d2', 2)]);
-    httpMock.expectOne('/curator/api/me').flush(me);
+      .expectOne(CuratorApi.collections)
+      .flush(TWO_COLLECTIONS);
+    httpMock.expectOne(CuratorApi.me).flush(me);
 
     expect(await resultPromise).toEqual({
-      libraryTotal: 2,
-      collectionCount: 2,
-      collectionEntries: 3,
+      libraryTotal: FIRST_COLLECTION_ITEMS,
+      collectionCount: TWO_COLLECTIONS.length,
+      collectionEntries: FIRST_COLLECTION_ITEMS + SECOND_COLLECTION_ITEMS,
       linked: true,
     });
     httpMock.verify();
@@ -102,12 +110,12 @@ describe('homeSummaryResolver', () => {
     const httpMock = configure(true);
     const resultPromise = firstValueFrom(resolve());
 
-    const request = httpMock.expectOne((candidate) => candidate.url === '/curator/api/library');
-    expect(request.request.params.get('limit')).toBe('1');
+    const request = httpMock.expectOne((candidate) => candidate.url === CuratorApi.library);
+    expect(request.request.params.get(CuratorQueryParams.limit)).toBe('1');
 
     request.flush({ games: [], total: 0 });
-    httpMock.expectOne('/curator/api/collections').flush([]);
-    httpMock.expectOne('/curator/api/me').flush(me);
+    httpMock.expectOne(CuratorApi.collections).flush([]);
+    httpMock.expectOne(CuratorApi.me).flush(me);
     await resultPromise;
     httpMock.verify();
   });
@@ -117,8 +125,8 @@ describe('homeSummaryResolver', () => {
     const resultPromise = firstValueFrom(resolve());
 
     httpMock
-      .expectOne((request) => request.url === '/curator/api/library')
-      .flush(null, { status: 500, statusText: 'Server Error' });
+      .expectOne((request) => request.url === CuratorApi.library)
+      .flush(null, { status: HttpStatusCode.InternalServerError, statusText: HttpStatusCode[HttpStatusCode.InternalServerError] });
 
     expect(await resultPromise).toBeNull();
   });
@@ -127,14 +135,14 @@ describe('homeSummaryResolver', () => {
     const httpMock = configure(true);
     const resultPromise = firstValueFrom(resolve());
 
-    httpMock.expectOne((request) => request.url === '/curator/api/library').flush({ games: [], total: 412 });
-    httpMock.expectOne('/curator/api/collections').flush([definition('d1', 63)]);
-    httpMock.expectOne('/curator/api/me').flush(null, { status: 503, statusText: 'Service Unavailable' });
+    httpMock.expectOne((request) => request.url === CuratorApi.library).flush({ games: [], total: LIBRARY_TOTAL });
+    httpMock.expectOne(CuratorApi.collections).flush([definition(newId(), FIRST_COLLECTION_ITEMS)]);
+    httpMock.expectOne(CuratorApi.me).flush(null, { status: HttpStatusCode.ServiceUnavailable, statusText: HttpStatusCode[HttpStatusCode.ServiceUnavailable] });
 
     expect(await resultPromise).toEqual({
-      libraryTotal: 412,
+      libraryTotal: LIBRARY_TOTAL,
       collectionCount: 1,
-      collectionEntries: 63,
+      collectionEntries: FIRST_COLLECTION_ITEMS,
       linked: null,
     });
     httpMock.verify();
@@ -144,14 +152,14 @@ describe('homeSummaryResolver', () => {
     const httpMock = configure(true);
     const resultPromise = firstValueFrom(resolve());
 
-    httpMock.expectOne((request) => request.url === '/curator/api/library').flush({ games: [], total: 0 });
-    httpMock.expectOne('/curator/api/collections').flush([]);
-    httpMock.expectOne('/curator/api/me').flush(me);
+    httpMock.expectOne((request) => request.url === CuratorApi.library).flush({ games: [], total: 0 });
+    httpMock.expectOne(CuratorApi.collections).flush([]);
+    httpMock.expectOne(CuratorApi.me).flush(me);
     await resultPromise;
 
     TestBed.inject(AdminService).isAdmin();
 
-    httpMock.expectNone('/curator/api/me');
+    httpMock.expectNone(CuratorApi.me);
     httpMock.verify();
   });
 });

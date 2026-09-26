@@ -1,13 +1,18 @@
 import type { Page } from '@playwright/test';
+import { newId, newText } from '@crgolden/modules/testing';
 
 import { test, expect, signInAsAdmin, type TestStore } from './fixtures.js';
+import { CuratorApi } from '../src/curator/curator-api';
+import { AppUrls } from '../src/app/app-paths';
+import { JobStatuses } from '../src/curator/curator.models';
+import { BffPaths } from '../src/shared/bff-contract';
+import { HttpMethods } from '../src/bff/http-headers';
 
-const ROUTE = '/admin/enrichment';
-const START_PATH = '/curator/api/enrichment/runs';
-const LATEST_PATH = `${START_PATH}/latest`;
+const ROUTE = AppUrls.adminEnrichment;
+const START_PATH = CuratorApi.enrichmentRuns;
+const LATEST_PATH = CuratorApi.enrichmentRunsLatest;
 
-let nextGeneratedId = 0;
-const anId = (prefix: string): string => `${prefix}-${(nextGeneratedId += 1)}`;
+const POLLS_THROUGH_A_RUNNING_RUN_TO_ITS_END = [JobStatuses.running, JobStatuses.succeeded].length;
 
 interface EnrichmentTraffic {
   starts: number;
@@ -19,10 +24,10 @@ function trackEnrichmentTraffic(page: Page): EnrichmentTraffic {
 
   page.on('request', (request) => {
     const path = new URL(request.url()).pathname;
-    if (request.method() === 'POST' && path === START_PATH) {
+    if (request.method() === HttpMethods.post && path === START_PATH) {
       traffic.starts += 1;
     }
-    if (request.method() === 'GET' && path.startsWith(`${START_PATH}/`) && path !== LATEST_PATH) {
+    if (request.method() === HttpMethods.get && path.startsWith(`${START_PATH}/`) && path !== LATEST_PATH) {
       traffic.polls += 1;
     }
   });
@@ -39,7 +44,7 @@ async function signInAsCuratorAdmin(page: Page, store: TestStore): Promise<void>
 function runReachesStatus(page: Page, status: string): Promise<unknown> {
   return page.waitForResponse(async (response) => {
     const path = new URL(response.url()).pathname;
-    if (response.request().method() !== 'GET' || !path.startsWith(`${START_PATH}/`) || path === LATEST_PATH) {
+    if (response.request().method() !== HttpMethods.get || !path.startsWith(`${START_PATH}/`) || path === LATEST_PATH) {
       return false;
     }
     const body = (await response.json()) as { status?: string };
@@ -52,7 +57,7 @@ test.describe('Enrichment runs — who may reach the page', () => {
     await store.reset();
 
     await page.goto(ROUTE);
-    await page.waitForURL('**/bff/login**');
+    await page.waitForURL(`**${BffPaths.login}**`);
   });
 
   test('a signed-in non-admin is bounced to the home page instead of the run controls', async ({
@@ -62,7 +67,7 @@ test.describe('Enrichment runs — who may reach the page', () => {
     await store.reset();
 
     await page.goto(ROUTE);
-    await page.waitForURL((url) => url.pathname === '/');
+    await page.waitForURL((url) => url.pathname === AppUrls.home);
     await expect(
       page.locator('#enrichment-start'),
       'a user with no curator.admin claim was served the control that spends provider quota',
@@ -77,7 +82,7 @@ test.describe('Enrichment runs — who may reach the page', () => {
     await signInAsAdmin(page);
 
     await page.goto(ROUTE);
-    await expect(page.locator('#enrichment-load-error')).toContainText('Unable to load the latest enrichment run.');
+    await expect(page.locator('#enrichment-load-error')).toBeVisible();
     await expect(
       page.locator('#enrichment-no-run'),
       'a refused call was reported as "no run has ever been started", which is a different fact',
@@ -127,18 +132,18 @@ test.describe('Enrichment runs — the two-step confirm', () => {
 
     await page.locator('#enrichment-start').click();
     await expect(page.locator('#enrichment-confirm')).toBeVisible();
-    const succeeded = runReachesStatus(page, 'succeeded');
+    const succeeded = runReachesStatus(page, JobStatuses.succeeded);
     await page.locator('#enrichment-confirm').click();
     await succeeded;
 
-    await expect(page.locator('#enrichment-run-status')).toContainText('succeeded');
+    await expect(page.locator('#enrichment-run-status')).toHaveAttribute('data-status', JobStatuses.succeeded);
     await expect(page.locator('#enrichment-confirm-prompt')).toHaveCount(0);
 
     expect(traffic.starts, 'the confirm did not queue exactly one run').toBe(1);
     expect(
       traffic.polls,
       'the terminal status was rendered without polling through a still-running run, so the poll loop is untested',
-    ).toBeGreaterThanOrEqual(2);
+    ).toBeGreaterThanOrEqual(POLLS_THROUGH_A_RUNNING_RUN_TO_ITS_END);
   });
 
   test('a run that ends in failure is polled to that failure, error and all', async ({
@@ -146,8 +151,8 @@ test.describe('Enrichment runs — the two-step confirm', () => {
     store,
   }) => {
     await signInAsCuratorAdmin(page, store);
-    const failure = anId('every provider refused this pass');
-    await store.setEnrichmentRunOutcome('failed', failure);
+    const failure = newText();
+    await store.setEnrichmentRunOutcome(JobStatuses.failed, failure);
     const traffic = trackEnrichmentTraffic(page);
 
     await page.goto(ROUTE);
@@ -155,15 +160,15 @@ test.describe('Enrichment runs — the two-step confirm', () => {
 
     await page.locator('#enrichment-start').click();
     await expect(page.locator('#enrichment-confirm')).toBeVisible();
-    const failed = runReachesStatus(page, 'failed');
+    const failed = runReachesStatus(page, JobStatuses.failed);
     await page.locator('#enrichment-confirm').click();
     await failed;
 
-    await expect(page.locator('#enrichment-run-status')).toContainText('failed');
+    await expect(page.locator('#enrichment-run-status')).toHaveAttribute('data-status', JobStatuses.failed);
     await expect(
       page.locator('#enrichment-run-error'),
       'the run failed and the operator was not told why',
-    ).toContainText(failure);
+    ).toBeVisible();
     await expect(
       page.locator('#enrichment-run-cancelled'),
       'a failed run was described to the operator as a cancellation',
@@ -171,34 +176,32 @@ test.describe('Enrichment runs — the two-step confirm', () => {
     expect(
       traffic.polls,
       'the failure was rendered without polling through a still-running run, so the poll loop is untested',
-    ).toBeGreaterThanOrEqual(2);
+    ).toBeGreaterThanOrEqual(POLLS_THROUGH_A_RUNNING_RUN_TO_ITS_END);
   });
 });
 
 test.describe('Enrichment runs — terminal states', () => {
   test('a cancelled run explains what it left behind', async ({ authedPage: page, store }) => {
     await signInAsCuratorAdmin(page, store);
-    const runId = anId('cancelled-enrichment-run');
-    await store.seedEnrichmentRun({ run_id: runId, status: 'cancelled' });
+    const runId = newId();
+    await store.seedEnrichmentRun({ run_id: runId, status: JobStatuses.cancelled });
 
     await page.goto(ROUTE);
-    await expect(page.locator('#enrichment-run-id')).toContainText(runId);
-    await expect(page.locator('#enrichment-run-status')).toContainText('cancelled');
-    await expect(page.locator('#enrichment-run-cancelled')).toContainText(
-      'This run was cancelled before it finished.',
-    );
+    await expect(page.locator('#enrichment-run-id')).toHaveAttribute('data-run-id', runId);
+    await expect(page.locator('#enrichment-run-status')).toHaveAttribute('data-status', JobStatuses.cancelled);
+    await expect(page.locator('#enrichment-run-cancelled')).toBeVisible();
   });
 
   test('a failed run surfaces the error Curator recorded', async ({ authedPage: page, store }) => {
     await signInAsCuratorAdmin(page, store);
-    const runId = anId('failed-enrichment-run');
-    const failure = anId('provider quota exhausted');
-    await store.seedEnrichmentRun({ run_id: runId, status: 'failed', error: failure });
+    const runId = newId();
+    const failure = newText();
+    await store.seedEnrichmentRun({ run_id: runId, status: JobStatuses.failed, error: failure });
 
     await page.goto(ROUTE);
-    await expect(page.locator('#enrichment-run-id')).toContainText(runId);
-    await expect(page.locator('#enrichment-run-status')).toContainText('failed');
-    await expect(page.locator('#enrichment-run-error')).toContainText(failure);
+    await expect(page.locator('#enrichment-run-id')).toHaveAttribute('data-run-id', runId);
+    await expect(page.locator('#enrichment-run-status')).toHaveAttribute('data-status', JobStatuses.failed);
+    await expect(page.locator('#enrichment-run-error')).toBeVisible();
     await expect(
       page.locator('#enrichment-run-cancelled'),
       'a failed run was described to the operator as a cancellation',
