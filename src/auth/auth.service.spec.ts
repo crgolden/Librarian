@@ -3,6 +3,7 @@ import { HttpStatusCode, provideHttpClient, withXhr } from '@angular/common/http
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { AuthService } from './auth.service';
 import type { Claim } from './claim';
+import { FETCHES_SESSION_ON_STARTUP } from './session-fetch';
 import { BFF_USER_RELATIVE_PATH, BffPaths, ClaimTypes, SID_QUERY_PARAMETER } from '../shared/bff-contract';
 import { HttpMethods } from '../bff/http-headers';
 import { newEmailAddress, newHttpsAddress, newId, newText } from '@crgolden/modules/testing';
@@ -109,5 +110,38 @@ describe('AuthService', () => {
     service.refresh();
     httpMock.expectOne(BFF_USER_RELATIVE_PATH).flush([{ type: ClaimTypes.name, value: SECOND_NAME }]);
     expect(service.username()).toBe(SECOND_NAME);
+  });
+
+  it('fetches the session by default, so a browser and a rendered request both ask /bff/user', () => {
+    expect(TestBed.inject(FETCHES_SESSION_ON_STARTUP)).toBe(true);
+  });
+});
+
+describe('AuthService while the startup session fetch is off', () => {
+  let service: AuthService;
+  let httpMock: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(withXhr()),
+        provideHttpClientTesting(),
+        { provide: FETCHES_SESSION_ON_STARTUP, useValue: false },
+      ],
+    });
+    service = TestBed.inject(AuthService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+  });
+
+  it('initialize asks /bff/user nothing and leaves the visitor anonymous', () => {
+    let result: Claim[] | null = null;
+    service.initialize().subscribe(session => (result = session));
+    httpMock.expectNone(BFF_USER_RELATIVE_PATH);
+    expect(result).toEqual([]);
+    expect(service.isAnonymous()).toBe(true);
   });
 });

@@ -31,9 +31,9 @@ export default defineConfig({
     baseURL: SSR_ORIGIN,
     colorScheme: 'dark',
     timezoneId: 'UTC',
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    video: 'on-first-retry',
+    video: 'retain-on-failure',
     ignoreHTTPSErrors: true,
   },
 

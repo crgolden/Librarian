@@ -3,6 +3,7 @@ import { computed, Injectable, Signal, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, map, Observable, of, shareReplay, Subject, switchMap, take } from 'rxjs';
 import { Claim } from './claim';
+import { FETCHES_SESSION_ON_STARTUP } from './session-fetch';
 import { BFF_USER_RELATIVE_PATH, BffPaths, ClaimTypes } from '../shared/bff-contract';
 
 export type { Claim } from './claim';
@@ -14,6 +15,7 @@ export type Session = Claim[];
 export class AuthService {
 
   private readonly http = inject(HttpClient);
+  private readonly fetchesSessionOnStartup = inject(FETCHES_SESSION_ON_STARTUP);
   private readonly _refresh$ = new Subject<void>();
 
   private readonly _fetchResult$ = this._refresh$.pipe(
@@ -54,6 +56,9 @@ export class AuthService {
   public readonly loginUrl: string = BffPaths.login;
 
   public initialize(): Observable<Session> {
+    if (!this.fetchesSessionOnStartup) {
+      return of([]);
+    }
     this._refresh$.next();
     return this._fetchResult$.pipe(
       map(s => s ?? []),
