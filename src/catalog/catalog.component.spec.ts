@@ -188,8 +188,13 @@ describe('CatalogComponent', () => {
   });
 
   it('does not refetch the page the resolver already answered for this URL', () => {
-    render(fullPage(MULTI_PAGE_TOTAL), [], { page: LATER_PAGE, pageSize: String(CATALOG_PAGE_SIZE) });
+    const resolved = fullPage(MULTI_PAGE_TOTAL);
+    const [firstGame] = resolved.games;
 
+    const fixture = render(resolved, [], { page: LATER_PAGE, pageSize: String(CATALOG_PAGE_SIZE) });
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.textContent).toContain(firstGame.canonical_title);
     httpMock.expectNone((r) => r.url === CuratorApi.catalogGames);
   });
 
@@ -582,6 +587,8 @@ describe('CatalogComponent', () => {
 
     render(fullPage(MULTI_PAGE_TOTAL), [], { pageSize: String(CATALOG_PAGE_SIZE) });
 
+    expect(TestBed.inject(Router).navigate).not.toHaveBeenCalled();
+    expect(currentParams[CatalogQueryParams.pageSize]).toBe(String(CATALOG_PAGE_SIZE));
     httpMock.expectNone((r) => r.url === CuratorApi.catalogGames);
   });
 });

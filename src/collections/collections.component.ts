@@ -362,7 +362,13 @@ export class CollectionsComponent implements OnInit {
   }
 
   protected kindLabel(kind: string): string {
-    return kind === CollectionKinds.capacityFill ? CAPACITY_FILL_LABEL : kind === CollectionKinds.filterList ? FILTER_LIST_LABEL : kind;
+    if (kind === CollectionKinds.capacityFill) {
+      return CAPACITY_FILL_LABEL;
+    }
+    if (kind === CollectionKinds.filterList) {
+      return FILTER_LIST_LABEL;
+    }
+    return kind;
   }
 
   protected consoleName(consoleId: string): string {

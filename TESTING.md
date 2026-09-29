@@ -640,7 +640,8 @@ sonar-scanner `
   "-Dsonar.projectKey=crgolden_Librarian" `
   "-Dsonar.organization=crgolden" `
   "-Dsonar.javascript.lcov.reportPaths=coverage/lcov.info" `
-  "-Dsonar.exclusions=**/node_modules/**,**/*.d.ts,e2e/**,instrumentation.mjs" `
+  "-Dsonar.exclusions=**/node_modules/**,**/*.d.ts,e2e/**,instrumentation.mjs,**/*.spec.ts" `
+  "-Dsonar.tests=src" `
   "-Dsonar.coverage.exclusions=e2e/**,scripts/**,**/*.config.*,src/test-setup.ts,src/proxy.conf.js,src/environments/**,src/main.ts,src/main.server.ts,src/server.ts,src/app/app.routes.server.ts" `
   "-Dsonar.test.inclusions=**/*.spec.ts"
 ```

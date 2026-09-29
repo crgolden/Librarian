@@ -157,7 +157,7 @@ describe('homeSummaryResolver', () => {
     httpMock.expectOne(CuratorApi.me).flush(me);
     await resultPromise;
 
-    TestBed.inject(AdminService).isAdmin();
+    expect(TestBed.inject(AdminService).isAdmin()).toBe(false);
 
     httpMock.expectNone(CuratorApi.me);
     httpMock.verify();

@@ -1,6 +1,6 @@
 import { ApplicationConfig, inject, provideAppInitializer, provideZonelessChangeDetection } from '@angular/core';
 import { provideRouter, withInMemoryScrolling } from '@angular/router';
-import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideClientHydration, withEventReplay, withNoIncrementalHydration } from '@angular/platform-browser';
 import { provideNgIconsConfig } from '@ng-icons/core';
 import { routes } from './app.routes';
@@ -15,7 +15,7 @@ export const appConfig: ApplicationConfig = {
     provideClientHydration(withEventReplay(), withNoIncrementalHydration()),
     provideRouter(routes, withInMemoryScrolling({ scrollPositionRestoration: 'enabled', anchorScrolling: 'enabled' })),
     provideBrowserScrollRestorationWhenLeavingTheDocument(),
-    provideHttpClient(withFetch(), withInterceptors([ssrAbsoluteUrlInterceptor, appInterceptor])),
+    provideHttpClient(withInterceptors([ssrAbsoluteUrlInterceptor, appInterceptor])),
     provideAppInitializer(() => inject(AuthService).initialize()),
     provideNgIconsConfig({ size: '1.5rem' }),
   ],

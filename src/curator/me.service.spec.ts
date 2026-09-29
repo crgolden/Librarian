@@ -26,7 +26,7 @@ describe('MeService', () => {
   });
 
   it('issues no request until load() is called', () => {
-    httpMock.expectNone(CuratorApi.me);
+    expect(httpMock.match(CuratorApi.me)).toEqual([]);
   });
 
   it('resolves the profile from GET /me', () => {
@@ -99,8 +99,10 @@ describe('MeService', () => {
     service.load().subscribe();
     httpMock.expectOne(CuratorApi.me).flush(ME);
 
-    service.load().subscribe();
+    let served: MeResponse | null | undefined;
+    service.load().subscribe((value) => (served = value));
 
     httpMock.expectNone(CuratorApi.me);
+    expect(served).toEqual(ME);
   });
 });

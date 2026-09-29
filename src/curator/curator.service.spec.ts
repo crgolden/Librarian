@@ -64,7 +64,7 @@ describe('CuratorService', () => {
     service.listCatalogGames({}).subscribe();
 
     const req = httpMock.expectOne(CuratorApi.catalogGames);
-    expect(req.request.params.keys().length).toBe(0);
+    expect(req.request.params.keys()).toHaveLength(0);
     req.flush({ games: [] });
   });
 
@@ -73,7 +73,7 @@ describe('CuratorService', () => {
 
     const req = httpMock.expectOne(CuratorApi.catalogGenres);
     expect(req.request.method).toBe(HttpMethods.get);
-    expect(req.request.params.keys().length).toBe(0);
+    expect(req.request.params.keys()).toHaveLength(0);
     req.flush({ genres: [] });
   });
 
@@ -151,7 +151,7 @@ describe('CuratorService', () => {
 
     const req = httpMock.expectOne(CuratorApi.library);
     expect(req.request.method).toBe(HttpMethods.get);
-    expect(req.request.params.keys().length).toBe(0);
+    expect(req.request.params.keys()).toHaveLength(0);
     req.flush({ games: [], total: 0 });
   });
 
@@ -424,7 +424,7 @@ describe('CuratorService', () => {
 
     const req = httpMock.expectOne(CuratorApi.usersBySubLibrary(otherSub));
     expect(req.request.method).toBe(HttpMethods.get);
-    expect(req.request.params.keys().length).toBe(0);
+    expect(req.request.params.keys()).toHaveLength(0);
     req.flush({ games: [], total: 0 });
   });
 

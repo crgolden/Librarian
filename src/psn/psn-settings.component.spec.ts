@@ -670,7 +670,7 @@ describe('PsnSettingsComponent', () => {
     const compiled: HTMLElement = fixture.nativeElement;
 
     expect(compiled.querySelector('#psn-data-sharing-card')).not.toBeNull();
-    expect(compiled.querySelectorAll('[id^="psn-card-"], #friend-requests').length).toBe(0);
+    expect(compiled.querySelectorAll('[id^="psn-card-"], #friend-requests')).toHaveLength(0);
   });
 
   it('shows the profile-settings cross-reference copy near the harvest toggles, linking to /profile/settings', () => {
@@ -710,7 +710,7 @@ describe('PsnSettingsComponent', () => {
     const fixture = createLinkedWithPreferences(preferences);
     const compiled: HTMLElement = fixture.nativeElement;
 
-    expect(compiled.querySelectorAll('[id^="psn-card-"], #friend-requests').length).toBe(enabledHarvestCategoryCount(preferences));
+    expect(compiled.querySelectorAll('[id^="psn-card-"], #friend-requests')).toHaveLength(enabledHarvestCategoryCount(preferences));
     expect(compiled.textContent).toContain(`Level ${TROPHY_SUMMARY.level}`);
     expect(compiled.textContent).toContain(PRESENCE_STATUS);
   });

@@ -254,12 +254,12 @@
             (ngModelChange)="onSearchInput($event)"
             aria-label="Search this library"
           />
+          <label class="sr-only" for="library-genre-filter">Filter by genre</label>
           <select
             id="library-genre-filter"
             class="min-w-40 flex-[0_1_14rem] rounded-sm border border-line p-2"
             [ngModel]="genreFilter()"
             (ngModelChange)="onGenreFilterChange($event)"
-            aria-label="Filter by genre"
           >
             <option [ngValue]="null">{{ allGenresLabel }}</option>
             @for (genre of genreOptions(); track genre) {

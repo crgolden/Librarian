@@ -40,13 +40,13 @@ export default defineConfig({
   projects: [
     {
       name: 'setup',
-      testMatch: /.*\/e2e\/setup\/.*\.setup\.ts$/,
+      testMatch: /\/e2e\/setup\/(?:[^/]*\/)*[^/]*\.setup\.ts$/,
       use: { ...devices['Desktop Chrome'] },
       timeout: 60_000,
     },
     {
       name: 'e2e',
-      testMatch: /.*\/e2e\/(?!synthetic\/).*\.spec\.ts$/,
+      testMatch: /\/e2e\/(?!synthetic\/)(?:[^/]*\/)*[^/]*\.spec\.ts$/,
       use: { ...devices['Desktop Chrome'] },
       fullyParallel: false,
       workers: 1,

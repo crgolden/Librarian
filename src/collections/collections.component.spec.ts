@@ -828,7 +828,7 @@ describe('CollectionsComponent', () => {
 
     h.removeItem(GAME_1);
 
-    httpMock.expectNone((r) => r.method === HttpMethods.patch);
+    expect(httpMock.match((r) => r.method === HttpMethods.patch)).toEqual([]);
     httpMock.expectOne({ url: CuratorApi.collectionsByDefinitionIdItemsByGameId(DEFINITION_ID, GAME_1), method: HttpMethods.delete }).flush(null);
     httpMock.expectOne((r) => r.url === CuratorApi.collectionsByDefinitionIdItems(DEFINITION_ID)).flush({ items: [], total: 0 });
   });
@@ -843,8 +843,10 @@ describe('CollectionsComponent', () => {
   });
 
   it('takes the resolver first page as answered rather than refetching it', () => {
-    createDetail(definitionDetail({ item_count: ITEMS_PAGE_SIZE + 1 }, [item(GAME_1)]));
+    const fixture = createDetail(definitionDetail({ item_count: ITEMS_PAGE_SIZE + 1 }, [item(GAME_1)]));
 
+    const compiled: HTMLElement = fixture.nativeElement;
+    expect(compiled.textContent).toContain(`Game ${GAME_1}`);
     httpMock.expectNone((r) => r.url === CuratorApi.collectionsByDefinitionIdItems(DEFINITION_ID));
   });
 

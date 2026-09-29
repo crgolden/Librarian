@@ -61,9 +61,9 @@ describe('followListResolver', () => {
     const httpMock = configure(VIEWER_SUB);
     const resultPromise = firstValueFrom(resolve(FollowListKinds.following, {}));
 
-    httpMock.expectOne((candidate) => candidate.url === CuratorApi.usersBySubFollowing(VIEWER_SUB)).flush({ entries: [], total: 0 });
+    httpMock.expectOne((candidate) => candidate.url === CuratorApi.usersBySubFollowing(VIEWER_SUB)).flush({ entries, total: entries.length });
 
-    await resultPromise;
+    expect(await resultPromise).toEqual({ status: ResolvedStatuses.ok, entries, total: entries.length });
     httpMock.verify();
   });
 

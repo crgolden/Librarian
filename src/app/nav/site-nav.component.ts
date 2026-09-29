@@ -105,7 +105,7 @@ export class SiteNavComponent {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
-  @ViewChild('sheet') private sheet?: ElementRef<HTMLDialogElement>;
+  @ViewChild('sheet') private readonly sheet?: ElementRef<HTMLDialogElement>;
 
   protected readonly sheetOpen = signal(false);
 

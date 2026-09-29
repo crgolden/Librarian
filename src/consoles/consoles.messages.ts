@@ -6,7 +6,11 @@ export const DEVICE_NAME_REQUIRED_ERROR = 'Enter a name for this device.';
 
 export const DEVICE_CAPACITY_REQUIRED_ERROR = 'Enter this device\'s capacity in GB.';
 
-export const CONSOLE_PLATFORM_ERROR = `platform must be one of ${CONSOLE_PLATFORM_OPTIONS.map((platform) => `"${platform}"`).join(', ')}.`;
+function quotedPlatform(platform: string): string {
+  return `"${platform}"`;
+}
+
+export const CONSOLE_PLATFORM_ERROR = `platform must be one of ${CONSOLE_PLATFORM_OPTIONS.map((platform) => quotedPlatform(platform)).join(', ')}.`;
 
 export const DEVICE_KIND_ERROR = 'kind must be "m2" or "usb".';
 

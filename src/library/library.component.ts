@@ -208,7 +208,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
   private searchCommitSubscription: Subscription | null = null;
   private readonly libraryRequests = new Subject<LibraryRequest>();
   private libraryRequestSubscription: Subscription | null = null;
-  @ViewChild('storeMatchDialog') private storeMatchDialog?: ElementRef<HTMLDialogElement>;
+  @ViewChild('storeMatchDialog') private readonly storeMatchDialog?: ElementRef<HTMLDialogElement>;
 
   protected readonly viewerMode = signal(false);
   protected readonly viewerForbidden = signal(false);
@@ -310,9 +310,11 @@ export class LibraryComponent implements OnInit, OnDestroy {
 
   protected readonly mobileSortValue = computed(() => {
     const current = this.sorting()[0];
-    return current
-      ? `${current.id}:${current.desc ? SortDirections.desc : SortDirections.asc}`
-      : `${LibrarySortFields.title}:${SortDirections.asc}`;
+    if (!current) {
+      return `${LibrarySortFields.title}:${SortDirections.asc}`;
+    }
+    const direction = current.desc ? SortDirections.desc : SortDirections.asc;
+    return `${current.id}:${direction}`;
   });
 
   ngOnInit(): void {

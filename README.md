@@ -4,8 +4,6 @@
 
 [![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=crgolden_Librarian)](https://sonarcloud.io/summary/new_code?id=crgolden_Librarian)
 
-[![Synthetic walker](https://github.com/crgolden/Librarian/actions/workflows/synthetic.yml/badge.svg)](https://github.com/crgolden/Librarian/actions/workflows/synthetic.yml)
-
 The end-user surface of the PlayStation game-curation project: an **Angular 22 SSR** application
 with a **Node.js Express** Backend-for-Frontend (BFF), served by a single Node process. The BFF holds
 the OIDC session and proxies every data call to the standalone [Curator](https://github.com/crgolden/Curator)

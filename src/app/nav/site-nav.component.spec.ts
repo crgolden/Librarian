@@ -167,7 +167,7 @@ describe('SiteNavComponent — signed in', () => {
     isAdmin.set(true);
     fixture.detectChanges();
 
-    expect(labelsIn(fixture, `#site-nav-tabbar [id^="${SiteNavIdPrefixes.tabLabel}"]`).length).toBe(tabsBeforePromotion);
+    expect(labelsIn(fixture, `#site-nav-tabbar [id^="${SiteNavIdPrefixes.tabLabel}"]`)).toHaveLength(tabsBeforePromotion);
   });
 
   it('marks the active route with routerLinkActive', async () => {
@@ -242,11 +242,11 @@ describe('SiteNavComponent — signed in', () => {
   });
 
   it('issues no request of its own — admin status comes from the session, not a round trip', () => {
-    configure(signedInSession(), { isAdmin: signal(true) });
+    const fixture = configure(signedInSession(), { isAdmin: signal(true) });
 
     const httpMock = TestBed.inject(HttpTestingController);
-    httpMock.expectNone(() => true);
-    httpMock.verify();
+    expect(textOf(fixture, '#nav-sheet')).toContain(PageTitles.enrichmentRuns);
+    expect(httpMock.match(() => true)).toEqual([]);
   });
 
   it('hides every icon from assistive technology, leaving the name to the link', () => {

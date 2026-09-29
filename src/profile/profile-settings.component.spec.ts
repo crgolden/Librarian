@@ -293,7 +293,9 @@ describe('ProfileSettingsComponent', () => {
 
     h.onHandleInput(FIRST_SITE_KEY, newDisplayName());
     h.saveLink(FIRST_SITE_KEY);
+    fixture.detectChanges();
 
+    expect((fixture.nativeElement as HTMLElement).querySelector('#profile-link-invalid-0')).not.toBeNull();
     httpMock.expectNone((r) => r.url.includes(CuratorRoutes.meProfileLinks));
   });
 

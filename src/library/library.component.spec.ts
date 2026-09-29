@@ -587,7 +587,7 @@ describe('LibraryComponent', () => {
     fixture.detectChanges();
 
     expect(compiled.querySelector('#library-manual-all-owned')).not.toBeNull();
-    expect(compiled.querySelectorAll('#library-manual-results li').length).toBe(0);
+    expect(compiled.querySelectorAll('#library-manual-results li')).toHaveLength(0);
     expect(compiled.querySelector('#library-manual-check-store')).not.toBeNull();
     expect(compiled.querySelector('#library-manual-not-yours')).toBeNull();
     httpMock.expectNone((r) => r.url === CuratorApi.libraryManualCandidates);
@@ -972,7 +972,7 @@ describe('LibraryComponent', () => {
     const compiled: HTMLElement = fixture.nativeElement;
 
     const rows = compiled.querySelectorAll('tbody tr');
-    expect(rows.length).toBe(games.length);
+    expect(rows).toHaveLength(games.length);
     expect(rows[0].textContent).toContain(GAME_TITLE);
     expect(rows[0].textContent).toContain(GENRE);
     expect(rows[0].textContent).toContain(String(RAWG_RATING));
