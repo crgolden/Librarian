@@ -26,7 +26,6 @@ export default defineConfig({
         'src/app/app.config.ts',
         'src/app/app.routes.ts',
       ],
-      all: true,
     },
   },
 });

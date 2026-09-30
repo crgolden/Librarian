@@ -38,7 +38,7 @@ code reaching a protected member by bracket notation is the defect the rule exis
 what makes that true.** Without a `typecheck` block, esbuild strips the types and a `TS2322` in a spec
 reaches `main` untouched: `ng lint`, `lint:css`, `vitest run --coverage` and the
 production build all pass on it, and `ng test` — the one command CI does not run — is the only thing
-that fails. `vitest.config.ts` now sets `typecheck: { enabled: true, tsconfig: './tsconfig.spec.json',
+that fails. `vitest.config.mts` sets `typecheck: { enabled: true, tsconfig: './tsconfig.spec.json',
 include: ['src/**/*.spec.ts'], ignoreSourceErrors: false }`. Naming the tsconfig is load-bearing rather
 than tidy: vitest otherwise resolves the nearest `tsconfig.json`, and this repo's root one is
 solution-style (`"files": []` plus `references`), which compiles nothing and would report a clean pass
@@ -350,7 +350,8 @@ Failure artifacts (screenshot, trace, video) are written to `playwright-artifact
 link/unlink flows, and the per-category data-harvest preference toggles — all off by default after
 linking, toggling a category on shows its card and persists across reload, toggling off hides it
 immediately — against the mock Curator API), `faq.spec.ts`/`privacy.spec.ts` (SSR + anonymous access to
-the trust pages), `catalog.spec.ts`, `collections.spec.ts` (create/preview/save, a capacity_fill run's
+the trust pages), `catalog.spec.ts`, `transfer-cache.spec.ts` (hydrating a server-rendered `/catalog` makes
+no Curator request, and a client-side navigation afterwards still does), `collections.spec.ts` (create/preview/save, a capacity_fill run's
 console-install toggle including its 404-after-ownership-change case, and the detail view's
 rename/visibility/share-link/delete flow), `consoles.spec.ts` (auth guard; console + storage-device
 CRUD, attach/detach, and the auto-assigned-default-capacity flag), `public-collection.spec.ts` (the one

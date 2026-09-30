@@ -1,7 +1,7 @@
 import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRouteSnapshot, ResolveFn } from '@angular/router';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, Subject, of, throwError } from 'rxjs';
 import {
   CollectionsModes,
   NO_INSTALLS,
@@ -41,20 +41,9 @@ const ATTACHED_DEVICE = {
   console_id: CONSOLE_ID,
 } as unknown as StorageDeviceResponse;
 
-const OTHER_CONSOLES_DEVICE = {
-  device_id: newId(),
-  console_id: newId(),
-} as unknown as StorageDeviceResponse;
-
 function detailTargeting(consoleId: string): DefinitionDetailResponse {
   return { definition_id: DEFINITION_ID, install_target_console_id: consoleId } as unknown as DefinitionDetailResponse;
 }
-
-const INSTALL_STUBS: Partial<CuratorService> = {
-  getConsoleInstalls: () => of({ game_ids: [INSTALLED_GAME_ID] }),
-  listStorageDevices: () => of([ATTACHED_DEVICE, OTHER_CONSOLES_DEVICE]),
-  getStorageDeviceInstalls: () => of({ game_ids: [DEVICE_GAME_ID] }),
-};
 
 function run(
   resolver: ResolveFn<ResolvedCollections>,
@@ -106,9 +95,9 @@ describe('ownerCollectionsResolver', () => {
       {
         getDefinition: () => of(DETAIL),
         listConsoles: () => of(CONSOLES),
-        getConsoleInstalls: () => {
+        getConsoleInstallMap: () => {
           asked = true;
-          return of({ game_ids: [] });
+          return of({ game_ids: [], attached_devices: [] });
         },
       },
       { [RouteParams.definitionId]: DEFINITION_ID },
@@ -118,17 +107,25 @@ describe('ownerCollectionsResolver', () => {
     expect(asked).toBe(false);
   });
 
-  it('resolves the install state the detail view opens with, for the console the collection targets', async () => {
+  it('resolves the install state for the targeted console from the one install-map request and nothing else', async () => {
+    const askedFor: string[] = [];
     const result = await run(
       ownerCollectionsResolver,
       {
-        ...INSTALL_STUBS,
         getDefinition: () => of(detailTargeting(CONSOLE_ID)),
         listConsoles: () => of(CONSOLES),
+        getConsoleInstallMap: (consoleId: string) => {
+          askedFor.push(consoleId);
+          return of({
+            game_ids: [INSTALLED_GAME_ID],
+            attached_devices: [{ device: ATTACHED_DEVICE, game_ids: [DEVICE_GAME_ID] }],
+          });
+        },
       },
       { [RouteParams.definitionId]: DEFINITION_ID },
     );
 
+    expect(askedFor).toEqual([CONSOLE_ID]);
     expect(result).toMatchObject({
       installs: {
         installedGameIds: [INSTALLED_GAME_ID],
@@ -138,30 +135,13 @@ describe('ownerCollectionsResolver', () => {
     });
   });
 
-  it('offers only the storage devices attached to that console, not every device the user owns', async () => {
-    const result = await run(
-      ownerCollectionsResolver,
-      {
-        ...INSTALL_STUBS,
-        getDefinition: () => of(detailTargeting(CONSOLE_ID)),
-        listConsoles: () => of(CONSOLES),
-      },
-      { [RouteParams.definitionId]: DEFINITION_ID },
-    );
-
-    const devices = result.mode === CollectionsModes.detail ? result.installs.attachedDevices : [];
-
-    expect(devices.map((device) => device.device_id)).toEqual([DEVICE_ID]);
-  });
-
-  it('renders the detail view with empty install state rather than failing when the lookups fail', async () => {
+  it('renders the detail view with empty install state rather than failing when the lookup fails', async () => {
     const result = await run(
       ownerCollectionsResolver,
       {
         getDefinition: () => of(detailTargeting(CONSOLE_ID)),
         listConsoles: () => of(CONSOLES),
-        getConsoleInstalls: fails,
-        listStorageDevices: fails,
+        getConsoleInstallMap: fails,
       },
       { [RouteParams.definitionId]: DEFINITION_ID },
     );
@@ -244,6 +224,33 @@ describe('viewerCollectionsResolver', () => {
     });
   });
 
+  it('asks for the followed list without waiting for the collections, since it needs nothing from them', async () => {
+    const collections = new Subject<ProfileDefinitionResponse[]>();
+    let followedAsked = false;
+    const pending = run(
+      viewerCollectionsResolver,
+      {
+        getUserCollections: () => collections,
+        listFollowedCollections: () => {
+          followedAsked = true;
+          return of(FOLLOWED);
+        },
+      },
+      { [RouteParams.sub]: OTHER_SUB },
+    );
+
+    expect(followedAsked).toBe(true);
+
+    collections.next(VIEWER_DEFINITIONS);
+    collections.complete();
+
+    expect(await pending).toEqual({
+      mode: CollectionsModes.viewer,
+      definitions: VIEWER_DEFINITIONS,
+      followedIds: FOLLOWED.map((definition) => definition.definition_id),
+    });
+  });
+
   it('still lists the collections when the follow lookup fails, rather than losing the page to it', async () => {
     const result = await run(
       viewerCollectionsResolver,
@@ -263,7 +270,11 @@ describe('viewerCollectionsResolver', () => {
       },
       { [RouteParams.sub]: OTHER_SUB },
     );
-    const failed = await run(viewerCollectionsResolver, { getUserCollections: fails }, { [RouteParams.sub]: OTHER_SUB });
+    const failed = await run(
+      viewerCollectionsResolver,
+      { getUserCollections: fails, listFollowedCollections: () => of([]) },
+      { [RouteParams.sub]: OTHER_SUB },
+    );
 
     expect(forbidden).toEqual({ mode: CollectionsModes.viewerForbidden });
     expect(failed).toEqual({ mode: CollectionsModes.viewerError });

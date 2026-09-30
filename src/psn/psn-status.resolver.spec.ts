@@ -71,7 +71,7 @@ function stubs(overrides: Partial<CuratorService> = {}): Partial<CuratorService>
   };
 }
 
-function run(me: PsnStatus | null, curator: Partial<CuratorService>): Promise<ResolvedPsnStatus> {
+function start(curator: Partial<CuratorService>): { httpMock: HttpTestingController; resolved: Promise<ResolvedPsnStatus> } {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
@@ -87,6 +87,12 @@ function run(me: PsnStatus | null, curator: Partial<CuratorService>): Promise<Re
       (psnStatusResolver({} as never, {} as never) as Observable<ResolvedPsnStatus>).subscribe(resolvePromise);
     });
   });
+
+  return { httpMock, resolved };
+}
+
+function run(me: PsnStatus | null, curator: Partial<CuratorService>): Promise<ResolvedPsnStatus> {
+  const { httpMock, resolved } = start(curator);
 
   const request = httpMock.expectOne(CuratorApi.me);
   if (me === null) {
@@ -108,12 +114,22 @@ describe('psnStatusResolver', () => {
     expect(result.schedule).toBe(SCHEDULE);
   });
 
-  it('spends no PSN category call on an account that is not linked', async () => {
+  it('asks for the enrichment keys, schedule and preferences without waiting for the account lookup', () => {
+    const getEnrichmentKeyStatus = vi.fn(() => of(ENRICHMENT_KEYS));
+    const getRefreshSchedule = vi.fn(() => of(SCHEDULE));
     const getPsnPreferences = vi.fn(() => of(ALL_PREFERENCES_OFF));
-    const getTrophySummary = vi.fn(() => of(TROPHY_SUMMARY));
-    const result = await run(UNLINKED, stubs({ getPsnPreferences, getTrophySummary }));
+    const { httpMock } = start(stubs({ getEnrichmentKeyStatus, getRefreshSchedule, getPsnPreferences }));
 
-    expect(getPsnPreferences).not.toHaveBeenCalled();
+    expect(getEnrichmentKeyStatus).toHaveBeenCalled();
+    expect(getRefreshSchedule).toHaveBeenCalled();
+    expect(getPsnPreferences).toHaveBeenCalled();
+    httpMock.expectOne(CuratorApi.me);
+  });
+
+  it('spends no PSN category call on an account that is not linked', async () => {
+    const getTrophySummary = vi.fn(() => of(TROPHY_SUMMARY));
+    const result = await run(UNLINKED, stubs({ getPsnPreferences: notFound, getTrophySummary }));
+
     expect(getTrophySummary).not.toHaveBeenCalled();
     expect(result.preferences).toBeNull();
     expect(result.trophySummary).toBeNull();

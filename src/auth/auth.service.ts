@@ -20,7 +20,7 @@ export class AuthService {
 
   private readonly _fetchResult$ = this._refresh$.pipe(
     switchMap(() =>
-      this.http.get<Claim[] | null>(BFF_USER_RELATIVE_PATH).pipe(
+      this.http.get<Claim[] | null>(BFF_USER_RELATIVE_PATH, { transferCache: false }).pipe(
         catchError(() => of(null))
       )
     ),

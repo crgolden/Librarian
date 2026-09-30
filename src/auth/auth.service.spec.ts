@@ -68,6 +68,14 @@ describe('AuthService', () => {
     expect(resolved).toEqual(claims);
   });
 
+  it('asks /bff/user outside the transfer cache, so the browser always reads its own session', () => {
+    service.initialize().subscribe();
+
+    const req = httpMock.expectOne(BFF_USER_RELATIVE_PATH);
+    expect(req.request.transferCache).toBe(false);
+    req.flush(null);
+  });
+
   it('falls back to null for name/email/picture/logout claims that are absent', () => {
     service.initialize().subscribe();
     httpMock.expectOne(BFF_USER_RELATIVE_PATH).flush([{ type: ClaimTypes.sub, value: SUB }]);

@@ -68,28 +68,18 @@ export function installConsoleIdFor(definition: DefinitionDetailResponse | null)
 }
 
 function installsFor(curator: CuratorService, consoleId: string): Observable<ResolvedInstalls> {
-  return forkJoin({
-    installedGameIds: curator
-      .getConsoleInstalls(consoleId)
-      .pipe(map((response) => response.game_ids), catchError(() => of<string[]>([]))),
-    attachedDevices: curator.listStorageDevices().pipe(
-      map((devices) => devices.filter((device) => device.console_id === consoleId)),
-      catchError(() => of<StorageDeviceResponse[]>([])),
+  return curator.getConsoleInstallMap(consoleId).pipe(
+    map(
+      (installMap): ResolvedInstalls => ({
+        installedGameIds: installMap.game_ids,
+        attachedDevices: installMap.attached_devices.map((attached) => attached.device),
+        deviceInstalls: installMap.attached_devices.map((attached) => ({
+          deviceId: attached.device.device_id,
+          gameIds: attached.game_ids,
+        })),
+      }),
     ),
-  }).pipe(
-    switchMap(({ installedGameIds, attachedDevices }) =>
-      (attachedDevices.length === 0
-        ? of<{ deviceId: string; gameIds: string[] }[]>([])
-        : forkJoin(
-            attachedDevices.map((device) =>
-              curator.getStorageDeviceInstalls(device.device_id).pipe(
-                map((response) => ({ deviceId: device.device_id, gameIds: response.game_ids })),
-                catchError(() => of({ deviceId: device.device_id, gameIds: [] as string[] })),
-              ),
-            ),
-          )
-      ).pipe(map((deviceInstalls) => ({ installedGameIds, attachedDevices, deviceInstalls }))),
-    ),
+    catchError(() => of(NO_INSTALLS)),
   );
 }
 
@@ -137,16 +127,16 @@ export const viewerCollectionsResolver: ResolveFn<ResolvedCollections> = (route:
     return of<ResolvedCollections>({ mode: CollectionsModes.viewerError });
   }
 
-  return curator.getUserCollections(sub).pipe(
-    switchMap((definitions) =>
-      curator.listFollowedCollections().pipe(
-        catchError(() => of([])),
-        map((followed): ResolvedCollections => ({
-          mode: CollectionsModes.viewer,
-          definitions,
-          followedIds: followed.map((definition) => definition.definition_id),
-        })),
-      ),
+  return forkJoin({
+    definitions: curator.getUserCollections(sub),
+    followed: curator.listFollowedCollections().pipe(catchError(() => of<DefinitionResponse[]>([]))),
+  }).pipe(
+    map(
+      ({ definitions, followed }): ResolvedCollections => ({
+        mode: CollectionsModes.viewer,
+        definitions,
+        followedIds: followed.map((definition) => definition.definition_id),
+      }),
     ),
     catchError((err: HttpErrorResponse) =>
       of<ResolvedCollections>(statusCodeOf(err) === HttpStatusCode.Forbidden ? { mode: CollectionsModes.viewerForbidden } : { mode: CollectionsModes.viewerError }),

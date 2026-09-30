@@ -1767,13 +1767,22 @@ export function createCuratorApp(): Express {
     res.status(constants.HTTP_STATUS_NO_CONTENT).end();
   });
 
-  app.get(CuratorRoutes.consolesByConsoleIdInstalls(`:${RouteParam.id}`), (req: Request, res: Response) => {
+  app.get(CuratorRoutes.consolesByConsoleIdInstallMap(`:${RouteParam.id}`), (req: Request, res: Response) => {
     const sub = subFromRequest(req);
-    if (!findOwnedConsole(sub, pathParam(req, RouteParam.id))) {
+    const consoleId = pathParam(req, RouteParam.id);
+    if (!findOwnedConsole(sub, consoleId)) {
       res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.consoleNotFound });
       return;
     }
-    res.json({ game_ids: Array.from(consoleInstalls.get(pathParam(req, RouteParam.id)) ?? []).sort() });
+    res.json({
+      game_ids: Array.from(consoleInstalls.get(consoleId) ?? []).sort(),
+      attached_devices: userDevices(sub)
+        .filter((device) => device.console_id === consoleId)
+        .map((device) => ({
+          device: toDeviceResponse(device),
+          game_ids: Array.from(deviceInstalls.get(device.device_id) ?? []).sort(),
+        })),
+    });
   });
 
   app.put(CuratorRoutes.consolesByConsoleIdInstallsByGameId(`:${RouteParam.consoleId}`, `:${RouteParam.gameId}`), (req: Request, res: Response) => {
@@ -1877,15 +1886,6 @@ export function createCuratorApp(): Express {
     }
     record.console_id = null;
     res.json(toDeviceResponse(record));
-  });
-
-  app.get(CuratorRoutes.storageDevicesByDeviceIdInstalls(`:${RouteParam.id}`), (req: Request, res: Response) => {
-    const sub = subFromRequest(req);
-    if (!findOwnedDevice(sub, pathParam(req, RouteParam.id))) {
-      res.status(constants.HTTP_STATUS_NOT_FOUND).json({ detail: CuratorDetails.storageDeviceNotFound });
-      return;
-    }
-    res.json({ game_ids: Array.from(deviceInstalls.get(pathParam(req, RouteParam.id)) ?? []).sort() });
   });
 
   app.put(CuratorRoutes.storageDevicesByDeviceIdInstallsByGameId(`:${RouteParam.deviceId}`, `:${RouteParam.gameId}`), (req: Request, res: Response) => {

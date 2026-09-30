@@ -789,8 +789,14 @@ export interface ConsoleDeviceLinkResponse {
   state: ConsoleDeviceLinkState;
 }
 
-export interface ConsoleInstallsResponse {
+export interface AttachedStorageDeviceInstalls {
+  device: StorageDeviceResponse;
   game_ids: string[];
+}
+
+export interface ConsoleInstallMapResponse {
+  game_ids: string[];
+  attached_devices: AttachedStorageDeviceInstalls[];
 }
 
 export interface StorageDeviceRequest {
@@ -821,10 +827,6 @@ export interface StorageDeviceInstallResponse {
   device_id: string;
   game_id: string;
   installed: boolean;
-}
-
-export interface StorageDeviceInstallsResponse {
-  game_ids: string[];
 }
 
 export interface MeasuredSizeResponse {

@@ -78,26 +78,24 @@ export const psnStatusResolver: ResolveFn<ResolvedPsnStatus> = () => {
   const http = inject(HttpClient);
   const curator = inject(CuratorService);
 
-  return http.get<PsnStatus>(CuratorApi.me).pipe(
-    switchMap((status) =>
-      forkJoin({
-        status: of<PsnStatus | null>(status),
-        enrichmentKeys: curator.getEnrichmentKeyStatus().pipe(catchError(() => of(null))),
-        schedule: curator.getRefreshSchedule().pipe(catchError(() => of(null))),
-        categories: status.linked
-          ? curator.getPsnPreferences().pipe(
-              switchMap((preferences) => categoriesFor(curator, preferences)),
-              catchError(() => of(NOTHING_LOADED)),
-            )
-          : of(NOTHING_LOADED),
-      }),
+  return forkJoin({
+    status: http.get<PsnStatus>(CuratorApi.me),
+    enrichmentKeys: curator.getEnrichmentKeyStatus().pipe(catchError(() => of(null))),
+    schedule: curator.getRefreshSchedule().pipe(catchError(() => of(null))),
+    preferences: curator.getPsnPreferences().pipe(catchError(() => of(null))),
+  }).pipe(
+    switchMap(({ status, enrichmentKeys, schedule, preferences }) =>
+      (status.linked && preferences !== null ? categoriesFor(curator, preferences) : of(NOTHING_LOADED)).pipe(
+        map(
+          (categories): ResolvedPsnStatus => ({
+            status,
+            enrichmentKeys,
+            schedule,
+            ...categories,
+          }),
+        ),
+      ),
     ),
-    map(({ status, enrichmentKeys, schedule, categories }): ResolvedPsnStatus => ({
-      status,
-      enrichmentKeys,
-      schedule,
-      ...categories,
-    })),
     catchError((_err: HttpErrorResponse) =>
       of<ResolvedPsnStatus>({
         status: null,

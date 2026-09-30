@@ -564,12 +564,12 @@ describe('CuratorService', () => {
     req.flush(null);
   });
 
-  it('getConsoleInstalls gets the console-scoped install worklist', () => {
-    service.getConsoleInstalls(consoleId).subscribe();
+  it('getConsoleInstallMap gets the console and its attached devices\' installs in one request', () => {
+    service.getConsoleInstallMap(consoleId).subscribe();
 
-    const req = httpMock.expectOne(CuratorApi.consolesByConsoleIdInstalls(consoleId));
+    const req = httpMock.expectOne(CuratorApi.consolesByConsoleIdInstallMap(consoleId));
     expect(req.request.method).toBe(HttpMethods.get);
-    req.flush({ game_ids: [] });
+    req.flush({ game_ids: [], attached_devices: [] });
   });
 
   it('createStorageDevice posts the device body', () => {
@@ -630,14 +630,6 @@ describe('CuratorService', () => {
     const req = httpMock.expectOne(CuratorApi.storageDevicesByDeviceIdAttach(deviceId));
     expect(req.request.method).toBe(HttpMethods.delete);
     req.flush(null);
-  });
-
-  it('getStorageDeviceInstalls gets the device-scoped install worklist', () => {
-    service.getStorageDeviceInstalls(deviceId).subscribe();
-
-    const req = httpMock.expectOne(CuratorApi.storageDevicesByDeviceIdInstalls(deviceId));
-    expect(req.request.method).toBe(HttpMethods.get);
-    req.flush({ game_ids: [] });
   });
 
   it('setStorageDeviceInstall puts the installed flag', () => {

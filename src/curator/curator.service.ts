@@ -18,8 +18,8 @@ import {
   CollectionRunResponse,
   CollectionSpecRequest,
   CollectionVisibility,
+  ConsoleInstallMapResponse,
   ConsoleInstallResponse,
-  ConsoleInstallsResponse,
   ConsoleRequest,
   ConsoleResponse,
   ConsoleUpdateRequest,
@@ -60,7 +60,6 @@ import {
   SaveDefinitionRequest,
   SortDirection,
   StorageDeviceInstallResponse,
-  StorageDeviceInstallsResponse,
   StorageDeviceRequest,
   StorageDeviceResponse,
   StorageDeviceUpdateRequest,
@@ -335,8 +334,8 @@ export class CuratorService {
     return this.http.delete<void>(CuratorApi.consolesByConsoleId(consoleId));
   }
 
-  getConsoleInstalls(consoleId: string): Observable<ConsoleInstallsResponse> {
-    return this.http.get<ConsoleInstallsResponse>(CuratorApi.consolesByConsoleIdInstalls(consoleId));
+  getConsoleInstallMap(consoleId: string): Observable<ConsoleInstallMapResponse> {
+    return this.http.get<ConsoleInstallMapResponse>(CuratorApi.consolesByConsoleIdInstallMap(consoleId));
   }
 
   setConsoleInstall(consoleId: string, gameId: string, installed: boolean): Observable<ConsoleInstallResponse> {
@@ -371,10 +370,6 @@ export class CuratorService {
 
   detachStorageDevice(deviceId: string): Observable<StorageDeviceResponse> {
     return this.http.delete<StorageDeviceResponse>(CuratorApi.storageDevicesByDeviceIdAttach(deviceId));
-  }
-
-  getStorageDeviceInstalls(deviceId: string): Observable<StorageDeviceInstallsResponse> {
-    return this.http.get<StorageDeviceInstallsResponse>(CuratorApi.storageDevicesByDeviceIdInstalls(deviceId));
   }
 
   setStorageDeviceInstall(
