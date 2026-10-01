@@ -206,8 +206,7 @@ describe('PsnSettingsComponent', () => {
   it('offers every cadence RefreshCadence declares, in ascending interval order', () => {
     const fixture = createAndLoad({ sub: SUB, email: null, linked: false, psn: null });
 
-    const select = (fixture.nativeElement as HTMLElement).querySelector('#schedule-cadence');
-    const options = Array.from(select?.querySelectorAll('option') ?? []);
+    const options = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('#schedule-cadence option'));
 
     expect(options.map((option) => option.getAttribute('value'))).toEqual([RefreshCadences.daily, RefreshCadences.weekly, RefreshCadences.monthly]);
     expect(options.map((option) => option.textContent?.trim())).toEqual(Object.values(RefreshCadences).map((cadence) => REFRESH_CADENCE_LABELS[cadence]));

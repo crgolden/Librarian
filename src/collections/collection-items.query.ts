@@ -1,4 +1,4 @@
-import { Params } from '@angular/router';
+import type { Params } from '@angular/router';
 import { CollectionItemSortField, CollectionItemSortFields, SortDirection, SortDirections } from '../curator/curator.models';
 import { trimmedOrNull } from '../shared/control-value';
 

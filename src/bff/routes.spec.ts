@@ -319,7 +319,7 @@ describe(BffPaths.callback, () => {
     await handler()(req, res as unknown as Response);
 
     const session = req.session as unknown as Session;
-    const arrayClaims = (session.claims ?? []).filter(c => c.type === arrayClaimType);
+    const arrayClaims = session.claims?.filter(c => c.type === arrayClaimType);
     expect(arrayClaims).toEqual(arrayClaimValues.map((value) => ({ type: arrayClaimType, value })));
   });
 });

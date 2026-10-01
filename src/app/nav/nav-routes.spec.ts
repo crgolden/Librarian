@@ -2,7 +2,7 @@ import type { Route } from '@angular/router';
 import { routes } from '../app.routes';
 import { authGuard } from '../auth.guard';
 import { adminGuard } from '../admin.guard';
-import { PRIMARY_NAV_LINKS } from './site-nav.component';
+import { PRIMARY_NAV_LINKS } from './nav-links';
 import { NavLabels, PageTitles } from '../../shared/page-title';
 
 const routeFor = (path: string): Route | undefined => {
@@ -11,6 +11,8 @@ const routeFor = (path: string): Route | undefined => {
 };
 
 const guardsOn = (route: Route | undefined): unknown[] => route?.canActivate ?? [];
+
+const literalPathOf = (route: Route): string[] => (typeof route.path === 'string' ? [route.path] : []);
 
 describe('PRIMARY_NAV_LINKS is pinned to app.routes.ts', () => {
   it.each(PRIMARY_NAV_LINKS.map((link) => [link.label, link] as const))(
@@ -64,7 +66,7 @@ describe('PRIMARY_NAV_LINKS is pinned to app.routes.ts', () => {
 
     const unreachable = routes
       .filter((route) => guardsOn(route).includes(authGuard))
-      .flatMap((route) => (typeof route.path === 'string' ? [route.path] : []))
+      .flatMap(literalPathOf)
       .filter((path) => !path.includes(':') && path !== '**')
       .filter((path) => !reachable(path));
 

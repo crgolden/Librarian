@@ -32,49 +32,11 @@ import { AuthService } from '../../auth/auth.service';
 import { AdminService } from '../../admin/admin.service';
 import { AppUrls } from '../app-paths';
 import { loginUrlReturningTo } from '../../shared/bff-contract';
-import { NavLabels, PageTitles } from '../../shared/page-title';
+import { NavLabels } from '../../shared/page-title';
+import { PRIMARY_NAV_LINKS } from './nav-links';
 import { NAV_RAIL_SIGNOUT_ID, SiteNavIdPrefixes } from './site-nav-ids';
 
-export type NavIcon =
-  | 'lucideCircleHelp'
-  | 'lucideCircleUser'
-  | 'lucideFolderOpen'
-  | 'lucideHardDrive'
-  | 'lucideHouse'
-  | 'lucideLayoutGrid'
-  | 'lucideLibraryBig'
-  | 'lucideSettings'
-  | 'lucideShield'
-  | 'lucideSparkles';
-
-export interface NavLink {
-  path: string;
-  label: string;
-  icon: NavIcon;
-  exact?: boolean;
-  reachableWithoutSigningIn?: boolean;
-  tab?: boolean;
-  adminOnly?: boolean;
-}
-
-export const PRIMARY_NAV_LINKS: NavLink[] = [
-  { path: AppUrls.home, label: NavLabels.home, icon: 'lucideHouse', exact: true, reachableWithoutSigningIn: true, tab: true },
-  { path: AppUrls.catalog, label: PageTitles.catalog, icon: 'lucideLayoutGrid', reachableWithoutSigningIn: true, tab: true },
-  { path: AppUrls.library, label: PageTitles.library, icon: 'lucideLibraryBig', tab: true },
-  { path: AppUrls.collections, label: PageTitles.collections, icon: 'lucideFolderOpen', tab: true },
-  { path: AppUrls.profile, label: PageTitles.profile, icon: 'lucideCircleUser' },
-  { path: AppUrls.account, label: PageTitles.account, icon: 'lucideSettings' },
-  { path: AppUrls.consoles, label: PageTitles.consoles, icon: 'lucideHardDrive' },
-  { path: AppUrls.adminEnrichment, label: PageTitles.enrichmentRuns, icon: 'lucideSparkles', adminOnly: true },
-  { path: AppUrls.faq, label: PageTitles.faq, icon: 'lucideCircleHelp', reachableWithoutSigningIn: true },
-  { path: AppUrls.privacy, label: NavLabels.privacy, icon: 'lucideShield', reachableWithoutSigningIn: true },
-];
-
 export const SIGN_OUT_FALLBACK_HREF = '#';
-
-export const ANONYMOUS_NAV_LINKS: NavLink[] = PRIMARY_NAV_LINKS.filter(
-  (link) => link.reachableWithoutSigningIn === true,
-);
 
 @Component({
   selector: 'app-site-nav',

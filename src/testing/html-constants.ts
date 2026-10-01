@@ -10,6 +10,10 @@ export const AriaLiveValues = {
   polite: 'polite',
 } as const;
 
+export const UserEventKeys = {
+  escape: '{Escape}',
+} as const;
+
 export const LinkRelTokens = {
   noopener: 'noopener',
   noreferrer: 'noreferrer',

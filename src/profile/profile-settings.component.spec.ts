@@ -54,6 +54,8 @@ const PSNPROFILES_LINK: ProfileLinkResponse = {
   url: newHttpsAddress(),
 };
 
+const PROFILE_SETTING_FIELDS: (keyof ProfileSettingsResponse)[] = Object.values(ProfileSettingKeys);
+
 describe('ProfileSettingsComponent', () => {
   let httpMock: HttpTestingController;
 
@@ -180,20 +182,18 @@ describe('ProfileSettingsComponent', () => {
     expect(compiled.textContent).toContain(SETTING_UPDATE_ERROR);
   });
 
-  it('all five toggles are independently wired to onToggle with their own field name', async () => {
-    const fixture = await createAndLoad();
+  it.each(PROFILE_SETTING_FIELDS)(
+    'wires the %s toggle to onToggle with its own field name',
+    async (field) => {
+      const fixture = await createAndLoad();
 
-    const fields: (keyof ProfileSettingsResponse)[] = Object.values(ProfileSettingKeys);
-
-    for (const field of fields) {
       harness(fixture).onToggle(field, true);
       const req = httpMock.expectOne(CuratorApi.meProfileSettings);
       expect(req.request.body).toEqual(expect.objectContaining({ [field]: true }));
       req.flush({ ...ALL_OFF, [field]: true });
       await fixture.whenStable();
-      fixture.detectChanges();
-    }
-  });
+    },
+  );
 
   it('renders one row per allowlisted site, prefilled with the handle already declared', async () => {
     const fixture = await createAndLoad(ALL_OFF, [PSNPROFILES_LINK]);

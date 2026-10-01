@@ -113,7 +113,7 @@ consequences follow, and every decision below is one of them:
    `--color-warn` and `--color-psn`; a single accent indistinguishable from a status color would be
    worse than any aesthetic objection. **The light accent's headroom is the thing to watch: 4.57:1 against
    a 4.5 bar, 1.6% spare**, the tightest text pair in the palette, so any lightening of `--color-accent`
-   in the light scheme fails `e2e/contrast.spec.ts`, by design.
+   in the light scheme fails `src/styles.contrast.schemes.browser.spec.ts`, by design.
 3. **Space Grotesk, because these are labels on an instrument panel.** Headings are controls and
    section markers, not prose. Body copy is Inter; anything the eye compares column-wise (counts,
    percentages, dates, ids) is JetBrains Mono, so digits align.
@@ -144,7 +144,7 @@ thing as the media query.** `prefers-color-scheme` tells *this stylesheet* what 
 what a user with no preference gets. Without it the UA paints its own chrome (scrollbars, form controls,
 the canvas behind the page) from the OS light theme, which on Windows means bright scrollbars with
 stepper arrows against a near-black UI. **No token, contrast or layout assertion can see that**, because
-none of it is the page's own CSS; `e2e/theme.spec.ts` asserts the declared property directly.
+none of it is the page's own CSS; `src/styles.theme.browser.spec.ts` asserts the declared property directly.
 
 ## Colors
 
@@ -192,7 +192,7 @@ into every utility and the re-binding would then do nothing.
   fine between rows and a WCAG 1.4.11 failure the moment it becomes the edge of an input. Anything a user
   can operate uses `line-strong`. **`line-strong` is the tightest token in the palette against both
   raised surfaces**: do not darken it in dark or lighten it in light without re-running
-  `e2e/contrast.spec.ts`.
+  `src/styles.contrast.schemes.browser.spec.ts`.
 - **Focus rings carry `outline-offset: 2px`, mandatory.** `focus` directly on an `accent` fill is
   1.32:1; offset onto the page background it is 10.94:1. The offset is the contrast.
 - **`--color-ok` is an alias of the accent.** Success is distinguished by *shape* (inline text with a
@@ -211,7 +211,7 @@ control run, or someone asking why something looks wrong does. The shape is not 
 | a hover token aliased to its base, `--x-hover: var(--x)` | a hover that moves away from the ink | it resolves to the base color, so **the button has no hover at all** |
 | `--color-line-strong` at `L 0.48` | a control edge clearing 3:1 | it resolves and looks plausible; it measures **2.38:1** |
 | `a { text-decoration: none }` | links distinguished by the accent | the accent resolves; links in prose are **color-only**, failing WCAG 1.4.1 |
-| `--color-focus` declared, and no `:focus-visible` rule anywhere | every control ringed in the focus token at a 2px offset | the token resolves, and `e2e/contrast.spec.ts` **measures it passing** while nothing applies it, so every control falls back to the browser's default ring |
+| `--color-focus` declared, and no `:focus-visible` rule anywhere | every control ringed in the focus token at a 2px offset | the token resolves, and `src/styles.contrast.schemes.browser.spec.ts` **measures it passing** while nothing applies it, so every control falls back to the browser's default ring |
 | `--container-prose` in `@theme`, spelled `max-w-prose` | a 720px reading measure | `max-w-prose` is a Tailwind **built-in** pinned to `65ch`; the token is emitted and greppable while the utility ignores it, so the measure is 656px and font-dependent |
 
 Three rules follow, and they are the whole defense:
@@ -220,12 +220,12 @@ Three rules follow, and they are the whole defense:
    the state it names does not exist. Aliasing a legacy name into a new palette is where this creeps in,
    because the compiler is perfectly happy.
 2. **If a token expresses a *relationship* (a hover that must differ, an edge that must clear a ratio,
-   a variant that must be distinguishable), the relationship gets a test.** `e2e/contrast.spec.ts`
+   a variant that must be distinguishable), the relationship gets a test.** `src/styles.contrast.schemes.browser.spec.ts`
    measures the hover fills as well as the resting ones for that reason.
 3. **A contrast spec proves a pair is legible. It cannot prove the pair is used.** `--color-focus` on
    `--color-canvas` measures green whether or not any element is ringed in it. A token needs a test that
-   the *rule* exists, separately from the test that its colors work, and `e2e/theme.spec.ts`'s focus-ring
-   suite is that test. It asserts `outline-style: solid`, because Chromium's fallback ring is `auto`, and
+   the *rule* exists, separately from the test that its colors work, and the focus-ring tests in
+   `src/app/app-shell.layout.browser.spec.ts` are that test. It asserts `outline-style: solid`, because Chromium's fallback ring is `auto`, and
    `auto` ignores `outline-color` entirely: asserting the color alone would pass against the browser
    default.
 
@@ -234,7 +234,7 @@ Three rules follow, and they are the whole defense:
    assertions (style, width, offset) fail without the rule, on every selector. The fallback offset is
    `1px`, not `0`.
 
-**The spec, not this file, is the authority on every ratio.** `e2e/contrast.spec.ts` resolves each token
+**The spec, not this file, is the authority on every ratio.** `src/styles.contrast.schemes.browser.spec.ts` resolves each token
 through a 1×1 canvas in **both** schemes and checks each pair against its WCAG bar: 4.5:1 for text, 3:1
 for a control edge or icon under 1.4.11. A figure written here is a claim that rots; the spec is a
 measurement that cannot. The table above is the palette; the spec is the proof.
@@ -354,8 +354,9 @@ element needs the same treatment, and no test emulates a safe area.
 
   **Each is a `--container-*` theme token, so `max-w-data` is the only spelling** and an arbitrary
   `max-w-[60rem]` stands out in review. `/profile` and `/library` share the data measure, and
-  `e2e/layout.spec.ts` asserts they are *equal to each other* rather than to a literal, so changing the
-  token moves both and the test still means something.
+  `src/library/library.layout.browser.spec.ts` and `src/profile/profile-view.layout.browser.spec.ts` each
+  assert the page's width equals the resolved `--container-data` token rather than a literal, so changing
+  the token moves both and the tests still mean something.
 
   **The reading measure is `max-w-reading`, not `max-w-prose`, and the name is load-bearing.**
   `max-w-prose` is a Tailwind **built-in static utility pinned to `65ch`**, and a `--container-prose`
@@ -490,7 +491,7 @@ where it is used.
   directives are `justify-center` so they center inside a stretched track, and four actions fall
   into two rows of two with no orphan. **`w-full` is load-bearing**: these cards are
   `flex flex-col items-start`, so without it the grid shrink-wraps and the tracks are unequal again.
-  `e2e/layout.spec.ts` asserts one distinct width and exactly two rows.
+  `src/home/home.layout.browser.spec.ts` asserts one distinct width and exactly two rows.
 
   **In such a group the first action is the primary one, and that is the only thing order encodes.**
   Home renders its four actions from a single array and marks `$first` as the primary button, so promoting
@@ -543,7 +544,7 @@ where it is used.
   container is 910 and a wider viewport buys the table nothing; between `md` and 960 the card is
   viewport-bound and narrower, so no band above `md` fits more columns than 910 does, and nine columns
   at their widest do not fit it with the Cover column shown. Three decisions close that, in priority
-  order, and `e2e/layout.spec.ts` asserts the fit with every column at its widest at the `xl` measure;
+  order, and `src/library/library.layout.browser.spec.ts` asserts the fit with every column at its widest at the `xl` measure;
   the band between `md` and 960 relies on the fallback named at the end of this entry. A control never
   widens a column past its label: the `% Completed` header's "Turn on trophies" link is `block` and
   `whitespace-normal`, so it wraps inside the column instead of setting its width. The Cover column
@@ -603,14 +604,14 @@ where it is used.
   Register glyphs per component through `provideIcons({ … })` in `viewProviders`, so unused ones
   tree-shake away; never register a whole pack. Every `ng-icon` carries `aria-hidden="true"`: the
   accessible name belongs to the control around it, so an icon-only nav link needs its own `aria-label`.
-- **`app-site-nav`** (`src/app/nav/site-nav.component.ts`): the single sitewide nav-link data source,
-  rendered **three** ways from one array (`PRIMARY_NAV_LINKS`): a persistent left **rail** at `lg` and
+- **`app-site-nav`** (`src/app/nav/site-nav.component.ts`) renders the single sitewide nav-link data source
+  (`PRIMARY_NAV_LINKS` in `src/app/nav/nav-links.ts`) **three** ways from one array: a persistent left **rail** at `lg` and
   above, a fixed bottom **tab bar** below it, and a **More sheet** holding whatever the tab bar cannot.
   `tab: true` marks the four destinations that earn a tab; the rest fall to the sheet, so tabs ∪ sheet is
   always exactly the rail. The active route carries `aria-current="page"` (`ariaCurrentWhenActive` on
   every rail, tab and sheet link), and an `aria-[current=page]:` utility paints it `--color-accent`:
   the attribute assistive technology reads is the same one the style keys on, so the two cannot
-  disagree. `e2e/nav.spec.ts` asserts the attribute and that the active link's ink differs from an
+  disagree. `src/app/app-shell.layout.browser.spec.ts` asserts the attribute and that the active link's ink differs from an
   inactive one's.
   **The nav is a vertical rail for a structural reason, not an aesthetic one.** A horizontal header
   inside `crgPageContainer` has a usable width pinned at 963px for every viewport at or above 1100px, so
@@ -619,7 +620,7 @@ where it is used.
   admin and non-admin shapes cannot diverge. **Do not reintroduce a layout that varies with an async
   signal**: `admin.isAdmin()` resolves after first paint, so a layout keyed on it visibly re-lays out
   about a second in.
-  **The rail's failure mode is vertical, so the tests are too.** `e2e/nav.spec.ts` asserts a single
+  **The rail's failure mode is vertical, so the tests are too.** `src/app/app-shell.layout.browser.spec.ts` asserts a single
   column, `min(top) >= 0`, and `max(bottom) <= innerHeight` (a destination below the fold is a rail's
   version of a wrapped row), and it loops over viewport *height* rather than width.
   **The More sheet is a native `<dialog>`.** `showModal()` gives modal semantics, a focus trap, Escape,
@@ -651,7 +652,7 @@ where it is used.
   **The cap is load-bearing and must not be deleted.** Without it the layout depends on how long the
   signed-in address is, the one unbounded, data-dependent element in the header. A wrap-based test cannot
   catch its removal, because the row has room to spare and would pass against the very bug it exists to
-  catch. **`e2e/nav.spec.ts` therefore asserts the cap directly**: computed `max-width` is not `none`,
+  catch. **`src/app/app-shell.layout.browser.spec.ts` therefore asserts the cap directly**: computed `max-width` is not `none`,
   `overflow` is `hidden`, and the fixture address actually overflows it (`scrollWidth > clientWidth`),
   plus a desktop assertion that the address never grows leftwards into the brand, and a mobile one that
   the chip stays inside the header and does not widen the document. **The fixture address is what keeps
@@ -698,7 +699,7 @@ where it is used.
   for the edge of anything a user can operate.
 - **Do** keep radii small: `--radius-lg` is for the sheet's top corners and nothing else.
 - **Do** maintain WCAG AA contrast (4.5:1 body text, 3:1 large text, 3:1 non-text per 1.4.11) for every
-  pair **in both schemes**, and let `e2e/contrast.spec.ts` be what proves it.
+  pair **in both schemes**, and let `src/styles.contrast.schemes.browser.spec.ts` be what proves it.
 - **Do** drive nav-link data from a single source (`PRIMARY_NAV_LINKS`); never duplicate the link list
   between the rail, the tab bar and the sheet.
 - **Don't** spend chroma on a surface. Cover art is the saturated thing on the page; chrome recedes.
@@ -939,7 +940,7 @@ visible failure until the page is measured.
 - **`whitespace-nowrap` on the library table's `<th>`.** The sort arrow is a separate `<span>` after a
   space, so a narrow column orphans it onto its own line and doubles the header row's height.
   `#library-table-scroll` carries `overflow-x-auto`, so a header row too wide for the card scrolls instead
-  of wrapping, which is the intended behavior. `layout.spec.ts` pins it on the sorted `PS Store` column
+  of wrapping, which is the intended behavior. `src/library/library.layout.browser.spec.ts` pins it on the sorted `PS Store` column
   between `md` and the data measure: its label and arrow share one line, and with `white-space` cleared at
   runtime the same header breaks, which proves the fixture loads that column enough for the first
   assertion to be able to fail.
@@ -1042,11 +1043,11 @@ reporting them flatly is not gamification. Do not paraphrase PSN's own terms to 
   `ng-icon` entry in Components).
 - Focus rings use `--color-focus` **with `outline-offset: 2px`**, from one `:focus-visible` rule in
   `@layer base` covering `a`, `button`, `input`, `select`, `textarea` and `summary`, which reads the width
-  and offset from the `--focus-ring-width` and `--focus-ring-offset` tokens. `e2e/theme.spec.ts` holds
+  and offset from the `--focus-ring-width` and `--focus-ring-offset` tokens. `src/app/app-shell.layout.browser.spec.ts` holds
   each ringed control to those tokens and holds the width token to WCAG 2.4.13's two-pixel minimum, so
   the 2px is stated once, in the stylesheet. The offset is what makes the ring legible: the same ring
   sitting directly on an accent fill is far tighter than the same ring offset onto the surface behind the
-  control. Because the offset paints on that surface rather than on the control, `e2e/contrast.spec.ts`
+  control. Because the offset paints on that surface rather than on the control, `src/styles.contrast.schemes.browser.spec.ts`
   measures the ring against **`canvas`, `surface` and `surface-2`**: canvas alone would leave the rail
   and the cards unmeasured. Text inputs also take an accent border and the `--shadow-focus` halo on any
   focus, and they keep the outline, so forced-colors mode, which drops box shadows, still shows a ring.

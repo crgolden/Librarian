@@ -270,7 +270,8 @@ describe('CollectionsComponent', () => {
       const select = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>('#genreFilter');
       expect(select).not.toBeNull();
       expect(select?.multiple).toBe(true);
-      expect(Array.from(select?.options ?? []).map((option) => option.textContent)).toEqual([
+      const options = (fixture.nativeElement as HTMLElement).querySelectorAll('#genreFilter option');
+      expect(Array.from(options).map((option) => option.textContent)).toEqual([
         GENRE_A,
         GENRE_B,
         GENRE_C,
@@ -1089,8 +1090,8 @@ describe('CollectionsComponent', () => {
     httpMock.expectOne(CuratorApi.gamesByGameIdMeasuredSizes(GAME_1)).flush([]);
     fixture.detectChanges();
 
-    const select = (fixture.nativeElement as HTMLElement).querySelector(`#measured-size-platform-${GAME_1}`);
-    const labels = Array.from(select?.querySelectorAll('option') ?? []).map((option) => option.textContent?.trim());
+    const options = (fixture.nativeElement as HTMLElement).querySelectorAll(`#measured-size-platform-${GAME_1} option`);
+    const labels = Array.from(options).map((option) => option.textContent?.trim());
     expect(labels).toEqual(CONSOLE_PLATFORM_OPTIONS);
   });
 

@@ -4,9 +4,11 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "./out-tsc/spec",
+    "resolveJsonModule": true,
     "types": [
       "vitest/globals",
-      "node"
+      "node",
+      "vite/client"
     ]
   },
   "include": [

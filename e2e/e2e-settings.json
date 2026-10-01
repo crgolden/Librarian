@@ -1,4 +1,9 @@
 {
+  "executedTestFloor": 198,
+  "bddFeatures": "e2e/features/**/*.feature",
+  "bddSteps": "e2e/steps/**/*.ts",
+  "cucumberMessagesFile": "cucumber-report/messages.ndjson",
+  "cucumberHtmlFile": "cucumber-report/index.html",
   "ports": {
     "ssr": 4100,
     "mockCurator": 4101,
@@ -36,6 +41,12 @@
     }
   },
   "catalogGridMinimumTrackPx": 220,
+  "consoles": {
+    "driveCapacityGbExclusiveCeiling": 4001
+  },
+  "profile": {
+    "handleWordLengthExclusiveCeiling": 8
+  },
   "layout": {
     "longTitleWordPairs": 4,
     "coverSideMinimumPx": 240,

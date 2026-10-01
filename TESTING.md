@@ -11,9 +11,35 @@ Unit test coding standards (no control-flow in tests, etc.) are in the workspace
 
 | Tier | Tool | Location | Requires live servers? | Runs in CI |
 |------|------|----------|------------------------|------------|
-| Frontend unit | Vitest | `src/**/*.spec.ts` | No | Every push/PR |
-| E2E (regression) | Playwright (`--project=e2e`) | `e2e/` | No — Playwright manages the Node SSR server + mock Curator API | Every push/PR |
-| Synthetic walker | Playwright (`--project=synthetic`) | `e2e/synthetic/` | Yes — targets the deployed stack | Scheduled (`synthetic.yml`), never a merge gate |
+| Frontend unit | Vitest, `unit` project (jsdom) | `src/**/*.spec.ts` | No | Every push/PR |
+| Browser unit | Vitest browser mode, `browser` and `browser-light` projects (Chromium through `@vitest/browser-playwright`) | `src/**/*.browser.spec.ts` | No | Every push/PR, inside `npm run test:coverage` |
+| Integration | Playwright (`--project=integration`), the `request` fixture only | `integration/` | No; Playwright manages the Node SSR server + mock Curator API | Every push/PR, inside `npm run e2e` |
+| E2E journeys | Playwright + playwright-bdd (`--project=e2e`), Gherkin | `e2e/features/*.feature`, steps in `e2e/steps/` | No; as Integration | Every push/PR |
+| Synthetic walker | Playwright (`--project=synthetic`) | `e2e/synthetic/` | Yes; targets the deployed stack | Scheduled (`synthetic.yml`), never a merge gate |
+
+**A test's tier is the interface it drives** ([AGENTS/TESTING.md](../AGENTS/TESTING.md)). A property of
+one rendered component (geometry, computed style, contrast, an axe scan) is a browser unit test; a request
+whose answer is the assertion is Integration; a user outcome reached through the app is an E2E scenario.
+
+### Browser unit tier
+
+`vitest.config.mts` declares three projects. `unit` runs every `*.spec.ts` except `*.browser.spec.ts` in
+jsdom. `browser` runs every `*.browser.spec.ts` in Chromium with `colorScheme: 'dark'`, except
+`*.light.browser.spec.ts`. `browser-light` runs `*.schemes.browser.spec.ts` and `*.light.browser.spec.ts`
+with `colorScheme: 'light'`. **The filename picks the scheme**: a spec asserting something true in both
+schemes is `*.schemes.browser.spec.ts`, one true only in light is `*.light.browser.spec.ts`, and no spec
+branches on `matchMedia` (CODE-STYLE rule 12). Both projects pin `timezoneId: 'UTC'`.
+
+- `src/test-setup.browser.ts` loads `src/styles.css` and initializes the Angular test environment.
+  `src/test-setup-resources.browser.ts` resolves every component's `templateUrl` from an `import.meta.glob`
+  map and throws on a duplicate basename. A spec that calls `overrideComponent` calls
+  `resolveTestComponentResources()` again after `compileComponents()`, because the override re-queues the
+  template.
+- **A page is measured inside the app shell**, since the rail takes its width: `provideRouter` with one
+  route whose `data` holds the resolved payload (typed with `satisfies` against the resolver's own type,
+  because `Data` accepts anything), the real `AuthService` fed a session through
+  `HttpTestingController.expectOne(BFF_USER_RELATIVE_PATH)`, then `AppComponent` and
+  `router.navigateByUrl`.
 
 ---
 
@@ -56,31 +82,27 @@ error is a failed test under `Type Errors`, while a source error is reported as 
 (`Type Errors  no errors` / `Errors  1 error`) with every suite still green. Both exit non-zero. That is
 deliberate, so do not flip the flag to get a red run green.
 
-**The palette has two specs of its own, and they are the only place its numbers live.**
-`e2e/contrast.spec.ts` resolves every colour token through a 1×1 canvas in **both** schemes and checks 15
-documented pairs against their WCAG bar — 4.5:1 for text, 3:1 for a control edge or icon under 1.4.11.
-It earned its place immediately: the first run failed on `line-strong` against both raised surfaces
-(2.65 / 2.38 dark, 2.89 / 2.47 light) while `DESIGN.md` documented those same pairs as 3.57:1 and 3.11:1.
-**A ratio written in a doc is a claim that rots; this one was wrong before it was ever true.** The canvas
-is pre-set to a magenta sentinel before each fill because **Canvas2D ignores an invalid colour silently**
-— without it, a token that failed to parse would inherit the previous pixel and pass.
+**The palette's numbers live only in its specs.** `src/styles.contrast.schemes.browser.spec.ts` resolves
+every color token through a 1×1 canvas and checks each pair in `e2e-settings.json`'s `contrastPairs`
+against its WCAG bar (4.5:1 for text, 3:1 for a control edge or icon under 1.4.11), in both schemes
+because of its filename. **A ratio written in a doc is a claim that rots**; the spec is the authority. The
+canvas is pre-set to a magenta sentinel before each fill because **Canvas2D ignores an invalid color
+silently**, so without it a token that failed to parse would inherit the previous pixel and pass.
 
-**The hover fills are measured too, and that is not padding.** `--color-error-hover` was at one point
-aliased straight to `--color-danger`, so a destructive button had no hover state at all — it compiled,
-it resolved, and nothing failed. A hover fill also carries ink, so it needs its own ratio; the spec now
-checks `on-fill` against both `--color-danger-hover` and `--color-accent-hover`. **When you add a token
-that expresses a *relationship* — a hover that must differ, an edge that must clear a bar — add the pair
-here in the same change**, or the relationship is an assumption rather than a fact.
+**A hover fill carries ink, so it needs its own ratio.** When you add a token that expresses a
+*relationship* (a hover that must differ, an edge that must clear a bar), add the pair to `contrastPairs`
+in the same change, or the relationship is an assumption rather than a fact.
 
-`e2e/theme.spec.ts` covers the structure rather than the ratios: that the surface ladder ascends
-(`canvas` < `surface` < `surface-2`), that no ground token spends chroma above `0.02`, that light inverts
-the ladder rather than introducing a second design, and that the same element genuinely paints a
-different background in the two schemes — the last one catches a light re-binding that has silently
-stopped applying, which no per-token assertion would.
+The theme specs cover structure rather than ratios. `src/styles.theme.browser.spec.ts` (dark, the base):
+every surface is darker than mid lightness with the ground darkest, and the `color-scheme` property is
+declared. `src/styles.theme.light.browser.spec.ts`: light inverts the ladder rather than introducing a
+second design. `src/styles.theme.schemes.browser.spec.ts` (both): no surface, line or text token spends
+chroma above `theme.neutralChromaCeiling`, and the page paints the scheme's own ground, which catches a
+light re-binding that has silently stopped applying. The focus rings are asserted on the shell's own
+controls in `src/app/app-shell.layout.browser.spec.ts`.
 
-**`playwright.config.ts` sets `colorScheme: 'dark'` globally.** Playwright's default is `'light'`, so
-until that landed the whole suite was measuring the light *variant* of a dark-first design. The two
-palette specs override it per `describe`, so they still cover both.
+**`playwright.config.ts` sets `colorScheme: 'dark'` for the E2E project**, because Playwright's default
+is `'light'` and this is a dark-first design.
 
 **Playwright's specs are type-checked too, by their own tsconfig.** `tsconfig.spec.json` includes only
 `src/**`, and Playwright transpiles `e2e/**` with esbuild, so for a long time a type error there reached
@@ -183,26 +205,14 @@ against the mock authority on first use:
    sideways, so the admin/non-admin shapes cannot diverge the way the header's did.
 
    **A layout measurement taken in fallback metrics is not a measurement of the shipped layout, and
-   `document.fonts.ready` is not enough to prevent one.** `src/styles.css` pulls Lora, Inter and IBM
-   Plex Mono from `fonts.googleapis.com` with `display=swap`, so the row is laid out in fallback
-   metrics until the files land. Measured, not reasoned: blocking the font hosts at 1281px draws the
-   non-admin header at 767px of content instead of 806px, and `.user-email` at 75px instead of its
-   82px cap — a 39px understatement against 31px of real headroom, so a row that wraps in production
-   fits in the measurement. `fonts.ready` does not close this: when the requests fail, the faces
-   settle to `error` and it resolves *immediately* on fallback metrics, giving byte-identical numbers.
-   That is the same "cannot fail on the configuration it polices" defect one level up, and it fires on
-   any runner that cannot reach Google Fonts. `e2e/layout.ts`'s `settleWebfonts()` therefore awaits
-   `document.fonts.ready` **and** asserts `document.fonts.check()` for the measured family, so a
-   font-starved runner fails loudly instead of publishing a different layout's numbers.
-
-   **`document.fonts.check()` alone has its own version of the same hole, and it opens the moment the
-   fonts are self-hosted.** `check()` answers "can I render this text now?", and a family that is not
-   declared *at all* is satisfied by the fallback — so it returns `true`. Delete the `@font-face` block,
-   or break the step that copies the font files, and the helper goes green on exactly the fallback layout
-   it exists to reject. `settleWebfonts()` therefore checks **membership and status first**: it builds a
-   map of `document.fonts` by family, fails with `no @font-face declared for "X"` when the family is
-   absent, fails with `"X" status=unloaded|error` when it is declared but did not load, and only then
-   calls `check()`. Verified by planting each failure, not by reading the code.
+   `document.fonts.ready` is not enough to prevent one.** When a face fails to load it settles to
+   `error` and `fonts.ready` resolves *immediately*, on fallback metrics, so a width that overflows in
+   production fits in the measurement. **`document.fonts.check()` has the same hole**: it answers "can I
+   render this text now?", and a family with no `@font-face` at all is satisfied by the fallback. So
+   `src/test-setup.browser.ts` runs `loadTheWebfontsOrFail` before every browser spec file: it reads the
+   first family of each `--font-heading`, `--font-body` and `--font-mono` token, fails naming any family
+   no `@font-face` declares, and calls `load()` on every declared face of those families, which rejects
+   rather than falling back when a file does not arrive.
 
    **A broken image is not a missing image — it renders its `alt` text, at whatever width that text
    needs.** `app-avatar` sets explicit `width`/`height`, and that still does not contain a failed load:
@@ -225,32 +235,23 @@ against the mock authority on first use:
    avatar in the suite is a broken image, so the measured layout is not the shipped one. Same class of
    defect as measuring in fallback font metrics.
 
-   And a test that breaks the image on purpose must **assert that it broke** — `outcome === 'error'`,
-   `naturalWidth === 0`, and an `alt` long enough to overflow if unconstrained. Without those three the
-   width assertion passes on a *working* image, which is indistinguishable from not running at all. The
-   first version of `nav.spec.ts`'s avatar test did exactly that: the interception returned a decodable
-   1×1 and the check went green having tested nothing.
+   And a test that breaks the image on purpose must **assert that it broke**: the `error` event fired,
+   and the `alt` is long enough to overflow if unconstrained. Without both, the width assertion passes on
+   a *working* image, which is indistinguishable from not running at all.
+   `src/app/app-shell.layout.browser.spec.ts` asserts both before measuring.
 
-   **axe's `incomplete` array is not a pass.** `e2e/a11y.spec.ts` asserts it is empty alongside
-   `violations`, because axe reporting that it *could not evaluate* a rule looks identical to a clean
-   scan in every summary that counts only violations — which is how a scan goes green while checking
-   nothing. The sheet is scanned **while open** for the same reason: a closed `<dialog>` is
-   `display: none`, so axe skips it and reports success.
+   **axe's `incomplete` array is not a pass.** `src/app/pages.a11y.browser.spec.ts` and the shell's own
+   scans assert it is empty alongside `violations`, because axe reporting that it *could not evaluate* a
+   rule looks identical to a clean scan in every summary that counts only violations. The More sheet is
+   scanned **while open** for the same reason: a closed `<dialog>` is `display: none`, so axe skips it and
+   reports success.
 
-   **Every route in `AUTHED_ROUTES` needs a render landmark asserted before the scan, or it is
-   decorative.** Adding a route to that list is not coverage: axe reports an error paragraph, a redirect,
-   or an empty shell as **perfectly accessible**, because there is nothing inaccessible on them. Proven
-   2026-08-28 while adding `/admin/enrichment` — with the page's data grant deliberately removed so it
-   rendered only "Unable to load…", the scan still passed:
-
-   ```
-   ✓ a11y.spec.ts:50:9 › /admin/enrichment has no WCAG A/AA violations (2.4s)
-   ```
-
-   The same plant with the landmark assertion in place failed immediately on the missing element. **The
-   landmark is the entire test; the scan is the assertion it protects.** This is the same failure shape as
-   the 1×1 viewport and the closed `<dialog>` above — a check that ran, returned green, and was answering a
-   different question than the one asked.
+   **A page is scanned only once it is known to have rendered, or the scan is decorative.** axe reports an
+   error paragraph, a redirect or an empty shell as **perfectly accessible**, because there is nothing
+   inaccessible on them. `pages.a11y.browser.spec.ts` renders each page from a resolved payload typed
+   against its resolver, and asserts `#enrichment-no-run`, the element the resolved "no run yet" state
+   renders, before scanning enrichment runs. **The landmark is the entire test; the scan is the assertion it
+   protects.**
 
    **Make layout failures self-diagnosing.** Asserting a bare row count tells you it broke, not why.
    Return the per-child widths, the container width and the content total, and pass them as the
@@ -346,33 +347,28 @@ npm run e2e   # self-builds the ci configuration (allowedHosts=localhost), then 
 
 Failure artifacts (screenshot, trace, video) are written to `playwright-artifacts/`.
 
-**E2E coverage (`e2e/`):** `home.spec.ts` (public landing), `psn.spec.ts` (auth guard redirect,
-link/unlink flows, and the per-category data-harvest preference toggles — all off by default after
-linking, toggling a category on shows its card and persists across reload, toggling off hides it
-immediately — against the mock Curator API), `faq.spec.ts`/`privacy.spec.ts` (SSR + anonymous access to
-the trust pages), `catalog.spec.ts`, `transfer-cache.spec.ts` (hydrating a server-rendered `/catalog` makes
-no Curator request, and a client-side navigation afterwards still does), `collections.spec.ts` (create/preview/save, a capacity_fill run's
-console-install toggle including its 404-after-ownership-change case, and the detail view's
-rename/visibility/share-link/delete flow), `consoles.spec.ts` (auth guard; console + storage-device
-CRUD, attach/detach, and the auto-assigned-default-capacity flag), `public-collection.spec.ts` (the one
-anonymous route in the app — an owner publishes a collection and shares its link; an anonymous visitor
-opens it with no account; a second signed-in user follows it from the share page and sees it in
-"Collections I follow"; setting visibility back to private immediately breaks the old link),
-`library.spec.ts` (owner mode — ratings/genre/PS-Store-link rendering, server-driven title search,
-genre filter, column-header sort with direction toggling, paging, and a combined search+sort+page
-interaction, all against the mock's real query-param handling, not a client-side array; sub-keyed viewer
-mode covered jointly with `profile.spec.ts` below), and `profile.spec.ts` (owner vs.
-viewer profile rendering; a private-by-default profile shows only account-id-or-"Unlinked user" plus
-follower/following counts; a fully public profile with every `show_*`/`harvest_*` flag on shows every
-gated section; a viewer with no PSN link of their own sees trophies silently omitted, not an error;
-follow/unfollow and the resulting count changes; no Follow button on your own profile; the followers/
-following list pages; `/profile/settings` toggle persistence; the `/account` cross-reference copy and the
-absence of the removed region field; `/library/:sub` and `/collections/:sub` rendering owner vs.
-read-only viewer mode for two seeded users, including a 403-to-inline-message case; and the
-own-sub-canonicalization redirects — `/u/{own sub}`, `/u/{own sub}/followers`, `/u/{own sub}/following`,
-`/library/{own sub}`, `/collections/{own sub}` all silently redirect (`replaceUrl`) to their bare-path
-equivalents, while the same paths keyed to a *different* user's sub render viewer mode without
-redirecting).
+**E2E journeys (`e2e/features/`), one feature per domain concept:** `home`, `browsing-the-catalog`,
+`returning-to-the-catalog`, `server-rendered-pages`, `reading-about-librarian`, `getting-around`,
+`my-library`, `playstation-plus-rotation`, `collections`, `sharing-a-collection`, `consoles-and-storage`,
+`profiles`, `account-settings` and `enrichment-runs`. Steps live in `e2e/steps/<domain>.steps.ts`, built
+with `createBdd` over the fixtures in `e2e/steps/fixtures.ts`, which merges playwright-bdd's base test
+with `e2e/fixtures.ts`. Feature text names roles and outcomes; ids, generated data and request counting
+live only in the steps.
+
+**Integration (`integration/`):** the answers a crawler or a no-script client gets. `pages.spec.ts`: the
+home, FAQ and privacy pages are server-rendered, and FAQ and privacy carry their authored anchors in the
+server HTML. `catalog.spec.ts`: the list, a deep-linked page and a game page are server-rendered, the
+game page's body carries its own `<title>` and social tags, and the sitemap and `robots.txt` answers.
+
+**Where a presentation check lives.** Layout geometry, the palette, theme structure, focus rings, the
+app shell's rail, tab bar and More sheet, and every axe scan are browser unit tests beside the component
+they measure: `src/app/app-shell.layout.browser.spec.ts`, `src/app/pages.a11y.browser.spec.ts`,
+`src/home/home.a11y.light.browser.spec.ts`, and `src/<area>/*.layout.browser.spec.ts` for the home page,
+the catalog grid and game page, the library table and Store-match dialog, the profile, and a collection's
+preview and detail view.
+
+**`e2e-settings.json`'s `executedTestFloor` is the Integration plus E2E count**: every scenario, each
+Scenario Outline example row, and each integration test. Raise it in the same change that adds one.
 
 ### Local runs never reuse a server, and a `setup` project proves the environment before any test runs
 
@@ -405,9 +401,7 @@ bind time before concluding anything**: start `npx tsx e2e/mocks/curator-server.
 seconds, the timeout was a genuine anomaly worth chasing; if it is twenty-plus, the box is saturated and
 the fix is to run the suite when it is not — **do not raise the budget to make this go green**, because
 the number is currently the only thing that reports a machine too loaded to trust a timing-sensitive
-suite. A related tell in the same conditions: the whole suite ran **28.0m against 17.4m** for identical
-tests, and `nav.spec.ts`'s More-sheet test failed on its own *"a click landing before hydration is inert"*
-message — the same load, one layer up.
+suite.
 
 **Teardown is not instant — back-to-back runs collide.** Starting a second run the moment the first
 exits reproducibly hits either the "already used" error above or, when the check races the release,
@@ -475,11 +469,11 @@ it times out with no clue as to why.
 silently overwritten by the route's own static `title`. A `TestBed` with `provideRouter([])` runs no
 `TitleStrategy`, and `page.title()` reads post-router DOM — **both pass either way**. The one
 discriminating assertion is an anonymous `request.get` of a seeded game's `/catalog/{game_id}` reading
-`<title>` out of the raw body, which is also the branch a crawler actually takes. Verified by moving
-`CatalogDetailComponent`'s title call back into the constructor: the unit spec stayed green and
-`e2e/catalog.spec.ts`'s SSR assertion went red, with the served body carrying `<title>Game</title>`.
+`<title>` out of the raw body, which is also the branch a crawler actually takes:
+`integration/catalog.spec.ts`. Moving `CatalogDetailComponent`'s title call back into the constructor
+leaves the unit spec green and turns that test red, with the served body carrying `<title>Game</title>`.
 
-**An E2E spec asserts a timestamp through its attribute, never its rendered date.** `e2e/library.spec.ts`
+**An E2E step asserts a timestamp through its attribute, never its rendered date.** `e2e/steps/library.steps.ts`
 compares `#library-schedule-next`'s `data-next-run-at` with the seeded `next_run_at`, so the runner's
 timezone never enters. The `date: 'medium'` pipe formats in the *browser's* timezone, so a spec that
 must read a rendered calendar date generates its instant at midday UTC: a midnight-UTC timestamp lands on
@@ -489,15 +483,13 @@ leaves twelve hours of slack in both directions.
 ### Adding an FAQ or privacy section: append it, or retarget `#toc-link-3`
 
 `app-page-toc` builds its links from `headingSelector` in document order and ids them
-`toc-link-{{$index}}`, so **the index is positional, not stable**. `e2e/faq.spec.ts` clicks
-`#toc-link-3` and asserts `#faq-get-npsso` scrolls into view — insert a new `<h2>` anywhere above that
-heading and the click silently retargets a different section, which is a *green* test asserting the
-wrong thing until someone reads it. Appending at the end of the page leaves every existing index
-untouched; that is why the Sony non-affiliation cards were appended rather than grouped with the
-related trust questions. Privacy has no such coupling — `e2e/privacy.spec.ts` selects only authored
-ids — but the same rule applies to it by symmetry.
+`toc-link-{{$index}}`, so **the index is positional, not stable**. `e2e/steps/pages.steps.ts` clicks
+`#toc-link-3` and asserts `#faq-get-npsso` scrolls into view; insert a new `<h2>` anywhere above that
+heading and the click silently retargets a different section, a *green* scenario asserting the wrong
+thing. Append new sections at the end of the page, which leaves every existing index untouched. Privacy's
+steps select only authored ids, but the same rule applies to it by symmetry.
 
-Both pages' specs assert structure, never copy: every `<h2>` carries a unique authored id, the
+Both pages' tests assert structure, never copy: every `<h2>` carries a unique authored id, the
 server-rendered HTML already holds those ids, and the cross-links, GitHub links and contact address
 resolve. A sentence on either page is a claim about live behaviour that only a reader can check, so a
 spec pinning its wording would fail on a rewording and pass on a false statement. A copy edit therefore
@@ -590,11 +582,15 @@ drift is expected — the guarantee is the decision sequence.
 
 The GitHub Actions workflow (`.github/workflows/main_crgolden-librarian.yml`) runs on every push and PR:
 
-1. `npm ci` → lint
-2. `npx vitest run --coverage` (LCOV → `coverage/lcov.info`)
-3. `npm run e2e` (self-builds the `ci` configuration, then runs Playwright E2E; Chromium cached by version)
-4. SonarCloud analysis via `sonarsource/sonarcloud-github-action` (JS LCOV only; no C# paths)
-5. `npm run build` (production configuration) → `npm prune --omit=dev` → deploy to `crgolden-librarian` (Linux)
+1. `npm ci` → lint → `typecheck:e2e` (runs `bddgen` first) → `typecheck:spec` → `lint:css`
+2. Playwright browsers installed (Chromium cached by version), because the browser unit tier needs them
+3. `npm run test:coverage` (all three Vitest projects; LCOV → `coverage/lcov.info`)
+4. `npm run e2e` (self-builds the `ci` configuration, runs `bddgen`, then the `integration` and `e2e` projects)
+5. The executed count asserted against `executedTestFloor`
+6. `publish-bdd-results` sends `cucumber-report/messages.ndjson` to the `test_results` database; the
+   Cucumber HTML report is uploaded as the `librarian-cucumber-report` artifact
+7. `lint:utilities`, then SonarCloud analysis via `sonarqube-scan-action` (JS LCOV only; no C# paths)
+8. `npm run build` (production configuration) → `npm prune --omit=dev` → deploy to `crgolden-librarian` (Linux)
 There is no post-deploy step. The scheduled synthetic walker (`synthetic.yml`) is what exercises the
 deployed app.
 
@@ -641,9 +637,9 @@ sonar-scanner `
   "-Dsonar.projectKey=crgolden_Librarian" `
   "-Dsonar.organization=crgolden" `
   "-Dsonar.javascript.lcov.reportPaths=coverage/lcov.info" `
-  "-Dsonar.exclusions=**/node_modules/**,**/*.d.ts,e2e/**,instrumentation.mjs,**/*.spec.ts" `
+  "-Dsonar.exclusions=**/node_modules/**,**/*.d.ts,e2e/**,integration/**,.features-gen/**,instrumentation.mjs,**/*.spec.ts" `
   "-Dsonar.tests=src" `
-  "-Dsonar.coverage.exclusions=e2e/**,scripts/**,**/*.config.*,src/test-setup.ts,src/proxy.conf.js,src/environments/**,src/main.ts,src/main.server.ts,src/server.ts,src/app/app.routes.server.ts" `
+  "-Dsonar.coverage.exclusions=e2e/**,integration/**,scripts/**,**/*.config.*,src/test-setup*.ts,gate.ps1,src/proxy.conf.js,src/environments/**,src/main.ts,src/main.server.ts,src/server.ts,src/app/app.routes.server.ts" `
   "-Dsonar.test.inclusions=**/*.spec.ts"
 ```
 

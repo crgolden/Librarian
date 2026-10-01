@@ -256,12 +256,16 @@ describe('ProfileViewComponent', () => {
     expect(anchors[0]?.getAttribute('href')).toBe(links[0].url);
     expect(anchors[0]?.textContent?.trim()).toBe(links[0].display_name);
     expect(anchors[1]?.getAttribute('href')).toBe(links[1].url);
-    for (const anchor of anchors) {
-      expect(anchor.getAttribute('rel')).toBe(
-        [LinkRelTokens.noopener, LinkRelTokens.noreferrer, LinkRelTokens.nofollow, LinkRelTokens.ugc].join(' '),
-      );
-      expect(anchor.getAttribute('target')).toBe(HtmlLinkTargets.blank);
-    }
+    const externalLinkRel = [
+      LinkRelTokens.noopener,
+      LinkRelTokens.noreferrer,
+      LinkRelTokens.nofollow,
+      LinkRelTokens.ugc,
+    ].join(' ');
+    expect(Array.from(anchors).map((anchor) => anchor.getAttribute('rel'))).toEqual(links.map(() => externalLinkRel));
+    expect(Array.from(anchors).map((anchor) => anchor.getAttribute('target'))).toEqual(
+      links.map(() => HtmlLinkTargets.blank),
+    );
   });
 
   it('omits the profile-links tile when the viewer is given no links', () => {

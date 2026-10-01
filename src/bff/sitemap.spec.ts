@@ -99,6 +99,7 @@ describe('sitemapHandler', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     delete process.env[BffSettingKeys.CuratorApiAddress];
     delete process.env[BffSettingKeys.PublicBaseUrl];
@@ -113,12 +114,11 @@ describe('sitemapHandler', () => {
 
     expect(captured.status).toBe(HttpStatusCode.Ok);
     expect(captured.type).toBe(SITEMAP_CONTENT_TYPE);
-    for (const path of STATIC_PATHS) {
-      expect(captured.body).toContain(loc(`${originOf(defaultHost)}${path}`));
-    }
-    for (const gameId of gameIds) {
-      expect(captured.body).toContain(gameLoc(originOf(defaultHost), gameId));
-    }
+    const expectedLocs = [
+      ...STATIC_PATHS.map((path) => loc(`${originOf(defaultHost)}${path}`)),
+      ...gameIds.map((gameId) => gameLoc(originOf(defaultHost), gameId)),
+    ];
+    expect(expectedLocs.filter((expectedLoc) => !captured.body.includes(expectedLoc))).toEqual([]);
   });
 
   it('pages until it has every game rather than stopping at the first page', async () => {
@@ -187,15 +187,11 @@ describe('sitemapHandler', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    try {
-      await sitemapHandler(fakeRequest(), fakeResponse().res);
-      vi.advanceTimersByTime(CACHE_TTL_MS - 1);
-      await sitemapHandler(fakeRequest(), fakeResponse().res);
+    await sitemapHandler(fakeRequest(), fakeResponse().res);
+    vi.advanceTimersByTime(CACHE_TTL_MS - 1);
+    await sitemapHandler(fakeRequest(), fakeResponse().res);
 
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('falls back to the last good document when the catalog goes down', async () => {
@@ -207,18 +203,14 @@ describe('sitemapHandler', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    try {
-      await sitemapHandler(fakeRequest(), fakeResponse().res);
-      vi.advanceTimersByTime(CACHE_TTL_MS + 1);
-      const { res, captured } = fakeResponse();
-      await sitemapHandler(fakeRequest(), res);
+    await sitemapHandler(fakeRequest(), fakeResponse().res);
+    vi.advanceTimersByTime(CACHE_TTL_MS + 1);
+    const { res, captured } = fakeResponse();
+    await sitemapHandler(fakeRequest(), res);
 
-      expect(captured.status).toBe(HttpStatusCode.Ok);
-      expect(captured.body).toContain(gameLoc(originOf(defaultHost), gameId));
-      expect(logger.error).toHaveBeenCalledWith({ err: expect.any(Error) }, SITEMAP_BUILD_FAILED_LOG);
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(captured.status).toBe(HttpStatusCode.Ok);
+    expect(captured.body).toContain(gameLoc(originOf(defaultHost), gameId));
+    expect(logger.error).toHaveBeenCalledWith({ err: expect.any(Error) }, SITEMAP_BUILD_FAILED_LOG);
   });
 
   it('reports a bad gateway when the catalog is unreachable and nothing is cached', async () => {
@@ -258,9 +250,8 @@ describe('sitemapHandler', () => {
 
     await sitemapHandler(fakeRequest(), res);
 
-    for (const prefix of PRIVATE_PREFIXES) {
-      expect(captured.body).not.toContain(loc(`${originOf(defaultHost)}${prefix}`));
-    }
+    const privateLocs = PRIVATE_PREFIXES.map((prefix) => loc(`${originOf(defaultHost)}${prefix}`));
+    expect(privateLocs.filter((privateLoc) => captured.body.includes(privateLoc))).toEqual([]);
   });
 
   it('escapes xml-significant characters in a game id', async () => {
@@ -288,9 +279,8 @@ describe('robotsHandler', () => {
 
     expect(captured.status).toBe(HttpStatusCode.Ok);
     expect(captured.body).toContain(`${ROBOTS_SITEMAP}${originOf(defaultHost)}${SITEMAP_PATH}`);
-    for (const prefix of PRIVATE_PREFIXES) {
-      expect(captured.body).toContain(`${ROBOTS_DISALLOW}${prefix}`);
-    }
+    const disallowLines = PRIVATE_PREFIXES.map((prefix) => `${ROBOTS_DISALLOW}${prefix}`);
+    expect(disallowLines.filter((line) => !captured.body.includes(line))).toEqual([]);
   });
 
   it.each(signedInPaths)(

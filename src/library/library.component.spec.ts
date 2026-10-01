@@ -1,5 +1,5 @@
 import { HttpStatusCode, provideHttpClient, withXhr } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting, TestRequest } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Params, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
@@ -134,6 +134,34 @@ function buttonById(root: HTMLElement, id: string): HTMLButtonElement {
     throw new Error(`No button with id "${id}" is rendered.`);
   }
   return element;
+}
+
+function inputById(root: HTMLElement, id: string): HTMLInputElement {
+  const element = root.querySelector(`#${id}`);
+  if (!(element instanceof HTMLInputElement)) {
+    throw new Error(`No input with id "${id}" is rendered.`);
+  }
+  return element;
+}
+
+function libraryRequestFor(inFlight: TestRequest[], term: string): TestRequest {
+  const request = inFlight.find((r) => r.request.params.get(CuratorQueryParams.q) === term);
+  if (request === undefined) {
+    throw new Error(`No library request searched for "${term}".`);
+  }
+  return request;
+}
+
+async function failEveryRetry(
+  fixture: ComponentFixture<LibraryComponent>,
+  mock: HttpTestingController,
+  retries: number,
+): Promise<void> {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    await vi.advanceTimersByTimeAsync(environment.libraryPollIntervalMs + environment.libraryPollErrorRetryDelayMs);
+    mock.expectOne(CuratorApi.libraryRefreshByRunId(RUN_ID)).flush(null, statusOf(HttpStatusCode.BadGateway));
+    fixture.detectChanges();
+  }
 }
 
 function page(games: LibraryGameResponse[], total = games.length): LibraryPageResponse {
@@ -519,10 +547,7 @@ describe('LibraryComponent', () => {
     const fixture = await createAndLoad([FULL_GAME]);
     const compiled: HTMLElement = fixture.nativeElement;
 
-    const searchBox = compiled.querySelector('#library-search');
-    if (!(searchBox instanceof HTMLInputElement)) {
-      throw new Error('The library search box is not rendered.');
-    }
+    const searchBox = inputById(compiled, 'library-search');
 
     searchBox.value = BROAD_SEARCH_TERM;
     searchBox.dispatchEvent(new Event('input'));
@@ -533,11 +558,8 @@ describe('LibraryComponent', () => {
     await vi.advanceTimersByTimeAsync(environment.librarySearchDebounceMs);
 
     const inFlight = httpMock.match((r) => r.url === CuratorApi.library);
-    const broad = inFlight.find((r) => r.request.params.get(CuratorQueryParams.q) === BROAD_SEARCH_TERM);
-    const narrow = inFlight.find((r) => r.request.params.get(CuratorQueryParams.q) === NARROW_SEARCH_TERM);
-    if (broad === undefined || narrow === undefined) {
-      throw new Error('Both the broad and the narrow search should have been issued.');
-    }
+    const broad = libraryRequestFor(inFlight, BROAD_SEARCH_TERM);
+    const narrow = libraryRequestFor(inFlight, NARROW_SEARCH_TERM);
 
     expect(broad.cancelled).toBe(true);
 
@@ -851,11 +873,7 @@ describe('LibraryComponent', () => {
     httpMock.expectOne(CuratorApi.libraryRefreshByRunId(RUN_ID)).flush(null, statusOf(HttpStatusCode.BadGateway));
     fixture.detectChanges();
 
-    for (let attempt = 0; attempt < environment.libraryPollErrorRetryCount; attempt++) {
-      await vi.advanceTimersByTimeAsync(environment.libraryPollIntervalMs + environment.libraryPollErrorRetryDelayMs);
-      httpMock.expectOne(CuratorApi.libraryRefreshByRunId(RUN_ID)).flush(null, statusOf(HttpStatusCode.BadGateway));
-      fixture.detectChanges();
-    }
+    await failEveryRetry(fixture, httpMock, environment.libraryPollErrorRetryCount);
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(REFRESH_JOB_LOST_ERROR);
   });
@@ -1510,10 +1528,7 @@ describe('LibraryComponent', () => {
       fixture.detectChanges();
 
       const compiled: HTMLElement = fixture.nativeElement;
-      const searchBox = compiled.querySelector('#library-search');
-      if (!(searchBox instanceof HTMLInputElement)) {
-        throw new Error('The library search box is not rendered.');
-      }
+      const searchBox = inputById(compiled, 'library-search');
       searchBox.value = generatedToken();
       searchBox.dispatchEvent(new Event('input'));
       await vi.advanceTimersByTimeAsync(environment.librarySearchDebounceMs);

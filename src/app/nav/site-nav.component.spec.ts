@@ -3,7 +3,8 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { ANONYMOUS_NAV_LINKS, PRIMARY_NAV_LINKS, SiteNavComponent } from './site-nav.component';
+import { ANONYMOUS_NAV_LINKS, PRIMARY_NAV_LINKS } from './nav-links';
+import { SiteNavComponent } from './site-nav.component';
 import { AuthService } from '../../auth/auth.service';
 import { AdminService } from '../../admin/admin.service';
 import { BffPaths, SID_QUERY_PARAMETER, loginUrlReturningTo } from '../../shared/bff-contract';

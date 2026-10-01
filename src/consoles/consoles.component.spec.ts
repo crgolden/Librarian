@@ -189,8 +189,8 @@ describe('ConsolesComponent', () => {
     harness(fixture).startCreatingConsole();
     fixture.detectChanges();
 
-    const select = (fixture.nativeElement as HTMLElement).querySelector('#consoleRoutingGenres');
-    const labels = Array.from(select?.querySelectorAll('option') ?? []).map((option) => option.textContent?.trim());
+    const options = (fixture.nativeElement as HTMLElement).querySelectorAll('#consoleRoutingGenres option');
+    const labels = Array.from(options).map((option) => option.textContent?.trim());
 
     expect(labels).toEqual(routeData.genres);
   });
@@ -200,8 +200,8 @@ describe('ConsolesComponent', () => {
     harness(fixture).startCreatingConsole();
     fixture.detectChanges();
 
-    const select = (fixture.nativeElement as HTMLElement).querySelector('#consolePlatform');
-    const labels = Array.from(select?.querySelectorAll('option') ?? []).map((option) => option.textContent?.trim());
+    const options = (fixture.nativeElement as HTMLElement).querySelectorAll('#consolePlatform option');
+    const labels = Array.from(options).map((option) => option.textContent?.trim());
 
     expect(labels).toEqual(CONSOLE_PLATFORM_OPTIONS);
   });

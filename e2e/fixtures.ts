@@ -195,7 +195,7 @@ export interface IdentityConfig {
   name?: string;
 }
 
-async function applyAnonymousRoutes(page: Page): Promise<void> {
+export async function applyAnonymousRoutes(page: Page): Promise<void> {
   await page.route(`**${BffPaths.user}**`, route => route.fulfill({ json: null }));
   await page.route(`**${BffPaths.login}**`, route => route.fulfill({ body: newText() }));
 }
@@ -210,7 +210,7 @@ export function identityCookies(identity: IdentityConfig): { name: string; value
   ];
 }
 
-async function applyAuthRoutes(page: Page, identity: IdentityConfig): Promise<void> {
+export async function applyAuthRoutes(page: Page, identity: IdentityConfig): Promise<void> {
   await page.context().addCookies(identityCookies(identity));
 
   await page.route(`**${CURATOR_API_PREFIX}/**`, route =>

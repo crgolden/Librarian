@@ -32,6 +32,10 @@ coverage
 playwright-results.xml
 /.playwright
 /.playwright-cli
+/cucumber-report
+/.vitest
+.features-gen/**/*.spec.js
+.features-gen/**/*.spec.js.map
 
 # SonarQube scanner work directories
 .sonarqube/

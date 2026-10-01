@@ -1,5 +1,5 @@
-import { Params } from '@angular/router';
-import { CatalogGamesQuery } from '../curator/curator.service';
+import type { Params } from '@angular/router';
+import type { CatalogGamesQuery } from '../curator/curator.service';
 import {
   ALL_CATALOG_KINDS,
   CatalogKind,
