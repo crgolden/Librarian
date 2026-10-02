@@ -236,6 +236,19 @@ export class ScenarioContext {
     this.catalogGameIdValue = gameId;
   }
 
+  private releaseAppBootstrapValue: (() => void) | null = null;
+
+  get releaseAppBootstrap(): () => void {
+    if (this.releaseAppBootstrapValue === null) {
+      throw new Error("The scenario releases the app's scripts before a Given held them.");
+    }
+    return this.releaseAppBootstrapValue;
+  }
+
+  set releaseAppBootstrap(release: () => void) {
+    this.releaseAppBootstrapValue = release;
+  }
+
   get readerPosition(): number {
     if (this.readerPositionValue === null) {
       throw new Error("The scenario checks the reader's place before a Given scrolled the catalog.");

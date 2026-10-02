@@ -6,9 +6,9 @@
 
   <form crgCard class="p-6 flex flex-wrap gap-3 items-end" (submit)="$event.preventDefault(); applyFilters()">
     <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
-      <label class="block font-semibold" for="catalog-search">Title</label>
+      <label class="block font-semibold" [attr.for]="searchControlId">Title</label>
       <input
-        id="catalog-search"
+        [id]="searchControlId"
         class="w-full"
         name="q"
         type="search"
@@ -19,9 +19,9 @@
     </div>
 
     <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
-      <label class="block font-semibold" for="franchise">Franchise</label>
+      <label class="block font-semibold" [attr.for]="franchiseControlId">Franchise</label>
       <input
-        id="franchise"
+        [id]="franchiseControlId"
         class="w-full"
         name="franchise"
         type="text"
@@ -32,8 +32,8 @@
     </div>
 
     <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
-      <label class="block font-semibold" for="genre">Genre</label>
-      <select id="genre" name="genre" class="w-full" [ngModel]="genre()" (ngModelChange)="genre.set($event)">
+      <label class="block font-semibold" [attr.for]="genreControlId">Genre</label>
+      <select [id]="genreControlId" name="genre" class="w-full" [ngModel]="genre()" (ngModelChange)="genre.set($event)">
         <option [ngValue]="null">{{ anyOptionLabel }}</option>
         @for (option of genreOptions(); track option) {
           <option [value]="option">{{ option }}</option>
@@ -42,8 +42,8 @@
     </div>
 
     <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
-      <label class="block font-semibold" for="aaaTier">Tier</label>
-      <select id="aaaTier" name="aaaTier" class="w-full" [ngModel]="aaaTier()" (ngModelChange)="aaaTier.set($event)">
+      <label class="block font-semibold" [attr.for]="tierControlId">Tier</label>
+      <select [id]="tierControlId" name="aaaTier" class="w-full" [ngModel]="aaaTier()" (ngModelChange)="aaaTier.set($event)">
         <option [ngValue]="null">{{ anyOptionLabel }}</option>
         <option value="AAA">AAA</option>
         <option value="AA">AA</option>
@@ -52,9 +52,9 @@
     </div>
 
     <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
-      <label class="block font-semibold" for="catalog-kind">Kind</label>
+      <label class="block font-semibold" [attr.for]="kindControlId">Kind</label>
       <select
-        id="catalog-kind"
+        [id]="kindControlId"
         class="w-full"
         [ngModel]="kind()"
         [ngModelOptions]="{ standalone: true }"
@@ -67,9 +67,9 @@
     </div>
 
     <div class="flex flex-col gap-1 flex-1 basis-48 min-w-0">
-      <label class="block font-semibold" for="catalog-sort">Sort</label>
+      <label class="block font-semibold" [attr.for]="sortControlId">Sort</label>
       <select
-        id="catalog-sort"
+        [id]="sortControlId"
         class="w-full"
         [ngModel]="sortValue()"
         [ngModelOptions]="{ standalone: true }"

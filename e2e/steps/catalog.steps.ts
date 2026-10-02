@@ -10,7 +10,7 @@ import {
   randomIntBetween,
 } from '@crgolden/modules/testing';
 import { DEFAULT_E2E_SUB, newCatalogGame, newScore } from '../fixtures.js';
-import { dehydratedMarkersLeft } from '../hydration.js';
+import { dehydratedMarkersLeft, holdAppBootstrap } from '../hydration.js';
 import { PsnGenreTokens } from '../psn-constants';
 import { RawgConstants } from '../rawg-constants';
 import e2eSettings from '../e2e-settings.json';
@@ -143,6 +143,16 @@ Given('the catalog holds a game in a genre I choose and one outside it', async (
   await store.seedCatalogGames(games);
   ctx.seededCatalogCount = games.length;
   ctx.chosenGenre = chosenGame.genre;
+  ctx.catalogGameId = chosenGame.game_id;
+});
+
+Given('the catalog holds a game I can name by title and genre, and one that matches neither', async ({ store, ctx }) => {
+  const chosenGame = { ...newCatalogGame(), genre: newText() };
+  const games = [newCatalogGame(), chosenGame];
+  await store.seedCatalogGames(games);
+  ctx.seededCatalogCount = games.length;
+  ctx.chosenGenre = chosenGame.genre;
+  ctx.searchTerm = chosenGame.canonical_title;
   ctx.catalogGameId = chosenGame.game_id;
 });
 
@@ -347,6 +357,38 @@ When('I reload the catalog', async ({ page }) => {
 Given('I am browsing the catalog, which lists only the game', async ({ page, ctx }) => {
   await page.goto(AppUrls.catalog);
   await expect(page.locator('#catalog-title-0')).toHaveAttribute('href', catalogGameUrl(ctx.catalogGameId));
+});
+
+Given("the catalog has rendered but the app's scripts have not loaded yet", async ({ page, ctx }) => {
+  ctx.releaseAppBootstrap = await holdAppBootstrap(page);
+  await page.goto(AppUrls.catalog, { waitUntil: 'commit' });
+  await expect(page.locator(CATALOG_TILES).first()).toBeVisible();
+});
+
+When('I enter its title and genre before the page is interactive, then apply them once it is', async ({ page, ctx }) => {
+  expect(await dehydratedMarkersLeft(page), 'the page must still be server-rendered when the filters are entered').toBeGreaterThan(NO_ELEMENTS);
+  await page.locator('#catalog-search').fill(ctx.searchTerm);
+  await page.locator('#genre').selectOption(ctx.chosenGenre);
+  ctx.releaseAppBootstrap();
+  await expect.poll(() => dehydratedMarkersLeft(page)).toBe(NO_ELEMENTS);
+  await expect(page.locator('#catalog-search')).toHaveValue(ctx.searchTerm);
+  await expect(page.locator('#genre')).toHaveValue(ctx.chosenGenre);
+  await page.locator('#catalog-apply').click();
+  await expect(page).toHaveURL(new RegExp(`${CatalogQueryParams.genre}=${ctx.chosenGenre}`));
+});
+
+When('I ask for media apps before the page is interactive', async ({ page, ctx }) => {
+  expect(await dehydratedMarkersLeft(page), 'the page must still be server-rendered when the kind is chosen').toBeGreaterThan(NO_ELEMENTS);
+  await page.locator('#catalog-kind').selectOption(ContentKinds.mediaApp);
+  ctx.releaseAppBootstrap();
+  await expect(page).toHaveURL(new RegExp(`${CatalogQueryParams.kind}=${ContentKinds.mediaApp}`));
+});
+
+When('I sort the catalog by price, dearest first, before the page is interactive', async ({ page, ctx }) => {
+  expect(await dehydratedMarkersLeft(page), 'the page must still be server-rendered when the sort is chosen').toBeGreaterThan(NO_ELEMENTS);
+  await page.locator('#catalog-sort').selectOption(catalogSortValue(CatalogSortFields.price, SortDirections.desc));
+  ctx.releaseAppBootstrap();
+  await expect(page).toHaveURL(new RegExp(`${CatalogQueryParams.sort}=${CatalogSortFields.price}`));
 });
 
 Given('I am on the first catalog page', async ({ page }) => {

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, WritableSignal, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
@@ -17,6 +17,7 @@ import {
   CATALOG_PAGE_SIZE_CEILING,
   CATALOG_PAGE_SIZE_KEY,
   CATALOG_SORT_OPTIONS,
+  CatalogQueryParams,
   catalogFranchiseFrom,
   catalogGenreFrom,
   catalogKindFrom,
@@ -28,7 +29,7 @@ import {
   catalogSortValueFrom,
   catalogTierFrom,
 } from './catalog.query';
-import { trimmedOrNull } from '../shared/control-value';
+import { nullIfEmpty, trimmedOrNull } from '../shared/control-value';
 import { storeProductUrl } from './store-links';
 
 export {
@@ -40,7 +41,16 @@ export {
   DEFAULT_CATALOG_SORT,
 } from './catalog.query';
 import { contentKindLabel } from './content-kind-labels';
-import { catalogTitleId } from './catalog-ids';
+import {
+  ANY_OPTION_INDEX,
+  CATALOG_FRANCHISE_CONTROL_ID,
+  CATALOG_GENRE_CONTROL_ID,
+  CATALOG_KIND_CONTROL_ID,
+  CATALOG_SEARCH_CONTROL_ID,
+  CATALOG_SORT_CONTROL_ID,
+  CATALOG_TIER_CONTROL_ID,
+  catalogTitleId,
+} from './catalog-ids';
 import { AppUrls, RouteDataKeys } from '../app/app-paths';
 import {
   ANY_OPTION_LABEL,
@@ -93,6 +103,12 @@ export function priceLine(price: CatalogPriceResponse | null | undefined): strin
 export class CatalogComponent {
   protected readonly appUrls = AppUrls;
   protected readonly catalogTitleId = catalogTitleId;
+  protected readonly kindControlId = CATALOG_KIND_CONTROL_ID;
+  protected readonly sortControlId = CATALOG_SORT_CONTROL_ID;
+  protected readonly searchControlId = CATALOG_SEARCH_CONTROL_ID;
+  protected readonly franchiseControlId = CATALOG_FRANCHISE_CONTROL_ID;
+  protected readonly genreControlId = CATALOG_GENRE_CONTROL_ID;
+  protected readonly tierControlId = CATALOG_TIER_CONTROL_ID;
   protected readonly accentedTier = AaaTiers.aaa;
   protected readonly emptyMessage = CATALOG_EMPTY_MESSAGE;
   protected readonly emptyPageRange = EMPTY_PAGE_RANGE;
@@ -101,6 +117,7 @@ export class CatalogComponent {
   private readonly curator = inject(CuratorService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly pageRequests = new Subject<CatalogGamesQuery>();
 
   protected readonly games = signal<GameSummaryResponse[]>([]);
@@ -152,6 +169,8 @@ export class CatalogComponent {
 
     this.loadedKey = catalogQueryKey(catalogQueryFromParams(this.route.snapshot.queryParams));
     this.readControlsFrom(this.route.snapshot.queryParams);
+    this.keepChoicesMadeBeforeHydration();
+    this.keepFiltersEnteredBeforeHydration();
 
     const resolved = this.route.snapshot.data[RouteDataKeys.catalog] as CatalogGamesResponse | null;
     if (resolved === null) {
@@ -234,6 +253,47 @@ export class CatalogComponent {
     this.sortValue.set(catalogSortValueFrom(params));
     this.page.set(catalogPageFrom(params));
     this.pageSize.set(catalogPageSizeFrom(params));
+  }
+
+  private keepChoicesMadeBeforeHydration(): void {
+    const renderedKind = this.serverRenderedSelectValue(CATALOG_KIND_CONTROL_ID);
+    const chosenKind = catalogKindFrom({ [CatalogQueryParams.kind]: renderedKind });
+    if (renderedKind === chosenKind && chosenKind !== this.kind()) {
+      this.kind.set(chosenKind);
+      this.onKindChange(chosenKind);
+    }
+    const renderedSort = this.serverRenderedSelectValue(CATALOG_SORT_CONTROL_ID);
+    const [sort, sortDir] = (renderedSort ?? this.sortValue()).split(':');
+    const chosenSort = catalogSortValueFrom({ [CatalogQueryParams.sort]: sort, [CatalogQueryParams.sortDir]: sortDir });
+    if (renderedSort === chosenSort && chosenSort !== this.sortValue()) {
+      this.sortValue.set(chosenSort);
+      this.onSortChange(chosenSort);
+    }
+  }
+
+  private keepFiltersEnteredBeforeHydration(): void {
+    this.keepRenderedText(CATALOG_SEARCH_CONTROL_ID, this.search);
+    this.keepRenderedText(CATALOG_FRANCHISE_CONTROL_ID, this.franchise);
+    this.keepRenderedChoice(CATALOG_GENRE_CONTROL_ID, this.genre);
+    this.keepRenderedChoice(CATALOG_TIER_CONTROL_ID, this.aaaTier);
+  }
+
+  private keepRenderedText(id: string, control: WritableSignal<string | null>): void {
+    const input = this.host.nativeElement.querySelector<HTMLInputElement>(`#${id}`);
+    if (input !== null) {
+      control.set(nullIfEmpty(input.value));
+    }
+  }
+
+  private keepRenderedChoice(id: string, control: WritableSignal<string | null>): void {
+    const select = this.host.nativeElement.querySelector<HTMLSelectElement>(`#${id}`);
+    if (select !== null) {
+      control.set(select.selectedIndex === ANY_OPTION_INDEX ? null : select.value);
+    }
+  }
+
+  private serverRenderedSelectValue(id: string): string | null {
+    return this.host.nativeElement.querySelector<HTMLSelectElement>(`#${id}`)?.value ?? null;
   }
 
   private seedPageSizeFromPreference(): void {

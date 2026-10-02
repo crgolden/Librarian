@@ -80,6 +80,24 @@ Feature: Browsing the catalog
       When I ask for media apps
       Then only the media app is listed, labelled as not a game
 
+    Scenario: A kind chosen before the page is interactive still applies
+      Given the catalog holds a game and a media app
+      And the catalog has rendered but the app's scripts have not loaded yet
+      When I ask for media apps before the page is interactive
+      Then only the media app is listed, labelled as not a game
+
+    Scenario: A sort chosen before the page is interactive still applies
+      Given the catalog holds a cheap game and a dear one
+      And the catalog has rendered but the app's scripts have not loaded yet
+      When I sort the catalog by price, dearest first, before the page is interactive
+      Then the dear game is listed first
+
+    Scenario: Filters entered before the page is interactive are still there to apply
+      Given the catalog holds a game I can name by title and genre, and one that matches neither
+      And the catalog has rendered but the app's scripts have not loaded yet
+      When I enter its title and genre before the page is interactive, then apply them once it is
+      Then only the game in that genre is listed
+
     Scenario: Sorting by price orders the page by what the store charges
       Given the catalog holds a cheap game and a dear one
       When I sort the catalog by price, dearest first
