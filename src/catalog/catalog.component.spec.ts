@@ -33,6 +33,7 @@ import { LinkRelTokens } from '../testing/html-constants';
 import { contentKindLabel } from './content-kind-labels';
 import { catalogSortValue } from './catalog-sort';
 import { CatalogQueryParams } from './catalog.query';
+import { CATALOG_GENRE_CONTROL_ID, CATALOG_KIND_CONTROL_ID, CATALOG_SORT_CONTROL_ID } from './catalog-ids';
 import { AppPaths } from '../app/app-paths';
 import { newHttpsAddress, newId, newPercent, newText, newUtcInstant, randomIntBetween } from '@crgolden/modules/testing';
 
@@ -348,8 +349,8 @@ describe('CatalogComponent', () => {
     const compiled: HTMLElement = fixture.nativeElement;
     expect(compiled.querySelector<HTMLInputElement>('#catalog-search')?.value).toBe(SEARCH_TERM);
     expect(compiled.querySelector<HTMLInputElement>('#franchise')?.value).toBe(FRANCHISE);
-    expect(selectById(compiled, 'catalog-kind').value).toBe(ContentKinds.mediaApp);
-    expect(selectById(compiled, 'catalog-sort').value).toBe(catalogSortValue(CatalogSortFields.price, SortDirections.desc));
+    expect(selectById(compiled, CATALOG_KIND_CONTROL_ID).value).toBe(ContentKinds.mediaApp);
+    expect(selectById(compiled, CATALOG_SORT_CONTROL_ID).value).toBe(catalogSortValue(CatalogSortFields.price, SortDirections.desc));
   });
 
   it('falls back to the defaults when the URL asks for a kind or sort that does not exist', async () => {
@@ -357,8 +358,8 @@ describe('CatalogComponent', () => {
     await settleNgModelWrites(fixture);
 
     const compiled: HTMLElement = fixture.nativeElement;
-    expect(selectById(compiled, 'catalog-kind').value).toBe(DEFAULT_CATALOG_KIND);
-    expect(selectById(compiled, 'catalog-sort').value).toBe(catalogSortValue(CatalogSortFields.title, SortDirections.asc));
+    expect(selectById(compiled, CATALOG_KIND_CONTROL_ID).value).toBe(DEFAULT_CATALOG_KIND);
+    expect(selectById(compiled, CATALOG_SORT_CONTROL_ID).value).toBe(catalogSortValue(CatalogSortFields.title, SortDirections.asc));
   });
 
   it('blocks interaction with the overlay while an in-page load is in flight, and keeps the current page visible', () => {
@@ -399,20 +400,20 @@ describe('CatalogComponent', () => {
     const genres = [newText(), newText(), newText()];
     const fixture = render({ games: [], total: 0 }, genres);
 
-    const select = selectById(fixture.nativeElement, 'genre');
+    const select = selectById(fixture.nativeElement, CATALOG_GENRE_CONTROL_ID);
     expect(Array.from(select.options).map((option) => option.textContent?.trim())).toEqual([ANY_OPTION_LABEL, ...genres]);
   });
 
   it('still renders a usable genre filter when no genres resolved', () => {
     const fixture = render({ games: [], total: 0 }, []);
 
-    const select = selectById(fixture.nativeElement, 'genre');
+    const select = selectById(fixture.nativeElement, CATALOG_GENRE_CONTROL_ID);
     expect(Array.from(select.options).map((option) => option.textContent?.trim())).toEqual([ANY_OPTION_LABEL]);
   });
 
   it('binds the Any option to null rather than an empty string, so an absent filter is absence', async () => {
     const fixture = render({ games: [], total: 0 }, [GENRE]);
-    const select = selectById(fixture.nativeElement, 'genre');
+    const select = selectById(fixture.nativeElement, CATALOG_GENRE_CONTROL_ID);
 
     await fixture.whenStable();
 
@@ -464,7 +465,7 @@ describe('CatalogComponent', () => {
     const fixture = render(fullPage(MULTI_PAGE_TOTAL), [], { page: LATER_PAGE });
     const compiled: HTMLElement = fixture.nativeElement;
 
-    const offered = Array.from(selectById(compiled, 'catalog-kind').options).map((option) => option.value);
+    const offered = Array.from(selectById(compiled, CATALOG_KIND_CONTROL_ID).options).map((option) => option.value);
     expect(offered).toEqual(CATALOG_KIND_OPTIONS.map((option) => option.value));
 
     harness(fixture).onKindChange(ContentKinds.mediaApp);
@@ -481,7 +482,7 @@ describe('CatalogComponent', () => {
   it('splits the chosen sort option into the field and direction Curator expects', () => {
     const fixture = render({ games: [], total: 0 });
 
-    const offered = Array.from(selectById(fixture.nativeElement, 'catalog-sort').options).map((o) => o.value);
+    const offered = Array.from(selectById(fixture.nativeElement, CATALOG_SORT_CONTROL_ID).options).map((o) => o.value);
     expect(offered).toEqual(CATALOG_SORT_OPTIONS.map((option) => option.value));
 
     harness(fixture).onSortChange(catalogSortValue(CatalogSortFields.price, SortDirections.desc));

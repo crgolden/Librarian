@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Page, type Response } from '@playwright/test';
 import { ScrollRestorationModes } from '@crgolden/modules/scroll-restoration';
 import {
   newCount,
@@ -64,6 +64,14 @@ const SHORT_VIEWPORT = e2eSettings.viewports.shortCatalog;
 const SCROLL_DISTANCE_PX = e2eSettings.scrollRestoration.scrollDistancePx;
 const WITHIN_FIVE_PIXELS = -1;
 const ROUTER_OWNED_SCROLL_RESTORATION = ScrollRestorationModes.manual;
+
+function waitForPriceSortedAnswer(page: Page): Promise<Response> {
+  return page.waitForResponse(
+    (response) =>
+      response.url().includes(CuratorApi.catalogGames) &&
+      response.url().includes(`${CuratorQueryParams.sort}=${CatalogSortFields.price}`),
+  );
+}
 
 function recordCuratorRequests(page: Page): string[] {
   const requested: string[] = [];
@@ -315,11 +323,7 @@ When('I sort the catalog by price, dearest first', async ({ page, ctx }) => {
   await page.goto(AppUrls.catalog);
   await expect(page.locator('#catalog-title-0')).toHaveAttribute('href', catalogGameUrl(ctx.catalogGameId));
   await expect(page.locator('#catalog-price-0')).toBeVisible();
-  const priceSortedAnswer = page.waitForResponse(
-    (response) =>
-      response.url().includes(CuratorApi.catalogGames) &&
-      response.url().includes(`${CuratorQueryParams.sort}=${CatalogSortFields.price}`),
-  );
+  const priceSortedAnswer = waitForPriceSortedAnswer(page);
   const markersAtTheChange = await dehydratedMarkersLeft(page);
   await page.locator('#catalog-sort').selectOption(catalogSortValue(CatalogSortFields.price, SortDirections.desc));
   await expect(
@@ -362,7 +366,7 @@ Given('I am browsing the catalog, which lists only the game', async ({ page, ctx
 Given("the catalog has rendered but the app's scripts have not loaded yet", async ({ page, ctx }) => {
   ctx.releaseAppBootstrap = await holdAppBootstrap(page);
   await page.goto(AppUrls.catalog, { waitUntil: 'commit' });
-  await expect(page.locator(CATALOG_TILES).first()).toBeVisible();
+  await expect(page.locator('#catalog-title-0')).toBeVisible();
 });
 
 When('I enter its title and genre before the page is interactive, then apply them once it is', async ({ page, ctx }) => {
@@ -386,9 +390,13 @@ When('I ask for media apps before the page is interactive', async ({ page, ctx }
 
 When('I sort the catalog by price, dearest first, before the page is interactive', async ({ page, ctx }) => {
   expect(await dehydratedMarkersLeft(page), 'the page must still be server-rendered when the sort is chosen').toBeGreaterThan(NO_ELEMENTS);
+  const priceSortedAnswer = waitForPriceSortedAnswer(page);
   await page.locator('#catalog-sort').selectOption(catalogSortValue(CatalogSortFields.price, SortDirections.desc));
   ctx.releaseAppBootstrap();
   await expect(page).toHaveURL(new RegExp(`${CatalogQueryParams.sort}=${CatalogSortFields.price}`));
+  await expect(page).toHaveURL(new RegExp(`${CatalogQueryParams.sortDir}=${SortDirections.desc}`));
+  const answered = (await (await priceSortedAnswer).json()) as CatalogGamesBody;
+  ctx.answeredGameIds = answered.games.map((game) => game.game_id);
 });
 
 Given('I am on the first catalog page', async ({ page }) => {

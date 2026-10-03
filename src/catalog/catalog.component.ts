@@ -279,15 +279,15 @@ export class CatalogComponent {
   }
 
   private keepRenderedText(id: string, control: WritableSignal<string | null>): void {
-    const input = this.host.nativeElement.querySelector<HTMLInputElement>(`#${id}`);
-    if (input !== null) {
-      control.set(nullIfEmpty(input.value));
+    const rendered = this.host.nativeElement.querySelector<HTMLInputElement>(`#${id}`)?.value;
+    if (rendered !== undefined) {
+      control.set(nullIfEmpty(rendered));
     }
   }
 
   private keepRenderedChoice(id: string, control: WritableSignal<string | null>): void {
     const select = this.host.nativeElement.querySelector<HTMLSelectElement>(`#${id}`);
-    if (select !== null) {
+    if (select?.value !== undefined) {
       control.set(select.selectedIndex === ANY_OPTION_INDEX ? null : select.value);
     }
   }
