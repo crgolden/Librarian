@@ -1,5 +1,5 @@
 import { hasPrefix, isVisible, pickFromPrefix, prefixLocator, type WalkerAction } from '@crgolden/modules/synthetic-walker';
-import { expect, type Locator } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import walkerSettings from './walker-settings.json';
 import { PlaywrightConstants } from '../playwright-constants';
 import { AppUrls } from '../../src/app/app-paths';
@@ -20,6 +20,13 @@ async function expectRendered(locator: Locator): Promise<void> {
   await expect(locator).toBeVisible();
 }
 
+async function followLink(page: Page, link: Locator): Promise<void> {
+  const destination = await link.getAttribute('href');
+  await link.click();
+  await expect(page).toHaveURL((url) => url.pathname === destination);
+  await expectRendered(page.locator('#page-title'));
+}
+
 const NAV_RAIL_SELECTOR = `[id^="${SiteNavIdPrefixes.railLink}"]:not([id^="${SiteNavIdPrefixes.railIcon}"]):not([id^="${SiteNavIdPrefixes.railLabel}"]):not(#${NAV_RAIL_SIGNOUT_ID})`;
 
 const unweightedActions: readonly Omit<WalkerAction, 'weight'>[] = [
@@ -38,8 +45,7 @@ const unweightedActions: readonly Omit<WalkerAction, 'weight'>[] = [
       const links = page.locator(NAV_RAIL_SELECTOR);
       await links.first().waitFor();
       const count = await links.count();
-      await links.nth(rng.int(count)).click();
-      await expectRendered(page.locator('#page-title'));
+      await followLink(page, links.nth(rng.int(count)));
     },
   },
   {
@@ -54,9 +60,7 @@ const unweightedActions: readonly Omit<WalkerAction, 'weight'>[] = [
     name: 'open a catalog game',
     available: page => hasPrefix(page, CATALOG_TITLE_ID_PREFIX),
     run: async (page, rng) => {
-      const title = await pickFromPrefix(page, rng, CATALOG_TITLE_ID_PREFIX);
-      await title.click();
-      await expectRendered(page.locator('#page-title'));
+      await followLink(page, await pickFromPrefix(page, rng, CATALOG_TITLE_ID_PREFIX));
     },
   },
   {
