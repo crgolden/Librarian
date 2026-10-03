@@ -169,8 +169,6 @@ export class CatalogComponent {
 
     this.loadedKey = catalogQueryKey(catalogQueryFromParams(this.route.snapshot.queryParams));
     this.readControlsFrom(this.route.snapshot.queryParams);
-    this.keepChoicesMadeBeforeHydration();
-    this.keepFiltersEnteredBeforeHydration();
 
     const resolved = this.route.snapshot.data[RouteDataKeys.catalog] as CatalogGamesResponse | null;
     if (resolved === null) {
@@ -190,6 +188,8 @@ export class CatalogComponent {
       this.load(query);
     });
 
+    this.keepChoicesMadeBeforeHydration();
+    this.keepFiltersEnteredBeforeHydration();
     this.seedPageSizeFromPreference();
   }
 
