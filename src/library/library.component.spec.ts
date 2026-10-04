@@ -31,7 +31,7 @@ import {
 } from '../curator/curator.models';
 import { AuthService } from '../auth/auth.service';
 import { CuratorApi, CuratorQueryParams } from '../curator/curator-api';
-import { AccountAnchors, AppUrls, RouteDataKeys, RouteParams, catalogGameUrl } from '../app/app-paths';
+import { AccountAnchors, AppPaths, AppUrls, RouteDataKeys, RouteParams, catalogGameUrl } from '../app/app-paths';
 import {
   ALL_GENRES_LABEL,
   EMPTY_OWN_LIBRARY_MESSAGE,
@@ -309,6 +309,11 @@ const MANUAL_GAME: LibraryGameResponse = {
   platforms: [],
 };
 
+const NAVIGABLE_ROUTES = [
+  { path: AppPaths.catalog, children: [] },
+  { path: AppPaths.home, children: [] },
+];
+
 describe('LibraryComponent', () => {
   let httpMock: HttpTestingController;
 
@@ -335,7 +340,7 @@ describe('LibraryComponent', () => {
       providers: [
         provideHttpClient(withXhr()),
         provideHttpClientTesting(),
-        provideRouter([]),
+        provideRouter(NAVIGABLE_ROUTES),
         { provide: ActivatedRoute, useValue: activatedRouteWithSub(null) },
       ],
     });
@@ -368,7 +373,7 @@ describe('LibraryComponent', () => {
       providers: [
         provideHttpClient(withXhr()),
         provideHttpClientTesting(),
-        provideRouter([]),
+        provideRouter(NAVIGABLE_ROUTES),
         { provide: ActivatedRoute, useValue: activatedRouteWithSub(null, resolved) },
       ],
     });
@@ -1072,6 +1077,36 @@ describe('LibraryComponent', () => {
     await vi.advanceTimersByTimeAsync(environment.librarySearchDebounceMs);
     const req = httpMock.expectOne((r) => r.url === CuratorApi.library && r.params.get(CuratorQueryParams.q) === LIBRARY_SEARCH_TERM);
     expect(req.request.params.get(CuratorQueryParams.offset)).toBe('0');
+    req.flush(page([FULL_GAME]));
+  });
+
+  it('drops a search still waiting on its debounce once the reader navigates to another page', async () => {
+    const fixture = await createAndLoad([FULL_GAME]);
+    const input: HTMLInputElement = fixture.nativeElement.querySelector('#library-search');
+    input.value = LIBRARY_SEARCH_TERM;
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    void TestBed.inject(Router).navigateByUrl(AppUrls.catalog);
+    await vi.advanceTimersByTimeAsync(environment.librarySearchDebounceMs);
+
+    expect(queryParams$.value[CuratorQueryParams.q]).toBeUndefined();
+    httpMock.expectNone((req) => req.url === CuratorApi.library && req.params.get(CuratorQueryParams.q) === LIBRARY_SEARCH_TERM);
+  });
+
+  it('keeps a search still waiting on its debounce when a navigation stays on this page', async () => {
+    const fixture = await createAndLoad([FULL_GAME]);
+    const input: HTMLInputElement = fixture.nativeElement.querySelector('#library-search');
+    input.value = LIBRARY_SEARCH_TERM;
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    const router = TestBed.inject(Router);
+
+    void router.navigateByUrl(router.createUrlTree([AppUrls.home], { queryParams: { [newText()]: newText() } }));
+    await vi.advanceTimersByTimeAsync(environment.librarySearchDebounceMs);
+
+    expect(queryParams$.value[CuratorQueryParams.q]).toBe(LIBRARY_SEARCH_TERM);
+    const req = httpMock.expectOne((r) => r.url === CuratorApi.library && r.params.get(CuratorQueryParams.q) === LIBRARY_SEARCH_TERM);
     req.flush(page([FULL_GAME]));
   });
 

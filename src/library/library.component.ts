@@ -15,7 +15,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, NavigationStart, PRIMARY_OUTLET, Params, Router, RouterLink } from '@angular/router';
 import {
   ButtonGhostDirective,
   ButtonGhostSmallDirective,
@@ -39,14 +39,16 @@ import {
   Subject,
   Subscription,
   catchError,
-  debounceTime,
   distinctUntilChanged,
+  filter,
   interval,
   map,
   of,
   retry,
   switchMap,
+  takeUntil,
   takeWhile,
+  timer,
 } from 'rxjs';
 import { CuratorService, LibraryQuery } from '../curator/curator.service';
 import {
@@ -322,8 +324,20 @@ export class LibraryComponent implements OnInit, OnDestroy {
       .pipe(switchMap((request) => this.libraryPageFor(request)))
       .subscribe((outcome) => this.applyLibraryOutcome(outcome));
 
+    const navigationsLeavingThisPage = this.router.events.pipe(
+      filter((event): event is NavigationStart => event instanceof NavigationStart),
+      filter((event) => this.pagePathOf(event.url) !== this.pagePathOf(this.router.url)),
+    );
     this.searchCommitSubscription = this.searchCommit
-      .pipe(debounceTime(environment.librarySearchDebounceMs), distinctUntilChanged())
+      .pipe(
+        switchMap((value) =>
+          timer(environment.librarySearchDebounceMs).pipe(
+            takeUntil(navigationsLeavingThisPage),
+            map(() => value),
+          ),
+        ),
+        distinctUntilChanged(),
+      )
       .subscribe((value) => {
         void this.router.navigate([], {
           relativeTo: this.route,
@@ -420,6 +434,10 @@ export class LibraryComponent implements OnInit, OnDestroy {
     this.pollSubscription?.unsubscribe();
     this.searchCommitSubscription?.unsubscribe();
     this.libraryRequestSubscription?.unsubscribe();
+  }
+
+  private pagePathOf(url: string): string | null {
+    return this.router.parseUrl(url).root.children[PRIMARY_OUTLET]?.toString() ?? null;
   }
 
   private currentQuery(): LibraryQuery {
