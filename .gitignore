@@ -169,3 +169,4 @@ vite.config.ts.timestamp-*
 # this repo is public, and three such files were committed to main before this rule existed.
 *-live.yml
 *-snapshot.yml
+/tools/stylelint/node_modules
