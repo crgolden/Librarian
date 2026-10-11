@@ -22,17 +22,11 @@ export const SETTING_UPDATE_ERROR = 'Failed to update setting. Please try again.
 
 export const LINK_SAVE_ERROR = 'Failed to save the link. Please try again.';
 
-export const FollowerCountNouns = {
-  singular: 'follower',
-  plural: 'followers',
+export const StatTileCaptions = {
+  followers: 'Followers',
+  following: 'Following',
 } as const;
 
-export const FOLLOWING_COUNT_NOUN = 'following';
-
-export function followersAccessibleName(count: number): string {
-  return `${count} ${count === 1 ? FollowerCountNouns.singular : FollowerCountNouns.plural}`;
-}
-
-export function followingAccessibleName(count: number): string {
-  return `${count} ${FOLLOWING_COUNT_NOUN}`;
+export function statTileAccessibleName(caption: string, count: number): string {
+  return `${caption} ${count}`;
 }

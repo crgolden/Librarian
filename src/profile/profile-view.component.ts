@@ -29,9 +29,9 @@ import {
   PSN_ACCOUNT_FALLBACK_NAME,
   SIGNED_IN_USER_UNKNOWN_ERROR,
   TROPHIES_OFF_NOTICE,
+  StatTileCaptions,
   UNLINKED_USER_NAME,
-  followersAccessibleName,
-  followingAccessibleName,
+  statTileAccessibleName,
 } from './profile.messages';
 import { ResolvedStatuses } from '../shared/resolved-status';
 
@@ -154,8 +154,8 @@ export class ProfileViewComponent implements OnInit {
     return profile.identity?.online_id ?? (profile.psn_account_id ? PSN_ACCOUNT_FALLBACK_NAME : UNLINKED_USER_NAME);
   }
 
-  protected readonly followersName = followersAccessibleName;
-  protected readonly followingName = followingAccessibleName;
+  protected readonly captions = StatTileCaptions;
+  protected readonly tileName = statTileAccessibleName;
 
   protected trophiesEarnedTotal(profile: PublicProfileResponse): number {
     const earned = profile.trophies?.earned;

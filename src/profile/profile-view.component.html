@@ -156,12 +156,12 @@
         data-stat="followers"
         class="flex min-w-0 flex-col items-start gap-2 border-t border-line pt-3"
         [routerLink]="followersLink()"
-        [attr.aria-label]="followersName(current.follower_count)"
+        [attr.aria-label]="tileName(captions.followers, current.follower_count)"
         [attr.data-count]="current.follower_count"
       >
         <span class="inline-flex items-center gap-2">
           <ng-icon name="lucideUsers" aria-hidden="true" />
-          <span appStampLabel>Followers</span>
+          <span id="profile-stat-followers-caption" appStampLabel>{{ captions.followers }}</span>
         </span>
         <span id="profile-stat-followers-value" class="font-heading text-display font-bold leading-tight">{{ current.follower_count }}</span>
       </a>
@@ -171,11 +171,11 @@
         data-stat="following"
         class="flex min-w-0 flex-col items-start gap-2 border-t border-line pt-3"
         [routerLink]="followingLink()"
-        [attr.aria-label]="followingName(current.following_count)"
+        [attr.aria-label]="tileName(captions.following, current.following_count)"
       >
         <span class="inline-flex items-center gap-2">
           <ng-icon name="lucideUserPlus" aria-hidden="true" />
-          <span appStampLabel>Following</span>
+          <span id="profile-stat-following-caption" appStampLabel>{{ captions.following }}</span>
         </span>
         <span id="profile-stat-following-value" class="font-heading text-display font-bold leading-tight">{{ current.following_count }}</span>
       </a>

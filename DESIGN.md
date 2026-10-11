@@ -576,7 +576,11 @@ where it is used.
   called*, not what a work *is*). A tile whose value is unknown or not permitted **must not render at
   all**, but `0` is a real value and must render, so guards test `!== null`, never truthiness. Tiles that
   navigate are `<a>` elements and carry their own `aria-label`, because the visible label and figure read
-  as two separate nodes. Two tiles carry prose and links in place of a figure: the trophies-off notice
+  as two separate nodes. That name opens with the visible caption and then the figure
+  (`statTileAccessibleName`, one `StatTileCaptions` entry feeding both), because WCAG 2.5.3 Label in Name
+  fails a name that does not contain the visible text in order; axe checks it as
+  `label-content-name-mismatch`, so a name such as `1 follower` under a `Followers` caption fails the
+  page scan. Two tiles carry prose and links in place of a figure: the trophies-off notice
   and the "Elsewhere" list of declared PlayStation profiles. Both still satisfy the rule above: each
   renders only when it has something real to say, and neither is a figure with the number left out.
 - **Pager** (`mt-3 flex flex-wrap items-center justify-center gap-3`): the Previous, position and Next

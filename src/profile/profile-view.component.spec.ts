@@ -18,8 +18,7 @@ import {
   SIGNED_IN_USER_UNKNOWN_ERROR,
   TROPHIES_OFF_NOTICE,
   UNLINKED_USER_NAME,
-  FOLLOWING_COUNT_NOUN,
-  FollowerCountNouns,
+  StatTileCaptions,
 } from './profile.messages';
 import { HtmlLinkTargets, LinkRelTokens } from '../testing/html-constants';
 import { HttpMethods } from '../bff/http-headers';
@@ -209,14 +208,16 @@ describe('ProfileViewComponent', () => {
     expect(heading).not.toContain(PSN_ACCOUNT_ID);
   });
 
-  it('uses singular "follower" in the tile\'s accessible name when the count is exactly 1', () => {
-    const fixture = createAndLoad(OTHER_SUB, profile({ follower_count: 1, following_count: 0 }));
+  it('opens each navigating tile\'s accessible name with its visible caption, then its figure', () => {
+    const fixture = createAndLoad(OTHER_SUB, profile({ follower_count: FOLLOWER_COUNT, following_count: FOLLOWING_COUNT }));
 
     const compiled: HTMLElement = fixture.nativeElement;
-    expect(compiled.querySelector('[data-stat="followers"]')?.getAttribute('aria-label')).toBe(`1 ${FollowerCountNouns.singular}`);
-    expect(compiled.querySelector('[data-stat="following"]')?.getAttribute('aria-label')).toBe(`0 ${FOLLOWING_COUNT_NOUN}`);
-    expect(statValue(compiled, '#profile-stat-followers')).toBe('1');
-    expect(statValue(compiled, '#profile-stat-following')).toBe('0');
+    const followersCaption = compiled.querySelector('#profile-stat-followers-caption')?.textContent?.trim();
+    const followingCaption = compiled.querySelector('#profile-stat-following-caption')?.textContent?.trim();
+    expect(followersCaption).toBe(StatTileCaptions.followers);
+    expect(followingCaption).toBe(StatTileCaptions.following);
+    expect(compiled.querySelector('[data-stat="followers"]')?.getAttribute('aria-label')).toBe(`${followersCaption} ${FOLLOWER_COUNT}`);
+    expect(compiled.querySelector('[data-stat="following"]')?.getAttribute('aria-label')).toBe(`${followingCaption} ${FOLLOWING_COUNT}`);
   });
 
   it('renders a zero count rather than hiding the tile', () => {
