@@ -220,6 +220,16 @@ describe('ProfileViewComponent', () => {
     expect(compiled.querySelector('[data-stat="following"]')?.getAttribute('aria-label')).toBe(`${followingCaption} ${FOLLOWING_COUNT}`);
   });
 
+  it('reads each navigating tile\'s text, as its nodes join with no separator added, as exactly its accessible name', () => {
+    const fixture = createAndLoad(OTHER_SUB, profile({ follower_count: FOLLOWER_COUNT, following_count: FOLLOWING_COUNT }));
+
+    const compiled: HTMLElement = fixture.nativeElement;
+    const followersTile = compiled.querySelector('[data-stat="followers"]');
+    const followingTile = compiled.querySelector('[data-stat="following"]');
+    expect(followersTile?.textContent?.replace(/\s+/g, ' ').trim()).toBe(followersTile?.getAttribute('aria-label'));
+    expect(followingTile?.textContent?.replace(/\s+/g, ' ').trim()).toBe(followingTile?.getAttribute('aria-label'));
+  });
+
   it('renders a zero count rather than hiding the tile', () => {
     const fixture = createAndLoad(
       OWN_SUB,

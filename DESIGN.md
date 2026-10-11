@@ -580,7 +580,9 @@ where it is used.
   (`statTileAccessibleName`, one `StatTileCaptions` entry feeding both), because WCAG 2.5.3 Label in Name
   fails a name that does not contain the visible text in order; axe checks it as
   `label-content-name-mismatch`, so a name such as `1 follower` under a `Followers` caption fails the
-  page scan. Two tiles carry prose and links in place of a figure: the trophies-off notice
+  page scan. axe joins the tile's text nodes with no separator and Angular drops the whitespace-only
+  text between the caption and figure spans, so the caption's own text node carries the trailing space
+  (`{{ captions.followers }} `); without it the tile reads `Followers0` and no name matches it. Two tiles carry prose and links in place of a figure: the trophies-off notice
   and the "Elsewhere" list of declared PlayStation profiles. Both still satisfy the rule above: each
   renders only when it has something real to say, and neither is a figure with the number left out.
 - **Pager** (`mt-3 flex flex-wrap items-center justify-center gap-3`): the Previous, position and Next
