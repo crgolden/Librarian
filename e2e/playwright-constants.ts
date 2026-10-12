@@ -6,4 +6,7 @@ export const PlaywrightConstants = {
     dark: 'dark',
     light: 'light',
   },
+  locatorWaitStates: {
+    attached: 'attached',
+  },
 } as const;

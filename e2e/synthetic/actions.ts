@@ -76,7 +76,7 @@ const unweightedActions: readonly Omit<WalkerAction, 'weight'>[] = [
     available: page => isVisible(page, '#library-genre-filter'),
     run: async (page, rng) => {
       const options = page.locator('#library-genre-filter option');
-      await options.first().waitFor();
+      await options.first().waitFor({ state: PlaywrightConstants.locatorWaitStates.attached });
       const optionCount = await options.count();
       await page.selectOption('#library-genre-filter', { index: rng.int(optionCount) });
       await expectRendered(page.locator('#page-title'));
