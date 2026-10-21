@@ -770,8 +770,8 @@ page is server-rendered too), and Back is then a document traversal rather than 
 in-memory restoration cannot serve that traversal, and it has set the entry's
 `history.scrollRestoration` to `manual`, so `provideBrowserScrollRestorationWhenLeavingTheDocument()`
 from `@crgolden/modules/angular` hands the mode back to the
-browser on `beforeunload` and the browser restores the reader's position itself. The mechanism and its
-two E2E paths are in [Librarian.md](../AGENTS/REPOS/Librarian.md) § `/catalog`.
+browser on `beforeunload` and the browser restores the reader's position itself.
+`e2e/features/returning-to-the-catalog.feature` pins both paths, each with its own scenario.
 
 ## Where styling lives
 
@@ -820,8 +820,8 @@ rule, in order:
    or appear, it is the component's job instead.
 
 Appearance that repeats across unrelated features becomes a **directive with an entry in Components
-above, added in the same change**: in `@crgolden/modules/primitives` when Churches or Inventory renders
-it too, in `src/shared/primitives` when only this app does. Appearance one feature repeats stays a
+above, added in the same change**: in the shared `@crgolden/modules/primitives` package when it belongs
+to more than one app, in `src/shared/primitives` when only this app renders it. Appearance one feature repeats stays a
 utility list in that feature's templates.
 
 **Motion comes from Tailwind's own animations** (`animate-spin` on the loading spinner, with
@@ -1063,8 +1063,6 @@ reporting them flatly is not gamification. Do not paraphrase PSN's own terms to 
 
 ---
 
-This document is the source of truth for all future Librarian UI work, and is linked from both
-`AGENTS/REPOS/Librarian.md` and the repo `README.md` so it is reachable from wherever someone starts. Any
-new page or component should be checked against it before merging, the same way `COVERAGE/METHOD.md`
-governs testing conventions at the workspace root. The live route list is `src/app/app.routes.ts`: read
-it there rather than restating a count here.
+This document is the source of truth for all Librarian UI work, linked from `README.md`. Check any new
+page or component against it before merging. The live route list is `src/app/app.routes.ts`: read it
+there rather than restating a count here.

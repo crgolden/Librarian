@@ -1,11 +1,10 @@
 # Testing
 
 The Librarian test suite covers **frontend unit tests** (Vitest) and **browser E2E + synthetic-walker tests**
-(TypeScript Playwright). This repo tests the Angular SSR + Node BFF stack. The Curator API has its
-own suite in the [Curator](https://github.com/crgolden/Curator) repo.
+(TypeScript Playwright). This repo tests the Angular SSR + Node BFF stack; every call to the Curator API
+and the OIDC provider goes to a mock this repo ships, so no other service is needed.
 
-Unit test coding standards (no control-flow in tests, etc.) are in the workspace-level
-[Unit Test Standards](../AGENTS/TESTING.md#unit-test-standards).
+Unit tests carry no control flow: no `if`, loop or `try` in a test body.
 
 ## Test tiers
 
@@ -17,7 +16,7 @@ Unit test coding standards (no control-flow in tests, etc.) are in the workspace
 | E2E journeys | Playwright + playwright-bdd (`--project=e2e`), Gherkin | `e2e/features/*.feature`, steps in `e2e/steps/` | No; as Integration | Every push/PR |
 | Synthetic walker | Playwright (`--project=synthetic`) | `e2e/synthetic/` | Yes; targets the deployed stack | Scheduled (`synthetic.yml`), never a merge gate |
 
-**A test's tier is the interface it drives** ([AGENTS/TESTING.md](../AGENTS/TESTING.md)). A property of
+**A test's tier is the interface it drives.** A property of
 one rendered component (geometry, computed style, contrast, an axe scan) is a browser unit test; a request
 whose answer is the assertion is Integration; a user outcome reached through the app is an E2E scenario.
 
@@ -68,10 +67,9 @@ that fails. `vitest.config.mts` sets `typecheck: { enabled: true, tsconfig: './t
 include: ['src/**/*.spec.ts'], ignoreSourceErrors: false }`. Naming the tsconfig is load-bearing rather
 than tidy: vitest otherwise resolves the nearest `tsconfig.json`, and this repo's root one is
 solution-style (`"files": []` plus `references`), which compiles nothing and would report a clean pass
-over a broken spec. Two consequences to expect. **The reported counts roughly double** — each spec file
-is listed once as a runtime suite and once as a typecheck suite (**103 files / 1172 tests measured
-2026-08-28**, against 51 / 576 runtime-only); coverage totals are unaffected, since only the runtime pass
-is instrumented. **Do not diagnose the gap between those two figures as a regression**: `ng test` reports
+over a broken spec. Two consequences to expect. **The reported counts roughly double**: each spec file
+is listed once as a runtime suite and once as a typecheck suite; coverage totals are unaffected, since only
+the runtime pass is instrumented. **Do not diagnose the gap between those two figures as a regression**: `ng test` reports
 the runtime-only half *and* fails ten server-side specs (`bff/oidc`, `telemetry/*`) that `npx vitest run`
 passes, because its pipeline transforms `vi.mock` differently — `TypeError: __spreadValues is not a
 function`. A clean `npm ci` does not change it. Those ten failures are an artefact of the wrong runner,
@@ -105,25 +103,19 @@ controls in `src/app/app-shell.layout.browser.spec.ts`.
 is `'light'` and this is a dark-first design.
 
 **Playwright's specs are type-checked too, by their own tsconfig.** `tsconfig.spec.json` includes only
-`src/**`, and Playwright transpiles `e2e/**` with esbuild, so for a long time a type error there reached
-`main` unchallenged. `tsconfig.e2e.json` (`include: ["e2e/**/*.ts"]`, `noEmit: true`) plus
-`npm run typecheck:e2e` closes that; CI runs it immediately after `Lint`, where it is fast and needs no
-build.
+`src/**`, and Playwright transpiles `e2e/**` with esbuild, which strips types without checking them.
+`tsconfig.e2e.json` (`include: ["e2e/**/*.ts"]`, `noEmit: true`) plus `npm run typecheck:e2e` closes
+that; CI runs it immediately after `Lint`, where it is fast and needs no build. Express 5 types
+`req.params[x]` as `string | string[]`, so `e2e/mocks/curator.ts` narrows once through
+`pathParam(req, name)`, which throws rather than letting an array reach code expecting a value. **Watch for
+`const { id } = req.params` destructuring**: it evades a text search for `req.params[`, so those sites
+surface only through `tsc`.
 
-**Its first run found 53 errors, which is the argument for the step.** One was a genuine drift —
-`library.spec.ts` seeds `platforms` and asserts all three render, but `LibraryGameFixture` never declared
-the property, so the fixture type and the mock had quietly diverged. The other 50-odd were
-`req.params[x]`, which Express 5 types as `string | string[]`; `e2e/mocks/curator.ts` now narrows once
-through `pathParam(req, name)`, which throws rather than letting an array reach code expecting a value.
-**Watch for `const { id } = req.params` destructuring** — it evades a text search for `req.params[`, so
-those sites surface only on a re-run of `tsc`.
-
-**`isolate: true` is load-bearing; `fileParallelism` was not.** Isolation gives each file its own jsdom,
+**`isolate: true` is required; `fileParallelism: false` is not.** Isolation gives each file its own jsdom,
 which this suite depends on because `document.title` and `<meta>` tags persist between tests within a
-file (the catalog-detail and public-collection specs rely on that). Test files run in parallel — the
-inherited `fileParallelism: false` was scaffold boilerplate with no recorded reason, and removing it kept
-all 469 tests green across three full runs. **If CI time regresses, check `isolate` before
-`fileParallelism`** — isolation is the expensive setting and the one this suite cannot give up.
+file (the catalog-detail and public-collection specs rely on that). Test files run in parallel. **If CI
+time regresses, check `isolate` before `fileParallelism`**: isolation is the expensive setting and the one
+this suite cannot give up.
 
 **Signal inputs (`input()` / `input.required()`) do not bind under this runner — use the `@Input()`
 decorator in any component a spec renders.** Vitest transpiles TypeScript without Angular's `ngtsc`
@@ -133,8 +125,8 @@ every binding on it silently inert, and the only signal was `NG0303: Can't bind 
 a known property of 'app-avatar'` on **stderr** — not a failure, and easy to scroll past in a run this
 size. The template compiles, the component renders, and every input reads its declared default.
 
-**A `required` signal input turns that silent failure into a loud one, from the wrong place.** Hit again
-2026-08-27 on a new `app-page-size`: `input.required()` has no declared default to fall back on, so
+**A `required` signal input turns that silent failure into a loud one, from the wrong place.**
+`input.required()` has no declared default to fall back on, so
 reading it throws `NG0950: Input is required but no value is available yet` — raised from inside the
 *child's* template, several frames below the parent whose binding never attached. The two errors read as
 unrelated problems and neither names the cause. Nothing static catches it either: `ng lint`,
@@ -155,7 +147,7 @@ component *does* call throws across every test in the file.
 
 ## E2E tests (regression)
 
-Selectors follow the fleet-wide rule in [AGENTS/TESTING.md](../AGENTS/TESTING.md#e2e-selector-strategy-select-by-id-never-by-position): select by `id`, never by column position or CSS class. Rows built in an Angular `@for` get `[attr.id]="'<name>-' + $index"` and are matched by id prefix.
+Select by `id`, never by column position or CSS class. Rows built in an Angular `@for` get `[attr.id]="'<name>-' + $index"` and are matched by id prefix.
 
 No live servers needed. Playwright manages three local servers for the test run, started in this order
 — the mock Curator API and mock OIDC provider must both be up before the SSR server starts, since SSR's
@@ -300,14 +292,14 @@ against the mock authority on first use:
    the mock OIDC provider.
 
 Every `/bff/**` and `/curator/api/**` call is either handled by a mock server or intercepted by
-Playwright route mocks — no real Identity or Curator is contacted.
+Playwright route mocks; no real OIDC provider or Curator is contacted.
 
 **Curator is mocked as a real HTTP server rather than with `page.route()`, and it has to be.**
 `page.route()` intercepts *browser* requests only; the calls to Curator are outbound `fetch` calls made
 by the Node SSR/BFF process, which Playwright never sees. So `e2e/mocks/curator.ts` serves the real
 route shapes over HTTP and tests drive its state through the control API (`ControlRoutes`). It mounts those
-routes with **no path prefix**, because `curatorProxy` has already stripped `/curator/api` before
-forwarding (see `AGENTS/REPOS/Librarian.md`).
+routes with **no path prefix**, because `curatorProxy` resolves the upstream path from `req.url`, which
+Express has already stripped of the `/curator/api` mount point.
 
 The `e2e` project runs single-worker, non-parallel (`fullyParallel: false`, `workers: 1`, matching the
 C# suites' xUnit `Collection` behavior): every spec file shares the same mock server's in-memory state,
@@ -315,7 +307,7 @@ so concurrent spec files would race on it.
 
 The mock Curator server auto-registers the calling identity (from the identity header) on every non-control
 route — mirroring how a real bearer token always implies an existing `app_users` row by the time a
-call reaches Curator (Identity account creation + Curator's own upsert-on-first-authenticated-request
+call reaches Curator (the provider's account creation and Curator's own upsert-on-first-authenticated-request
 precede it). This means a freshly-signed-in user's own `/me`/`/library`/`/users/{ownSub}/profile` call
 never spuriously 404s just because no seed/control call touched their sub first. A *target* sub named
 in a path parameter is still resolved through a non-mutating lookup, so an unseeded/unknown target
@@ -387,15 +379,14 @@ on the port/url or set reuseExistingServer:true in config.webServer.
 ```
 
 That is deliberate: an adopted server is either running the *previous build's bundle*, or — for a manual
-`serve:ssr` — loading `.env.local` and pointing `OidcAuthority` at the **real** Identity instead of the
-mock on 4102. **You can no longer keep a manual `serve:ssr` on 4100 while running E2E**; stop it first.
+`serve:ssr`, loading `.env.local` and pointing `OidcAuthority` at a **real** provider instead of the
+mock on 4102. **A manual `serve:ssr` on 4100 cannot run alongside E2E**; stop it first.
 
 **`Error: Timed out waiting 30000ms from config.webServer` is the two MOCK servers, not the app.** The
 three entries carry different budgets — 30s each for `curator-server.ts` and `oidc-server.ts`, 60s for the
 SSR bundle — so a bare "30000ms" narrows it to a mock before you read anything else, and the app is not
-implicated. Both mocks boot through `npx tsx`, which is fast on an idle box and **measured at 25.4s on
-2026-09-07** after an evening of builds and suites, leaving under five seconds of headroom. **Measure the
-bind time before concluding anything**: start `npx tsx e2e/mocks/curator-server.ts` with
+implicated. Both mocks boot through `npx tsx`, which is fast on an idle machine and can approach the 30s
+budget on a saturated one. **Measure the bind time before concluding anything**: start `npx tsx e2e/mocks/curator-server.ts` with
 `MOCK_CURATOR_PORT` and `E2E_CONTRACT` set (the mock refuses to start without the contract
 `playwright.config.ts` otherwise generates; `JSON.stringify(newE2eContract())` produces one) and poll `Get-NetTCPConnection -LocalPort 4101 -State Listen` in a loop. If it is
 seconds, the timeout was a genuine anomaly worth chasing; if it is twenty-plus, the box is saturated and
@@ -418,31 +409,23 @@ start if `OidcAuthority` is unreachable or `NODE_EXTRA_CA_CERTS` points at a mis
 measured — and Playwright reports only the generic timeout. Check those two env values in
 `playwright.config.ts` before suspecting load.
 
-```powershell
-Get-NetTCPConnection -LocalPort 4100 -State Listen |
-    ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
-```
-
 **Guard 2 — the `setup` project (`e2e/setup/environment.setup.ts`).** It resets the mock Curator and
 performs one real `/bff/login` round trip, asserting `/bff/user` returns 200 carrying the expected `sub`.
 The `e2e` project declares `dependencies: ['setup']`, so a broken environment aborts the whole suite in
-seconds with a message naming the port and the cause, rather than 21 × 30s of timeouts blaming a nav
-locator. Measured: the guard costs **~1.8s** on an idle machine, and a failing guard skipped all 117 e2e
-tests and reported in 26.8s.
+seconds with a message naming the port and the cause, rather than one 30s timeout per test blaming a nav
+locator.
 
-**Its `timeout` is 60s deliberately, not tuned to that 1.8s.** On a heavily loaded box the same login
-round trip was measured at **24.3s**, so a tight bound would abort the whole suite spuriously — the one
-failure a guard must never have. The goal is a *correct* fast abort (~1 min instead of ~10), not the
-fastest possible one.
+**Its `timeout` is 60s deliberately.** The login round trip takes a couple of seconds on an idle machine
+and can take over twenty on a heavily loaded one, so a tight bound would abort the whole suite spuriously,
+the one failure a guard must never have. The goal is a *correct* fast abort, not the fastest possible one.
 
 This is a **setup project, not `globalSetup`**: a setup project runs as tests, with fixtures, tracing and a
 per-project count in the report, none of which `globalSetup` gets (Playwright starts `webServer` before
 either). `--grep` selects primary tests only and dependency projects run in full, so the guard still fires
 during `npm run e2e -- --grep "..."`.
 
-Guard 2 is defence in depth, not the fix for the original incident — Guard 1 removes that failure mode
-outright by refusing to adopt the stale server at all. Two things Guard 2 does **not** catch, both
-measured rather than assumed: a broken `OidcAuthority`/`NODE_EXTRA_CA_CERTS` stops the SSR server
+Guard 2 is defense in depth: Guard 1 removes the stale-server failure outright by refusing to adopt
+another process's server at all. Two things Guard 2 does **not** catch: a broken `OidcAuthority`/`NODE_EXTRA_CA_CERTS` stops the SSR server
 starting, so the run aborts at `webServer` before any test executes; and **the mock OIDC provider does
 not validate the client secret**, so a deliberately wrong `LibrarianClientSecret` still passes the guard
 and the full suite. No test here covers client-credential misconfiguration.
@@ -451,9 +434,9 @@ and the full suite. No test here covers client-credential misconfiguration.
 the wrong thing.** Every authenticated test times out on a locator and the page snapshot shows the
 *anonymous* page — it reads like a nav bug when it is a login bug. Check `/bff/user` and the mock
 provider's discovery document before touching a component. **The same hazard is far worse in production**:
-requesting a scope the live Identity client has not been granted fails sign-in for every user, so a scope
-change is a deploy-ordering one-way door. Prefer `accessTokenClaims`' allowlist in `src/bff/routes.ts`,
-which surfaces a claim the access token already carries and needs no Identity change at all.
+requesting a scope the provider has not granted this client fails sign-in for every user, so a scope
+change has to reach the provider before the app. Prefer `accessTokenClaims`' allowlist in
+`src/bff/routes.ts`, which surfaces a claim the access token already carries and needs no provider change.
 
 **`store.seedAdmin()` alone no longer makes a page an admin — use `signInAsAdmin(page)`.** Admin status
 reaches the browser as the `curator.admin` OIDC claim, settled once during the login round trip the
@@ -508,17 +491,14 @@ heading were added to fix; a new section without one silently reintroduces it.
 ## Synthetic walker
 
 `e2e/synthetic/walker.spec.ts` performs a **seeded random walk of the deployed app**: one real
-login through Identity (`/bff/login?returnTo=…`), then a weighted random sequence of read-only
-actions (nav rail, catalog browsing, library search/filter/pagination, FAQ, color-scheme flips —
-no mutating POSTs; `#library-refresh` is deliberately excluded because it triggers a real
-enrichment run). It runs on a schedule from `.github/workflows/synthetic.yml` (twice daily, plus
-`workflow_dispatch` with a `seed` input) and is **never a merge gate** — `e2e:synthetic` is
-deliberately absent from the CI gate order in `AGENTS/REPOS/Librarian.md`; do not "complete" that list
-with it. Tests skip unless `WalkerBaseUrl` is set.
+login through the deployed OIDC provider (`/bff/login?returnTo=…`), then a weighted random sequence of
+read-only actions (nav rail, catalog browsing, library search/filter/pagination, FAQ, color-scheme flips;
+no mutating POSTs; `#library-refresh` is deliberately excluded because it triggers a real enrichment
+run). It runs on a schedule from `.github/workflows/synthetic.yml` (twice daily, plus `workflow_dispatch`
+with a `seed` input) and is **never a merge gate**: `e2e:synthetic` is deliberately absent from the CI
+step list; do not "complete" that list with it. Tests skip unless `WalkerBaseUrl` is set.
 
-**This replaced the post-deploy smoke tier, which was deleted fleet-wide.** Smoke was a stopgap
-until walkers existed; once they did it was duplicate coverage that also needed its own reCAPTCHA
-exemption to log in. Its two checks (`GET /health` and basic reachability) are subsumed by a walk
+There is no separate post-deploy smoke test: `GET /health` and basic reachability are subsumed by a walk
 that actually browses the app.
 
 The walker files live under `e2e/`, so `npm run typecheck:e2e` covers them automatically and they
@@ -534,16 +514,13 @@ Environment contract:
 | `SYNTHETIC_STEPS` | Optional step budget override; its default and ceiling are `stepBudget` in `e2e/synthetic/walker-settings.json` |
 | `PASSKEY_CREDENTIAL1` | The walker account's passkey, as the five-field JSON Playwright's virtual authenticator returns |
 
-**The walker signs in with a passkey, not a password.** Identity evaluates the passkey branch
-*before* the CAPTCHA, so this is a first-class production auth path rather than an exemption —
-there is no marker header and no test-only code in Identity's authentication handler. No password
-is stored in CI. Who the accounts are, and how to enroll a passkey, is in `Tools/Identity/AGENTS.md`
-(private repo).
+**The walker signs in with a passkey, not a password**, through the provider's ordinary passkey
+sign-in rather than an exemption, so no password is stored in CI. Enroll a passkey for the walker
+account with your provider and store the virtual authenticator's credential as `PASSKEY_CREDENTIAL1`.
 
-**PSN-dependent actions must read the flags, not assume them.** All three fleet accounts carry a
-`psn_links` row and an OpenCritic key, which is what makes multi-account trophy views walkable —
-but every link currently has `harvest_trophies=false` and `allow_friend_writes=false`. An action
-gated on either must check at run time and skip cleanly.
+**PSN-dependent actions must read the flags, not assume them.** A walker account may or may not carry a
+PSN link, and a link's `harvest_trophies` and `allow_friend_writes` may be off. An action gated on any of
+these checks at run time and skips cleanly.
 
 Replay a failed walk with the seed from the job summary / failure message:
 
@@ -554,25 +531,19 @@ $env:SYNTHETIC_SEED = '<seed>'; $env:WalkerBaseUrl = '<deployed app URL>'; npm r
 Same seed ⇒ same RNG decisions given the same action availability; divergence caused by live-data
 drift is expected — the guarantee is the decision sequence.
 
-- **The seed is a run parameter, not unit-test data.** CODE-STYLE.md rule 11 is scoped to unit
-  tests; do not "fix" the walker by making the seed unrepeatable.
+- **The seed is a run parameter, not unit-test data**; the rule that unit-test data is generated does
+  not apply to it, so do not make the seed unrepeatable.
 - **A missing locator is an app defect until proven otherwise, and a timeout is not the answer to
-  one.** Seed `1210598324` failed at step 12 asserting `#page-title` after the rail landed on
-  `/privacy`. The reflex reading is a slow render, but the element was not there at all: `/privacy`
-  and `/faq` were the only rail destinations whose `<h1>` carried `id="top"` — the target of
-  `PageTocComponent`'s back-to-top link — rather than the `id="page-title"` every other page uses.
-  Raising the timeout would only have failed slower. Because the walker picks the rail link at
-  **random**, a page missing the id fails on some seeds and not others, which is exactly the class
-  of defect the walker exists to surface and the reason a failure must be diagnosed before it is
-  timed out. See `AGENTS/REPOS/Librarian.md` § navigation for the resulting invariant: every page's `<h1>`
-  carries `id="page-title"` unconditionally, error branches included.
-- **The engine comes from `@crgolden/modules/synthetic-walker`** (the Modules repo). Installing
-  it needs GitHub Packages auth — CI uses the `PACKAGES_READ_TOKEN` secret; locally a
-  `read:packages` PAT in your user `~/.npmrc`. A 401 on the `@crgolden` scope during `npm ci`
-  means the token is missing.
-- Walker traffic is identifiable by the User-Agent suffix `crgolden-synthetic/1.0`; the secret
-  marker header goes to Identity-origin requests and, via redirect propagation, this app's own
-  origin — never to third-party hosts (verified from a trace network log).
+  one.** Because the walker picks a rail link at **random**, a page whose `<h1>` lacks
+  `id="page-title"` fails on some seeds and not others, and reads like a slow render. That is the class of
+  defect the walker exists to surface, so diagnose a failure before raising any timeout. Every page's
+  `<h1>` carries `id="page-title"` unconditionally, error branches included.
+- **The engine comes from the `@crgolden/modules` package's `synthetic-walker` entry point**, installed
+  from GitHub Packages like the rest of the scope ([README.md](README.md#prerequisites)). A 401 on the
+  `@crgolden` scope during `npm ci` means the token is missing.
+- Walker traffic is identifiable by the User-Agent suffix `crgolden-synthetic/1.0`; the secret marker
+  header goes only to the OIDC provider's origin and, through redirect propagation, this app's own
+  origin, never to third-party hosts.
 - **GitHub disables scheduled workflows after 60 days without repo activity in public repos**;
   a push, a `workflow_dispatch`, or the Actions UI re-enables it. Schedules fire from `main` only.
 
@@ -582,28 +553,28 @@ drift is expected — the guarantee is the decision sequence.
 
 The GitHub Actions workflow (`.github/workflows/main_crgolden-librarian.yml`) runs on every push and PR:
 
-1. `npm ci` → lint → `typecheck:e2e` (runs `bddgen` first) → `typecheck:spec` → `lint:css`
+1. `npm ci` → lint → `typecheck:e2e` (runs `bddgen` first) → `typecheck:spec` → `lint:css` →
+   `npm run audit` (fails on a high or critical advisory)
 2. Playwright browsers installed (Chromium cached by version), because the browser unit tier needs them
 3. `npm run test:coverage` (all three Vitest projects; LCOV → `coverage/lcov.info`)
 4. `npm run e2e` (self-builds the `ci` configuration, runs `bddgen`, then the `integration` and `e2e` projects)
 5. The executed count asserted against `executedTestFloor`
-6. `publish-bdd-results` sends `cucumber-report/messages.ndjson` to the `test_results` database; the
-   Cucumber HTML report is uploaded as the `librarian-cucumber-report` artifact
-7. `lint:utilities`, then SonarCloud analysis via `sonarqube-scan-action` (JS LCOV only; no C# paths)
-8. `npm run build` (production configuration) → `npm prune --omit=dev` → deploy to `crgolden-librarian` (Linux)
+6. `publish-bdd-results` sends `cucumber-report/messages.ndjson` to the PostgreSQL results store the
+   `TEST_RESULTS_*` settings name; the Cucumber HTML report is uploaded as the
+   `librarian-cucumber-report` artifact
+7. `lint:utilities`, then SonarCloud analysis via `sonarqube-scan-action`, then a step that fails on any
+   open Sonar issue
+8. On `main` only: `npm run build` (production configuration) → `npm prune --omit=dev` → deploy to the
+   App Service app
+
 There is no post-deploy step. The scheduled synthetic walker (`synthetic.yml`) is what exercises the
 deployed app.
 
-There is no SQL dacpac in this pipeline.
-
 ---
 
-## Local SonarCloud analysis
+## Iterating on E2E
 
-A single SonarCloud project, `crgolden_Librarian`, covers the Angular client (Vitest LCOV). There is
-no C# surface. Use the global sonar-scanner CLI:
-
-**Iterating on tests: use `npm run e2e:run`, which skips the ~85s rebuild.**
+**Use `npm run e2e:run`, which skips the rebuild.**
 
 | Script | Does | Use when |
 |---|---|---|
@@ -620,7 +591,15 @@ names the SSR server, not the cert, and looks exactly like a slow cold start.
 
 **To run a subset, pass `--grep` through either script**: `npm run e2e -- --grep "some describe"`. Both
 end at the `playwright test` invocation, so npm forwards the argument rather than consuming it as its
-own flag — this is why neither script delegates to the other.
+own flag, so neither script delegates to the other.
+
+---
+
+## Local SonarCloud analysis
+
+A single SonarCloud project, `crgolden_Librarian`, covers the Angular client (Vitest LCOV). Use the
+SonarScanner CLI with `SONAR_TOKEN` in the environment and `sonar.host.url=https://sonarcloud.io` in its
+global `conf/sonar-scanner.properties` or as one more `-D` argument.
 
 **Generate coverage with the *whole* suite.** A filtered run (`vitest run --coverage src/home`)
 overwrites `coverage/lcov.info` with only the files that run touched, so a scan straight afterwards
@@ -631,8 +610,7 @@ to suggest anything is wrong.
 # Generate coverage first
 npx vitest run --coverage
 
-# Run the scanner (uses global sonar-scanner.properties; override token via env)
-$env:SONAR_TOKEN = '<token>'
+# Run the scanner with SONAR_TOKEN already in the environment
 sonar-scanner `
   "-Dsonar.projectKey=crgolden_Librarian" `
   "-Dsonar.organization=crgolden" `
@@ -646,26 +624,24 @@ sonar-scanner `
 **Quote each `-D` argument whole**, as above. Unquoted, PowerShell parses `-Dsonar.projectKey=…` as a
 parameter named `-Dsonar` and passes the remainder as a separate token, and the scanner exits 1 with
 `Unrecognized option: .projectKey=crgolden_Librarian`. It survives interactively often enough to look
-correct, then fails the moment the same lines run from a `.ps1`. Quoting the whole argument — rather than
-only the value, as the exclusion lines used to — is what makes the two cases behave alike.
+correct, then fails the moment the same lines run from a `.ps1`. Quoting the whole argument, rather than
+only the value, is what makes the two cases behave alike.
 
 Add `"-Dsonar.branch.name=<branch>"` whenever you are scanning anything other than the default branch;
 without it the analysis replaces the main-branch result, as the paragraph below explains.
 
 **These flags and the `SonarCloud analysis` step in
 `.github/workflows/main_crgolden-librarian.yml` are the only definition of the project's analysis
-scope** — this fleet keeps no `sonar-project.properties`, and a CLI flag overrides whatever the
+scope**: this repo keeps no `sonar-project.properties`, and a CLI flag overrides whatever the
 SonarCloud UI has. Keep them in step: when they drift, a local run measures a different denominator
 than CI and then *publishes* it, because a local scan with no `-Dsonar.branch.name` replaces the
-main-branch analysis until the next push. A narrower local list once understated coverage by several
-points and made a passing gate look failed.
+main-branch analysis until the next push, so a narrower local list understates coverage and makes a
+passing gate look failed.
 
-**Sync them by fixing whichever is wrong, not by copying one into the other.** The rules that decide
-which entries belong — the *"could a unit test catch a bug in this file?"* test, category globs over
-extensions or filename lists, and when a zero-match pattern may be deleted — are fleet-wide and live in
-`AGENTS/TESTING.md` § SonarCloud → Coverage exclusions. The Librarian-specific case they settle: `**/*.mjs`
-would silently drop any future application module that happens to use that extension, which is why this
-list names categories instead.
+**Sync them by fixing whichever is wrong, not by copying one into the other.** A file is excluded from
+coverage only when no unit test could catch a bug in it. Exclusions name categories (globs over folders
+and roles) rather than extensions or filename lists: `**/*.mjs` would silently drop any future
+application module that happens to use that extension. A pattern that matches nothing is deleted.
 
 The three composition roots — `src/main.ts`, `src/main.server.ts` and `src/server.ts` — answer *no*
 together and are excluded together. Each is top-level wiring whose every branch is an import or an
@@ -675,6 +651,6 @@ differently from its two siblings is drift, not a decision.
 
 ### When to build a truth table
 
-The coverage **score is read from SonarCloud, never hand-maintained** here. Build a per-method table
-only when SonarCloud flags a method with **cognitive complexity > 15 AND uncovered conditions > 0**.
-See the workspace `COVERAGE/METHOD.md`.
+The coverage **score is read from SonarCloud, never hand-maintained** here. Build a per-method truth
+table (one row per combination of the method's conditions, each mapped to the test that exercises it) only
+when SonarCloud flags a method with **cognitive complexity > 15 AND uncovered conditions > 0**.
