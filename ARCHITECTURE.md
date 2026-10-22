@@ -1,5 +1,7 @@
 # Architecture
 
+## Bird's-eye view
+
 Librarian is the web front end of a PlayStation game-curation service. One Node process runs an Angular
 22 server-side renderer and an Express Backend-for-Frontend (BFF). The BFF holds the user's OIDC session
 and proxies every data call to the Curator API with the session's bearer token, so the browser never sees
@@ -106,3 +108,25 @@ one.
 - Every page's `<h1>` carries `id="page-title"`, error branches included.
 - A page shows RAWG attribution only when it renders RAWG data.
 - The design rules in [DESIGN.md](DESIGN.md) govern every UI change.
+
+## Boundaries
+
+Each dependency is a setting validated at startup by `src/bff/settings.ts`, so a local stand-in is a different value:
+
+- **The OIDC provider** (`OidcAuthority`, `LibrarianClientId`, `LibrarianClientSecret`): a confidential client running
+  Authorization Code + PKCE, with the redirect `<origin>/bff/callback`.
+- **The Curator API** (`CuratorApiAddress`): every `/curator/api/**` call and the sitemap's catalog walk.
+- **Redis** (`RedisHost`, `RedisPort`, `RedisPassword` and the five `Redis*Ms` tunables): the session store, unless
+  `SessionStore=memory`.
+
+## Cross-cutting concerns
+
+- **Configuration.** Every setting is an environment variable read once through `src/bff/settings.ts`; a missing
+  required one stops the process at startup, and none is read at module scope, because the build imports the server
+  bundle with no settings present. `PublicBaseUrl` sets the origin the sitemap and `robots.txt` advertise.
+- **Telemetry.** `instrumentation.mjs`, loaded with `--import` ahead of the app, exports traces and metrics over OTLP
+  to `AlloyEndpoint`; `src/telemetry/logging.ts` writes `pino` logs to stdout and, when `ElasticsearchNode` is set, to
+  the `logs-app-librarian` data stream.
+- **Hosting.** A Linux Azure App Service running `node --import ./instrumentation.mjs` against the built server
+  bundle; in production each secret is an App Service setting holding a Key Vault reference, so the app makes no
+  vault calls of its own.

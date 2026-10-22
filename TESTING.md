@@ -27,7 +27,7 @@ jsdom. `browser` runs every `*.browser.spec.ts` in Chromium with `colorScheme: '
 `*.light.browser.spec.ts`. `browser-light` runs `*.schemes.browser.spec.ts` and `*.light.browser.spec.ts`
 with `colorScheme: 'light'`. **The filename picks the scheme**: a spec asserting something true in both
 schemes is `*.schemes.browser.spec.ts`, one true only in light is `*.light.browser.spec.ts`, and no spec
-branches on `matchMedia` (CODE-STYLE rule 12). Both projects pin `timezoneId: 'UTC'`.
+branches on `matchMedia`. Both projects pin `timezoneId: 'UTC'`.
 
 - `src/test-setup.browser.ts` loads `src/styles.css` and initializes the Angular test environment.
   `src/test-setup-resources.browser.ts` resolves every component's `templateUrl` from an `import.meta.glob`
@@ -39,6 +39,19 @@ branches on `matchMedia` (CODE-STYLE rule 12). Both projects pin `timezoneId: 'U
   because `Data` accepts anything), the real `AuthService` fed a session through
   `HttpTestingController.expectOne(BFF_USER_RELATIVE_PATH)`, then `AppComponent` and
   `router.navigateByUrl`.
+
+## Running tests locally
+
+```powershell
+npm ci
+npm run playwright:install   # Chromium, for the browser unit projects and Playwright
+npx vitest run               # unit, browser and browser-light projects
+npm run test:coverage        # the same, with LCOV in coverage/lcov.info
+npm run e2e                  # builds the ci configuration, then the integration and e2e projects
+```
+
+`npm run e2e` starts the SSR server and the mock Curator and OIDC servers on ports 4100 to 4102, so all three must
+be free. The synthetic walker runs only against a deployed app ([Synthetic walker](#synthetic-walker)).
 
 ---
 

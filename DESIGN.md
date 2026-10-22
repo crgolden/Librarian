@@ -898,8 +898,8 @@ measures zero and would satisfy any "it fits" bound.
 ### There are no component stylesheets
 
 Every component styles itself with utilities in its template, and a component classes its own host through
-its `host` metadata (`app-avatar`, `app-page-size`), never a `:host` rule. A `*.component.css` is a
-code-style catalog row under rule 14, and deleting it is the only way to close that row.
+its `host` metadata (`app-avatar`, `app-page-size`), never a `:host` rule. A `*.component.css` file is
+never added: the maintainers' gate reports one, and deleting it is the only way to clear the report.
 
 **The cascade decides what a utility can override, so the layers are the design.** `@import
 'tailwindcss'` declares `theme, base, components, utilities`. `styles.css` authors only `@theme` tokens,
@@ -953,9 +953,9 @@ visible failure until the page is measured.
 
 ### Enforcing it
 
-Every rule here is enforced by a check, never by this prose. The code-style catalog reports every
+Every rule here is enforced by a check, never by this prose. The maintainers' gate reports every
 authored CSS declaration outside `@theme` tokens, `@font-face`, `@import`, the light-scheme re-binding of
-existing tokens, and type-selector rules in `@layer base` as a rule-14 row. `lint:css` runs the shared
+existing tokens, and type-selector rules in `@layer base`. `lint:css` runs the shared
 `@crgolden/modules/design-gates` stylelint config over `styles.css`: no literal color (hex, a color
 function or a named color), and font, shadow and z-index values read `@theme` tokens. `lint:utilities`
 runs the shared design-gates check: it fails a template or directive host class the built CSS never

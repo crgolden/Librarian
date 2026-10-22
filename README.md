@@ -43,12 +43,13 @@ how to run it: [TESTING.md](TESTING.md).
   `<origin>/bff/callback`, scopes `offline_access openid profile email curator`) and a running Curator API.
   Redis is optional locally (`SessionStore=memory`).
 
-## Clone and install
+## Clone and build
 
 ```powershell
 git clone https://github.com/crgolden/Librarian.git
 cd Librarian
 npm ci
+npm run build:ci
 ```
 
 ## Configuration
@@ -83,11 +84,10 @@ resolves at startup through the app's managed identity; the app makes no vault c
 ## Run locally
 
 ```powershell
-npm run build:ci
 npm run serve:ssr     # http://localhost:4100: SSR, the BFF and the Curator proxy
 ```
 
-Use the `ci` build to serve locally: the production configuration only accepts the App Service host, so
+Use the `ci` build from [Clone and build](#clone-and-build) to serve locally: the production configuration only accepts the App Service host, so
 `localhost` is answered with a one-line `Header "host" ... is not allowed` page. `serve:ssr` runs the built
 `dist/`, so rebuild after a change. For template and style work, `npm start` runs `ng serve` on port 56433
 with incremental rebuilds; set `ASPNETCORE_URLS=http://localhost:4100` so its proxy reaches the running
@@ -105,8 +105,10 @@ synthetic walker that exercises the deployed app on a schedule, and the local So
 
 ## Gate
 
-`gate.ps1` is the maintainers' gate. It loads a private toolkit from a folder beside this repo, so in a
-plain clone it stops at once. To gate your own change, run the checks CI runs, in this order:
+`gate.ps1` is the maintainers' gate. It dot-sources the gate library script that the `GATE_LIBRARY` environment
+variable names, which defines the step functions `gate.ps1` calls; unset, as in a plain clone, it stops at once with
+`GATE: FAILED` and records nothing. To gate with a library of your own, set `GATE_LIBRARY` to its path; it must
+define every function `gate.ps1` calls, since those functions decide whether each step ran and passed. To gate your own change without one, run the checks CI runs, in this order:
 
 ```powershell
 npm ci
