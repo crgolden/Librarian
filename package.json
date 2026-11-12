@@ -19,7 +19,7 @@
     "e2e": "npm run build:ci && npx tsx e2e/mocks/generate-oidc-cert.ts && bddgen && playwright test --project=integration --project=e2e --max-failures=1",
     "e2e:run": "npx tsx e2e/mocks/generate-oidc-cert.ts && bddgen && playwright test --project=integration --project=e2e --max-failures=1",
     "e2e:synthetic": "playwright test --project=synthetic",
-    "playwright:install": "playwright install --with-deps chromium",
+    "playwright:install": "playwright install chromium",
     "audit": "check-npm-audit"
   },
   "private": true,
