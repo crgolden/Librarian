@@ -91,7 +91,7 @@
     "eslint-plugin-sonarjs": "4.2.2",
     "eslint-plugin-unicorn": "79.0.0",
     "jose": "^6.2.3",
-    "jsdom": "^30.1.3",
+    "jsdom": "^31.0.0",
     "playwright-bdd": "^9.2.1",
     "prettier": "^3.9.10",
     "selfsigned": "^5.5.0",
