@@ -5,13 +5,11 @@ import walkerSettings from './walker-settings.json';
 import { AppUrls } from '../../src/app/app-paths';
 import { BffPaths, RETURN_TO_PARAMETER } from '../../src/shared/bff-contract';
 
-const walkerBaseUrl = process.env['WalkerBaseUrl']?.replace(/\/$/, '');
 const ADMIN_PATH = AppUrls.adminEnrichment;
 
 test.describe('Synthetic walker', () => {
   for (const { slot, role, administers } of walkerSettings.journeys) {
     test(`walks the deployed app as an ${role} with a seeded random journey`, async ({ page }, testInfo) => {
-      test.skip(!walkerBaseUrl, 'Synthetic walks target the deployed app only; set WalkerBaseUrl to run.');
       const seed = resolveSeed();
       const steps = resolveStepBudget(walkerSettings.stepBudget);
       await loginWithPasskey(page, {

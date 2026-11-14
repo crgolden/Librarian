@@ -75,7 +75,7 @@
     "@angular/cli": "^22.2.6",
     "@angular/compiler-cli": "^22.2.5",
     "@axe-core/playwright": "^4.14.0",
-    "@crgolden/modules": "0.18.0",
+    "@crgolden/modules": "0.18.1",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.65.0",
     "@types/express": "^5.0.6",

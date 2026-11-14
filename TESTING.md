@@ -509,7 +509,8 @@ read-only actions (nav rail, catalog browsing, library search/filter/pagination,
 no mutating POSTs; `#library-refresh` is deliberately excluded because it triggers a real enrichment
 run). It runs on a schedule from `.github/workflows/synthetic.yml` (twice daily, plus `workflow_dispatch`
 with a `seed` input) and is **never a merge gate**: `e2e:synthetic` is deliberately absent from the CI
-step list; do not "complete" that list with it. Tests skip unless `WalkerBaseUrl` is set.
+step list; do not "complete" that list with it. It lives in its own `synthetic` Playwright project, which
+`npm run e2e` never selects, so the gate and CI leave it out by structure; it carries no skip.
 
 There is no separate post-deploy smoke test: `GET /health` and basic reachability are subsumed by a walk
 that actually browses the app.
