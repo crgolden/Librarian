@@ -1350,6 +1350,27 @@ describe('LibraryComponent', () => {
       expect((fixture.nativeElement as HTMLElement).querySelector('#library-show-hidden')?.textContent).toContain(String(HIDDEN_COUNT));
     });
 
+    it('disables the manual-add controls while a hide is in flight, and releases them when it lands', async () => {
+      const fixture = await createOwner(okLibrary([FULL_GAME], 1));
+      const compiled: HTMLElement = fixture.nativeElement;
+      clickById(compiled, 'library-add-manual-toggle');
+      fixture.detectChanges();
+
+      expect(buttonById(compiled, 'library-manual-search-submit').disabled).toBe(false);
+
+      clickById(compiled, `library-hide-${FULL_GAME.game_id}`);
+      fixture.detectChanges();
+
+      expect(buttonById(compiled, 'library-manual-search-submit').disabled).toBe(true);
+
+      httpMock
+        .expectOne(CuratorApi.libraryByGameIdHidden(FULL_GAME.game_id))
+        .flush(null, statusOf(HttpStatusCode.InternalServerError));
+      fixture.detectChanges();
+
+      expect(buttonById(compiled, 'library-manual-search-submit').disabled).toBe(false);
+    });
+
     it('reports a failed hide against the title it could not hide', async () => {
       const fixture = await createOwner(okLibrary([FULL_GAME], 1));
 

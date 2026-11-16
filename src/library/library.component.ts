@@ -250,6 +250,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
   protected readonly manualResults = signal<GameSummaryResponse[]>([]);
   protected readonly manualSearching = signal(false);
   protected readonly manualPending = signal<string | null>(null);
+  protected readonly mutationPending = computed(() => this.manualPending() !== null || this.hidePending() !== null);
   protected readonly manualError = signal<string | null>(null);
 
   protected readonly allCatalogMatchesOwned = signal(false);

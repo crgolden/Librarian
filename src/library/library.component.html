@@ -1,5 +1,5 @@
 <section id="library-page" crgPageSection class="flex flex-col gap-4 max-w-data mx-auto">
-  <app-loading-overlay [visible]="gamesLoading() || manualPending() !== null || hidePending() !== null" />
+  <app-loading-overlay [visible]="gamesLoading() || mutationPending()" />
 
   @if (viewerMode()) {
     <app-breadcrumb [items]="breadcrumbItems()" />
@@ -50,7 +50,7 @@
                 id="library-manual-search-submit"
                 type="submit"
                 crgButtonPrimary
-                [disabled]="manualSearching() || manualPending() !== null"
+                [disabled]="manualSearching() || mutationPending()"
               >
                 {{ manualSearching() ? 'Searching…' : 'Search' }}
               </button>
@@ -87,7 +87,7 @@
                       crgButtonGhostSmall
                       [attr.id]="'library-manual-add-' + $index"
                       [attr.data-game-id]="candidate.game_id"
-                      [disabled]="manualPending() !== null"
+                      [disabled]="mutationPending()"
                       (click)="addManualGame(candidate)"
                     >
                       Add
@@ -104,7 +104,7 @@
                   id="library-manual-check-store"
                   type="button"
                   crgButtonPrimary
-                  [disabled]="manualSearching() || manualPending() !== null"
+                  [disabled]="manualSearching() || mutationPending()"
                   (click)="checkTheStoreForCurrentSearch()"
                 >
                   Search the PlayStation Store
@@ -357,7 +357,7 @@
                                 type="button"
                                 crgButtonGhostSmall
                                 [attr.id]="'library-manual-remove-' + $index"
-                                [disabled]="manualPending() !== null"
+                                [disabled]="mutationPending()"
                                 (click)="removeManualGame(row.original)"
                               >
                                 Remove
@@ -370,7 +370,7 @@
                                 type="button"
                                 crgButtonGhostSmall
                                 [attr.id]="'library-unhide-' + row.original.game_id"
-                                [disabled]="hidePending() !== null"
+                                [disabled]="mutationPending()"
                                 (click)="unhideGame(row.original)"
                               >
                                 Show again
@@ -380,7 +380,7 @@
                                 type="button"
                                 crgButtonGhostSmall
                                 [attr.id]="'library-hide-' + row.original.game_id"
-                                [disabled]="hidePending() !== null"
+                                [disabled]="mutationPending()"
                                 (click)="hideGame(row.original)"
                               >
                                 Hide
@@ -523,7 +523,7 @@
               type="button"
               crgButtonPrimarySmall
               [attr.id]="'library-store-accept-' + $index"
-              [disabled]="manualPending() !== null"
+              [disabled]="mutationPending()"
               (click)="acceptStoreMatch(candidate)"
             >
               Yes, add this one
