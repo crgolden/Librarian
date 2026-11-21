@@ -246,7 +246,7 @@ describe(BffPaths.callback, () => {
       expires_in: TOKEN_LIFETIME_SECONDS,
       claims: () => ({ sub: USER_SUB, email: newEmailAddress() }),
     } as never);
-    vi.mocked(fetchUserInfo).mockResolvedValueOnce({ sub: USER_SUB, name: newText() } as never);
+    vi.mocked(fetchUserInfo).mockResolvedValueOnce({ sub: USER_SUB, name: newText() });
 
     const req = makeReq({
       session: { pkceCodeVerifier: PKCE_VERIFIER, oauthState: OAUTH_STATE },
@@ -273,7 +273,7 @@ describe(BffPaths.callback, () => {
       expires_in: TOKEN_LIFETIME_SECONDS,
       claims: () => ({ sub: USER_SUB, email: newEmailAddress() }),
     } as never);
-    vi.mocked(fetchUserInfo).mockResolvedValueOnce({ sub: USER_SUB, name: newText() } as never);
+    vi.mocked(fetchUserInfo).mockResolvedValueOnce({ sub: USER_SUB, name: newText() });
 
     const req = makeReq({
       session: { pkceCodeVerifier: PKCE_VERIFIER, oauthState: OAUTH_STATE, returnTo: AppUrls.account },
@@ -309,7 +309,7 @@ describe(BffPaths.callback, () => {
       expires_in: TOKEN_LIFETIME_SECONDS,
       claims: () => ({ sub: USER_SUB, [arrayClaimType]: arrayClaimValues }),
     } as never);
-    vi.mocked(fetchUserInfo).mockResolvedValueOnce({ sub: USER_SUB } as never);
+    vi.mocked(fetchUserInfo).mockResolvedValueOnce({ sub: USER_SUB });
 
     const req = makeReq({
       session: { pkceCodeVerifier: PKCE_VERIFIER, oauthState: OAUTH_STATE },
