@@ -10,4 +10,6 @@
     </ul>
   </nav>
 }
-<a id="back-to-top" href="#page-title" crgButtonGhostSmall class="fixed z-(--z-back-to-top) bottom-[calc(var(--tabbar-height)_+_env(safe-area-inset-bottom)_+_--spacing(4))] right-4 lg:bottom-4" (click)="scrollToId('page-title', $event)">Back to top</a>
+<div id="back-to-top-surface" class="fixed z-(--z-back-to-top) bottom-[calc(var(--tabbar-height)_+_env(safe-area-inset-bottom)_+_--spacing(4))] right-4 rounded-sm bg-surface lg:bottom-4">
+  <a id="back-to-top" href="#page-title" crgButtonGhostSmall (click)="scrollToId('page-title', $event)">Back to top</a>
+</div>

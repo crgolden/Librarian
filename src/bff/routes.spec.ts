@@ -44,6 +44,12 @@ import { BffPaths, BffRoutes, ClaimTypes, CSRF_HEADER, CSRF_HEADER_VALUE, MISSIN
 import { AppUrls } from '../app/app-paths';
 import { UrlSchemes } from '../testing/url-constants';
 
+type UserInfo = Awaited<ReturnType<typeof fetchUserInfo>>;
+
+function userInfoOf(claims: Record<string, unknown>): UserInfo {
+  return claims as UserInfo;
+}
+
 const ISSUER = newHttpsAddress();
 const AUTHORIZATION_URL = new URL(newHttpsAddress());
 const PKCE_VERIFIER = newText();
@@ -246,7 +252,7 @@ describe(BffPaths.callback, () => {
       expires_in: TOKEN_LIFETIME_SECONDS,
       claims: () => ({ sub: USER_SUB, email: newEmailAddress() }),
     } as never);
-    vi.mocked(fetchUserInfo).mockResolvedValueOnce({ sub: USER_SUB, name: newText() });
+    vi.mocked(fetchUserInfo).mockResolvedValueOnce(userInfoOf({ sub: USER_SUB, name: newText() }));
 
     const req = makeReq({
       session: { pkceCodeVerifier: PKCE_VERIFIER, oauthState: OAUTH_STATE },
@@ -273,7 +279,7 @@ describe(BffPaths.callback, () => {
       expires_in: TOKEN_LIFETIME_SECONDS,
       claims: () => ({ sub: USER_SUB, email: newEmailAddress() }),
     } as never);
-    vi.mocked(fetchUserInfo).mockResolvedValueOnce({ sub: USER_SUB, name: newText() });
+    vi.mocked(fetchUserInfo).mockResolvedValueOnce(userInfoOf({ sub: USER_SUB, name: newText() }));
 
     const req = makeReq({
       session: { pkceCodeVerifier: PKCE_VERIFIER, oauthState: OAUTH_STATE, returnTo: AppUrls.account },
@@ -309,7 +315,7 @@ describe(BffPaths.callback, () => {
       expires_in: TOKEN_LIFETIME_SECONDS,
       claims: () => ({ sub: USER_SUB, [arrayClaimType]: arrayClaimValues }),
     } as never);
-    vi.mocked(fetchUserInfo).mockResolvedValueOnce({ sub: USER_SUB });
+    vi.mocked(fetchUserInfo).mockResolvedValueOnce(userInfoOf({ sub: USER_SUB }));
 
     const req = makeReq({
       session: { pkceCodeVerifier: PKCE_VERIFIER, oauthState: OAUTH_STATE },

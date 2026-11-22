@@ -337,6 +337,12 @@ bar's own height, `main`'s padding, and `app-page-toc`'s back-to-top button, who
 `calc(var(--tabbar-height)_+_env(safe-area-inset-bottom)_+_--spacing(4))`. A fourth bottom-anchored
 element needs the same treatment, and no test emulates a safe area.
 
+**A control fixed over scrolling content sits on a solid surface.** The back-to-top link is a ghost
+button, whose background is transparent, so over the page's own text its contrast would depend on
+whatever scrolls beneath it. It is wrapped in `#back-to-top-surface`, which carries the fixed position,
+the offset, the `--z-back-to-top` rung and `bg-surface`, so the link always reads against the surface
+and the ghost directive's own `bg-transparent` is never overridden on the same element.
+
 - **Grid model**: a centered outer column (`crgPageContainer`: `max-w-page`, `mx-auto`, horizontal
   padding `px-6`, `px-4` below the `sm` breakpoint), not a multi-column app-shell grid. Catalog uses a
   responsive card grid within that column (`grid-cols-[repeat(auto-fit,minmax(220px,1fr))]`); Library's
@@ -419,6 +425,7 @@ depth: `--shadow-focus` is the text inputs' focus halo, `--shadow-card` is trans
   --z-header: 10;
   --z-back-to-top: 15;
   --z-tabbar: 20;
+  --z-sheet: 30;
   --z-loading-overlay: 1100;
   ```
 
@@ -428,8 +435,11 @@ depth: `--shadow-focus` is the text inputs' focus halo, `--shadow-card` is trans
   number nobody chose, and a collision only shows when two of them happen to overlap, which is exactly
   the defect that survives review. **Adding a rung means adding a token here first.**
 
-  A modal `<dialog>` renders in the browser's *top layer*, above every z-index, so the sheet needs no rung
-  at all. The loading overlay is **not** in the top layer, and it sits above the sheet on purpose: its
+  A modal `<dialog>` renders in the browser's *top layer*, above every z-index, so in a browser the
+  sheet's `--z-sheet` rung changes nothing. It exists for axe: axe-core places every `position: fixed`
+  element in one grid and orders them by z-index alone, with no model of the top layer, so without a rung
+  above `--z-tabbar` the tab bar reads as covering the open sheet's lower rows and their color contrast
+  comes back as one axe cannot evaluate. The loading overlay is **not** in the top layer, and it sits above the sheet on purpose: its
   whole job is to swallow input during an in-flight request, and a sheet drawn over it would accept taps
   it must not.
 
@@ -910,8 +920,8 @@ utility overrides any default this file sets.
 below `md` is `max-md:` utilities on its `thead`, `tr` and `td`, and each cell's caption is
 `max-md:before:content-[attr(data-label)]`, so the rule and the element it styles are one line apart.
 
-**The stacking ladder is four `--z-*` tokens, read in templates as `z-(--z-header)`,
-`z-(--z-back-to-top)`, `z-(--z-tabbar)` and `z-(--z-loading-overlay)`.** `stylelint` holds
+**The stacking ladder is five `--z-*` tokens, read in templates as `z-(--z-header)`,
+`z-(--z-back-to-top)`, `z-(--z-tabbar)`, `z-(--z-sheet)` and `z-(--z-loading-overlay)`.** `stylelint` holds
 `styles.css` to `var(--z-*)`, and `lint:utilities` fails any template `z-*` utility whose built rule
 does not read a `--z-*` token, so a `z-50` cannot join the ladder at a rung nobody chose. Adding a rung
 is adding the token to Elevation & Depth.
