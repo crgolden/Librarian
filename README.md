@@ -49,7 +49,7 @@ how to run it: [TESTING.md](TESTING.md).
 git clone https://github.com/crgolden/Librarian.git
 cd Librarian
 npm ci
-npm run build:ci
+npm run build:e2e
 ```
 
 ## Configuration
@@ -87,7 +87,7 @@ resolves at startup through the app's managed identity; the app makes no vault c
 npm run serve:ssr     # http://localhost:4100: SSR, the BFF and the Curator proxy
 ```
 
-Use the `ci` build from [Clone and build](#clone-and-build) to serve locally: the production configuration only accepts the App Service host, so
+Use the `e2e` build from [Clone and build](#clone-and-build) to serve locally: the production configuration only accepts the App Service host, so
 `localhost` is answered with a one-line `Header "host" ... is not allowed` page. `serve:ssr` runs the built
 `dist/`, so rebuild after a change. For template and style work, `npm start` runs `ng serve` on port 44433
 with incremental rebuilds; set `ASPNETCORE_URLS=http://localhost:4100` so its proxy reaches the running
@@ -97,7 +97,7 @@ BFF.
 
 ```powershell
 npx vitest run           # unit and browser-unit tiers
-npm run e2e              # build:ci, then the Integration and E2E tiers against the mocks
+npm run e2e              # build:e2e, then the Integration and E2E tiers against the mocks
 ```
 
 Free ports 4100 to 4102 before `npm run e2e`. [TESTING.md](TESTING.md) covers every tier, the mocks, the

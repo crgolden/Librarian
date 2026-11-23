@@ -47,7 +47,7 @@ npm ci
 npm run playwright:install   # Chromium, for the browser unit projects and Playwright
 npx vitest run               # unit, browser and browser-light projects
 npm run test:coverage        # the same, with LCOV in coverage/lcov.info
-npm run e2e                  # builds the ci configuration, then the integration and e2e projects
+npm run e2e                  # builds the e2e configuration, then the integration and e2e projects
 ```
 
 `npm run e2e` starts the SSR server and the mock Curator and OIDC servers on ports 4100 to 4102, so all three must
@@ -344,10 +344,10 @@ npx playwright install chromium
 **Run:**
 
 ```powershell
-npm run e2e   # self-builds the ci configuration (allowedHosts=localhost), then runs Playwright
+npm run e2e   # self-builds the e2e configuration (allowedHosts=localhost), then runs Playwright
 ```
 
-> `npm run e2e` builds the `ci` configuration itself, so it always runs against a correct SSR build
+> `npm run e2e` builds the `e2e` configuration itself, so it always runs against a correct SSR build
 > regardless of what is currently in `dist/` (a prior `npm run build` production build won't break it).
 
 Failure artifacts (screenshot, trace, video) are written to `playwright-artifacts/`.
@@ -571,7 +571,7 @@ The GitHub Actions workflow (`.github/workflows/main_crgolden-librarian.yml`) ru
    `npm run audit` (fails on a high or critical advisory)
 2. Playwright browsers installed (Chromium cached by version), because the browser unit tier needs them
 3. `npm run test:coverage` (all three Vitest projects; LCOV → `coverage/lcov.info`)
-4. `npm run e2e` (self-builds the `ci` configuration, runs `bddgen`, then the `integration` and `e2e` projects)
+4. `npm run e2e` (self-builds the `e2e` configuration, runs `bddgen`, then the `integration` and `e2e` projects)
 5. The executed count asserted against `executedTestFloor`
 6. `publish-bdd-results` sends `cucumber-report/messages.ndjson` to the PostgreSQL results store the
    `TEST_RESULTS_*` settings name; the Cucumber HTML report is uploaded as the
@@ -592,7 +592,7 @@ deployed app.
 
 | Script | Does | Use when |
 |---|---|---|
-| `npm run e2e` | `build:ci` → cert → Playwright | source changed, and in CI |
+| `npm run e2e` | `build:e2e` → cert → Playwright | source changed, and in CI |
 | `npm run e2e:run` | cert → Playwright | only `e2e/` changed |
 
 `e2e:run` reuses whatever is in `dist/`, so **it does not pick up `src/` edits** — that is the trade for

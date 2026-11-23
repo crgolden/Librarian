@@ -44,7 +44,7 @@ import { ControlRoutes } from './control-routes';
 import { CONSOLE_PLATFORM_ERROR, DEVICE_KIND_ERROR } from '../../src/consoles/consoles.messages';
 import { HEALTHY_BODY, HEALTH_PATH } from '../../src/shared/health';
 import { ContentTypes } from '../../src/shared/content-types';
-import { environment } from '../../src/environments/environment.ci';
+import { environment } from '../../src/environments/environment.e2e';
 import {
   AccountActions,
   CuratorConsoleCapacityDefaultsGb,

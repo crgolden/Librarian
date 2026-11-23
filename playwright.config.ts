@@ -25,6 +25,7 @@ export default defineConfig({
   outputDir: './playwright-artifacts',
 
   workers: 1,
+  forbidOnly: true,
 
   reporter: [
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
