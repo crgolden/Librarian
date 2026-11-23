@@ -119,7 +119,7 @@
           "defaultConfiguration": "development",
           "options": {
             "proxyConfig": "src/proxy.conf.js",
-            "port": 56433
+            "port": 44433
           }
         },
         "lint": {

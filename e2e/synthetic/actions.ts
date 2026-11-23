@@ -1,8 +1,10 @@
-import { hasPrefix, isVisible, pickFromPrefix, prefixLocator, type WalkerAction } from '@crgolden/modules/synthetic-walker';
+import { hasPrefix, isVisible, pickFromPrefix, prefixLocator, type Rng, type WalkerAction } from '@crgolden/modules/synthetic-walker';
 import { expect, type Locator, type Page } from '@playwright/test';
 import walkerSettings from './walker-settings.json';
 import { PlaywrightConstants } from '../playwright-constants';
 import { AppUrls } from '../../src/app/app-paths';
+import { CuratorApi } from '../../src/curator/curator-api';
+import { HttpMethods } from '../../src/bff/http-headers';
 import { NAV_RAIL_SIGNOUT_ID, SiteNavIdPrefixes } from '../../src/app/nav/site-nav-ids';
 import { CATALOG_TITLE_ID_PREFIX } from '../../src/catalog/catalog-ids';
 
@@ -25,6 +27,21 @@ async function followLink(page: Page, link: Locator): Promise<void> {
   await link.click();
   await expect(page).toHaveURL((url) => url.pathname === destination);
   await expectRendered(page.locator('#page-title'));
+}
+
+async function expectLibraryReloaded(page: Page, act: () => Promise<void>): Promise<void> {
+  const reloaded = page.waitForResponse(
+    response => response.request().method() === HttpMethods.get && new URL(response.url()).pathname.endsWith(CuratorApi.library),
+  );
+  await act();
+  await reloaded;
+  await expect(page.locator('#loading-overlay')).toHaveCount(0);
+  await expectRendered(page.locator('#page-title'));
+}
+
+function indexOtherThan(rng: Rng, count: number, current: number): number {
+  const drawn = rng.int(count - 1);
+  return drawn >= current ? drawn + 1 : drawn;
 }
 
 const NAV_RAIL_SELECTOR = `[id^="${SiteNavIdPrefixes.railLink}"]:not([id^="${SiteNavIdPrefixes.railIcon}"]):not([id^="${SiteNavIdPrefixes.railLabel}"]):not(#${NAV_RAIL_SIGNOUT_ID})`;
@@ -67,35 +84,35 @@ const unweightedActions: readonly Omit<WalkerAction, 'weight'>[] = [
     name: 'search the library',
     available: page => isVisible(page, '#library-search'),
     run: async (page, rng) => {
-      await page.fill('#library-search', rng.pick(walkerSettings.librarySearchTerms));
-      await expectRendered(page.locator('#page-title'));
+      const current = await page.inputValue('#library-search');
+      const term = rng.pick(walkerSettings.librarySearchTerms.filter(candidate => candidate !== current));
+      await expectLibraryReloaded(page, () => page.fill('#library-search', term));
     },
   },
   {
     name: 'filter the library by genre',
-    available: page => isVisible(page, '#library-genre-filter'),
+    available: async page => (await isVisible(page, '#library-genre-filter')) && (await page.locator('#library-genre-filter option').count()) > 1,
     run: async (page, rng) => {
-      const options = page.locator('#library-genre-filter option');
-      await options.first().waitFor({ state: PlaywrightConstants.locatorWaitStates.attached });
-      const optionCount = await options.count();
-      await page.selectOption('#library-genre-filter', { index: rng.int(optionCount) });
-      await expectRendered(page.locator('#page-title'));
+      const filter = page.locator('#library-genre-filter');
+      const optionCount = await filter.locator('option').count();
+      const current = await filter.evaluate(select => (select as HTMLSelectElement).selectedIndex);
+      await expectLibraryReloaded(page, async () => {
+        await filter.selectOption({ index: indexOtherThan(rng, optionCount, current) });
+      });
     },
   },
   {
     name: 'next library page',
     available: async page => (await isVisible(page, '#library-next')) && (await page.locator('#library-next').isEnabled()),
     run: async page => {
-      await page.click('#library-next');
-      await expectRendered(page.locator('#page-title'));
+      await expectLibraryReloaded(page, () => page.click('#library-next'));
     },
   },
   {
     name: 'previous library page',
     available: async page => (await isVisible(page, '#library-prev')) && (await page.locator('#library-prev').isEnabled()),
     run: async page => {
-      await page.click('#library-prev');
-      await expectRendered(page.locator('#page-title'));
+      await expectLibraryReloaded(page, () => page.click('#library-prev'));
     },
   },
   {

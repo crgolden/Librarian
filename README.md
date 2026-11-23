@@ -89,7 +89,7 @@ npm run serve:ssr     # http://localhost:4100: SSR, the BFF and the Curator prox
 
 Use the `ci` build from [Clone and build](#clone-and-build) to serve locally: the production configuration only accepts the App Service host, so
 `localhost` is answered with a one-line `Header "host" ... is not allowed` page. `serve:ssr` runs the built
-`dist/`, so rebuild after a change. For template and style work, `npm start` runs `ng serve` on port 56433
+`dist/`, so rebuild after a change. For template and style work, `npm start` runs `ng serve` on port 44433
 with incremental rebuilds; set `ASPNETCORE_URLS=http://localhost:4100` so its proxy reaches the running
 BFF.
 

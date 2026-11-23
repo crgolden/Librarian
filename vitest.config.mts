@@ -8,7 +8,6 @@ const LIGHT_SCHEME_SPECS = 'src/**/*.light.browser.spec.ts';
 export default defineConfig({
   test: {
     globals: true,
-    bail: 1,
     coverage: {
       provider: 'istanbul',
       reporter: ['lcov', 'text'],
