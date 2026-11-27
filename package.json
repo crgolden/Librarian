@@ -57,10 +57,10 @@
     "connect-redis": "^11.0.0",
     "express": "^5.3.0",
     "express-session": "^1.19.0",
-    "openid-client": "^6.9.0",
+    "openid-client": "^6.9.1",
     "pino": "^10.4.0",
     "pino-elasticsearch": "^9.0.0",
-    "redis": "^6.3.1",
+    "redis": "^6.4.0",
     "rxjs": "~7.8.2",
     "tailwindcss": "^4.3.3",
     "tslib": "^2.9.1"
@@ -74,7 +74,7 @@
     "@angular/build": "^22.3.0",
     "@angular/cli": "^22.3.0",
     "@angular/compiler-cli": "^22.3.0",
-    "@axe-core/playwright": "^4.14.0",
+    "@axe-core/playwright": "^4.14.1",
     "@crgolden/modules": "0.18.1",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.65.1",
@@ -97,7 +97,7 @@
     "selfsigned": "^5.5.0",
     "tsx": "^4.23.15",
     "typescript": "~6.0.3",
-    "typescript-eslint": "^8.73.0",
+    "typescript-eslint": "^8.74.0",
     "vitest": "^5.0.5"
   },
   "overrides": {
